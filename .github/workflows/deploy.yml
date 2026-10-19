@@ -1,14 +1,15 @@
 name: Deploy to GitHub Pages
+# Tests and builds every branch; deploys only from the repository's default branch
+# (GitHub Pages only accepts deployments from it).
 on:
   push:
-    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
   pages: write
   id-token: write
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   build:
@@ -25,14 +26,17 @@ jobs:
         run: |
           if [ -n "${{ vars.APP_DOMAIN }}" ]; then
             echo "${{ vars.APP_DOMAIN }}" > public/CNAME
-            BASE_PATH=/ npm run build
+            # Every tag gets this address written on it permanently (src/nfc/url.ts).
+            VITE_TAG_BASE=https://${{ vars.APP_DOMAIN }}/ BASE_PATH=/ npm run build
           else
             BASE_PATH=/${{ github.event.repository.name }}/ npm run build
           fi
-      - uses: actions/upload-pages-artifact@v3
+      - if: github.ref_name == github.event.repository.default_branch
+        uses: actions/upload-pages-artifact@v3
         with: { path: dist }
   deploy:
     needs: build
+    if: github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest
     environment:
       name: github-pages
