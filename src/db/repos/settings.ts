@@ -2,12 +2,33 @@ import { db } from '../db';
 import { deviceTimeZone } from '../../logic/tz';
 import type { ScheduleSettings } from '../../logic/schedule';
 
+export type Units = 'metric' | 'imperial';
+
+export const DEFAULT_CHIPS = [
+  'Headache', 'Dry mouth', 'Low appetite', 'Jittery', 'Calm', 'Focused', 'Irritable', 'Wearing off', 'Trouble sleeping', 'Nausea',
+];
+
 export interface AppSettings {
   dayStartsAt: string;
   guardMinutes: number;
   /** Tag IDs seen on this device but not yet assigned ("Not now"). */
   pendingTags: string[];
   iosBannerDismissed: boolean;
+  onboarded: boolean;
+  lastBackupAt: string | null;
+  units: Units;
+  chips: string[];
+  /** Minutes after a dose to suggest a check-in on Today. 0 turns it off. */
+  checkInDelayMin: number;
+  dismissedCheckInDoseId: string | null;
+  /** Medication id → the stock count when its low-stock banner was dismissed. */
+  dismissedLowStock: Record<string, number>;
+  installCardDismissed: boolean;
+  lockEnabled: boolean;
+  pinHash: string | null;
+  pinSalt: string | null;
+  pinLength: number;
+  lockAfterMin: number;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -15,6 +36,19 @@ export const DEFAULT_SETTINGS: AppSettings = {
   guardMinutes: 10,
   pendingTags: [],
   iosBannerDismissed: false,
+  onboarded: false,
+  lastBackupAt: null,
+  units: 'metric',
+  chips: DEFAULT_CHIPS,
+  checkInDelayMin: 90,
+  dismissedCheckInDoseId: null,
+  dismissedLowStock: {},
+  installCardDismissed: false,
+  lockEnabled: false,
+  pinHash: null,
+  pinSalt: null,
+  pinLength: 4,
+  lockAfterMin: 5,
 };
 
 export async function getSettings(): Promise<AppSettings> {

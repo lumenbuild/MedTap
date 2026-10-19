@@ -59,3 +59,19 @@ describe('tags', () => {
     expect((await db.tags.get('abcd2345'))!.medicationId).toBe(med.id);
   });
 });
+
+import { upsertBody, undoBody } from '../src/db/repos/body';
+
+describe('body entries', () => {
+  it('fill in one entry per day and undo puts it back', async () => {
+    const a = await upsertBody('2026-07-15', { weightKg: 80 });
+    const b = await upsertBody('2026-07-15', { waistCm: 90 });
+    expect(b.id).toBe(a.id);
+    expect(await db.bodyEntries.count()).toBe(1);
+    expect(await db.bodyEntries.get(a.id)).toMatchObject({ weightKg: 80, waistCm: 90 });
+    await undoBody(b.id, b.before);
+    expect((await db.bodyEntries.get(a.id))?.waistCm).toBeUndefined();
+    await undoBody(a.id, a.before);
+    expect((await db.bodyEntries.get(a.id))?.deletedAt).toBeTruthy();
+  });
+});

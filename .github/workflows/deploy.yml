@@ -33,6 +33,7 @@ jobs:
         env:
           VITE_TAG_BASE: https://lumenbuild.github.io/MedTap/
           BASE_PATH: /MedTap/
+          VITE_APP_VERSION: build ${{ github.run_number }}
         run: npm run build
       - if: github.ref_name == github.event.repository.default_branch
         uses: actions/upload-pages-artifact@v3

@@ -12,3 +12,6 @@ export function useScheduleSettings(): [AppSettings, ScheduleSettings] | undefin
   const s = useSettings();
   return s ? [s, scheduleSettings(s)] : undefined;
 }
+export const useCheckIns = () => useLive(() => db.checkIns.toArray());
+export const useBodyEntries = () => useLive(() => db.bodyEntries.orderBy('date').toArray());
+export const useMedEvents = () => useLive(() => db.medEvents.toArray());

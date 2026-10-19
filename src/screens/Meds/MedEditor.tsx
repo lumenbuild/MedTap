@@ -9,7 +9,7 @@ import { createMed, deleteMedForever, setArchived, updateMed, type MedInput } fr
 import { linkTag } from '../../db/repos/tags';
 import { go, replace } from '../../app/router';
 import { useToast } from '../../app/toast';
-import { MED_COLOURS, MED_ICONS } from '../../logic/palette';
+import { MED_COLOURS, MED_ICONS, medColour, medInk } from '../../logic/palette';
 import { stockUnitsFor } from '../../logic/stock';
 import { fmtAmount, fmtSchedule } from '../../logic/format';
 import { APP_NAME } from '../../config';
@@ -252,8 +252,8 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
         <div role="radiogroup" aria-label="Colour" className="grid grid-cols-8 gap-1">
           {MED_COLOURS.map((c) => (
             <button key={c.value} type="button" role="radio" aria-checked={f.color === c.value} aria-label={c.name} onClick={() => set('color', c.value)}
-              className="aspect-square min-w-[36px] rounded-full flex items-center justify-center text-white"
-              style={{ background: c.value, outline: f.color === c.value ? '3px solid var(--text)' : undefined, outlineOffset: 2 }}>
+              className="aspect-square min-w-[36px] rounded-full flex items-center justify-center"
+              style={{ background: medColour(c.value), color: medInk(c.value), outline: f.color === c.value ? '3px solid var(--text)' : undefined, outlineOffset: 2 }}>
               {f.color === c.value && <Check size={18} aria-hidden="true" />}
             </button>
           ))}
@@ -264,7 +264,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
             const on = f.icon === name;
             return (
               <button key={name} type="button" role="radio" aria-checked={on} aria-label={name} onClick={() => set('icon', name)}
-                className={`h-12 rounded-btn flex items-center justify-center ${on ? 'text-white' : 'bg-surface-2'}`} style={on ? { background: f.color } : undefined}>
+                className={`h-12 rounded-btn flex items-center justify-center ${on ? '' : 'bg-surface-2'}`} style={on ? { background: medColour(f.color), color: medInk(f.color) } : undefined}>
                 <Icon size={22} aria-hidden="true" />
               </button>
             );

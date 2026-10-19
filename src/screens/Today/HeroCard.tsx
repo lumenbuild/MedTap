@@ -5,11 +5,12 @@ import {
 } from '../../logic/schedule';
 import { fmtAgo, fmtCountdown, fmtCountdownLong, fmtHHmm, fmtMedName, fmtTime, fmtWhen } from '../../logic/format';
 import { Ring } from '../../components/ui/Ring';
+import { medColour } from '../../logic/palette';
 import { Button } from '../../components/ui/Button';
 import { MedBadge } from '../../components/MedBadge';
 
-export function HeroCard({ med, doses, s, now, onLog, className = '' }: {
-  med: Medication; doses: Dose[]; s: ScheduleSettings; now: number; onLog: () => void; className?: string;
+export function HeroCard({ med, doses, s, now, onLog, className = '', footer }: {
+  med: Medication; doses: Dose[]; s: ScheduleSettings; now: number; onLog: () => void; className?: string; footer?: React.ReactNode;
 }) {
   const status = getStatus(med, doses, now, s);
   const next = getNextDue(med, doses, now, s);
@@ -46,7 +47,7 @@ export function HeroCard({ med, doses, s, now, onLog, className = '' }: {
   return (
     <article
       aria-label={med.name}
-      className={`bg-surface rounded-card shadow-card p-5 ${className}`}
+      className={`bg-surface rounded-card shadow-card p-5 h-full ${className}`}
       style={due ? { outline: '2px solid var(--primary)', outlineOffset: '-2px' } : undefined}
     >
       <div className="flex items-center gap-3">
@@ -54,7 +55,7 @@ export function HeroCard({ med, doses, s, now, onLog, className = '' }: {
         <h2 className="text-lg font-semibold leading-6">{fmtMedName(med)}</h2>
       </div>
       <div className="my-5">
-        <Ring progress={progress} color={med.color}>{center}</Ring>
+        <Ring progress={progress} color={medColour(med.color)}>{center}</Ring>
         <p className="sr-only" aria-live="polite">{med.name}: {spoken}</p>
       </div>
       <dl className="text-center space-y-0.5 tnum">
@@ -73,6 +74,7 @@ export function HeroCard({ med, doses, s, now, onLog, className = '' }: {
       <Button className="w-full min-h-[56px] mt-5" variant={due || status === 'none-today' ? 'primary' : 'secondary'} onClick={onLog}>
         Log dose
       </Button>
+      {footer}
     </article>
   );
 }

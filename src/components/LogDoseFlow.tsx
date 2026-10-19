@@ -65,6 +65,7 @@ export function LogDoseFlow({ med, doses, s, now, tagId, onLogged, onCancel }: {
         tagId,
       });
       if (canVibrate) navigator.vibrate(30);
+      navigator.storage?.persist?.().catch(() => {}); // ask the browser to keep data once there's something worth keeping
       onLogged(dose);
     } finally {
       setSaving(false);

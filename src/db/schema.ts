@@ -35,3 +35,7 @@ export interface MedEvent {
   summary: string; before?: unknown; after?: unknown;
 }
 export interface Setting { key: string; value: unknown }
+export interface Photo extends Stamped {
+  date: string; // local YYYY-MM-DD
+  blob: Blob; type: string; note?: string; deletedAt?: string;
+}

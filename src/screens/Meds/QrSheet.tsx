@@ -10,6 +10,12 @@ import { Button } from '../../components/ui/Button';
 export function QrSheet({ url, medName, onClose }: { url: string | null; medName: string; onClose: () => void }) {
   const [src, setSrc] = useState('');
   const [showName, setShowName] = useState(false);
+  // While this sheet is open, printing prints only the stickers.
+  useEffect(() => {
+    if (!url) return;
+    document.body.classList.add('print-portal');
+    return () => document.body.classList.remove('print-portal');
+  }, [url]);
   useEffect(() => {
     if (url) QRCode.toDataURL(url, { margin: 1, width: 600, errorCorrectionLevel: 'M' }).then(setSrc);
   }, [url]);
