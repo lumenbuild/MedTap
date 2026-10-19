@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { BodyEntry, CheckIn, Dose, MedEvent, Medication, Photo, Setting, Tag } from './schema';
+import type { BodyEntry, CheckIn, DeviceValue, Dose, MedEvent, Medication, Photo, Setting, Tag } from './schema';
 import { LEGACY_COLOURS } from '../logic/palette';
 
 class MedDB extends Dexie {
@@ -11,6 +11,7 @@ class MedDB extends Dexie {
   medEvents!: Table<MedEvent, string>;
   settings!: Table<Setting, string>;
   photos!: Table<Photo, string>;
+  device!: Table<DeviceValue, string>;
 
   constructor() {
     super('medtap');
@@ -30,6 +31,8 @@ class MedDB extends Dexie {
         const next = LEGACY_COLOURS[m.color?.toLowerCase()];
         if (next) m.color = next;
       }));
+    // v3: device-only storage (auto-backup folder), never included in backups.
+    this.version(3).stores({ device: 'key' });
   }
 }
 

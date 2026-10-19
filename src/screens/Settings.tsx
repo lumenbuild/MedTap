@@ -70,6 +70,13 @@ export function Settings() {
           <p className="text-sm text-muted">Catches a tag that fires twice, or a dose you already logged.</p>
         </div>
         <div className="space-y-1.5">
+          <label htmlFor="refill-warn" className="block text-sm font-medium">Warn me before a medication runs out</label>
+          <select id="refill-warn" value={settings.refillWarnDays} onChange={(e) => setSetting('refillWarnDays', Number(e.target.value))} className={selectCls}>
+            {[3, 5, 7, 10, 14, 21].map((d) => <option key={d} value={d}>{d} days ahead</option>)}
+          </select>
+          <p className="text-sm text-muted">Worked out from your stock count and your schedule, including planned changes.</p>
+        </div>
+        <div className="space-y-1.5">
           <span className="block text-sm font-medium">Units</span>
           <Segmented<Units> label="Units" value={settings.units} onChange={(v) => setSetting('units', v)}
             options={[{ value: 'metric', label: 'kg and cm' }, { value: 'imperial', label: 'lb and in' }]} />
@@ -109,7 +116,7 @@ export function Settings() {
 
       <Card className="space-y-3">
         <h2 className="text-lg font-semibold flex items-center gap-2"><Lock size={18} aria-hidden="true" /> App lock</h2>
-        <p className="text-sm text-muted">This is a privacy screen. It stops casual access on an unlocked phone. Backups are not encrypted.</p>
+        <p className="text-sm text-muted">This is a privacy screen. It stops casual access on an unlocked phone. To protect backup files, set a backup password in Backup and restore.</p>
         {settings.lockEnabled ? (
           <>
             <div className="space-y-1.5">

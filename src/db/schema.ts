@@ -25,17 +25,32 @@ export interface Schedule {
 
 interface Stamped { id: string; createdAt: string; updatedAt: string }
 
+/** A schedule that takes over on a future date (dose change or taper step). Applied automatically on that day. */
+export interface PlannedChange {
+  id: string;
+  from: string; // 'YYYY-MM-DD', the first user day it applies
+  schedule: Schedule;
+  defaultAmount: number;
+  note?: string;
+}
+
 export interface Medication extends Stamped {
   name: string; strength: number; unit: string; form: string; defaultAmount: number;
   schedule: Schedule; color: string; icon: string;
   stockCount?: number; lowStockAt?: number; scriptNotes?: string; archived: boolean;
   /** Free-text instructions shown when the tag is tapped (from the person, a carer, pharmacist or doctor). */
   instructions?: string; instructionsBy?: string; instructionsUpdatedAt?: string;
+  /** Future schedule changes, oldest first. Each is moved into `schedule` on its date. */
+  plannedChanges?: PlannedChange[];
+  /** Script refills left, and when the script expires ('YYYY-MM-DD'). */
+  repeatsLeft?: number; scriptExpiry?: string;
 }
 export interface Tag { id: string; medicationId: string; label?: string; createdAt: string; lastScannedAt?: string }
 export interface Dose extends Stamped {
   medicationId: string; takenAt: string; amount: number;
   source: 'tag' | 'manual' | 'backdated'; tagId?: string; note?: string; deletedAt?: string;
+  /** Recorded as skipped on purpose: covers its place in the plan but wasn't taken (no stock change). */
+  skipped?: boolean; skipReason?: string;
 }
 export interface CheckIn extends Stamped {
   at: string; mood?: number; energy?: number; focus?: number; appetite?: number;
@@ -56,3 +71,5 @@ export interface Photo extends Stamped {
   date: string; // local YYYY-MM-DD
   blob: Blob; type: string; note?: string; deletedAt?: string;
 }
+/** Device-only values that must never go into a backup (e.g. a folder permission handle). */
+export interface DeviceValue { key: string; value: unknown }

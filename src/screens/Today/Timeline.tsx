@@ -39,9 +39,12 @@ export function Timeline({ doses, checkIns, body, meds, s, units, now, onDose, o
             let icon, title, sub: string | undefined, onClick, extra = null;
             if (it.kind === 'dose') {
               const med = meds.get(it.dose.medicationId)!;
-              icon = <span className="w-2.5 h-2.5 rounded-full shrink-0 mx-[7px]" style={{ background: medColour(med.color) }} aria-hidden="true" />;
-              title = <><span className="font-medium">{med.name}</span> <span className="tnum">{fmtAmount(it.dose.amount, med.unit)}</span></>;
-              sub = it.dose.source === 'backdated' ? 'Logged later' : undefined;
+              icon = <span className="w-2.5 h-2.5 rounded-full shrink-0 mx-[7px]" aria-hidden="true"
+                style={it.dose.skipped ? { border: `2px solid ${medColour(med.color)}` } : { background: medColour(med.color) }} />;
+              title = it.dose.skipped
+                ? <><span className="font-medium">{med.name}</span> <span className="text-muted">skipped</span></>
+                : <><span className="font-medium">{med.name}</span> <span className="tnum">{fmtAmount(it.dose.amount, med.unit)}</span></>;
+              sub = it.dose.skipped ? it.dose.skipReason : it.dose.source === 'backdated' ? 'Logged later' : undefined;
               extra = it.dose.source === 'tag' ? <Nfc size={16} className="text-muted" aria-label="Logged with a tag" /> : null;
               onClick = () => onDose(it.dose);
             } else if (it.kind === 'checkin') {

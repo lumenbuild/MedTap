@@ -69,7 +69,7 @@ export interface DayCount { day: string; count: number; target?: number }
 export function adherenceByDay(doses: Dose[], med: Medication, days: string[], s: ScheduleSettings): DayCount[] {
   const counts = new Map<string, number>();
   for (const d of doses) {
-    if (d.deletedAt || d.medicationId !== med.id) continue;
+    if (d.deletedAt || d.skipped || d.medicationId !== med.id) continue;
     const k = dayKey(Date.parse(d.takenAt), s);
     counts.set(k, (counts.get(k) ?? 0) + 1);
   }
@@ -80,7 +80,7 @@ export function adherenceByDay(doses: Dose[], med: Medication, days: string[], s
 /** Time of day each dose was taken, in hours (e.g. 13.5 = 1:30 pm), positioned on its user day. */
 export function doseTimes(doses: Dose[], medId: string, start: number, end: number, s: ScheduleSettings): { t: number; hour: number }[] {
   return doses
-    .filter((d) => !d.deletedAt && d.medicationId === medId)
+    .filter((d) => !d.deletedAt && !d.skipped && d.medicationId === medId)
     .map((d) => Date.parse(d.takenAt))
     .filter((t) => t >= start && t <= end)
     .map((t) => {
@@ -136,7 +136,7 @@ export function chipCounts(checkIns: CheckIn[], start: number, end: number): { c
 
 /** Hours between consecutive doses taken on the same user day (overnight gaps aren't part of a schedule). */
 export function doseIntervals(doses: Dose[], medId: string, start: number, end: number, s: ScheduleSettings): number[] {
-  const ts = doses.filter((d) => !d.deletedAt && d.medicationId === medId).map((d) => Date.parse(d.takenAt))
+  const ts = doses.filter((d) => !d.deletedAt && !d.skipped && d.medicationId === medId).map((d) => Date.parse(d.takenAt))
     .filter((t) => t >= start && t <= end).sort((a, b) => a - b);
   const out: number[] = [];
   for (let i = 1; i < ts.length; i++) {

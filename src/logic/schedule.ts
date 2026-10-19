@@ -35,11 +35,11 @@ export function medDoses(doses: Dose[], medId: string): Dose[] {
   return doses.filter((d) => d.medicationId === medId && !d.deletedAt).sort((a, b) => at(a) - at(b));
 }
 
-/** The most recent dose taken at or before `before` (default: any time). */
+/** The most recent dose actually taken (not skipped) at or before `before` (default: any time). */
 export function getLastDose(doses: Dose[], medId: string, before = Infinity): Dose | undefined {
   let last: Dose | undefined;
   for (const d of doses) {
-    if (d.medicationId !== medId || d.deletedAt) continue;
+    if (d.medicationId !== medId || d.deletedAt || d.skipped) continue;
     const t = at(d);
     if (t <= before && (!last || t > at(last))) last = d;
   }
@@ -109,7 +109,8 @@ export function getSlots(med: Medication): DoseSlot[] {
   return (sc.times ?? []).map((time) => ({ time }));
 }
 
-/** Doses in the user's current day, up to and including now. */
+/** Entries in the user's current day, up to and including now. Includes skipped doses, which hold their place
+ *  in the day's plan (so the next dose's amount and set time move on); filter `!d.skipped` for doses taken. */
 export function getDosesToday(doses: Dose[], medId: string, now: number, s: ScheduleSettings): Dose[] {
   const { start, end } = getDayBounds(now, s.dayStartsAt, s.tz);
   return medDoses(doses, medId).filter((d) => at(d) >= start && at(d) < end && at(d) <= now);

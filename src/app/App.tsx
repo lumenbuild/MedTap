@@ -15,6 +15,7 @@ import { Backup } from '../screens/Backup/Backup';
 import { Help, helpTitle } from '../screens/Help/Help';
 import { Onboarding } from '../screens/Onboarding/Onboarding';
 import { UpdatePrompt } from './UpdatePrompt';
+import { useMaintenance } from './maintenance';
 
 // Charts are the heaviest code; load them only when Trends or the report is opened, so tag taps stay fast.
 const Trends = lazy(() => import('../screens/Trends/Trends').then((m) => ({ default: m.Trends })));
@@ -66,6 +67,7 @@ function Screen({ r }: { r: Route }) {
 
 export function App() {
   const r = parseRoute(useHashRoute());
+  useMaintenance();
   const settings = useSettings();
   const meds = useMeds();
   const back = backTo(r);

@@ -92,7 +92,11 @@ export function TagLanding({ id }: { id: string }) {
           {med.strength > 0 && <p className="text-muted">{fmtAmount(med.strength, med.unit)} {med.form}</p>}
         </div>
       </div>
-      <LogDoseFlow med={med} doses={doses} s={s} now={now} tagId={id} onLogged={(d) => setLogged({ dose: d, at: Date.now() })} onCancel={close} />
+      <LogDoseFlow med={med} doses={doses} s={s} now={now} tagId={id} onLogged={(d) => {
+        if (!d.skipped) { setLogged({ dose: d, at: Date.now() }); return; }
+        toast(`Marked ${med.name} as skipped`, { onAction: () => removeDose(d.id) });
+        close();
+      }} onCancel={close} />
     </Card>,
   );
 }

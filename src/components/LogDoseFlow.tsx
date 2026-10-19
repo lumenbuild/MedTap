@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { Clock, Info } from 'lucide-react';
 import type { Dose, Medication } from '../db/schema';
 import { logDose } from '../db/repos/doses';
-import { getContextNotes, getExpectedAmount, getLastDose, getRecentDose, type ContextNote, type ScheduleSettings } from '../logic/schedule';
+import { FIXED_MATCH_MS, getContextNotes, getExpectedAmount, getFixedSlots, getLastDose, getRecentDose, type ContextNote, type ScheduleSettings } from '../logic/schedule';
 import { stockUnitsFor } from '../logic/stock';
 import { MedInstructions } from './MedInstructions';
 import { fmtAgo, fmtAmount, fmtDuration, fmtHHmm, fmtTime, fmtWhen, fromLocalInput, toLocalInput } from '../logic/format';
 import { canVibrate } from '../platform';
 import { Button } from './ui/Button';
 import { Stepper } from './ui/Stepper';
+
+export const SKIP_REASONS = ['Felt unwell', 'Planned break', 'Too late in the day', 'Ran out', 'Prescriber said to', 'Other'];
 
 function noteText(n: ContextNote, isNow: boolean, unit: string): string {
   switch (n.kind) {
@@ -36,6 +38,9 @@ export function LogDoseFlow({ med, doses, s, now, tagId, onLogged, onCancel }: {
   const [when, setWhen] = useState(() => toLocalInput(now - 30 * 60_000));
   const [override, setOverride] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [skipping, setSkipping] = useState(false);
+  const [reason, setReason] = useState('');
+  const [skipNote, setSkipNote] = useState('');
 
   const recent = getRecentDose(doses, med.id, now, s.guardMinutes);
   if (recent && !override) {
@@ -80,6 +85,53 @@ export function LogDoseFlow({ med, doses, s, now, tagId, onLogged, onCancel }: {
       setSaving(false);
     }
   };
+
+  const skip = async () => {
+    if (timeError || saving) return;
+    setSaving(true);
+    try {
+      // A skip belongs to the set time it replaces (so the countdown moves on), otherwise to the chosen time.
+      let at = takenAt;
+      if (med.schedule.type === 'fixed') {
+        const open = getFixedSlots(med, doses, takenAt, s).find((x) => !x.dose && x.at - FIXED_MATCH_MS <= takenAt);
+        if (open) at = open.at;
+      }
+      const dose = await logDose({
+        medicationId: med.id, takenAt: new Date(at).toISOString(), amount: amount > 0 ? amount : med.defaultAmount,
+        source: earlier ? 'backdated' : 'manual', tagId, skipped: true,
+        skipReason: [reason, skipNote.trim()].filter(Boolean).join(': ') || undefined,
+      });
+      onLogged(dose);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (skipping) {
+    return (
+      <div className="space-y-4">
+        <MedInstructions med={med} />
+        <p>Record this dose as skipped. It won't count as taken and your stock won't change.</p>
+        <fieldset>
+          <legend className="text-sm font-medium mb-2">Why? (optional)</legend>
+          <div className="flex flex-wrap gap-2">
+            {SKIP_REASONS.map((r) => (
+              <button key={r} type="button" aria-pressed={reason === r} onClick={() => setReason(reason === r ? '' : r)}
+                className={`min-h-[44px] px-4 rounded-chip border text-sm font-medium ${reason === r ? 'bg-primary text-on-primary border-primary' : 'bg-surface border-border'}`}>
+                {r}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+        <label className="block space-y-1.5">
+          <span className="block text-sm font-medium">Note (optional)</span>
+          <input value={skipNote} onChange={(e) => setSkipNote(e.target.value)} className="w-full min-h-[48px] rounded-btn bg-surface-2 border border-border px-3.5" />
+        </label>
+        <Button className="w-full min-h-[56px]" onClick={skip} disabled={saving}>Mark as skipped</Button>
+        <Button variant="secondary" className="w-full" onClick={() => setSkipping(false)}>Go back</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -135,6 +187,9 @@ export function LogDoseFlow({ med, doses, s, now, tagId, onLogged, onCancel }: {
       <Button className="w-full min-h-[56px] text-lg" onClick={submit} disabled={saving || !!timeError || !!amountError}>
         Log dose
       </Button>
+      {med.schedule.type !== 'prn' && (
+        <button type="button" onClick={() => setSkipping(true)} className="w-full min-h-[48px] text-primary font-semibold">Skip this dose</button>
+      )}
     </div>
   );
 }

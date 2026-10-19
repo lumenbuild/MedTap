@@ -7,7 +7,8 @@ import { useToast } from '../../app/toast';
 import { go } from '../../app/router';
 import { addToCalendar } from '../../app/calendar';
 import { byUrgency, getNextDue, getStatus } from '../../logic/schedule';
-import { checkInPromptDose, lowStockMeds, needsBackup } from '../../logic/reminders';
+import { checkInPromptDose, needsBackup, refillAlerts } from '../../logic/reminders';
+import { RefillCards } from '../../components/Refill';
 import { fmtAgo, fmtAmount, fmtMedName, fmtTime, fmtWhen } from '../../logic/format';
 import { removeDose } from '../../db/repos/doses';
 import { Card } from '../../components/ui/Card';
@@ -21,7 +22,7 @@ import { HeroCard } from './HeroCard';
 import { PrnCard } from './PrnCard';
 import { Timeline } from './Timeline';
 import { DoseEditSheet } from './DoseEditSheet';
-import { BackupReminder, CheckInPrompt, InstallCard, LowStock } from './PromptCards';
+import { AutoBackupPermission, BackupReminder, CheckInPrompt, InstallCard } from './PromptCards';
 
 export function Today() {
   const meds = useMeds();
@@ -50,12 +51,16 @@ export function Today() {
     return min === null || t < min ? t : min;
   }, null);
   const promptDose = checkInPromptDose(doses, checkIns, now, settings.checkInDelayMin, settings.dismissedCheckInDoseId);
-  const low = lowStockMeds(meds, settings.dismissedLowStock);
+  const refills = refillAlerts(meds, doses, Math.floor(now / 60_000) * 60_000, s, settings.refillWarnDays, settings.dismissedLowStock);
   const last = settings.lastBackupAt ? Date.parse(settings.lastBackupAt) : null;
 
   const onLogged = (d: Dose) => {
     const med = medMap.get(d.medicationId);
     setLogFor(null);
+    if (d.skipped) {
+      toast(`Marked ${med?.name ?? 'dose'} as skipped`, { onAction: () => removeDose(d.id) });
+      return;
+    }
     toast(`Logged ${fmtAmount(d.amount, med?.unit ?? '')} at ${fmtTime(Date.parse(d.takenAt))}`, {
       onAction: async () => { await removeDose(d.id); toast('Dose removed. Nothing was logged.'); },
     });
@@ -103,7 +108,7 @@ export function Today() {
       )}
 
       {promptDose && <CheckInPrompt dose={promptDose} med={medMap.get(promptDose.medicationId)} now={now} onCheckIn={() => setCheckIn({ relatedDoseId: promptDose.id })} />}
-      <LowStock meds={low} settings={settings} />
+      <RefillCards alerts={refills} settings={settings} now={now} />
 
       {prn.length > 0 && (
         <section className="space-y-2" aria-label="As needed">
@@ -124,7 +129,8 @@ export function Today() {
         ))}
       </div>
 
-      {needsBackup(settings.lastBackupAt, firstRecord, now) && <BackupReminder />}
+      {needsBackup(settings.lastBackupAt, firstRecord, now, settings.backupReminderDays) && <BackupReminder days={settings.backupReminderDays} />}
+      <AutoBackupPermission enabled={settings.autoBackupEnabled} />
       <InstallCard hasDoses={doses.some((d) => !d.deletedAt)} dismissed={settings.installCardDismissed} />
 
       <Timeline doses={doses} checkIns={checkIns} body={body} meds={medMap} s={s} units={settings.units} now={now}

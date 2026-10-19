@@ -29,6 +29,14 @@ export interface AppSettings {
   pinSalt: string | null;
   pinLength: number;
   lockAfterMin: number;
+  /** Show the backup reminder when the last backup is older than this. */
+  backupReminderDays: number;
+  autoBackupEnabled: boolean;
+  /** Keep this many daily automatic backup files in the folder. */
+  autoBackupKeep: number;
+  lastAutoBackupAt: string | null;
+  /** Warn this many days before a medication is forecast to run out. */
+  refillWarnDays: number;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -49,6 +57,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pinSalt: null,
   pinLength: 4,
   lockAfterMin: 5,
+  backupReminderDays: 7,
+  autoBackupEnabled: false,
+  autoBackupKeep: 7,
+  lastAutoBackupAt: null,
+  refillWarnDays: 7,
 };
 
 export async function getSettings(): Promise<AppSettings> {

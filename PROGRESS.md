@@ -3,7 +3,8 @@
 Source of truth for build status. Spec: the owner's HANDOFF document (section numbers below refer to it; add it to the repo as HANDOFF.md).
 
 ## Current phase
-All phases (0–5) built, plus flexible schedules and medication instructions. Awaiting owner testing on real phones.
+All phases (0–5) built and live, plus flexible schedules and instructions (PR #2, merged). Now: planned changes,
+skipped doses, refill forecasting, password-protected and automatic backups. Awaiting owner testing on real phones.
 
 ## Phase 0: done
 - Vite + React 18 + TS + Tailwind (tokens as CSS variables, light/dark/system theme), self-hosted Inter.
@@ -67,6 +68,23 @@ All phases (0–5) built, plus flexible schedules and medication instructions. A
 - Non-blocking notes when logging on an unscheduled day or an amount different from the plan.
 - Medication instructions (+ "written by", auto-dated) shown when a tag is tapped and whenever a dose is logged, and in the report.
 - Tests: `tests/plans.test.ts` covers the owner's two examples, fortnightly, weekdays-only.
+
+## Planned changes, skips, refills, backup protection (owner request)
+- Planned changes (`medication.plannedChanges`): a dated future schedule and usual dose, e.g. one per taper step. Applied
+  on its user day at start-up (before the first screen, so a morning tag tap already uses it) and every 5 minutes; each is
+  recorded as a dated `changed` event. "Plan a change" reuses the schedule editor (`ScheduleFields`). Today shows
+  "Changes Fri 23 Oct: …" in the week before; Meds shows "Change planned from …".
+- Skipped doses (`dose.skipped`, `skipReason`): hold their place in the day's plan (next amount/set time moves on; the
+  interval rhythm continues from the skip) but never count as taken, never change stock, and aren't the "last dose".
+  Shown in the timeline, report and CSV; excluded from charts.
+- Refill forecast (`logic/plans.ts`): walks the plan day by day (including planned changes) until stock can't cover a
+  day; as-needed and open-ended plans use the last 30 days' use. Repeats left and script expiry on the medication.
+  Today card when at/below the low-stock number, running out within "warn me N days ahead" (default 7) or script
+  expiring within 30 days; Add stock (optionally uses a repeat, with undo).
+- Backup password: AES-256-GCM with PBKDF2-SHA-256 (310k). Applies to manual and automatic backups; restore asks for it.
+  Kept on the device (DB v3 `device` table, never backed up) so automatic backups can use it.
+- Automatic backups: File System Access folder (Chrome desktop / recent Android Chrome), daily when the app is open,
+  keeps the last N; Today card if the browser needs permission again. Elsewhere (iPhone): "Remind me every N days".
 
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).

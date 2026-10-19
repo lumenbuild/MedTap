@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { Download, FileSpreadsheet, Upload } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Download, FileSpreadsheet, FolderSync, KeyRound, Upload } from 'lucide-react';
 import { db } from '../../db/db';
 import { useLive } from '../../db/live';
 import { useSettings } from '../../app/data';
@@ -7,7 +7,13 @@ import { useToast } from '../../app/toast';
 import { useNow } from '../../app/useNow';
 import { go } from '../../app/router';
 import { shareOrDownload } from '../../app/files';
-import { exportBackup, importBackup, markBackedUp } from '../../db/repos/backup';
+import { importBackup, markBackedUp } from '../../db/repos/backup';
+import { setSetting } from '../../db/repos/settings';
+import { isSealed, unseal, type Sealed } from '../../logic/crypto';
+import {
+  autoBackupState, backupText, chooseFolder, getBackupPassword, regainPermission, runAutoBackup, setBackupPassword, stopAutoBackup,
+} from '../../app/autoBackup';
+import { TextInput } from '../../components/ui/Field';
 import { backupFilename, validateBackup, type BackupFile, type Counts } from '../../logic/backup';
 import { bodyCsv, checkInsCsv, dosesCsv, medicationsCsv } from '../../logic/csv';
 import { fmtAgo, fmtWhen } from '../../logic/format';
@@ -32,18 +38,41 @@ export function Backup() {
   const [pending, setPending] = useState<{ backup: BackupFile; counts: Counts } | null>(null);
   const [error, setError] = useState('');
   const [confirmReplace, setConfirmReplace] = useState(false);
+  const [locked, setLocked] = useState<Sealed | null>(null); // a protected backup waiting for its password
+  const [openPw, setOpenPw] = useState('');
+  const [hasPassword, setHasPassword] = useState(false);
+  const [pwSheet, setPwSheet] = useState(false);
+  const [auto, setAuto] = useState<Awaited<ReturnType<typeof autoBackupState>>>('off');
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const refresh = useCallback(async () => {
+    setHasPassword(!!(await getBackupPassword()));
+    setAuto(await autoBackupState());
+  }, []);
+  useEffect(() => { refresh(); }, [refresh]);
 
   const doExport = async () => {
     setBusy(true);
     try {
-      const backup = await exportBackup({ includePhotos: includePhotos && photoCount > 0 });
-      const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
+      const { text, protectedWith } = await backupText(includePhotos && photoCount > 0);
+      const blob = new Blob([text], { type: 'application/json' });
       if (await shareOrDownload(backupFilename(), blob, `${APP_NAME} backup`)) {
         await markBackedUp();
-        toast('Backup saved. Keep the file somewhere safe, like your cloud drive or email.');
+        toast(`${protectedWith ? 'Password-protected backup' : 'Backup'} saved. Keep the file somewhere safe, like your cloud drive or email.`);
       }
     } finally { setBusy(false); }
+  };
+
+  const autoAction = async (fn: () => Promise<string>) => {
+    try {
+      const r = await fn();
+      if (r === 'done') toast('Backed up to your folder');
+      else if (r === 'needs-permission') toast('Allow access to the folder to keep automatic backups going');
+      else if (r === 'error') toast("Couldn't write to that folder. Try choosing it again.");
+    } catch (e) {
+      if ((e as DOMException).name !== 'AbortError') toast("Couldn't use that folder. Try another one.");
+    }
+    refresh();
   };
 
   const exportCsv = async (kind: 'doses' | 'checkIns' | 'body' | 'meds') => {
@@ -61,9 +90,25 @@ export function Backup() {
     if (!file) return;
     let data: unknown;
     try { data = JSON.parse(await file.text()); } catch { setError("This file isn't a backup. Choose the .json file you exported."); return; }
+    if (isSealed(data)) { setOpenPw(''); setLocked(data.sealed); return; }
+    check(data);
+  };
+  const check = (data: unknown) => {
     const v = validateBackup(data, db.verno);
     if (!v.ok) { setError(v.error); return; }
     setPending({ backup: v.backup, counts: v.counts });
+  };
+  const openLocked = async () => {
+    if (!locked) return;
+    setBusy(true);
+    try {
+      const text = await unseal(locked, openPw);
+      setLocked(null);
+      check(JSON.parse(text));
+    } catch {
+      setError("That password didn't open the backup. Check it and try again.");
+      setLocked(null);
+    } finally { setBusy(false); }
   };
 
   const restore = async (mode: 'merge' | 'replace') => {
@@ -110,7 +155,70 @@ export function Backup() {
         <Button className="w-full min-h-[56px] flex items-center justify-center gap-2" onClick={doExport} disabled={busy}>
           <Download size={20} aria-hidden="true" /> Back up now
         </Button>
-        <p className="text-sm text-muted">Backups aren't encrypted. Anyone with the file can read it.</p>
+        <p className="text-sm text-muted">
+          {hasPassword ? 'Backups are protected with your backup password.' : "Backups aren't password-protected. Anyone with the file can read it."}
+        </p>
+      </Card>
+
+      <Card className="space-y-3">
+        <h2 className="text-lg font-semibold flex items-center gap-2"><KeyRound size={20} className="text-primary" aria-hidden="true" /> Password protection</h2>
+        {hasPassword ? (
+          <>
+            <p className="text-sm">On. Every backup, including automatic ones, is encrypted and needs this password to open.</p>
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="secondary" onClick={() => setPwSheet(true)}>Change password</Button>
+              <Button variant="secondary" onClick={async () => { await setBackupPassword(null); toast('Backups will no longer be password-protected'); refresh(); }}>Turn off</Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-sm">Encrypt backup files so only someone with the password can open them. Useful if you keep backups in email or a cloud drive.</p>
+            <Button variant="secondary" className="w-full" onClick={() => setPwSheet(true)}>Set a backup password</Button>
+          </>
+        )}
+      </Card>
+
+      <Card className="space-y-3">
+        <h2 className="text-lg font-semibold flex items-center gap-2"><FolderSync size={20} className="text-primary" aria-hidden="true" /> Automatic backups</h2>
+        {auto === 'unsupported' ? (
+          <p className="text-sm">This browser can't save backups by itself{isIOS ? ' (iPhones don\'t allow it)' : ''}. Use <strong>Back up now</strong> and {APP_NAME} will remind you.</p>
+        ) : auto === 'off' ? (
+          <>
+            <p className="text-sm">Choose a folder, such as one your cloud drive syncs, and {APP_NAME} saves a backup there each day you open it, keeping the last {settings?.autoBackupKeep ?? 7}.</p>
+            <Button className="w-full" onClick={() => autoAction(chooseFolder)}>Choose a folder</Button>
+          </>
+        ) : auto === 'needs-permission' ? (
+          <>
+            <p className="text-sm rounded-btn bg-caution-soft p-3">The browser needs your OK again to save into the backup folder.</p>
+            <Button className="w-full" onClick={() => autoAction(regainPermission)}>Allow automatic backups</Button>
+            <Button variant="secondary" className="w-full" onClick={async () => { await stopAutoBackup(); refresh(); }}>Turn off</Button>
+          </>
+        ) : (
+          <>
+            <p className="text-sm tnum" role="status">
+              On. {settings?.lastAutoBackupAt ? `Last saved ${fmtAgo(now - Date.parse(settings.lastAutoBackupAt))}.` : 'Nothing saved yet.'}
+            </p>
+            <label className="block space-y-1.5">
+              <span className="block text-sm font-medium">Keep</span>
+              <select value={settings?.autoBackupKeep ?? 7} onChange={(e) => setSetting('autoBackupKeep', Number(e.target.value))}
+                className="w-full min-h-[48px] rounded-btn bg-surface-2 border border-border px-3">
+                {[3, 7, 14, 30].map((n) => <option key={n} value={n}>The last {n} days</option>)}
+              </select>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="secondary" onClick={() => autoAction(() => runAutoBackup(true))}>Back up now</Button>
+              <Button variant="secondary" onClick={() => autoAction(chooseFolder)}>Change folder</Button>
+            </div>
+            <Button variant="secondary" className="w-full" onClick={async () => { await stopAutoBackup(); refresh(); }}>Turn off</Button>
+          </>
+        )}
+        <label className="block space-y-1.5 pt-1">
+          <span className="block text-sm font-medium">Remind me to back up when it's been</span>
+          <select value={settings?.backupReminderDays ?? 7} onChange={(e) => setSetting('backupReminderDays', Number(e.target.value))}
+            className="w-full min-h-[48px] rounded-btn bg-surface-2 border border-border px-3">
+            {[1, 3, 7, 14, 30].map((n) => <option key={n} value={n}>{n === 1 ? '1 day' : `${n} days`}</option>)}
+          </select>
+        </label>
       </Card>
 
       <Card className="space-y-3">
@@ -133,6 +241,16 @@ export function Backup() {
           </button>
         ))}
       </Card>
+
+      <Sheet open={!!locked} onClose={() => setLocked(null)} title="Password-protected backup">
+        <div className="space-y-4">
+          <TextInput label="Backup password" type="password" autoComplete="off" value={openPw} onChange={(e) => setOpenPw(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') openLocked(); }} autoFocus />
+          <Button className="w-full min-h-[56px]" onClick={openLocked} disabled={!openPw || busy}>Open backup</Button>
+        </div>
+      </Sheet>
+
+      {pwSheet && <PasswordSheet onClose={() => { setPwSheet(false); refresh(); }} />}
 
       <Sheet open={!!pending} onClose={() => { setPending(null); setConfirmReplace(false); }} title="Restore this backup?">
         {pending && (
@@ -160,5 +278,31 @@ export function Backup() {
         )}
       </Sheet>
     </div>
+  );
+}
+
+function PasswordSheet({ onClose }: { onClose: () => void }) {
+  const toast = useToast();
+  const [pw, setPw] = useState('');
+  const [again, setAgain] = useState('');
+  const [tried, setTried] = useState(false);
+  const err = pw.length < 8 ? 'Use at least 8 characters.' : pw !== again ? "The passwords don't match." : '';
+  const save = async () => {
+    setTried(true);
+    if (err) return;
+    await setBackupPassword(pw);
+    toast('Backup password set. New backups are protected.');
+    onClose();
+  };
+  return (
+    <Sheet open onClose={onClose} title="Backup password">
+      <div className="space-y-4">
+        <TextInput label="Password (at least 8 characters)" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} autoFocus />
+        <TextInput label="Enter it again" type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} error={tried ? err : undefined} />
+        <p className="text-sm rounded-btn bg-caution-soft p-3">Write it down somewhere safe. If it's forgotten, protected backups can't be opened by anyone, including you.</p>
+        <p className="text-sm text-muted">It's kept on this phone so automatic backups can use it. Backups made before now aren't affected.</p>
+        <Button className="w-full min-h-[56px]" onClick={save}>Save password</Button>
+      </div>
+    </Sheet>
   );
 }
