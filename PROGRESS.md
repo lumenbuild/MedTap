@@ -42,9 +42,10 @@ Phase 1 (Meds, tags, dose loop): built, awaiting owner testing on real phones. N
 
 ## Decisions
 - Working title `MedTap` (src/config.ts + vite.config.ts manifest). Change when owner confirms APP_NAME.
-- Domain: not set. Workflow writes `public/CNAME` and `VITE_TAG_BASE` from repo variable `APP_DOMAIN` when set; otherwise
-  builds for `/<repo>/`. Without `VITE_TAG_BASE`, tag links use the current address and the Link-a-tag sheet warns that
-  tags will need rewriting. **Set the final domain before writing real tags.**
+- **Permanent address (owner decision): https://lumenbuild.github.io/MedTap/** — no custom domain, ever. Tags are
+  `https://lumenbuild.github.io/MedTap/?t=<ID>`. The workflow pins `VITE_TAG_BASE` to it and fails the build if the repo
+  is renamed (Pages doesn't redirect after a rename, so every tag would break). Local/dev builds without
+  `VITE_TAG_BASE` use the current address and show a "test address" warning when linking a tag.
 - Dose `amount` is in the medication's unit (e.g. mg). Stock counts tablets/items and goes down by amount ÷ strength
   (shown to the user in the editor).
 - Doses later than `now` don't count towards "today" (matters for backdated context notes).
@@ -53,6 +54,10 @@ Phase 1 (Meds, tags, dose loop): built, awaiting owner testing on real phones. N
 - Interval: countdown starts from the first dose of the user's day; before it, "No doses yet today".
 - Theme preference is in localStorage (display pref only); records are IndexedDB only.
 - Live data uses Dexie's built-in `liveQuery` via a tiny `useLive` hook (no extra dependency).
+
+## Live
+- https://lumenbuild.github.io/MedTap/ — verified after deploy: loads, service worker installs, tag URL and app work offline,
+  a wrong path with `?t=` lands on the tag screen.
 
 ## Known issues / not yet verified
 - Deploys from the repository's default branch (currently `claude/confident-maxwell-rta5d8`; renaming it to `main`
