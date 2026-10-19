@@ -1,0 +1,62 @@
+import { useState } from 'react';
+import { FileText } from 'lucide-react';
+import { useBodyEntries, useCheckIns, useDoses, useMedEvents, useMeds, useScheduleSettings } from '../../app/data';
+import { useNow } from '../../app/useNow';
+import { RANGE_DAYS, rangeStart, type Range } from '../../logic/stats';
+import { Segmented } from '../../components/ui/Field';
+import {
+  AdherenceHeatmap, AppetiteWeight, DoseTimingCharts, FeelingsChart, IntervalCharts, MeasurementCharts, NoticedMost, WeightChart,
+} from '../../components/charts/Charts';
+
+export function Trends() {
+  const meds = useMeds();
+  const doses = useDoses();
+  const checkIns = useCheckIns();
+  const body = useBodyEntries();
+  const events = useMedEvents();
+  const ss = useScheduleSettings();
+  const now = useNow(60_000);
+  const [range, setRange] = useState<Range>(() => {
+    try { return (localStorage.getItem('trendsRange') as Range) || '30d'; } catch { return '30d'; }
+  });
+  const pick = (r: Range) => { setRange(r); try { localStorage.setItem('trendsRange', r); } catch { /* per-device preference only */ } };
+
+  if (!meds || !doses || !checkIns || !body || !events || !ss) {
+    return <div className="space-y-4" aria-busy="true" aria-label="Loading">{[0, 1, 2].map((i) => <div key={i} className="h-60 rounded-card bg-surface-2 animate-pulse" />)}</div>;
+  }
+  const [settings, s] = ss;
+  const times = [...doses.map((d) => Date.parse(d.takenAt)), ...checkIns.map((c) => Date.parse(c.at)), ...body.map((b) => Date.parse(`${b.date}T00:00`))];
+  const earliest = times.length ? Math.min(...times) : null;
+  // Round to the hour so charts don't redraw every minute; the range still includes everything logged so far.
+  const end = Math.ceil(now / 3_600_000) * 3_600_000;
+  const start = rangeStart(range, end, earliest);
+  const days = RANGE_DAYS[range];
+  const prevStart = days === null ? null : start - days * 86_400_000;
+  const active = meds.filter((m) => !m.archived || doses.some((d) => d.medicationId === m.id && Date.parse(d.takenAt) >= start));
+  const common = { start, end, s };
+
+  return (
+    <div className="space-y-4">
+      <div className="sticky top-0 z-10 -mx-4 px-4 py-2 bg-bg">
+        <Segmented<Range> label="Date range" value={range} onChange={pick}
+          options={[{ value: '7d', label: '7D' }, { value: '30d', label: '30D' }, { value: '90d', label: '90D' }, { value: 'all', label: 'All' }]} />
+      </div>
+      <WeightChart entries={body} units={settings.units} {...common} />
+      <MeasurementCharts entries={body} units={settings.units} {...common} />
+      <AdherenceHeatmap meds={active} doses={doses} {...common} />
+      <DoseTimingCharts meds={active} doses={doses} {...common} />
+      <FeelingsChart checkIns={checkIns} events={events} meds={meds} prevStart={prevStart} {...common} />
+      <AppetiteWeight checkIns={checkIns} entries={body} units={settings.units} {...common} />
+      <NoticedMost checkIns={checkIns} {...common} />
+      <IntervalCharts meds={active} doses={doses} {...common} />
+      <a href="#/report" className="bg-surface rounded-card shadow-card p-5 flex items-center gap-3 min-h-[56px]">
+        <FileText className="text-primary" aria-hidden="true" />
+        <span className="flex-1">
+          <span className="block font-semibold">Report for your doctor</span>
+          <span className="block text-sm text-muted">Print or save as PDF</span>
+        </span>
+      </a>
+      <p className="text-sm text-muted text-center px-4">These charts show what you've recorded. They don't interpret it. Talk to your prescriber about what it means for you.</p>
+    </div>
+  );
+}

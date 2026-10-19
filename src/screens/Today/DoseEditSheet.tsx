@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { Dose, Medication } from '../../db/schema';
 import { removeDose, restoreDose, updateDose } from '../../db/repos/doses';
 import { fmtAmount, fmtMedName, fmtTime, fromLocalInput, toLocalInput } from '../../logic/format';
@@ -8,14 +8,13 @@ import { Button } from '../../components/ui/Button';
 import { useToast } from '../../app/toast';
 
 export function DoseEditSheet({ dose, med, onClose }: { dose: Dose | null; med?: Medication; onClose: () => void }) {
-  const toast = useToast();
-  const [amount, setAmount] = useState(0);
-  const [when, setWhen] = useState('');
-  useEffect(() => {
-    if (dose) { setAmount(dose.amount); setWhen(toLocalInput(Date.parse(dose.takenAt))); }
-  }, [dose]);
+  return dose ? <DoseEditForm key={dose.id} dose={dose} med={med} onClose={onClose} /> : null;
+}
 
-  if (!dose) return null;
+function DoseEditForm({ dose, med, onClose }: { dose: Dose; med?: Medication; onClose: () => void }) {
+  const toast = useToast();
+  const [amount, setAmount] = useState(dose.amount);
+  const [when, setWhen] = useState(toLocalInput(Date.parse(dose.takenAt)));
   const takenAt = fromLocalInput(when);
   const error = !Number.isFinite(takenAt) ? 'Choose a time.' : takenAt > Date.now() + 60_000 ? "That time hasn't happened yet." : !(amount > 0) ? 'Enter an amount.' : undefined;
   const unit = med?.unit ?? '';

@@ -20,17 +20,21 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npm test
-      # Set repo variable APP_DOMAIN (Settings > Variables) for the custom domain.
-      # Without it, the site builds for username.github.io/<repo>/.
-      - name: Build
+      # PERMANENT: every tag has this address written on it (see src/nfc/url.ts).
+      # The app lives at lumenbuild.github.io/MedTap/ for good. Renaming the repo or
+      # adding a custom domain would move the site and break every tag already written.
+      - name: Check the tag address still matches this site
         run: |
-          if [ -n "${{ vars.APP_DOMAIN }}" ]; then
-            echo "${{ vars.APP_DOMAIN }}" > public/CNAME
-            # Every tag gets this address written on it permanently (src/nfc/url.ts).
-            VITE_TAG_BASE=https://${{ vars.APP_DOMAIN }}/ BASE_PATH=/ npm run build
-          else
-            BASE_PATH=/${{ github.event.repository.name }}/ npm run build
+          if [ "${{ github.repository }}" != "lumenbuild/MedTap" ]; then
+            echo "::error::The repo is now ${{ github.repository }}, but every tag points to https://lumenbuild.github.io/MedTap/. Rename it back, or every tag must be rewritten."
+            exit 1
           fi
+      - name: Build
+        env:
+          VITE_TAG_BASE: https://lumenbuild.github.io/MedTap/
+          BASE_PATH: /MedTap/
+          VITE_APP_VERSION: build ${{ github.run_number }}
+        run: npm run build
       - if: github.ref_name == github.event.repository.default_branch
         uses: actions/upload-pages-artifact@v3
         with: { path: dist }

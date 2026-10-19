@@ -57,7 +57,7 @@ function MedRow({ med, tags }: { med: Medication; tags: Tag[] }) {
         <MedBadge color={med.color} icon={med.icon} />
         <span className="flex-1 min-w-0">
           <span className="block font-semibold truncate">{fmtMedName(med)}</span>
-          <span className="block text-sm text-muted">{fmtSchedule(med.schedule)}</span>
+          <span className="block text-sm text-muted">{fmtSchedule(med.schedule, med.unit)}</span>
           <span className="block text-sm text-muted tnum">
             {n === 0 ? 'No tag yet' : `${n} tag${n === 1 ? '' : 's'} linked`}
             {med.stockCount !== undefined && <> · <span className={low ? 'text-caution font-medium' : ''}>{med.stockCount} left</span></>}

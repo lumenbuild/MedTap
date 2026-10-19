@@ -31,3 +31,38 @@
   --danger: #F87171;  --danger-soft: #2E1414;
   --shadow-card: 0 1px 2px rgba(0,0,0,.3);
 }
+
+/* Medication / chart series colours: a validated categorical palette (CVD-safe adjacent order),
+   stepped separately for light and dark surfaces. Ink is the icon colour that contrasts most. */
+:root {
+  --med-1: #2a78d6; --med-1-ink: #FFFFFF;
+  --med-2: #eb6834; --med-2-ink: #0F172A;
+  --med-3: #1baf7a; --med-3-ink: #0F172A;
+  --med-4: #eda100; --med-4-ink: #0F172A;
+  --med-5: #e87ba4; --med-5-ink: #0F172A;
+  --med-6: #008300; --med-6-ink: #FFFFFF;
+  --med-7: #6250d6; --med-7-ink: #FFFFFF;
+  --med-8: #e34948; --med-8-ink: #0F172A;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+  --med-1: #3987e5; --med-1-ink: #0F172A;
+  --med-2: #d95926; --med-2-ink: #0F172A;
+  --med-3: #199e70; --med-3-ink: #0F172A;
+  --med-4: #c98500; --med-4-ink: #0F172A;
+  --med-5: #d55181; --med-5-ink: #0F172A;
+  --med-6: #008300; --med-6-ink: #FFFFFF;
+  --med-7: #9085e9; --med-7-ink: #0F172A;
+  --med-8: #e66767; --med-8-ink: #0F172A;
+  }
+}
+:root[data-theme="dark"] {
+  --med-1: #3987e5; --med-1-ink: #0F172A;
+  --med-2: #d95926; --med-2-ink: #0F172A;
+  --med-3: #199e70; --med-3-ink: #0F172A;
+  --med-4: #c98500; --med-4-ink: #0F172A;
+  --med-5: #d55181; --med-5-ink: #0F172A;
+  --med-6: #008300; --med-6-ink: #FFFFFF;
+  --med-7: #9085e9; --med-7-ink: #0F172A;
+  --med-8: #e66767; --med-8-ink: #0F172A;
+}

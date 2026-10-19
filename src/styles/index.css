@@ -33,10 +33,21 @@ body {
 /* Printable QR stickers (rendered into #print-root only while the QR sheet is open). */
 #print-root { display: none; }
 @media print {
-  body > *:not(#print-root) { display: none !important; }
-  #print-root { display: block; color: #000; background: #fff; }
+  body.print-portal > *:not(#print-root) { display: none !important; }
+  body.print-portal #print-root { display: block; color: #000; background: #fff; }
   .print-grid { display: grid; grid-template-columns: repeat(3, 45mm); gap: 8mm; padding: 10mm; }
   .print-sticker { margin: 0; text-align: center; border: 0.3mm dashed #999; padding: 3mm; break-inside: avoid; }
   .print-sticker img { width: 38mm; height: 38mm; display: block; margin: 0 auto; }
   .print-sticker figcaption { font: 600 9pt 'Inter Variable', sans-serif; margin-top: 1.5mm; }
+}
+
+/* Doctor report and general printing: no app chrome, flat cards, keep blocks together. */
+@media print {
+  .no-print, nav, header.app-header { display: none !important; }
+  body { background: #fff; }
+  .report * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .report .bg-surface { box-shadow: none !important; border: 1px solid #ddd; }
+  .report-block, .chart-card { break-inside: avoid; }
+  .chart-table { display: none; }
+  @page { margin: 12mm; }
 }

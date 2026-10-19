@@ -1,30 +1,51 @@
-import { CircleCheck, Info } from 'lucide-react';
+import { CalendarDays, CircleCheck, Info } from 'lucide-react';
 import type { Dose, Medication } from '../../db/schema';
 import {
-  getDailyTarget, getDosesToday, getLastDose, getNextDue, getProgress, getStatus, timeInDay, getDayBounds, type ScheduleSettings,
+  getDailyAmountTarget, getDailyTarget, getDayBounds, getDosesToday, getExpectedAmount, getLastDose, getNextDue, getProgress, getStatus,
+  nextScheduledDayStart, timeInDay, type ScheduleSettings,
 } from '../../logic/schedule';
-import { fmtAgo, fmtCountdown, fmtCountdownLong, fmtHHmm, fmtMedName, fmtTime, fmtWhen } from '../../logic/format';
+import { fmtAgo, fmtAmount, fmtCountdown, fmtCountdownLong, fmtDays, fmtHHmm, fmtMedName, fmtTime, fmtWhen } from '../../logic/format';
+import { stockUnitsFor } from '../../logic/stock';
+import { medColour } from '../../logic/palette';
 import { Ring } from '../../components/ui/Ring';
 import { Button } from '../../components/ui/Button';
 import { MedBadge } from '../../components/MedBadge';
 
-export function HeroCard({ med, doses, s, now, onLog, className = '' }: {
-  med: Medication; doses: Dose[]; s: ScheduleSettings; now: number; onLog: () => void; className?: string;
+const dayName = new Intl.DateTimeFormat('en-AU', { weekday: 'long' });
+
+export function HeroCard({ med, doses, s, now, onLog, className = '', footer }: {
+  med: Medication; doses: Dose[]; s: ScheduleSettings; now: number; onLog: () => void; className?: string; footer?: React.ReactNode;
 }) {
   const status = getStatus(med, doses, now, s);
   const next = getNextDue(med, doses, now, s);
   const last = getLastDose(doses, med.id, now);
-  const count = getDosesToday(doses, med.id, now, s).length;
-  const target = getDailyTarget(med);
+  const today = getDosesToday(doses, med.id, now, s);
+  const count = today.length;
+  const target = getDailyTarget(med, now, s);
+  const amountTarget = getDailyAmountTarget(med, now, s);
+  const amountToday = today.reduce((a, d) => a + d.amount, 0);
   const progress = status === 'done-today' ? 1 : getProgress(med, doses, now, s);
   const latest = med.schedule.latestDoseTime;
   const latestMs = latest ? timeInDay(getDayBounds(now, s.dayStartsAt, s.tz).start, latest, s) : undefined;
+  // What the plan says for the next dose (shown when it differs from dose to dose, or always for set amounts).
+  const nextAmount = status !== 'done-today' && status !== 'not-today' ? getExpectedAmount(med, doses, next ?? now, s) : null;
+  const nextUnits = nextAmount && med.strength > 0 && med.unit !== 'tablet' ? stockUnitsFor(med, nextAmount) : null;
 
   let center;
   let spoken: string;
   if (status === 'done-today') {
-    center = (<><CircleCheck size={40} className="text-success" aria-hidden="true" /><span className="text-lg font-semibold mt-2">Done for today</span></>);
-    spoken = 'Done for today.';
+    center = (<><CircleCheck size={40} className="text-success" aria-hidden="true" /><span className="text-lg font-semibold mt-2">Done for today</span>
+      {next !== null && next > now && <span className="text-sm text-muted tnum mt-1">Next {fmtWhen(next, now)}</span>}</>);
+    spoken = `Done for today.${next !== null && next > now ? ` Next ${fmtWhen(next, now)}.` : ''}`;
+  } else if (status === 'not-today' && next !== null) {
+    center = (<><span className="text-[40px] leading-[44px] font-semibold tnum">{fmtCountdown(next - now)}</span>
+      <span className="text-sm text-muted">Not scheduled today</span><span className="text-sm font-medium tnum mt-1">Next {fmtWhen(next, now)}</span></>);
+    spoken = `Not scheduled today. Next dose ${fmtWhen(next, now)}, in ${fmtCountdownLong(next - now)}.`;
+  } else if (status === 'not-today') {
+    const nd = nextScheduledDayStart(med, now, s);
+    center = (<><CalendarDays size={36} className="text-muted" aria-hidden="true" /><span className="font-semibold mt-2">Not scheduled today</span>
+      {nd !== null && <span className="text-sm text-muted">Next: {dayName.format(nd)}</span>}</>);
+    spoken = `Not scheduled today.${nd !== null ? ` Next: ${dayName.format(nd)}.` : ''}`;
   } else if (status === 'past-latest-time') {
     center = (<><Info size={36} className="text-muted" aria-hidden="true" /><span className="font-semibold mt-2">Past your latest dose time</span>
       {latest && <span className="text-sm text-muted tnum">{fmtHHmm(latest)}</span>}</>);
@@ -35,37 +56,53 @@ export function HeroCard({ med, doses, s, now, onLog, className = '' }: {
     spoken = `Due now, since ${fmtTime(next)}.`;
   } else if (next !== null) {
     center = (<><span className="text-[40px] leading-[44px] font-semibold tnum">{fmtCountdown(next - now)}</span>
-      <span className="text-sm text-muted">until next dose</span><span className="text-sm font-medium tnum mt-1">Due {fmtTime(next)}</span></>);
-    spoken = `Next dose in ${fmtCountdownLong(next - now)}, at ${fmtTime(next)}.`;
+      <span className="text-sm text-muted">until next dose</span><span className="text-sm font-medium tnum mt-1">Due {fmtWhen(next, now)}</span></>);
+    spoken = `Next dose in ${fmtCountdownLong(next - now)}, at ${fmtWhen(next, now)}.`;
   } else {
     center = (<span className="text-lg font-semibold">No doses yet today</span>);
     spoken = 'No doses yet today.';
   }
+  if (nextAmount) spoken += ` Next dose: ${fmtAmount(nextAmount, med.unit)}.`;
 
   const due = status === 'due';
+  const days = fmtDays(med.schedule);
   return (
     <article
       aria-label={med.name}
-      className={`bg-surface rounded-card shadow-card p-5 ${className}`}
+      className={`bg-surface rounded-card shadow-card p-5 h-full ${className}`}
       style={due ? { outline: '2px solid var(--primary)', outlineOffset: '-2px' } : undefined}
     >
       <div className="flex items-center gap-3">
         <MedBadge color={med.color} icon={med.icon} />
-        <h2 className="text-lg font-semibold leading-6">{fmtMedName(med)}</h2>
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold leading-6">{fmtMedName(med)}</h2>
+          {days && <p className="text-sm text-muted">{days}</p>}
+        </div>
       </div>
       <div className="my-5">
-        <Ring progress={progress} color={med.color}>{center}</Ring>
+        <Ring progress={status === 'not-today' && next === null ? 0 : progress} color={medColour(med.color)}>{center}</Ring>
         <p className="sr-only" aria-live="polite">{med.name}: {spoken}</p>
       </div>
       <dl className="text-center space-y-0.5 tnum">
+        {nextAmount !== null && nextAmount > 0 && (
+          <div>
+            <dt className="sr-only">Next dose amount</dt>
+            <dd className="font-semibold">Next: {fmtAmount(nextAmount, med.unit)}{nextUnits !== null ? ` · ${nextUnits} ${med.form === 'other' ? 'units' : `${med.form}${nextUnits === 1 ? '' : 's'}`}` : ''}</dd>
+          </div>
+        )}
         <div>
           <dt className="sr-only">Last dose</dt>
           <dd>{last ? <>Last dose {fmtAgo(now - Date.parse(last.takenAt))} · {fmtWhen(Date.parse(last.takenAt), now)}</> : 'No doses logged yet'}</dd>
         </div>
-        <div>
-          <dt className="sr-only">Today</dt>
-          <dd className="text-muted">Today: {count}{target ? ` of ${target}` : ''}</dd>
-        </div>
+        {status !== 'not-today' && (
+          <div>
+            <dt className="sr-only">Today</dt>
+            <dd className="text-muted">
+              Today: {count}{target ? ` of ${target}` : ''}
+              {amountTarget !== undefined ? ` · ${fmtAmount(amountToday, med.unit)} of ${fmtAmount(amountTarget, med.unit)}` : ''}
+            </dd>
+          </div>
+        )}
       </dl>
       {med.schedule.type === 'interval' && next !== null && latestMs !== undefined && next > latestMs && status === 'not-due' && (
         <p className="mt-3 text-sm text-muted text-center">That's after your latest dose time of {fmtHHmm(latest!)}.</p>
@@ -73,6 +110,7 @@ export function HeroCard({ med, doses, s, now, onLog, className = '' }: {
       <Button className="w-full min-h-[56px] mt-5" variant={due || status === 'none-today' ? 'primary' : 'secondary'} onClick={onLog}>
         Log dose
       </Button>
+      {footer}
     </article>
   );
 }
