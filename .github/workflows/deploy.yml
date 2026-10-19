@@ -25,7 +25,8 @@ jobs:
         run: |
           if [ -n "${{ vars.APP_DOMAIN }}" ]; then
             echo "${{ vars.APP_DOMAIN }}" > public/CNAME
-            BASE_PATH=/ npm run build
+            # Every tag gets this address written on it permanently (src/nfc/url.ts).
+            VITE_TAG_BASE=https://${{ vars.APP_DOMAIN }}/ BASE_PATH=/ npm run build
           else
             BASE_PATH=/${{ github.event.repository.name }}/ npm run build
           fi
