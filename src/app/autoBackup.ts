@@ -1,34 +1,23 @@
-// Automatic daily backups into a folder the person chooses (where the browser allows it), plus the backup password.
-// Both live in the device-only table, so they never end up inside a backup file.
+// Automatic daily backups into a folder the person chooses (where the browser allows it).
+// The folder permission lives in the device-only table, so it never ends up inside a backup file.
 import { db } from '../db/db';
 import { getSettings, setSetting } from '../db/repos/settings';
 import { exportBackup, markBackedUp } from '../db/repos/backup';
 import { backupFilename } from '../logic/backup';
-import { seal } from '../logic/crypto';
+import { sealBackup } from '../logic/crypto';
 import { APP_NAME } from '../config';
 
 export const canAutoBackup = typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function';
 const DIR = 'backupDir';
-const PASSWORD = 'backupPassword';
 const DUE_MS = 20 * 3_600_000; // roughly daily, without drifting later each day
 
 export type AutoResult = 'done' | 'not-due' | 'needs-permission' | 'off' | 'unsupported' | 'error';
 
-export async function getBackupPassword(): Promise<string | null> {
-  return ((await db.device.get(PASSWORD))?.value as string | undefined) ?? null;
-}
-export async function setBackupPassword(pw: string | null) {
-  if (pw) await db.device.put({ key: PASSWORD, value: pw });
-  else await db.device.delete(PASSWORD);
-}
-
-/** The backup file's text: protected with the backup password when one is set. */
-export async function backupText(includePhotos: boolean): Promise<{ text: string; protectedWith: boolean }> {
+/** The backup file's text. Always encrypted (built-in key) so it can't simply be opened and read. */
+export async function backupText(includePhotos: boolean): Promise<string> {
   const backup = await exportBackup({ includePhotos });
-  const pw = await getBackupPassword();
-  if (!pw) return { text: JSON.stringify(backup), protectedWith: false };
-  const sealed = await seal(JSON.stringify(backup), pw);
-  return { text: JSON.stringify({ app: APP_NAME, format: backup.format, encrypted: true, sealed }), protectedWith: true };
+  const sealed = await sealBackup(JSON.stringify(backup));
+  return JSON.stringify({ app: APP_NAME, format: backup.format, encrypted: true, sealed });
 }
 
 export async function getFolder(): Promise<FileSystemDirectoryHandle | undefined> {
@@ -74,7 +63,7 @@ export async function runAutoBackup(force = false): Promise<AutoResult> {
   if (!force && s.lastAutoBackupAt && Date.now() - Date.parse(s.lastAutoBackupAt) < DUE_MS) return 'not-due';
   try {
     if ((await h.queryPermission({ mode: 'readwrite' })) !== 'granted') return 'needs-permission';
-    const { text } = await backupText(true);
+    const text = await backupText(true);
     const name = backupFilename();
     const file = await h.getFileHandle(name, { create: true });
     const w = await file.createWritable();

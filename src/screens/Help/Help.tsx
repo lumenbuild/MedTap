@@ -135,7 +135,7 @@ const CONTENT: Record<string, ReactNode> = {
         <li>There are no accounts, no analytics and no tracking.</li>
         <li>After the app loads, it makes no network requests except checking for app updates from {tagBase()}.</li>
         <li>Nothing leaves the phone unless you export it: backups, spreadsheets, calendar events and printed reports.</li>
-        <li>Backups can be protected with a password (Settings → Backup and restore). They're encrypted with AES-256 and can't be opened without it. The password is kept on this phone so automatic backups can use it.</li>
+        <li>Backup files are encrypted, so opening one (or a cloud drive or email preview) shows only scrambled text. Any copy of {APP_NAME} can restore them without a password, so treat them like the data itself: keep them somewhere private.</li>
         <li>Automatic backups (where the browser allows) only ever go to the folder you choose.</li>
         <li>Progress photos are stored on this phone and never uploaded.</li>
       </ul>
@@ -146,7 +146,7 @@ const CONTENT: Record<string, ReactNode> = {
   lock: (
     <>
       <H>App lock</H>
-      <p>The PIN is a privacy screen. It stops casual access on an unlocked phone. It doesn't encrypt the data on the phone. To protect backup files, set a backup password in Backup and restore.</p>
+      <p>The PIN is a privacy screen. It stops casual access on an unlocked phone. It doesn't encrypt the data on the phone.</p>
       <p>If you forget your PIN, the only way back in is to erase this phone's data and restore from a backup.</p>
     </>
   ),

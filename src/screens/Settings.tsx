@@ -116,7 +116,7 @@ export function Settings() {
 
       <Card className="space-y-3">
         <h2 className="text-lg font-semibold flex items-center gap-2"><Lock size={18} aria-hidden="true" /> App lock</h2>
-        <p className="text-sm text-muted">This is a privacy screen. It stops casual access on an unlocked phone. To protect backup files, set a backup password in Backup and restore.</p>
+        <p className="text-sm text-muted">This is a privacy screen. It stops casual access on an unlocked phone. It doesn't encrypt the data on the phone.</p>
         {settings.lockEnabled ? (
           <>
             <div className="space-y-1.5">

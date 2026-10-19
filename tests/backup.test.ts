@@ -88,3 +88,23 @@ describe('helpers', () => {
     expect(toCsv(['a', 'b'], [['x,y', 'say "hi"\nok']])).toBe('a,b\r\n"x,y","say ""hi""\nok"\r\n');
   });
 });
+
+import { backupText } from '../src/app/autoBackup';
+import { isSealed, unsealBackup } from '../src/logic/crypto';
+
+describe('encrypted backup files', () => {
+  it('are unreadable as text and restore without a password', async () => {
+    const med = await createMed({ ...base, name: 'Ritalin' });
+    await linkTag('ab3defgh', med.id);
+    const text = await backupText(false);
+    expect(text).not.toContain('Ritalin');
+    expect(text).not.toContain('ab3defgh');
+    const file = JSON.parse(text);
+    expect(isSealed(file)).toBe(true);
+    const v = validateBackup(JSON.parse(await unsealBackup(file.sealed)), db.verno);
+    expect(v.ok).toBe(true);
+    await eraseAll();
+    if (v.ok) await importBackup(v.backup, 'replace');
+    expect((await db.tags.get('ab3defgh'))?.medicationId).toBe(med.id);
+  });
+});

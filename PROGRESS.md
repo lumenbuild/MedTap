@@ -4,7 +4,7 @@ Source of truth for build status. Spec: the owner's HANDOFF document (section nu
 
 ## Current phase
 All phases (0–5) built and live, plus flexible schedules and instructions (PR #2, merged). Now: planned changes,
-skipped doses, refill forecasting, password-protected and automatic backups. Awaiting owner testing on real phones.
+skipped doses, refill forecasting, encrypted and automatic backups. Awaiting owner testing on real phones.
 
 ## Phase 0: done
 - Vite + React 18 + TS + Tailwind (tokens as CSS variables, light/dark/system theme), self-hosted Inter.
@@ -81,10 +81,13 @@ skipped doses, refill forecasting, password-protected and automatic backups. Awa
   day; as-needed and open-ended plans use the last 30 days' use. Repeats left and script expiry on the medication.
   Today card when at/below the low-stock number, running out within "warn me N days ahead" (default 7) or script
   expiring within 30 days; Add stock (optionally uses a repeat, with undo).
-- Backup password: AES-256-GCM with PBKDF2-SHA-256 (310k). Applies to manual and automatic backups; restore asks for it.
-  Kept on the device (DB v3 `device` table, never backed up) so automatic backups can use it.
+- Backup files are always encrypted (AES-256-GCM) with a key built into the app (owner decision: no password). Opening a
+  file, or a cloud/email preview, shows scrambled text; any copy of the app restores it with no password. The key is in
+  public code, so this deters casual reading, not a determined attacker. NEVER change `BACKUP_KEY` in `logic/crypto.ts`,
+  or older backups can't be restored. Plain (unencrypted) backups from before still restore.
 - Automatic backups: File System Access folder (Chrome desktop / recent Android Chrome), daily when the app is open,
   keeps the last N; Today card if the browser needs permission again. Elsewhere (iPhone): "Remind me every N days".
+  The folder permission is kept in the device-only `device` table (DB v3), never backed up.
 
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
