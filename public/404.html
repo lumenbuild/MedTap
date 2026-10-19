@@ -2,6 +2,8 @@
 <html><head><meta charset="utf-8"><title>Redirecting…</title>
 <script>
   // Safety net: GitHub Pages has no SPA fallback. Send unknown paths to the app root, keeping query and hash.
-  var base = location.pathname.indexOf('/Med/') === 0 ? '/Med/' : '/';
+  // On username.github.io the app lives under /<repo>/; on a custom domain it's at /.
+  var seg = location.pathname.split('/')[1];
+  var base = /\.github\.io$/.test(location.hostname) && seg ? '/' + seg + '/' : '/';
   location.replace(base + location.search + location.hash);
 </script></head><body></body></html>

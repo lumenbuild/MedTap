@@ -55,7 +55,8 @@ Phase 1 (Meds, tags, dose loop): built, awaiting owner testing on real phones. N
 - Live data uses Dexie's built-in `liveQuery` via a tiny `useLive` hook (no extra dependency).
 
 ## Known issues / not yet verified
-- Not deployed: needs Pages enabled (Settings > Pages > Source: GitHub Actions) and a merge to `main`.
+- Deploys from the repository's default branch (currently `claude/confident-maxwell-rta5d8`; renaming it to `main`
+  needs no workflow change). Other branches are tested and built but not deployed. Pages source: GitHub Actions.
 - Real-device checks (§14) not yet done: iPhone Safari tag tap, Android install + Web NFC write/test, double NFC fire.
   Web NFC error mapping (read-only vs unsupported tag) is best-effort from Chrome's error names; confirm on a real tag.
 - Verified in headless Chromium (Pixel 7 viewport, Sydney time zone): add med, unknown tag → assign → log, guard, notes,
