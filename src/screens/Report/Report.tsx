@@ -76,7 +76,10 @@ export function Report() {
                       <td className="py-1.5 pr-3 border-b border-border">{m.form}</td>
                       <td className="py-1.5 pr-3 border-b border-border">{fmtAmount(m.defaultAmount, m.unit)}</td>
                       <td className="py-1.5 pr-3 border-b border-border">{fmtSchedule(m.schedule, m.unit)}</td>
-                      <td className="py-1.5 pr-3 border-b border-border">{rangeDoses.filter((d) => d.medicationId === m.id).length}</td>
+                      <td className="py-1.5 pr-3 border-b border-border">
+                        {rangeDoses.filter((d) => d.medicationId === m.id && !d.skipped).length}
+                        {rangeDoses.some((d) => d.medicationId === m.id && d.skipped) ? ` (+${rangeDoses.filter((d) => d.medicationId === m.id && d.skipped).length} skipped)` : ''}
+                      </td>
                       <td className="py-1.5 pr-3 border-b border-border">{target ? `${ad.filter((d) => d.target && d.count >= d.target).length} of ${ad.filter((d) => d.target).length} scheduled` : '–'}</td>
                     </tr>
                   );
@@ -133,8 +136,8 @@ export function Report() {
                         <td className="py-1 pr-3 border-b border-border">{format(Date.parse(d.takenAt), 'EEE d MMM')}</td>
                         <td className="py-1 pr-3 border-b border-border">{format(Date.parse(d.takenAt), 'h:mm a').toLowerCase()}</td>
                         <td className="py-1 pr-3 border-b border-border">{m?.name ?? '–'}</td>
-                        <td className="py-1 pr-3 border-b border-border">{m ? fmtAmount(d.amount, m.unit) : d.amount}</td>
-                        <td className="py-1 pr-3 border-b border-border">{SOURCE[d.source]}</td>
+                        <td className="py-1 pr-3 border-b border-border">{d.skipped ? '–' : m ? fmtAmount(d.amount, m.unit) : d.amount}</td>
+                        <td className="py-1 pr-3 border-b border-border">{d.skipped ? `Skipped${d.skipReason ? ` (${d.skipReason})` : ''}` : SOURCE[d.source]}</td>
                       </tr>
                     );
                   })}

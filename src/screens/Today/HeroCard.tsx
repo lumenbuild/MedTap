@@ -4,7 +4,10 @@ import {
   getDailyAmountTarget, getDailyTarget, getDayBounds, getDosesToday, getExpectedAmount, getLastDose, getNextDue, getProgress, getStatus,
   nextScheduledDayStart, timeInDay, type ScheduleSettings,
 } from '../../logic/schedule';
-import { fmtAgo, fmtAmount, fmtCountdown, fmtCountdownLong, fmtDays, fmtHHmm, fmtMedName, fmtTime, fmtWhen } from '../../logic/format';
+import { fmtAgo, fmtAmount, fmtCountdown, fmtCountdownLong, fmtDays, fmtHHmm, fmtMedName, fmtSchedule, fmtTime, fmtWhen } from '../../logic/format';
+import { format } from 'date-fns';
+import { nextPlannedChange } from '../../logic/plans';
+import { dayKey } from '../../logic/stats';
 import { stockUnitsFor } from '../../logic/stock';
 import { medColour } from '../../logic/palette';
 import { Ring } from '../../components/ui/Ring';
@@ -23,7 +26,8 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer }: 
   const count = today.length;
   const target = getDailyTarget(med, now, s);
   const amountTarget = getDailyAmountTarget(med, now, s);
-  const amountToday = today.reduce((a, d) => a + d.amount, 0);
+  const amountToday = today.filter((d) => !d.skipped).reduce((a, d) => a + d.amount, 0);
+  const skippedToday = today.filter((d) => d.skipped).length;
   const progress = status === 'done-today' ? 1 : getProgress(med, doses, now, s);
   const latest = med.schedule.latestDoseTime;
   const latestMs = latest ? timeInDay(getDayBounds(now, s.dayStartsAt, s.tz).start, latest, s) : undefined;
@@ -66,6 +70,8 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer }: 
 
   const due = status === 'due';
   const days = fmtDays(med.schedule);
+  const change = nextPlannedChange(med, dayKey(now, s));
+  const changeSoon = change && Date.parse(`${change.from}T12:00`) - now < 8 * 86_400_000 ? change : undefined;
   return (
     <article
       aria-label={med.name}
@@ -77,6 +83,7 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer }: 
         <div className="min-w-0">
           <h2 className="text-lg font-semibold leading-6">{fmtMedName(med)}</h2>
           {days && <p className="text-sm text-muted">{days}</p>}
+          {changeSoon && <p className="text-sm text-primary font-medium tnum">Changes {format(new Date(`${changeSoon.from}T12:00`), 'EEE d MMM')}: {fmtSchedule(changeSoon.schedule, med.unit)}</p>}
         </div>
       </div>
       <div className="my-5">
@@ -100,6 +107,7 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer }: 
             <dd className="text-muted">
               Today: {count}{target ? ` of ${target}` : ''}
               {amountTarget !== undefined ? ` · ${fmtAmount(amountToday, med.unit)} of ${fmtAmount(amountTarget, med.unit)}` : ''}
+              {skippedToday ? ` · ${skippedToday} skipped` : ''}
             </dd>
           </div>
         )}

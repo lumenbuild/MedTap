@@ -47,7 +47,8 @@ export async function markBackedUp() {
 }
 
 export async function eraseAll() {
-  await db.transaction('rw', BACKUP_TABLES.map(table), async () => {
+  await db.transaction('rw', [...BACKUP_TABLES.map(table), db.device], async () => {
     for (const t of BACKUP_TABLES) await table(t).clear();
+    await db.device.clear();
   });
 }

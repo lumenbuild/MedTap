@@ -1,6 +1,13 @@
 import { ChevronRight, Nfc, Plus } from 'lucide-react';
+import { format } from 'date-fns';
 import type { Medication, Tag } from '../../db/schema';
-import { useMeds, useSettings, useTags } from '../../app/data';
+import { useDoses, useMeds, useScheduleSettings, useSettings, useTags } from '../../app/data';
+import { useNow } from '../../app/useNow';
+import { forecastRunOut, nextPlannedChange } from '../../logic/plans';
+import { dayKey } from '../../logic/stats';
+import { fmtForecast, fmtScript } from '../../components/Refill';
+import type { Dose } from '../../db/schema';
+import type { ScheduleSettings } from '../../logic/schedule';
 import { go } from '../../app/router';
 import { fmtMedName, fmtSchedule } from '../../logic/format';
 import { Card } from '../../components/ui/Card';
@@ -11,7 +18,10 @@ export function MedsList() {
   const meds = useMeds();
   const tags = useTags();
   const settings = useSettings();
-  if (!meds || !tags || !settings) return <div className="h-40 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
+  const doses = useDoses();
+  const ss = useScheduleSettings();
+  const now = useNow(60_000);
+  if (!meds || !tags || !settings || !doses || !ss) return <div className="h-40 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
 
   const active = meds.filter((m) => !m.archived);
   const archived = meds.filter((m) => m.archived);
@@ -31,7 +41,7 @@ export function MedsList() {
           <p>No medications yet. Adding one takes about a minute.</p>
         </Card>
       ) : (
-        <ul className="space-y-2">{active.map((m) => <MedRow key={m.id} med={m} tags={tags} />)}</ul>
+        <ul className="space-y-2">{active.map((m) => <MedRow key={m.id} med={m} tags={tags} doses={doses} s={ss[1]} now={now} />)}</ul>
       )}
 
       <Button className="w-full min-h-[56px] flex items-center justify-center gap-2" onClick={() => go('/meds/new')}>
@@ -41,15 +51,18 @@ export function MedsList() {
       {archived.length > 0 && (
         <details className="pt-2">
           <summary className="min-h-[48px] flex items-center text-muted font-semibold cursor-pointer">Archived ({archived.length})</summary>
-          <ul className="space-y-2 opacity-80">{archived.map((m) => <MedRow key={m.id} med={m} tags={tags} />)}</ul>
+          <ul className="space-y-2 opacity-80">{archived.map((m) => <MedRow key={m.id} med={m} tags={tags} doses={doses} s={ss[1]} now={now} />)}</ul>
         </details>
       )}
     </div>
   );
 }
 
-function MedRow({ med, tags }: { med: Medication; tags: Tag[] }) {
+function MedRow({ med, tags, doses, s, now }: { med: Medication; tags: Tag[]; doses: Dose[]; s: ScheduleSettings; now: number }) {
   const n = tags.filter((t) => t.medicationId === med.id).length;
+  const forecast = med.archived ? null : fmtForecast(forecastRunOut(med, doses, now, s));
+  const script = fmtScript(med, now);
+  const change = med.archived ? undefined : nextPlannedChange(med, dayKey(now, s));
   const low = med.stockCount !== undefined && med.lowStockAt !== undefined && med.stockCount <= med.lowStockAt;
   return (
     <li>
@@ -62,6 +75,9 @@ function MedRow({ med, tags }: { med: Medication; tags: Tag[] }) {
             {n === 0 ? 'No tag yet' : `${n} tag${n === 1 ? '' : 's'} linked`}
             {med.stockCount !== undefined && <> · <span className={low ? 'text-caution font-medium' : ''}>{med.stockCount} left</span></>}
           </span>
+          {forecast && <span className="block text-sm text-muted tnum">{forecast}</span>}
+          {script && <span className="block text-sm text-muted tnum">{script}</span>}
+          {change && <span className="block text-sm text-primary tnum">Change planned from {format(new Date(`${change.from}T12:00`), 'EEE d MMM')}</span>}
         </span>
         <ChevronRight className="text-muted" aria-hidden="true" />
       </a>

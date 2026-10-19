@@ -4,7 +4,8 @@ import { round, stockUnitsFor } from '../../logic/stock';
 
 const nowIso = () => new Date().toISOString();
 
-async function adjustStock(medicationId: string, amount: number, sign: 1 | -1) {
+async function adjustStock(medicationId: string, amount: number, sign: 1 | -1, skipped?: boolean) {
+  if (skipped) return; // a skipped dose never came out of the pack
   const med = await db.medications.get(medicationId);
   if (!med || med.stockCount === undefined || med.stockCount === null) return;
   await db.medications.update(medicationId, { stockCount: round(med.stockCount + sign * stockUnitsFor(med, amount)) });
@@ -17,6 +18,8 @@ export interface NewDose {
   source: Dose['source'];
   tagId?: string;
   note?: string;
+  skipped?: boolean;
+  skipReason?: string;
 }
 
 /** Save a dose and take it off the stock count. */
@@ -25,7 +28,7 @@ export async function logDose(input: NewDose): Promise<Dose> {
   const dose: Dose = { id: crypto.randomUUID(), createdAt: now, updatedAt: now, ...input };
   await db.transaction('rw', db.doses, db.medications, async () => {
     await db.doses.add(dose);
-    await adjustStock(dose.medicationId, dose.amount, -1);
+    await adjustStock(dose.medicationId, dose.amount, -1, dose.skipped);
   });
   return dose;
 }
@@ -37,7 +40,7 @@ export async function removeDose(id: string) {
     if (!dose || dose.deletedAt) return;
     const now = nowIso();
     await db.doses.update(id, { deletedAt: now, updatedAt: now });
-    await adjustStock(dose.medicationId, dose.amount, 1);
+    await adjustStock(dose.medicationId, dose.amount, 1, dose.skipped);
   });
 }
 
@@ -47,7 +50,7 @@ export async function restoreDose(id: string) {
     const dose = await db.doses.get(id);
     if (!dose || !dose.deletedAt) return;
     await db.doses.update(id, { deletedAt: undefined, updatedAt: nowIso() });
-    await adjustStock(dose.medicationId, dose.amount, -1);
+    await adjustStock(dose.medicationId, dose.amount, -1, dose.skipped);
   });
 }
 
@@ -56,7 +59,7 @@ export async function updateDose(id: string, patch: Partial<Pick<Dose, 'takenAt'
   await db.transaction('rw', db.doses, db.medications, async () => {
     const dose = await db.doses.get(id);
     if (!dose) return;
-    if (patch.amount !== undefined && patch.amount !== dose.amount && !dose.deletedAt) {
+    if (patch.amount !== undefined && patch.amount !== dose.amount && !dose.deletedAt && !dose.skipped) {
       await adjustStock(dose.medicationId, dose.amount, 1);
       await adjustStock(dose.medicationId, patch.amount, -1);
     }

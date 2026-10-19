@@ -31,6 +31,21 @@ function DoseEditForm({ dose, med, onClose }: { dose: Dose; med?: Medication; on
     onClose();
   };
 
+  if (dose.skipped) {
+    return (
+      <Sheet open onClose={onClose} title={med ? `${med.name}: skipped` : 'Skipped dose'}>
+        <div className="space-y-4">
+          <p className="tnum">Marked as skipped for {fmtTime(Date.parse(dose.takenAt))}.{dose.skipReason ? ` ${dose.skipReason}.` : ''}</p>
+          <Button variant="danger" className="w-full" onClick={async () => {
+            await removeDose(dose.id);
+            toast('Skip removed', { onAction: () => restoreDose(dose.id) });
+            onClose();
+          }}>Remove this skip</Button>
+        </div>
+      </Sheet>
+    );
+  }
+
   return (
     <Sheet open onClose={onClose} title={med ? `Edit ${fmtMedName(med)}` : 'Edit dose'}>
       <div className="space-y-5">

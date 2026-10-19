@@ -69,7 +69,12 @@ const CONTENT: Record<string, ReactNode> = {
       <H>Instructions</H>
       <p>Each medication has an Instructions box. Anything typed there, by you, a carer, pharmacist or doctor, shows every time the tag is tapped or a dose is logged.</p>
       <H>When your prescription changes</H>
-      <p>Edit the medication. {APP_NAME} asks whether to record it as a change on a date, so your charts show when it happened.</p>
+      <p>For a change starting today, edit the medication. {APP_NAME} asks whether to record it as a change on a date, so your charts show when it happened.</p>
+      <p>For a change on a future date, or a taper in steps, open the medication and use <strong>Plan a change</strong>. Add one change per step. On each date {APP_NAME} switches to the new schedule by itself and records it.</p>
+      <H>Skipping a dose</H>
+      <p>If you don't take a dose on purpose, open Log dose and choose <strong>Skip this dose</strong>, with a reason if you like. It holds that dose's place in your day (so the next amount and time move on), isn't counted as taken, and doesn't change your stock.</p>
+      <H>Refills</H>
+      <p>Add how many you have and, optionally, your repeats and script expiry date. {APP_NAME} works out when you'll run out from your schedule (or your recent use for as-needed medications) and shows a card on Today a few days before. Tap <strong>Add stock</strong> when you pick up a refill.</p>
     </>
   ),
   tags: (
@@ -130,6 +135,8 @@ const CONTENT: Record<string, ReactNode> = {
         <li>There are no accounts, no analytics and no tracking.</li>
         <li>After the app loads, it makes no network requests except checking for app updates from {tagBase()}.</li>
         <li>Nothing leaves the phone unless you export it: backups, spreadsheets, calendar events and printed reports.</li>
+        <li>Backup files are encrypted, so opening one (or a cloud drive or email preview) shows only scrambled text. Any copy of {APP_NAME} can restore them without a password, so treat them like the data itself: keep them somewhere private.</li>
+        <li>Automatic backups (where the browser allows) only ever go to the folder you choose.</li>
         <li>Progress photos are stored on this phone and never uploaded.</li>
       </ul>
       <H>What could lose your data</H>
@@ -139,7 +146,7 @@ const CONTENT: Record<string, ReactNode> = {
   lock: (
     <>
       <H>App lock</H>
-      <p>The PIN is a privacy screen. It stops casual access on an unlocked phone. It doesn't encrypt your data, and backups are not encrypted.</p>
+      <p>The PIN is a privacy screen. It stops casual access on an unlocked phone. It doesn't encrypt the data on the phone.</p>
       <p>If you forget your PIN, the only way back in is to erase this phone's data and restore from a backup.</p>
     </>
   ),
