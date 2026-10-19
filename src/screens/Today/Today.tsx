@@ -8,7 +8,7 @@ import { go } from '../../app/router';
 import { addToCalendar } from '../../app/calendar';
 import { byUrgency, getNextDue, getStatus } from '../../logic/schedule';
 import { checkInPromptDose, lowStockMeds, needsBackup } from '../../logic/reminders';
-import { fmtAgo, fmtAmount, fmtMedName, fmtTime } from '../../logic/format';
+import { fmtAgo, fmtAmount, fmtMedName, fmtTime, fmtWhen } from '../../logic/format';
 import { removeDose } from '../../db/repos/doses';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -62,13 +62,13 @@ export function Today() {
   };
   const hero = (m: Medication, className?: string) => {
     const next = getNextDue(m, doses, now, s);
-    const showCal = next !== null && next > now && getStatus(m, doses, now, s) === 'not-due';
+    const showCal = next !== null && next > now && ['not-due', 'not-today', 'done-today'].includes(getStatus(m, doses, now, s));
     return (
       <div key={m.id} className={className}>
         <HeroCard med={m} doses={doses} s={s} now={now} onLog={() => setLogFor(m)}
           footer={showCal ? (
             <button onClick={() => addToCalendar(m, next!)} className="w-full min-h-[48px] mt-2 flex items-center justify-center gap-2 text-primary font-semibold">
-              <CalendarPlus size={18} aria-hidden="true" /> Add {fmtTime(next!)} to calendar
+              <CalendarPlus size={18} aria-hidden="true" /> Add {fmtWhen(next!, now)} to calendar
             </button>
           ) : null} />
       </div>

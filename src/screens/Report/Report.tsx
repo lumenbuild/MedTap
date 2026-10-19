@@ -75,14 +75,24 @@ export function Report() {
                       <td className="py-1.5 pr-3 border-b border-border">{fmtMedName(m)}{m.archived ? ' (stopped)' : ''}</td>
                       <td className="py-1.5 pr-3 border-b border-border">{m.form}</td>
                       <td className="py-1.5 pr-3 border-b border-border">{fmtAmount(m.defaultAmount, m.unit)}</td>
-                      <td className="py-1.5 pr-3 border-b border-border">{fmtSchedule(m.schedule)}</td>
+                      <td className="py-1.5 pr-3 border-b border-border">{fmtSchedule(m.schedule, m.unit)}</td>
                       <td className="py-1.5 pr-3 border-b border-border">{rangeDoses.filter((d) => d.medicationId === m.id).length}</td>
-                      <td className="py-1.5 pr-3 border-b border-border">{target ? `${ad.filter((d) => d.count >= target).length} of ${days.length}` : '–'}</td>
+                      <td className="py-1.5 pr-3 border-b border-border">{target ? `${ad.filter((d) => d.target && d.count >= d.target).length} of ${ad.filter((d) => d.target).length} scheduled` : '–'}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+            {usedMeds.some((m) => m.instructions?.trim()) && (
+              <>
+                <h3 className="font-semibold mt-4 mb-1">Instructions</h3>
+                <ul className="text-sm space-y-1">
+                  {usedMeds.filter((m) => m.instructions?.trim()).map((m) => (
+                    <li key={m.id}><strong>{m.name}:</strong> <span className="whitespace-pre-line">{m.instructions!.trim()}</span>{m.instructionsBy ? <span className="text-muted"> (from {m.instructionsBy})</span> : null}</li>
+                  ))}
+                </ul>
+              </>
+            )}
             {rangeEvents.length > 0 && (
               <>
                 <h3 className="font-semibold mt-4 mb-1">Changes recorded</h3>

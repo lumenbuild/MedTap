@@ -73,8 +73,8 @@ export function adherenceByDay(doses: Dose[], med: Medication, days: string[], s
     const k = dayKey(Date.parse(d.takenAt), s);
     counts.set(k, (counts.get(k) ?? 0) + 1);
   }
-  const target = getDailyTarget(med);
-  return days.map((day) => ({ day, count: counts.get(day) ?? 0, target }));
+  // Target per day: 0 on days the medication isn't scheduled (e.g. a Sunday/Wednesday injection on a Monday).
+  return days.map((day) => ({ day, count: counts.get(day) ?? 0, target: getDailyTarget(med, ymdToMs(day), s) }));
 }
 
 /** Time of day each dose was taken, in hours (e.g. 13.5 = 1:30 pm), positioned on its user day. */

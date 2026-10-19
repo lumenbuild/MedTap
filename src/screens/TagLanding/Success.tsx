@@ -5,7 +5,7 @@ import { addCheckIn } from '../../db/repos/checkIns';
 import { addToCalendar } from '../../app/calendar';
 import { MoodPicker, MOOD_LABELS } from '../../components/ui/Rating';
 import { getDailyTarget, getDosesToday, getNextDue, getStatus, type ScheduleSettings } from '../../logic/schedule';
-import { fmtAmount, fmtCountdown, fmtTime } from '../../logic/format';
+import { fmtAmount, fmtCountdown, fmtTime, fmtWhen } from '../../logic/format';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 
@@ -18,7 +18,7 @@ export function Success({ dose, loggedAt, med, doses, s, now, onUndo, onDone }: 
   const next = getNextDue(med, doses, now, s);
   const status = getStatus(med, doses, now, s);
   const count = getDosesToday(doses, med.id, now, s).length;
-  const target = getDailyTarget(med);
+  const target = getDailyTarget(med, now, s);
   const [mood, setMood] = useState<number>();
   const saveMood = async (v?: number) => {
     if (!v || mood) return;
@@ -37,12 +37,11 @@ export function Success({ dose, loggedAt, med, doses, s, now, onUndo, onDone }: 
         Logged {fmtAmount(dose.amount, med.unit)} at <span className="tnum">{fmtTime(Date.parse(dose.takenAt))}</span>
       </h1>
       <p className="text-muted mt-1">{med.name}{target ? ` · Today: ${count} of ${target}` : ` · Today: ${count}`}</p>
-      {status === 'done-today' ? (
-        <p className="mt-4 text-lg">That's all {target} for today.</p>
-      ) : next !== null ? (
-        <p className="mt-4 text-lg tnum">Next due <strong>{fmtTime(next)}</strong> <span className="text-muted">(in {fmtCountdown(next - now)})</span></p>
-      ) : null}
-      {next !== null && next > now && status !== 'done-today' && (
+      {status === 'done-today' && <p className="mt-4 text-lg">That's all {target} for today.</p>}
+      {next !== null && next > now && (
+        <p className={`${status === 'done-today' ? 'mt-1' : 'mt-4 text-lg'} tnum`}>Next due <strong>{fmtWhen(next, now)}</strong> <span className="text-muted">(in {fmtCountdown(next - now)})</span></p>
+      )}
+      {next !== null && next > now && (
         <button onClick={() => addToCalendar(med, next)} className="mt-2 min-h-[48px] px-3 inline-flex items-center gap-2 text-primary font-semibold">
           <CalendarPlus size={18} aria-hidden="true" /> Add to calendar
         </button>

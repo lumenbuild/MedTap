@@ -88,28 +88,32 @@ export function AdherenceHeatmap({ meds, doses, start, end, s }: RangeProps & { 
     <ChartCard title="Doses per day" height={null}
       empty={rows.length ? null : 'No doses in this range.'}
       summary={start < capStart ? 'Showing the last 26 weeks.' : null}
-      table={{ head: ['Date', ...rows.map((r) => r.med.name)], rows: days.map((d, i) => [fmtDay(ymdToMs(d)), ...rows.map((r) => r.cells[i].target ? `${r.cells[i].count} of ${r.cells[i].target}` : r.cells[i].count)]).reverse() }}>
+      table={{ head: ['Date', ...rows.map((r) => r.med.name)], rows: days.map((d, i) => [fmtDay(ymdToMs(d)), ...rows.map((r) => r.cells[i].target === 0 && !r.cells[i].count ? 'Not scheduled' : r.cells[i].target ? `${r.cells[i].count} of ${r.cells[i].target}` : r.cells[i].count)]).reverse() }}>
       <div className="space-y-5">
         {rows.map(({ med, cells }) => {
           const target = getDailyTarget(med);
           const max = Math.max(1, ...cells.map((c) => c.count));
-          const full = target ? cells.filter((c) => c.count >= target).length : null;
+          const scheduled = cells.filter((c) => c.target !== 0);
+          const full = target ? scheduled.filter((c) => c.count >= (c.target ?? 0)).length : null;
           return (
             <div key={med.id}>
               <div className="flex items-center gap-2 mb-2">
                 <MedBadge color={med.color} icon={med.icon} size={24} />
                 <span className="font-medium">{med.name}</span>
               </div>
-              {full !== null && <p className="text-sm text-muted mb-2 tnum">All {target} logged on {full} of {cells.length} days</p>}
+              {full !== null && <p className="text-sm text-muted mb-2 tnum">All logged on {full} of {scheduled.length} scheduled day{scheduled.length === 1 ? '' : 's'}</p>}
               <div className="grid gap-[3px] w-max max-w-full overflow-x-auto" style={{ gridTemplateRows: 'repeat(7, 18px)', gridAutoFlow: 'column', gridAutoColumns: '18px' }} role="img"
-                aria-label={`${med.name}: ${full !== null ? `all ${target} doses logged on ${full} of ${cells.length} days` : `doses on ${cells.filter((c) => c.count).length} of ${cells.length} days`}`}>
+                aria-label={`${med.name}: ${full !== null ? `all doses logged on ${full} of ${scheduled.length} scheduled days` : `doses on ${cells.filter((c) => c.count).length} of ${cells.length} days`}`}>
                 {Array.from({ length: lead }, (_, i) => <span key={`pad${i}`} />)}
                 {cells.map((c) => {
-                  const level = c.count === 0 ? 0 : target ? (c.count >= target ? 1 : 0.45) : 0.35 + 0.65 * (c.count / max);
-                  const over = !!target && c.count > target;
+                  const t = c.target;
+                  const off = t === 0 && c.count === 0; // not a scheduled day
+                  const level = c.count === 0 ? 0 : t ? (c.count >= t ? 1 : 0.45) : 0.35 + 0.65 * (c.count / max);
+                  const over = !!t && c.count > t;
                   return (
-                    <span key={c.day} title={`${fmtDay(ymdToMs(c.day))}: ${c.count}${target ? ` of ${target}` : ''}`}
-                      className="rounded-[4px] relative" style={{ background: level ? medColour(med.color) : 'var(--surface-2)', opacity: level ? level : 1 }}>
+                    <span key={c.day} title={`${fmtDay(ymdToMs(c.day))}: ${off ? 'not scheduled' : `${c.count}${t ? ` of ${t}` : ''}`}`}
+                      className={`rounded-[4px] relative ${off ? 'border border-dashed border-border' : ''}`}
+                      style={{ background: off ? 'transparent' : level ? medColour(med.color) : 'var(--surface-2)', opacity: level ? level : 1 }}>
                       {over && <span className="absolute inset-[5px] rounded-full" style={{ background: 'var(--surface)' }} />}
                     </span>
                   );
@@ -119,6 +123,7 @@ export function AdherenceHeatmap({ meds, doses, start, end, s }: RangeProps & { 
           );
         })}
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted" aria-hidden="true">
+          <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded-[3px] border border-dashed border-border" /> Not scheduled</span>
           <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded-[3px]" style={{ background: 'var(--surface-2)' }} /> None</span>
           <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded-[3px] bg-text opacity-45" /> Some</span>
           <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded-[3px] bg-text" /> Your daily number</span>

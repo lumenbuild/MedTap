@@ -42,7 +42,8 @@ export function bodyCsv(rows: BodyEntry[]): string {
 
 export function medicationsCsv(meds: Medication[]): string {
   return toCsv(
-    ['name', 'strength', 'unit', 'form', 'usual dose', 'schedule', 'stock', 'archived', 'notes'],
-    meds.map((m) => [m.name, m.strength, m.unit, m.form, m.defaultAmount, fmtSchedule(m.schedule), m.stockCount, m.archived ? 'yes' : 'no', m.scriptNotes ?? '']),
+    ['name', 'strength', 'unit', 'form', 'usual dose', 'schedule', 'stock', 'archived', 'instructions', 'instructions from', 'notes'],
+    meds.map((m) => [m.name, m.strength, m.unit, m.form, m.defaultAmount, fmtSchedule(m.schedule, m.unit), m.stockCount, m.archived ? 'yes' : 'no',
+      m.instructions ?? '', m.instructionsBy ?? '', m.scriptNotes ?? '']),
   );
 }

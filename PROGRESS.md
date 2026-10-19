@@ -3,7 +3,7 @@
 Source of truth for build status. Spec: the owner's HANDOFF document (section numbers below refer to it; add it to the repo as HANDOFF.md).
 
 ## Current phase
-Phase 1 (Meds, tags, dose loop): built, awaiting owner testing on real phones. Next: Phase 2 (backup and safety net).
+All phases (0–5) built, plus flexible schedules and medication instructions. Awaiting owner testing on real phones.
 
 ## Phase 0: done
 - Vite + React 18 + TS + Tailwind (tokens as CSS variables, light/dark/system theme), self-hosted Inter.
@@ -35,10 +35,41 @@ Phase 1 (Meds, tags, dose loop): built, awaiting owner testing on real phones. N
 - Settings: day starts at, double-tap guard window.
 - iPhone home-screen warning banner (dismissible).
 
+## Phase 2: done (backup and safety net)
+- JSON backup of every table incl. tags (photos optional), Web Share or download; restore with preview, Merge (newest
+  `updatedAt` wins) or Replace; CSV per record type; backup reminder after 7 days; "Last backup" in the Today footer.
+- Erase all data (offers a backup first, type ERASE). Help: schedules, tags, iPhone vs Android, reminders, privacy, lock, about.
+- Onboarding (3 screens + add a medication, which leads to linking a tag), skipped when meds exist or for tag taps.
+- Tested: export → erase → restore re-links tags (`tests/backup.test.ts` and the browser run).
+
+## Phase 3: done (check-ins and body)
+- Check-in sheet: mood faces, energy/focus/appetite 1–5, sleep (first check-in of the day), editable chips, note,
+  linked dose (newest within 6 h). Post-dose prompt on Today (delay setting). One-tap mood row on the success screen.
+- Weight and 7 measurements, one entry per day, kg/cm or lb/in (stored metric). Timeline shows doses, check-ins, body.
+
+## Phase 4: done (trends and report)
+- 8 charts with 7D/30D/90D/All, plain-English summaries, "Show as table" on every chart, medication-change markers.
+- Colours: the validated categorical palette (colour-blind safe, light and dark steps) as `--med-1…8`; DB v2 maps
+  Phase 1 colours. Appetite vs weight is two stacked charts on a shared date axis, not a dual-axis chart (misleading).
+- Doctor report (`#/report`): date range, medications, instructions, changes, averages, charts, dose log; print CSS.
+- Charts are lazy-loaded so tag taps don't download Chart.js.
+
+## Phase 5: done (polish)
+- Add to calendar (.ics, alert at start). App lock (PBKDF2 PIN, lock on leave/idle, 30 s back-off, forgot = erase).
+- Progress photos (downscaled, local only, compare side by side). Low-stock banner. Android install card after first dose.
+- Error screen instead of a blank page if something crashes.
+
+## After Phase 5: flexible schedules and instructions (owner request)
+- Every few hours can have a different amount per dose (e.g. 20, 20, 10 mg = 3 doses, 50 mg a day); logging prefills
+  the right amount and shows the tablet count; Today shows "Today: 2 of 3 · 40 mg of 50 mg" and "Next: 10 mg · 1 tablet".
+- Set times each have their own amount. Both schedule kinds can run every day, on certain weekdays, or every N days from
+  a start date. Days that aren't scheduled show "Not scheduled today" and count down across days (e.g. "1d 7h").
+- Non-blocking notes when logging on an unscheduled day or an amount different from the plan.
+- Medication instructions (+ "written by", auto-dated) shown when a tag is tapped and whenever a dose is logged, and in the report.
+- Tests: `tests/plans.test.ts` covers the owner's two examples, fortnightly, weekdays-only.
+
 ## Deferred from Phase 1 to where the spec puts them
-- Success screen "Add to calendar" → Phase 5 (.ics). "How are you feeling?" row → Phase 3 (check-ins).
-- Low-stock banner on Today → Phase 5 (threshold is already stored and shown on the Meds list).
-- iPhone banner "Move my data" button → Phase 2 (needs export/import).
+- All since built (calendar, mood row, low-stock banner, Move my data).
 
 ## Decisions
 - Working title `MedTap` (src/config.ts + vite.config.ts manifest). Change when owner confirms APP_NAME.
@@ -54,6 +85,9 @@ Phase 1 (Meds, tags, dose loop): built, awaiting owner testing on real phones. N
 - Interval: countdown starts from the first dose of the user's day; before it, "No doses yet today".
 - Theme preference is in localStorage (display pref only); records are IndexedDB only.
 - Live data uses Dexie's built-in `liveQuery` via a tiny `useLive` hook (no extra dependency).
+- Check-in scales are five large buttons (1–5) rather than sliders: easier with a thumb and can be left unanswered.
+- An every-few-hours plan with a daily number has no "next dose" once complete (status Done for today).
+- Not supported yet: calendar-month schedules (e.g. the 1st of each month); use every 28/30 days instead.
 
 ## Live
 - https://lumenbuild.github.io/MedTap/ — verified after deploy: loads, service worker installs, tag URL and app work offline,

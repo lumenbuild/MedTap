@@ -51,7 +51,7 @@ describe('4-hour interval schedule', () => {
   it('is done for the day after the third dose', () => {
     const now = syd(day, '15:30');
     expect(getDosesToday(doses, 'm1', now, S)).toHaveLength(3);
-    expect(getNextDue(med(), doses, now, S)).toBe(syd(day, '19:10'));
+    expect(getNextDue(med(), doses, now, S)).toBeNull(); // nothing more planned today
     expect(getStatus(med(), doses, now, S)).toBe('done-today');
   });
 
@@ -144,7 +144,8 @@ describe('backdated doses', () => {
     // A dose logged "earlier" that is actually the latest becomes the last dose.
     const later = dose(syd(day, '15:30'), { source: 'backdated' });
     expect(getLastDose([...all, later], 'm1')?.id).toBe(later.id);
-    expect(getNextDue(med(), [...all, later], syd(day, '16:00'), S)).toBe(syd(day, '19:30'));
+    const uncapped = med({ schedule: { type: 'interval', intervalHours: 4 } });
+    expect(getNextDue(uncapped, [...all, later], syd(day, '16:00'), S)).toBe(syd(day, '19:30'));
   });
 
   it('context notes look back from the chosen time, not now', () => {

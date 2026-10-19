@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react';
-import { BellRing, ChevronRight, Info, Lock, Nfc, ShieldCheck, Smartphone } from 'lucide-react';
+import { BellRing, CalendarClock, ChevronRight, Info, Lock, Nfc, ShieldCheck, Smartphone } from 'lucide-react';
 import { APP_NAME, DISCLAIMER } from '../../config';
 import { tagBase } from '../../nfc/url';
 import { Card } from '../../components/ui/Card';
 
 const TOPICS = [
+  { id: 'schedules', title: 'Setting up a schedule', Icon: CalendarClock },
   { id: 'tags', title: 'Which tags work', Icon: Nfc },
   { id: 'phones', title: 'iPhone and Android', Icon: Smartphone },
   { id: 'reminders', title: 'Reminders', Icon: BellRing },
@@ -37,6 +38,40 @@ export function Help({ topic }: { topic?: string }) {
 const H = ({ children }: { children: ReactNode }) => <h2 className="text-lg font-semibold">{children}</h2>;
 
 const CONTENT: Record<string, ReactNode> = {
+  schedules: (
+    <>
+      <H>Three kinds of schedule</H>
+      <ul className="list-disc pl-5 space-y-1">
+        <li><strong>Every few hours</strong>: the countdown starts from your last dose.</li>
+        <li><strong>Set times</strong>: the same clock times each scheduled day.</li>
+        <li><strong>As needed</strong>: no countdown, just when you last took it.</li>
+      </ul>
+      <p>Enter what your prescriber told you. {APP_NAME} only shows your own settings back to you.</p>
+      <H>Different amounts in one day</H>
+      <p>Example: 20 mg, then 20 mg four hours later, then 10 mg four hours after that (50 mg a day, using 10 mg tablets).</p>
+      <ol className="list-decimal pl-5 space-y-1">
+        <li>Strength: <strong>10 mg</strong>. Schedule: <strong>Every few hours</strong>, hours between doses: <strong>4</strong>.</li>
+        <li>Tick <strong>The amount changes from dose to dose</strong>.</li>
+        <li>1st dose <strong>20</strong>, 2nd dose <strong>20</strong>, Add a dose, 3rd dose <strong>10</strong>.</li>
+      </ol>
+      <p>Each time you log, the right amount is filled in, along with how many tablets that is. Today shows “Today: 2 of 3 · 40 mg of 50 mg”.</p>
+      <H>Certain days of the week</H>
+      <p>Example: an injection of 2.5 mg on Sunday morning and Wednesday morning.</p>
+      <ol className="list-decimal pl-5 space-y-1">
+        <li>Schedule: <strong>Set times</strong>. Time <strong>8:00 am</strong>, amount <strong>2.5</strong>.</li>
+        <li>Which days: <strong>Certain days</strong>, then tap <strong>Su</strong> and <strong>We</strong>.</li>
+      </ol>
+      <p>On other days, Today shows “Not scheduled today” and counts down to the next one.</p>
+      <H>Every few days</H>
+      <p>For something every second day, fortnightly or every 4 weeks, choose <strong>Every few days</strong>, enter the number of days (for example 14) and a day you take it.</p>
+      <H>Set times with different amounts</H>
+      <p>Each set time can have its own amount, such as 10 mg at 8 am and 5 mg at 1 pm. Leave an amount blank to use your usual dose.</p>
+      <H>Instructions</H>
+      <p>Each medication has an Instructions box. Anything typed there, by you, a carer, pharmacist or doctor, shows every time the tag is tapped or a dose is logged.</p>
+      <H>When your prescription changes</H>
+      <p>Edit the medication. {APP_NAME} asks whether to record it as a change on a date, so your charts show when it happened.</p>
+    </>
+  ),
   tags: (
     <>
       <H>Tags that work</H>

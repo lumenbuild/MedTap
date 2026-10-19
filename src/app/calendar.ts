@@ -10,7 +10,7 @@ export function addToCalendar(med: Medication, start: number) {
     uid: `${crypto.randomUUID()}@medtap`,
     start,
     title: `${med.name}: next dose`,
-    description: `Reminder from ${APP_NAME}. Your schedule: ${fmtSchedule(med.schedule)}.`,
+    description: `Reminder from ${APP_NAME}. Your schedule: ${fmtSchedule(med.schedule, med.unit)}.`,
     now: Date.now(),
   });
   if (isIOS) {

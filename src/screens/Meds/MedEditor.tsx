@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, Plus, X } from 'lucide-react';
+import { Check, ClipboardList, Plus, X } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Medication, Schedule, ScheduleType } from '../../db/schema';
 import { db } from '../../db/db';
@@ -12,6 +12,7 @@ import { useToast } from '../../app/toast';
 import { MED_COLOURS, MED_ICONS, medColour, medInk } from '../../logic/palette';
 import { stockUnitsFor } from '../../logic/stock';
 import { fmtAmount, fmtSchedule } from '../../logic/format';
+import { getSlots } from '../../logic/schedule';
 import { APP_NAME } from '../../config';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -23,61 +24,120 @@ import { TagsSection } from './TagsSection';
 const UNITS = ['mg', 'mcg', 'mL', 'units', 'tablet'];
 const FORMS = ['tablet', 'capsule', 'liquid', 'patch', 'injection', 'other'];
 
+type DayMode = 'every' | 'days' | 'everyN';
+
 interface Form {
   name: string; strength: string; unit: string; form: string; defaultAmount: string;
-  type: ScheduleType; intervalHours: string; maxPerDay: string; latestDoseTime: string; times: string[];
+  type: ScheduleType; intervalHours: string; maxPerDay: string; latestDoseTime: string;
+  /** Every few hours: a different amount for each dose of the day. */
+  varyAmounts: boolean; doseAmounts: string[];
+  /** Set times, each with an optional amount. */
+  slots: { time: string; amount: string }[];
+  dayMode: DayMode; days: number[]; everyNDays: string; startDate: string;
   color: string; icon: string; stockCount: string; lowStockAt: string; scriptNotes: string;
+  instructions: string; instructionsBy: string;
 }
+
+const todayYmd = () => format(Date.now(), 'yyyy-MM-dd');
 
 const blank: Form = {
   name: '', strength: '', unit: 'mg', form: 'tablet', defaultAmount: '',
-  type: 'interval', intervalHours: '4', maxPerDay: '', latestDoseTime: '', times: ['08:00'],
+  type: 'interval', intervalHours: '4', maxPerDay: '', latestDoseTime: '',
+  varyAmounts: false, doseAmounts: ['', ''], slots: [{ time: '08:00', amount: '' }],
+  dayMode: 'every', days: [], everyNDays: '14', startDate: todayYmd(),
   color: MED_COLOURS[0].value, icon: 'pill', stockCount: '', lowStockAt: '', scriptNotes: '',
+  instructions: '', instructionsBy: '',
 };
 
 const str = (n?: number) => (n === undefined || n === null ? '' : String(n));
 const num = (s: string) => (s.trim() === '' ? undefined : Number(s));
 
 function fromMed(m: Medication): Form {
+  const sc = m.schedule;
+  const slots = getSlots(m);
   return {
     name: m.name, strength: str(m.strength), unit: m.unit, form: m.form, defaultAmount: str(m.defaultAmount),
-    type: m.schedule.type, intervalHours: str(m.schedule.intervalHours) || '4', maxPerDay: str(m.schedule.maxPerDay),
-    latestDoseTime: m.schedule.latestDoseTime ?? '', times: m.schedule.times?.length ? m.schedule.times : ['08:00'],
+    type: sc.type, intervalHours: str(sc.intervalHours) || '4', maxPerDay: str(sc.maxPerDay), latestDoseTime: sc.latestDoseTime ?? '',
+    varyAmounts: !!sc.doseAmounts?.length, doseAmounts: sc.doseAmounts?.length ? sc.doseAmounts.map(String) : ['', ''],
+    slots: slots.length ? slots.map((x) => ({ time: x.time, amount: str(x.amount) })) : [{ time: '08:00', amount: '' }],
+    dayMode: sc.everyNDays && sc.everyNDays > 1 ? 'everyN' : sc.days?.length ? 'days' : 'every',
+    days: sc.days ?? [], everyNDays: str(sc.everyNDays) || '14', startDate: sc.startDate ?? todayYmd(),
     color: m.color, icon: m.icon, stockCount: str(m.stockCount), lowStockAt: str(m.lowStockAt), scriptNotes: m.scriptNotes ?? '',
+    instructions: m.instructions ?? '', instructionsBy: m.instructionsBy ?? '',
   };
 }
 
-function toInput(f: Form): MedInput {
+function toInput(f: Form, before?: Medication): MedInput {
   let schedule: Schedule;
   if (f.type === 'interval') {
-    schedule = { type: 'interval', intervalHours: Number(f.intervalHours), maxPerDay: num(f.maxPerDay), latestDoseTime: f.latestDoseTime || undefined };
+    const amounts = f.varyAmounts ? f.doseAmounts.filter((a) => a.trim()).map(Number) : [];
+    schedule = {
+      type: 'interval', intervalHours: Number(f.intervalHours), latestDoseTime: f.latestDoseTime || undefined,
+      doseAmounts: amounts.length ? amounts : undefined, maxPerDay: amounts.length ? undefined : num(f.maxPerDay),
+    };
   } else if (f.type === 'fixed') {
-    const times = [...new Set(f.times.filter(Boolean))].sort();
-    schedule = { type: 'fixed', times, maxPerDay: num(f.maxPerDay) };
+    const seen = new Set<string>();
+    const slots = f.slots.filter((x) => x.time && !seen.has(x.time) && seen.add(x.time))
+      .map((x) => ({ time: x.time, amount: num(x.amount) }))
+      .sort((a, b) => a.time.localeCompare(b.time));
+    schedule = { type: 'fixed', slots };
   } else {
     schedule = { type: 'prn' };
   }
+  if (f.type !== 'prn') {
+    if (f.dayMode === 'days' && f.days.length && f.days.length < 7) schedule.days = [...f.days].sort((a, b) => a - b);
+    if (f.dayMode === 'everyN') { schedule.everyNDays = Number(f.everyNDays); schedule.startDate = f.startDate; }
+  }
+  // Usual dose can be left blank when the plan gives every amount; it then defaults to the first planned amount.
+  const planned = schedule.doseAmounts?.[0] ?? schedule.slots?.find((x) => x.amount !== undefined)?.amount;
+  const instructions = f.instructions.trim() || undefined;
   return {
     name: f.name.trim(), strength: Number(f.strength) || 0, unit: f.unit, form: f.form,
-    defaultAmount: Number(f.defaultAmount), schedule, color: f.color, icon: f.icon,
+    defaultAmount: Number(f.defaultAmount) || planned || 0, schedule, color: f.color, icon: f.icon,
     stockCount: num(f.stockCount), lowStockAt: num(f.lowStockAt), scriptNotes: f.scriptNotes.trim() || undefined,
+    instructions, instructionsBy: instructions ? f.instructionsBy.trim() || undefined : undefined,
+    instructionsUpdatedAt: !instructions ? undefined
+      : instructions === before?.instructions?.trim() ? before?.instructionsUpdatedAt : new Date().toISOString(),
   };
 }
 
-function validate(f: Form): Partial<Record<keyof Form, string>> {
-  const e: Partial<Record<keyof Form, string>> = {};
+type Errors = Partial<Record<keyof Form | `dose${number}` | `slot${number}`, string>>;
+
+function validate(f: Form): Errors {
+  const e: Errors = {};
   const pos = (s: string) => s.trim() !== '' && Number(s) > 0;
   const posOrBlank = (s: string) => s.trim() === '' || Number(s) > 0;
   if (!f.name.trim()) e.name = 'Enter a name.';
   if (!posOrBlank(f.strength)) e.strength = 'Enter a number above 0, or leave it blank.';
-  if (!pos(f.defaultAmount)) e.defaultAmount = 'Enter how much you usually take.';
-  if (f.type === 'interval' && !pos(f.intervalHours)) e.intervalHours = 'Enter how many hours apart.';
-  if (f.type !== 'prn' && f.maxPerDay.trim() && !(Number.isInteger(Number(f.maxPerDay)) && Number(f.maxPerDay) > 0)) e.maxPerDay = 'Enter a whole number, or leave it blank.';
-  if (f.type === 'fixed' && !f.times.some(Boolean)) e.times = 'Add at least one time.';
+  const planCoversAmounts = (f.type === 'interval' && f.varyAmounts && f.doseAmounts.some((a) => pos(a)))
+    || (f.type === 'fixed' && f.slots.every((x) => pos(x.amount)));
+  if (!pos(f.defaultAmount) && !(planCoversAmounts && f.defaultAmount.trim() === '')) e.defaultAmount = 'Enter how much you usually take.';
+  if (f.type === 'interval') {
+    if (!pos(f.intervalHours)) e.intervalHours = 'Enter how many hours apart.';
+    if (f.varyAmounts) {
+      f.doseAmounts.forEach((a, i) => { if (!pos(a)) e[`dose${i}`] = 'Enter an amount, or remove this dose.'; });
+    } else if (f.maxPerDay.trim() && !(Number.isInteger(Number(f.maxPerDay)) && Number(f.maxPerDay) > 0)) {
+      e.maxPerDay = 'Enter a whole number, or leave it blank.';
+    }
+  }
+  if (f.type === 'fixed') {
+    if (!f.slots.some((x) => x.time)) e.slots = 'Add at least one time.';
+    f.slots.forEach((x, i) => { if (!posOrBlank(x.amount)) e[`slot${i}`] = 'Enter an amount above 0, or leave it blank for your usual dose.'; });
+    const times = f.slots.map((x) => x.time).filter(Boolean);
+    if (new Set(times).size !== times.length) e.slots = 'Each time can only be listed once.';
+  }
+  if (f.type !== 'prn' && f.dayMode === 'days' && !f.days.length) e.days = 'Choose at least one day.';
+  if (f.type !== 'prn' && f.dayMode === 'everyN') {
+    if (!(Number.isInteger(Number(f.everyNDays)) && Number(f.everyNDays) >= 2)) e.everyNDays = 'Enter a whole number of days, 2 or more.';
+    if (!f.startDate) e.startDate = 'Choose a day you take it.';
+  }
   if (f.stockCount.trim() && !(Number(f.stockCount) >= 0)) e.stockCount = 'Enter a number, or leave it blank.';
   if (f.lowStockAt.trim() && !(Number(f.lowStockAt) >= 0)) e.lowStockAt = 'Enter a number, or leave it blank.';
   return e;
 }
+
+const ORDINAL = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'];
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 /** What changed in strength, dose or schedule, in words. Empty when nothing did. */
 function describeChange(before: Medication, after: MedInput): string[] {
@@ -86,8 +146,8 @@ function describeChange(before: Medication, after: MedInput): string[] {
     out.push(`Strength ${fmtAmount(before.strength, before.unit)} → ${fmtAmount(after.strength, after.unit)}`);
   if (before.defaultAmount !== after.defaultAmount)
     out.push(`Dose ${fmtAmount(before.defaultAmount, before.unit)} → ${fmtAmount(after.defaultAmount, after.unit)}`);
-  if (fmtSchedule(before.schedule) !== fmtSchedule(after.schedule))
-    out.push(`Schedule ${fmtSchedule(before.schedule)} → ${fmtSchedule(after.schedule)}`);
+  if (fmtSchedule(before.schedule, before.unit) !== fmtSchedule(after.schedule, after.unit))
+    out.push(`Schedule ${fmtSchedule(before.schedule, before.unit)} → ${fmtSchedule(after.schedule, after.unit)}`);
   return out;
 }
 
@@ -119,11 +179,11 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
   }
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF((p) => ({ ...p, [k]: v }));
-  const errors = tried ? validate(f) : {};
+  const errors: Errors = tried ? validate(f) : {};
   const amountLabel = f.unit === 'tablet' ? 'tablets' : f.unit;
 
   const save = async (record?: { date: string; lines: string[] }) => {
-    const input = toInput(f);
+    const input = toInput(f, existing ?? undefined);
     if (existing) {
       const at = record ? new Date(`${record.date}T${format(Date.now(), 'HH:mm')}`).toISOString() : undefined;
       await updateMed(existing.id, input, record && at ? {
@@ -153,7 +213,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
       return;
     }
     if (existing) {
-      const lines = describeChange(existing, toInput(f));
+      const lines = describeChange(existing, toInput(f, existing));
       if (lines.length) { setChange({ lines, date: format(Date.now(), 'yyyy-MM-dd') }); return; }
     }
     save();
@@ -197,8 +257,6 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
           <h2 className="text-lg font-semibold">From your prescription</h2>
           <p className="text-sm text-muted mt-1">Enter what your prescriber told you. {APP_NAME} only reminds you of your own settings.</p>
         </div>
-        <TextInput label={`Usual dose (${amountLabel})`} type="number" inputMode="decimal" min="0" step="any" value={f.defaultAmount}
-          onChange={(e) => set('defaultAmount', e.target.value)} error={errors.defaultAmount} help="Filled in each time you log. You can change it when logging." />
         <div className="space-y-1.5">
           <span className="block text-sm font-medium">Schedule</span>
           <Segmented<ScheduleType> label="Schedule" value={f.type} onChange={(v) => set('type', v)}
@@ -209,13 +267,49 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
           <>
             <TextInput label="Hours between doses" type="number" inputMode="decimal" min="0" step="0.5" value={f.intervalHours}
               onChange={(e) => set('intervalHours', e.target.value)} error={errors.intervalHours} />
-            <TextInput label="Most doses in a day (optional)" type="number" inputMode="numeric" min="1" step="1" value={f.maxPerDay}
-              onChange={(e) => set('maxPerDay', e.target.value)} error={errors.maxPerDay} help="Shown as “Today: 2 of 3”." />
+            <label className="flex items-start gap-3 min-h-[48px] py-1">
+              <input type="checkbox" checked={f.varyAmounts} onChange={(e) => set('varyAmounts', e.target.checked)} className="w-5 h-5 mt-0.5 accent-[var(--primary)]" />
+              <span><span className="block font-medium">The amount changes from dose to dose</span>
+                <span className="block text-sm text-muted">For example 20 mg, then 20 mg, then 10 mg.</span></span>
+            </label>
+            {f.varyAmounts ? (
+              <div className="space-y-2">
+                {f.doseAmounts.map((a, i) => (
+                  <div key={i}>
+                    <div className="flex gap-2 items-center">
+                      <label htmlFor={`dose${i}`} className="w-24 shrink-0 text-sm font-medium">{ORDINAL[i] ?? `${i + 1}th`} dose</label>
+                      <input id={`dose${i}`} type="number" inputMode="decimal" min="0" step="any" value={a} aria-invalid={!!errors[`dose${i}`]}
+                        onChange={(e) => set('doseAmounts', f.doseAmounts.map((x, j) => (j === i ? e.target.value : x)))}
+                        className="flex-1 min-w-0 min-h-[48px] rounded-btn bg-surface-2 border border-border px-3 tnum" />
+                      <span className="w-14 text-muted">{amountLabel}</span>
+                      {f.doseAmounts.length > 1 && (
+                        <button type="button" onClick={() => set('doseAmounts', f.doseAmounts.filter((_, j) => j !== i))} aria-label={`Remove ${ORDINAL[i]} dose`}
+                          className="w-12 h-12 shrink-0 rounded-btn bg-surface-2 flex items-center justify-center"><X size={20} aria-hidden="true" /></button>
+                      )}
+                    </div>
+                    {errors[`dose${i}`] && <p className="text-sm text-danger mt-1" role="alert">{errors[`dose${i}`]}</p>}
+                  </div>
+                ))}
+                {f.doseAmounts.length < 12 && (
+                  <Button variant="secondary" className="flex items-center gap-2" onClick={() => set('doseAmounts', [...f.doseAmounts, ''])}>
+                    <Plus size={18} aria-hidden="true" /> Add a dose
+                  </Button>
+                )}
+                <p className="text-sm text-muted tnum">
+                  {f.doseAmounts.length} dose{f.doseAmounts.length === 1 ? '' : 's'} a day
+                  {f.doseAmounts.every((a) => Number(a) > 0) ? `, ${fmtAmount(f.doseAmounts.reduce((t, a) => t + Number(a), 0), f.unit)} in total` : ''}.
+                  Logging fills in the right amount for each dose.
+                </p>
+              </div>
+            ) : (
+              <TextInput label="Most doses in a day (optional)" type="number" inputMode="numeric" min="1" step="1" value={f.maxPerDay}
+                onChange={(e) => set('maxPerDay', e.target.value)} error={errors.maxPerDay} help="Shown as “Today: 2 of 3”." />
+            )}
             <div className="space-y-1.5">
               <label htmlFor="latest" className="block text-sm font-medium">Latest dose time (optional)</label>
               <div className="flex gap-2">
                 <input id="latest" type="time" value={f.latestDoseTime} onChange={(e) => set('latestDoseTime', e.target.value)}
-                  className="flex-1 min-h-[48px] rounded-btn bg-surface-2 border border-border px-3 tnum" />
+                  className="flex-1 min-w-0 min-h-[48px] rounded-btn bg-surface-2 border border-border px-3 tnum" />
                 {f.latestDoseTime && <Button variant="secondary" onClick={() => set('latestDoseTime', '')}>Clear</Button>}
               </div>
               <p className="text-sm text-muted">For example, if you were told not to take it after 4 pm.</p>
@@ -225,26 +319,94 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
 
         {f.type === 'fixed' && (
           <div className="space-y-2">
-            <span className="block text-sm font-medium">Times</span>
-            {f.times.map((t, i) => (
-              <div key={i} className="flex gap-2">
-                <input type="time" aria-label={`Time ${i + 1}`} value={t}
-                  onChange={(e) => set('times', f.times.map((x, j) => (j === i ? e.target.value : x)))}
-                  className="flex-1 min-h-[48px] rounded-btn bg-surface-2 border border-border px-3 tnum" />
-                {f.times.length > 1 && (
-                  <button type="button" onClick={() => set('times', f.times.filter((_, j) => j !== i))} aria-label={`Remove time ${i + 1}`}
-                    className="w-12 h-12 rounded-btn bg-surface-2 flex items-center justify-center"><X size={20} aria-hidden="true" /></button>
-                )}
+            <div className="grid grid-cols-[1fr_1fr_48px] gap-2 text-sm font-medium" aria-hidden="true">
+              <span>Time</span><span>Amount ({amountLabel})</span><span />
+            </div>
+            {f.slots.map((x, i) => (
+              <div key={i}>
+                <div className="grid grid-cols-[1fr_1fr_48px] gap-2">
+                  <input type="time" aria-label={`Time ${i + 1}`} value={x.time}
+                    onChange={(e) => set('slots', f.slots.map((y, j) => (j === i ? { ...y, time: e.target.value } : y)))}
+                    className="flex-1 min-w-0 min-h-[48px] rounded-btn bg-surface-2 border border-border px-3 tnum" />
+                  <input type="number" inputMode="decimal" min="0" step="any" aria-label={`Amount at time ${i + 1}`} placeholder={f.defaultAmount || 'Usual'}
+                    value={x.amount} aria-invalid={!!errors[`slot${i}`]}
+                    onChange={(e) => set('slots', f.slots.map((y, j) => (j === i ? { ...y, amount: e.target.value } : y)))}
+                    className="flex-1 min-w-0 min-h-[48px] rounded-btn bg-surface-2 border border-border px-3 tnum" />
+                  {f.slots.length > 1 ? (
+                    <button type="button" onClick={() => set('slots', f.slots.filter((_, j) => j !== i))} aria-label={`Remove time ${i + 1}`}
+                      className="w-12 h-12 rounded-btn bg-surface-2 flex items-center justify-center"><X size={20} aria-hidden="true" /></button>
+                  ) : <span />}
+                </div>
+                {errors[`slot${i}`] && <p className="text-sm text-danger mt-1" role="alert">{errors[`slot${i}`]}</p>}
               </div>
             ))}
-            {errors.times && <p className="text-sm text-danger" role="alert">{errors.times}</p>}
-            <Button variant="secondary" className="flex items-center gap-2" onClick={() => set('times', [...f.times, ''])}>
+            {errors.slots && <p className="text-sm text-danger" role="alert">{errors.slots}</p>}
+            <Button variant="secondary" className="flex items-center gap-2" onClick={() => set('slots', [...f.slots, { time: '', amount: '' }])}>
               <Plus size={18} aria-hidden="true" /> Add a time
             </Button>
+            <p className="text-sm text-muted">Leave an amount blank to use your usual dose. Different times can have different amounts.</p>
           </div>
         )}
 
         {f.type === 'prn' && <p className="text-sm text-muted">No countdown. Today shows when you last took it.</p>}
+
+        {f.type !== 'prn' && (
+          <div className="space-y-3 pt-1">
+            <div className="space-y-1.5">
+              <span className="block text-sm font-medium">Which days</span>
+              <Segmented<DayMode> label="Which days" value={f.dayMode} onChange={(v) => set('dayMode', v)}
+                options={[{ value: 'every', label: 'Every day' }, { value: 'days', label: 'Certain days' }, { value: 'everyN', label: 'Every few days' }]} />
+            </div>
+            {f.dayMode === 'days' && (
+              <div>
+                <div className="grid grid-cols-7 gap-1" role="group" aria-label="Days of the week">
+                  {DAY_NAMES.map((name, d) => {
+                    const on = f.days.includes(d);
+                    return (
+                      <button key={d} type="button" aria-pressed={on} aria-label={name}
+                        onClick={() => set('days', on ? f.days.filter((x) => x !== d) : [...f.days, d])}
+                        className={`min-h-[48px] rounded-btn font-semibold ${on ? 'bg-primary text-on-primary' : 'bg-surface-2'}`}>
+                        {name.slice(0, 2)}
+                      </button>
+                    );
+                  })}
+                </div>
+                {errors.days && <p className="text-sm text-danger mt-1" role="alert">{errors.days}</p>}
+                <div className="flex gap-2 mt-2">
+                  <button type="button" className="min-h-[44px] px-3 rounded-chip bg-surface-2 text-sm font-medium" onClick={() => set('days', [1, 2, 3, 4, 5])}>Weekdays</button>
+                  <button type="button" className="min-h-[44px] px-3 rounded-chip bg-surface-2 text-sm font-medium" onClick={() => set('days', [0, 6])}>Weekends</button>
+                </div>
+              </div>
+            )}
+            {f.dayMode === 'everyN' && (
+              <div className="grid grid-cols-2 gap-3 items-start">
+                <TextInput label="Every how many days" type="number" inputMode="numeric" min="2" step="1" value={f.everyNDays}
+                  onChange={(e) => set('everyNDays', e.target.value)} error={errors.everyNDays} help="14 = fortnightly" />
+                <TextInput label="Starting on" type="date" value={f.startDate} onChange={(e) => set('startDate', e.target.value)}
+                  error={errors.startDate} help="A day you take it" />
+              </div>
+            )}
+          </div>
+        )}
+
+        <TextInput label={`Usual dose (${amountLabel})${(f.type === 'interval' && f.varyAmounts) || f.type === 'fixed' ? ' (optional)' : ''}`}
+          type="number" inputMode="decimal" min="0" step="any" value={f.defaultAmount}
+          onChange={(e) => set('defaultAmount', e.target.value)} error={errors.defaultAmount}
+          help={f.type === 'interval' && f.varyAmounts ? 'Used for any extra doses beyond the plan. Leave blank to use the 1st dose amount.'
+            : f.type === 'fixed' ? 'Used for any time without its own amount.' : 'Filled in each time you log. You can change it when logging.'} />
+      </Card>
+
+      <Card className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold flex items-center gap-2"><ClipboardList size={20} className="text-primary" aria-hidden="true" /> Instructions</h2>
+          <p className="text-sm text-muted mt-1">Shown every time this medication is tapped or logged. You, a carer, pharmacist or doctor can write them.</p>
+        </div>
+        <TextArea label="Instructions (optional)" value={f.instructions} onChange={(e) => set('instructions', e.target.value)} rows={4}
+          placeholder="For example: Take with food. Swallow whole, don't crush." />
+        {f.instructions.trim() && (
+          <TextInput label="Written by (optional)" value={f.instructionsBy} onChange={(e) => set('instructionsBy', e.target.value)}
+            placeholder="e.g. Pharmacist, Dr Lee, Mum" autoComplete="off" />
+        )}
       </Card>
 
       <Card className="space-y-4">
