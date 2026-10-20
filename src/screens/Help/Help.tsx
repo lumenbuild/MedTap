@@ -47,6 +47,9 @@ const CONTENT: Record<string, ReactNode> = {
       <p>On Today, <strong>Everyone</strong> shows every person's medications at once, each card labelled with whose it is. Handy when you're giving doses to several people.</p>
       <H>Tags</H>
       <p>A tag always belongs to one person's medication. When it's tapped, the screen says <strong>For Sam</strong> (or whoever) in large text, so a dose is never logged against the wrong person. Calendar reminders include the name too.</p>
+      <H>Shared medications</H>
+      <p>For something everyone uses, like Panadol, choose <strong>Shared</strong> under “Who is this for?”. There's one stock count for the bottle, and each time it's logged you choose who took it. A tag tap always asks, so it's never logged for the wrong person.</p>
+      <p>Each person's “last taken”, count for the day and double-tap check only look at their own doses, so one person taking it doesn't hold up another. Each person's charts and report show only their own doses.</p>
       <H>Removing someone</H>
       <p>To avoid losing history by accident, a person can only be removed once their medications and entries have been deleted. Archiving a medication keeps its history.</p>
     </>

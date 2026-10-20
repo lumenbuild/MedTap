@@ -107,6 +107,10 @@ skipped doses, refill forecasting, encrypted and automatic backups. Awaiting own
 - Tag taps: "For Sam" shown prominently; Done switches Today to that person. "New tag found" lists whose each med is.
   Calendar reminders are titled "Sam: …". CSV exports have a person column. People are in backups.
 - A person can only be removed once they have no medications/records (prevents losing history by accident).
+- Shared medications (`medication.shared`, e.g. Panadol): listed for everyone with one stock count; each dose stores who
+  took it (`dose.personId`). Logging asks "Who's taking it?" (no default after a tag tap; the current person from Today).
+  `dosesForPerson()` gives each person's view, so last dose, today's count, double-tap guard, notes, charts and reports
+  are per person. Forecast uses everyone's recent use. Everyone view: "Shared · last taken by …".
 
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).

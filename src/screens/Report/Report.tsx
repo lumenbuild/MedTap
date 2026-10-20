@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { Printer } from 'lucide-react';
 import { useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings } from '../../app/data';
-import { personOf } from '../../db/repos/people';
+import { dosesForPerson, medIsFor, personOf } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { APP_NAME } from '../../config';
 import { fmtAmount, fmtMedName, fmtSchedule } from '../../logic/format';
@@ -32,9 +32,10 @@ export function Report() {
 
   if (!allMeds || !allDoses || !allCheckIns || !allBody || !allEvents || !ss || !fam) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
   // Only the chosen family member's records.
-  const meds = allMeds.filter((m) => personOf(m) === fam.personId);
+  // Their medications plus shared ones, counting only their own doses of shared medications.
+  const meds = allMeds.filter((m) => medIsFor(m, fam.personId));
   const medIds = new Set(meds.map((m) => m.id));
-  const doses = allDoses.filter((d) => medIds.has(d.medicationId));
+  const doses = dosesForPerson(allDoses.filter((d) => medIds.has(d.medicationId)), meds, fam.personId);
   const checkIns = allCheckIns.filter((c) => personOf(c) === fam.personId);
   const body = allBody.filter((b) => personOf(b) === fam.personId);
   const events = allEvents.filter((e) => medIds.has(e.medicationId));
@@ -44,7 +45,8 @@ export function Report() {
   const end = Math.min(new Date(`${to}T23:59:59`).getTime(), Date.now());
   const inRange = (iso: string) => { const t = Date.parse(iso); return t >= start && t <= end; };
   const rangeDoses = doses.filter((d) => !d.deletedAt && inRange(d.takenAt)).sort((a, b) => a.takenAt.localeCompare(b.takenAt));
-  const usedMeds = meds.filter((m) => !m.archived || rangeDoses.some((d) => d.medicationId === m.id));
+  // Shared medications only appear if this person took them in the range.
+  const usedMeds = meds.filter((m) => (!m.archived && !m.shared) || rangeDoses.some((d) => d.medicationId === m.id));
   const medById = new Map(meds.map((m) => [m.id, m]));
   const days = daysBetween(start, end, s);
   const rangeEvents = events.filter((e) => inRange(e.at)).sort((a, b) => a.at.localeCompare(b.at));

@@ -50,7 +50,8 @@ export function Timeline({ doses, checkIns, body, meds, s, units, now, onDose, o
               sub = it.dose.skipped ? it.dose.skipReason : it.dose.source === 'backdated' ? 'Logged later' : undefined;
               extra = it.dose.source === 'tag' ? <Nfc size={16} className="text-muted" aria-label="Logged with a tag" /> : null;
               onClick = () => onDose(it.dose);
-              if (personLabel) sub = [personLabel(med), sub].filter(Boolean).join(' · ');
+              // Shared medications: label with who took this dose.
+              if (personLabel) sub = [personLabel(med.shared ? it.dose : med), sub].filter(Boolean).join(' · ');
             } else if (it.kind === 'checkin') {
               const c = it.checkIn;
               icon = <Smile size={20} className="text-primary shrink-0" aria-hidden="true" />;

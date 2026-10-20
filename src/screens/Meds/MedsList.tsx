@@ -3,7 +3,7 @@ import { isPrivate, shownColour, shownMedName } from '../../logic/privacy';
 import { format } from 'date-fns';
 import type { Medication, Tag } from '../../db/schema';
 import { useDoses, useFamily, useMeds, useScheduleSettings, useSettings, useTags } from '../../app/data';
-import { personOf } from '../../db/repos/people';
+import { medIsFor } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
 import { forecastRunOut, nextPlannedChange } from '../../logic/plans';
@@ -27,7 +27,7 @@ export function MedsList() {
   const fam = useFamily();
   if (!meds || !tags || !settings || !doses || !ss || !fam) return <div className="h-40 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
 
-  const theirs = meds.filter((m) => personOf(m) === fam.personId);
+  const theirs = meds.filter((m) => medIsFor(m, fam.personId));
   const active = theirs.filter((m) => !m.archived);
   const archived = theirs.filter((m) => m.archived);
 
@@ -75,7 +75,7 @@ function MedRow({ med, tags, doses, s, now }: { med: Medication; tags: Tag[]; do
       <a href={`#/meds/${med.id}`} className="bg-surface rounded-card shadow-card p-4 flex items-center gap-3">
         <MedBadge color={shownColour(med)} icon={med.icon} />
         <span className="flex-1 min-w-0">
-          <span className="block font-semibold truncate">{shownMedName(med)}{isPrivate(med) && <span className="ml-2 text-xs font-medium text-muted">Nickname</span>}</span>
+          <span className="block font-semibold truncate">{shownMedName(med)}{isPrivate(med) && <span className="ml-2 text-xs font-medium text-muted">Nickname</span>}{med.shared && <span className="ml-2 text-xs font-medium text-primary">Shared</span>}</span>
           <span className="block text-sm text-muted">{fmtSchedule(med.schedule, med.unit)}</span>
           <span className="block text-sm text-muted tnum">
             {n === 0 ? 'No tag yet' : `${n} tag${n === 1 ? '' : 's'} linked`}

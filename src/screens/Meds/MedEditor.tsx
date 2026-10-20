@@ -57,7 +57,7 @@ function fromMed(m: Medication): Form {
     color: m.color, icon: m.icon, stockCount: str(m.stockCount), lowStockAt: str(m.lowStockAt), scriptNotes: m.scriptNotes ?? '',
     repeatsLeft: str(m.repeatsLeft), scriptExpiry: m.scriptExpiry ?? '',
     instructions: m.instructions ?? '', instructionsBy: m.instructionsBy ?? '', nickname: m.nickname ?? '',
-    personId: personOf(m),
+    personId: m.shared ? 'shared' : personOf(m),
   };
 }
 
@@ -65,7 +65,8 @@ function toInput(f: Form, before?: Medication): MedInput {
   const { schedule, defaultAmount } = scheduleFromForm(f);
   const instructions = f.instructions.trim() || undefined;
   return {
-    personId: storedPerson(f.personId || DEFAULT_PERSON),
+    shared: f.personId === 'shared' || undefined,
+    personId: f.personId === 'shared' ? undefined : storedPerson(f.personId || DEFAULT_PERSON),
     name: f.name.trim(), nickname: f.nickname.trim() || undefined, strength: Number(f.strength) || 0, unit: f.unit, form: f.form,
     defaultAmount, schedule, color: f.color, icon: f.icon,
     stockCount: num(f.stockCount), lowStockAt: num(f.lowStockAt), scriptNotes: f.scriptNotes.trim() || undefined,
@@ -197,8 +198,10 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
           {FORMS.map((x) => <option key={x} value={x}>{x[0].toUpperCase() + x.slice(1)}</option>)}
         </Select>
         {fam?.many && (
-          <Select label="Who is this for?" value={f.personId || fam.personId} onChange={(e) => set('personId', e.target.value)}>
+          <Select label="Who is this for?" value={f.personId || fam.personId} onChange={(e) => set('personId', e.target.value)}
+            help={f.personId === 'shared' ? "One stock count for everyone. When it's logged, you choose who took it, and each person's count and history are their own." : undefined}>
             {fam.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            <option value="shared">Shared (anyone in the family)</option>
           </Select>
         )}
       </Card>

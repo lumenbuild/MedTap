@@ -20,6 +20,8 @@ export interface NewDose {
   note?: string;
   skipped?: boolean;
   skipReason?: string;
+  /** Who took it (shared medications). */
+  personId?: string;
 }
 
 /** Save a dose and take it off the stock count. */

@@ -24,7 +24,7 @@ const me: PersonName = () => 'Me';
 export function dosesCsv(doses: Dose[], meds: Medication[], person: PersonName = me): string {
   const m = new Map(meds.map((x) => [x.id, x]));
   const rows = doses.filter((d) => !d.deletedAt).sort((a, b) => a.takenAt.localeCompare(b.takenAt))
-    .map((d) => [person(m.get(d.medicationId)?.personId), day(d.takenAt), time(d.takenAt), m.get(d.medicationId)?.name ?? '', d.skipped ? '' : d.amount, m.get(d.medicationId)?.unit ?? '',
+    .map((d) => [person(m.get(d.medicationId)?.shared ? d.personId : m.get(d.medicationId)?.personId), day(d.takenAt), time(d.takenAt), m.get(d.medicationId)?.name ?? '', d.skipped ? '' : d.amount, m.get(d.medicationId)?.unit ?? '',
       d.source, d.skipped ? 'yes' : '', d.skipReason ?? '', d.note ?? '']);
   return toCsv(['person', 'date', 'time', 'medication', 'amount', 'unit', 'how logged', 'skipped', 'skip reason', 'note'], rows);
 }

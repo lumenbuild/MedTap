@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Clock, Info } from 'lucide-react';
-import type { Dose, Medication } from '../db/schema';
+import type { Dose, Medication, Person } from '../db/schema';
+import { personOf, storedPerson } from '../db/repos/people';
+import { PersonBadge } from './PersonSwitcher';
 import { logDose } from '../db/repos/doses';
 import { FIXED_MATCH_MS, getContextNotes, getExpectedAmount, getFixedSlots, getLastDose, getRecentDose, type ContextNote, type ScheduleSettings } from '../logic/schedule';
 import { stockUnitsFor } from '../logic/stock';
@@ -28,10 +30,18 @@ function noteText(n: ContextNote, isNow: boolean, unit: string): string {
 }
 
 /** Amount, time and context notes, then Log dose. Shows the double-tap guard first when this med was just logged. */
-export function LogDoseFlow({ med, doses, s, now, tagId, onLogged, onCancel }: {
+export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, onLogged, onCancel, people, defaultPersonId = null }: {
   med: Medication; doses: Dose[]; s: ScheduleSettings; now: number; tagId?: string;
   onLogged: (d: Dose) => void; onCancel: () => void;
+  /** Family members to choose from when the medication is shared (2+ people). */
+  people?: Pick<Person, 'id' | 'name'>[];
+  /** Who's preselected for a shared medication; null = they must choose (e.g. after a tag tap). */
+  defaultPersonId?: string | null;
 }) {
+  const choosing = !!med.shared && !!people && people.length > 1;
+  const [who, setWho] = useState<string | null>(choosing ? defaultPersonId : null);
+  // For a shared medication, everything below (guard, plan, notes, last dose) looks only at this person's doses.
+  const doses = choosing && who ? allDoses.filter((d) => d.medicationId !== med.id || personOf(d) === who) : allDoses;
   // The amount follows the plan for this dose (e.g. 20, 20, then 10 mg) until the person changes it.
   const [amountEdit, setAmountEdit] = useState<number | null>(null);
   const [earlier, setEarlier] = useState(false);
@@ -42,10 +52,34 @@ export function LogDoseFlow({ med, doses, s, now, tagId, onLogged, onCancel }: {
   const [reason, setReason] = useState('');
   const [skipNote, setSkipNote] = useState('');
 
+  const whoPicker = choosing && (
+    <fieldset>
+      <legend className="text-sm font-medium mb-2">Who's taking it?</legend>
+      <div role="radiogroup" aria-label="Who's taking it?" className="flex flex-wrap gap-2">
+        {people!.map((p) => (
+          <button key={p.id} type="button" role="radio" aria-checked={who === p.id} onClick={() => { setWho(p.id); setOverride(false); setAmountEdit(null); }}
+            className={`min-h-[48px] pl-1.5 pr-4 rounded-chip flex items-center gap-2 font-medium border ${who === p.id ? 'bg-primary text-on-primary border-primary' : 'bg-surface border-border'}`}>
+            <PersonBadge name={p.name} size={34} /> {p.name}
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
+  if (choosing && !who) {
+    return (
+      <div className="space-y-4">
+        <MedInstructions med={med} />
+        {whoPicker}
+        <p className="text-sm text-muted">This medication is shared. Choose who's taking it so it's logged for the right person.</p>
+      </div>
+    );
+  }
+
   const recent = getRecentDose(doses, med.id, now, s.guardMinutes);
   if (recent && !override) {
     return (
       <div className="space-y-4">
+        {whoPicker}
         <div className="rounded-btn bg-caution-soft p-4 flex gap-3">
           <Info className="text-caution shrink-0 mt-0.5" aria-hidden="true" />
           <p>
@@ -77,6 +111,7 @@ export function LogDoseFlow({ med, doses, s, now, tagId, onLogged, onCancel }: {
         amount,
         source: earlier && now - takenAt > 2 * 60_000 ? 'backdated' : tagId ? 'tag' : 'manual',
         tagId,
+        personId: choosing && who ? storedPerson(who) : undefined,
       });
       if (canVibrate) navigator.vibrate(30);
       navigator.storage?.persist?.().catch(() => {}); // ask the browser to keep data once there's something worth keeping
@@ -98,7 +133,7 @@ export function LogDoseFlow({ med, doses, s, now, tagId, onLogged, onCancel }: {
       }
       const dose = await logDose({
         medicationId: med.id, takenAt: new Date(at).toISOString(), amount: amount > 0 ? amount : med.defaultAmount,
-        source: earlier ? 'backdated' : 'manual', tagId, skipped: true,
+        source: earlier ? 'backdated' : 'manual', tagId, skipped: true, personId: choosing && who ? storedPerson(who) : undefined,
         skipReason: [reason, skipNote.trim()].filter(Boolean).join(': ') || undefined,
       });
       onLogged(dose);
@@ -136,6 +171,7 @@ export function LogDoseFlow({ med, doses, s, now, tagId, onLogged, onCancel }: {
   return (
     <div className="space-y-5">
       <MedInstructions med={med} />
+      {whoPicker}
       {last && (
         <p className="text-muted tnum">
           Last dose {fmtAgo(now - Date.parse(last.takenAt))} · {fmtWhen(Date.parse(last.takenAt), now)}

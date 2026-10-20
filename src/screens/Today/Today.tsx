@@ -3,13 +3,13 @@ import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { CalendarPlus, Lock, Nfc, Pill, Ruler, Scale, Smile } from 'lucide-react';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
 import { useBodyEntries, useCheckIns, useDoses, useFamily, useMeds, useScheduleSettings } from '../../app/data';
-import { personOf } from '../../db/repos/people';
+import { dosesForPerson, medIsFor, personOf } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
 import { useToast } from '../../app/toast';
 import { go } from '../../app/router';
 import { addToCalendar } from '../../app/calendar';
-import { byUrgency, getNextDue, getStatus } from '../../logic/schedule';
+import { byUrgency, getLastDose, getNextDue, getStatus } from '../../logic/schedule';
 import { checkInPromptDose, needsBackup, refillAlerts } from '../../logic/reminders';
 import { RefillCards } from '../../components/Refill';
 import { fmtAgo, fmtAmount, fmtTime, fmtWhen } from '../../logic/format';
@@ -47,13 +47,20 @@ export function Today() {
   const [settings, s] = ss;
   // Whose medications are shown: one family member, or everyone (carer view, each card labelled).
   const mine = <T extends { personId?: string }>(r: T) => fam.everyone || personOf(r) === fam.personId;
-  const viewMeds = meds.filter(mine);
+  // Shared medications (e.g. Panadol) appear for everyone; in one person's view only their doses of them count.
+  const viewMeds = meds.filter((m) => fam.everyone || medIsFor(m, fam.personId));
   const viewMedIds = new Set(viewMeds.map((m) => m.id));
-  const viewDoses = doses.filter((d) => viewMedIds.has(d.medicationId));
+  const medDoses = doses.filter((d) => viewMedIds.has(d.medicationId));
+  const viewDoses = fam.everyone ? medDoses : dosesForPerson(medDoses, viewMeds, fam.personId);
   const viewCheckIns = checkIns.filter(mine);
   const viewBody = body.filter(mine);
   const viewMedMap = new Map(viewMeds.map((m) => [m.id, m]));
-  const whose = (r: { personId?: string }) => (fam.everyone ? fam.nameOf(personOf(r)) : undefined);
+  const whose = (r: { personId?: string; shared?: boolean }) => {
+    if (!fam.everyone) return r.shared && fam.many ? 'Shared' : undefined;
+    if (!r.shared) return fam.nameOf(personOf(r));
+    const last = getLastDose(doses, (r as Medication).id, now);
+    return last ? `Shared · last taken by ${fam.nameOf(personOf(last))}` : 'Shared';
+  };
   const active = viewMeds.filter((m) => !m.archived);
   // Order is fixed per minute so cards don't reshuffle under the user's thumb every second.
   const scheduled = byUrgency(active.filter((m) => m.schedule.type !== 'prn'), doses, Math.floor(now / 60_000) * 60_000, s);
@@ -83,9 +90,9 @@ export function Today() {
     const showCal = next !== null && next > now && ['not-due', 'not-today', 'done-today'].includes(getStatus(m, doses, now, s));
     return (
       <div key={m.id} className={className}>
-        <HeroCard med={m} doses={doses} s={s} now={now} onLog={() => setLogFor(m)} person={whose(m)}
+        <HeroCard med={m} doses={viewDoses} s={s} now={now} onLog={() => setLogFor(m)} person={whose(m)}
           footer={showCal ? (
-            <button onClick={() => addToCalendar(m, next!, fam.many ? fam.nameOf(personOf(m)) : undefined)} className="w-full min-h-[48px] mt-2 flex items-center justify-center gap-2 text-primary font-semibold">
+            <button onClick={() => addToCalendar(m, next!, !fam.many ? undefined : m.shared ? (fam.everyone ? undefined : fam.person) : fam.nameOf(personOf(m)))} className="w-full min-h-[48px] mt-2 flex items-center justify-center gap-2 text-primary font-semibold">
               <CalendarPlus size={18} aria-hidden="true" /> Add {fmtWhen(next!, now)} to calendar
             </button>
           ) : null} />
@@ -127,7 +134,7 @@ export function Today() {
       {prn.length > 0 && (
         <section className="space-y-2" aria-label="As needed">
           <h2 className="text-sm font-semibold text-muted px-1">As needed</h2>
-          {prn.map((m) => <PrnCard key={m.id} med={m} doses={doses} s={s} now={now} onLog={() => setLogFor(m)} person={whose(m)} />)}
+          {prn.map((m) => <PrnCard key={m.id} med={m} doses={viewDoses} s={s} now={now} onLog={() => setLogFor(m)} person={whose(m)} />)}
         </section>
       )}
 
@@ -161,7 +168,8 @@ export function Today() {
       </a>
 
       <Sheet open={!!logFor} onClose={() => setLogFor(null)} title={logFor ? `Log ${shownMedName(logFor)}` : ''}>
-        {logFor && <LogDoseFlow med={logFor} doses={doses} s={s} now={now} onLogged={onLogged} onCancel={() => setLogFor(null)} />}
+        {logFor && <LogDoseFlow med={logFor} doses={doses} s={s} now={now} onLogged={onLogged} onCancel={() => setLogFor(null)}
+          people={fam.people} defaultPersonId={fam.everyone ? null : fam.personId} />}
       </Sheet>
       <DoseEditSheet dose={editing} med={editing ? medMap.get(editing.medicationId) : undefined} onClose={() => setEditing(null)} />
       <CheckInSheet seed={checkIn} onClose={() => setCheckIn(null)} doses={viewDoses} checkIns={viewCheckIns} meds={viewMeds} chips={settings.chips} s={s}

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FileText } from 'lucide-react';
 import { useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings } from '../../app/data';
-import { personOf } from '../../db/repos/people';
+import { dosesForPerson, medIsFor, personOf } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
 import { RANGE_DAYS, rangeStart, type Range } from '../../logic/stats';
@@ -28,9 +28,10 @@ export function Trends() {
     return <div className="space-y-4" aria-busy="true" aria-label="Loading">{[0, 1, 2].map((i) => <div key={i} className="h-60 rounded-card bg-surface-2 animate-pulse" />)}</div>;
   }
   // Only the chosen family member's records.
-  const meds = allMeds.filter((m) => personOf(m) === fam.personId);
+  // Their medications plus shared ones, counting only their own doses of shared medications.
+  const meds = allMeds.filter((m) => medIsFor(m, fam.personId));
   const medIds = new Set(meds.map((m) => m.id));
-  const doses = allDoses.filter((d) => medIds.has(d.medicationId));
+  const doses = dosesForPerson(allDoses.filter((d) => medIds.has(d.medicationId)), meds, fam.personId);
   const checkIns = allCheckIns.filter((c) => personOf(c) === fam.personId);
   const body = allBody.filter((b) => personOf(b) === fam.personId);
   const events = allEvents.filter((e) => medIds.has(e.medicationId));

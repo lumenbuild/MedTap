@@ -7,7 +7,8 @@ import { useLive } from '../../db/live';
 import { markScanned } from '../../db/repos/tags';
 import { removeDose } from '../../db/repos/doses';
 import { useDoses, useFamily, useMeds, useScheduleSettings } from '../../app/data';
-import { personOf } from '../../db/repos/people';
+import { doseOwner, personOf } from '../../db/repos/people';
+import { Users } from 'lucide-react';
 import { setSetting } from '../../db/repos/settings';
 import { PersonBadge } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
@@ -68,7 +69,7 @@ export function TagLanding({ id }: { id: string }) {
   const med = tag ? meds.find((m) => m.id === tag.medicationId) : undefined;
 
   if (!med || reassign) return shell(<UnknownTag id={id} meds={meds.filter((m) => !m.archived)} relinking={!!med} onLinked={() => setReassign(false)}
-    personName={fam.many ? (m) => fam.nameOf(personOf(m)) : undefined} />);
+    personName={fam.many ? (m) => (m.shared ? 'anyone (shared)' : fam.nameOf(personOf(m))) : undefined} />);
   if (med.archived) return shell(<ArchivedTag med={med} onReassign={() => setReassign(true)} />);
 
   if (logged) {
@@ -85,15 +86,19 @@ export function TagLanding({ id }: { id: string }) {
         });
       }
       // Show the person this dose was for when going back to Today.
-      if (fam.many) { setSetting('activePersonId', personOf(med)); if (!fam.everyone) setSetting('todayEveryone', false); }
+      if (fam.many) { setSetting('activePersonId', doseOwner(logged.dose, med)); if (!fam.everyone) setSetting('todayEveryone', false); }
       close();
     };
-    return shell(<Success dose={logged.dose} loggedAt={logged.at} med={med} doses={doses} s={s} now={now} onUndo={undo} onDone={done} person={fam.many ? fam.nameOf(personOf(med)) : undefined} />);
+    const successDoses = med.shared ? doses.filter((d) => d.medicationId !== med.id || personOf(d) === personOf(logged.dose)) : doses;
+    return shell(<Success dose={logged.dose} loggedAt={logged.at} med={med} doses={successDoses} s={s} now={now} onUndo={undo} onDone={done} person={fam.many ? fam.nameOf(doseOwner(logged.dose, med)) : undefined} />);
   }
 
   return shell(
     <Card>
-      {fam.many && (
+      {fam.many && med.shared && (
+        <p className="flex items-center gap-2 mb-4 text-lg font-semibold text-primary"><Users size={24} aria-hidden="true" /> Shared</p>
+      )}
+      {fam.many && !med.shared && (
         <p className="flex items-center gap-2 mb-4 text-lg font-semibold text-primary" aria-label={`For ${fam.nameOf(personOf(med))}`}>
           <PersonBadge name={fam.nameOf(personOf(med))} size={32} /> For {fam.nameOf(personOf(med))}
         </p>
@@ -105,7 +110,7 @@ export function TagLanding({ id }: { id: string }) {
           {med.strength > 0 && !isPrivate(med) && <p className="text-muted">{fmtAmount(med.strength, med.unit)} {med.form}</p>}
         </div>
       </div>
-      <LogDoseFlow med={med} doses={doses} s={s} now={now} tagId={id} onLogged={(d) => {
+      <LogDoseFlow med={med} doses={doses} s={s} now={now} tagId={id} people={fam.people} defaultPersonId={null} onLogged={(d) => {
         if (!d.skipped) { setLogged({ dose: d, at: Date.now() }); return; }
         toast(`Marked ${shownName(med)} as skipped`, { onAction: () => removeDose(d.id) });
         close();

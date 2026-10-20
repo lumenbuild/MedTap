@@ -46,8 +46,10 @@ export interface Medication extends Stamped {
   instructions?: string; instructionsBy?: string; instructionsUpdatedAt?: string;
   /** Future schedule changes, oldest first. Each is moved into `schedule` on its date. */
   plannedChanges?: PlannedChange[];
-  /** Who takes it (a Person id); missing = the default person. */
+  /** Who takes it (a Person id); missing = the default person. Ignored when shared. */
   personId?: string;
+  /** Used by anyone in the family (e.g. Panadol): one stock count; each dose records who took it. */
+  shared?: boolean;
   /** Shown instead of the real name wherever someone might glance (Today, tag taps, reminders, charts), with a plain
    *  grey badge. The real name only shows on the medication's own page, in the doctor report and in exports. */
   nickname?: string;
@@ -60,6 +62,8 @@ export interface Dose extends Stamped {
   source: 'tag' | 'manual' | 'backdated'; tagId?: string; note?: string; deletedAt?: string;
   /** Recorded as skipped on purpose: covers its place in the plan but wasn't taken (no stock change). */
   skipped?: boolean; skipReason?: string;
+  /** Who took it, for shared medications (otherwise the medication's person). */
+  personId?: string;
 }
 export interface CheckIn extends Stamped {
   at: string; mood?: number; energy?: number; focus?: number; appetite?: number;
