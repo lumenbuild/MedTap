@@ -12,11 +12,14 @@ import { cmTo, fmtLength, fmtWeight, kgTo, lengthUnit, MEASUREMENTS, weightUnit 
 import { fmtDuration, fmtHHmm, fmtMedName } from '../../logic/format';
 import { medColour, resolveColour } from '../../logic/palette';
 import { MedBadge } from '../MedBadge';
+import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { ChartCard } from './ChartCard';
 import { baseOptions, timeAxis, useChartTheme, type ChartTheme } from './setup';
 
 const DAY = 86_400_000;
-export interface RangeProps { start: number; end: number; s: ScheduleSettings }
+/** `realNames` shows real medication names instead of nicknames (the doctor report can choose). */
+export interface RangeProps { start: number; end: number; s: ScheduleSettings; realNames?: boolean }
+const nameFor = (realNames?: boolean) => (m: Medication) => (realNames ? m.name : shownName(m));
 const fmtDay = (t: number) => format(t, 'EEE d MMM');
 const hourLabel = (h: number) => fmtHHmm(`${String(Math.floor(h) % 24).padStart(2, '0')}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`);
 const point = (th: ChartTheme, color: string) => ({ pointRadius: 4, pointHoverRadius: 6, pointBackgroundColor: color, pointBorderColor: th.surface, pointBorderWidth: 2, pointHitRadius: 12 });
@@ -79,7 +82,8 @@ export function MeasurementCharts({ entries, start, end, units }: RangeProps & {
 }
 
 // 3. Adherence heatmap: a calendar grid of doses per day vs the user's own daily target.
-export function AdherenceHeatmap({ meds, doses, start, end, s }: RangeProps & { meds: Medication[]; doses: Dose[] }) {
+export function AdherenceHeatmap({ meds, doses, start, end, s, realNames }: RangeProps & { meds: Medication[]; doses: Dose[] }) {
+  const nameOf = nameFor(realNames);
   const capStart = Math.max(start, end - 182 * DAY); // at most 26 weeks so cells stay tappable
   const days = daysBetween(capStart, end, s);
   const rows = meds.map((m) => ({ med: m, cells: adherenceByDay(doses, m, days, s) })).filter((r) => r.cells.some((c) => c.count));
@@ -88,7 +92,7 @@ export function AdherenceHeatmap({ meds, doses, start, end, s }: RangeProps & { 
     <ChartCard title="Doses per day" height={null}
       empty={rows.length ? null : 'No doses in this range.'}
       summary={start < capStart ? 'Showing the last 26 weeks.' : null}
-      table={{ head: ['Date', ...rows.map((r) => r.med.name)], rows: days.map((d, i) => [fmtDay(ymdToMs(d)), ...rows.map((r) => r.cells[i].target === 0 && !r.cells[i].count ? 'Not scheduled' : r.cells[i].target ? `${r.cells[i].count} of ${r.cells[i].target}` : r.cells[i].count)]).reverse() }}>
+      table={{ head: ['Date', ...rows.map((r) => nameOf(r.med))], rows: days.map((d, i) => [fmtDay(ymdToMs(d)), ...rows.map((r) => r.cells[i].target === 0 && !r.cells[i].count ? 'Not scheduled' : r.cells[i].target ? `${r.cells[i].count} of ${r.cells[i].target}` : r.cells[i].count)]).reverse() }}>
       <div className="space-y-5">
         {rows.map(({ med, cells }) => {
           const target = getDailyTarget(med);
@@ -98,12 +102,12 @@ export function AdherenceHeatmap({ meds, doses, start, end, s }: RangeProps & { 
           return (
             <div key={med.id}>
               <div className="flex items-center gap-2 mb-2">
-                <MedBadge color={med.color} icon={med.icon} size={24} />
-                <span className="font-medium">{med.name}</span>
+                <MedBadge color={realNames ? med.color : shownColour(med)} icon={med.icon} size={24} />
+                <span className="font-medium">{nameOf(med)}</span>
               </div>
               {full !== null && <p className="text-sm text-muted mb-2 tnum">All logged on {full} of {scheduled.length} scheduled day{scheduled.length === 1 ? '' : 's'}</p>}
               <div className="grid gap-[3px] w-max max-w-full overflow-x-auto" style={{ gridTemplateRows: 'repeat(7, 18px)', gridAutoFlow: 'column', gridAutoColumns: '18px' }} role="img"
-                aria-label={`${med.name}: ${full !== null ? `all doses logged on ${full} of ${scheduled.length} scheduled days` : `doses on ${cells.filter((c) => c.count).length} of ${cells.length} days`}`}>
+                aria-label={`${nameOf(med)}: ${full !== null ? `all doses logged on ${full} of ${scheduled.length} scheduled days` : `doses on ${cells.filter((c) => c.count).length} of ${cells.length} days`}`}>
                 {Array.from({ length: lead }, (_, i) => <span key={`pad${i}`} />)}
                 {cells.map((c) => {
                   const t = c.target;
@@ -135,14 +139,15 @@ export function AdherenceHeatmap({ meds, doses, start, end, s }: RangeProps & { 
 }
 
 // 4. Dose timing: time of day each dose was taken, one small chart per medication.
-export function DoseTimingCharts({ meds, doses, start, end, s }: RangeProps & { meds: Medication[]; doses: Dose[] }) {
+export function DoseTimingCharts({ meds, doses, start, end, s, realNames }: RangeProps & { meds: Medication[]; doses: Dose[] }) {
+  const nameOf = nameFor(realNames);
   const th = useChartTheme();
   const series = meds.map((m) => ({ med: m, pts: doseTimes(doses, m.id, start, end, s) })).filter((x) => x.pts.length);
   return (
     <ChartCard title="Dose timing" height={null} key={th.key}
       empty={series.length ? null : 'No doses in this range.'}
       summary={series.length ? 'When each dose was taken. A tight band means a steady routine.' : null}
-      table={{ head: ['Date', 'Medication', 'Time'], rows: series.flatMap((x) => x.pts.map((p) => [fmtDay(p.t), x.med.name, hourLabel(p.hour)])) }}>
+      table={{ head: ['Date', 'Medication', 'Time'], rows: series.flatMap((x) => x.pts.map((p) => [fmtDay(p.t), nameOf(x.med), hourLabel(p.hour)])) }}>
       <div className="space-y-5">
         {series.map(({ med, pts }) => {
           const firsts = new Map<number, number>();
@@ -151,10 +156,10 @@ export function DoseTimingCharts({ meds, doses, start, end, s }: RangeProps & { 
           const color = resolveColour(medColour(med.color));
           return (
             <div key={med.id}>
-              <p className="font-medium">{med.name}</p>
+              <p className="font-medium">{nameOf(med)}</p>
               {med1 !== null && <p className="text-sm text-muted">First dose usually around {hourLabel(med1)} (median)</p>}
               <div style={{ height: 170 }} className="mt-2">
-                <Scatter data={{ datasets: [{ label: med.name, data: pts.map((p) => ({ x: p.t, y: p.hour })), ...point(th, color) }] }}
+                <Scatter data={{ datasets: [{ label: nameOf(med), data: pts.map((p) => ({ x: p.t, y: p.hour })), ...point(th, color) }] }}
                   options={{ ...baseOptions(th), interaction: { mode: 'nearest', intersect: true },
                     plugins: { ...baseOptions(th).plugins, tooltip: { ...baseOptions(th).plugins.tooltip, callbacks: { label: (c) => `${hourLabel(c.parsed.y as number)}` } } },
                     scales: { x: timeAxis(th, start, end), y: { ...baseOptions(th).scales.y, min: 0, max: 24, reverse: true, ticks: { ...baseOptions(th).scales.y.ticks, stepSize: 6, callback: (v) => hourLabel(Number(v)) } } } }} />
@@ -168,7 +173,8 @@ export function DoseTimingCharts({ meds, doses, start, end, s }: RangeProps & { 
 }
 
 // 5. How you've felt: mood, energy, focus with markers for medication changes.
-export function FeelingsChart({ checkIns, events, meds, start, end, s, prevStart }: RangeProps & { checkIns: CheckIn[]; events: MedEvent[]; meds: Medication[]; prevStart: number | null }) {
+export function FeelingsChart({ checkIns, events, meds, start, end, s, prevStart, realNames }: RangeProps & { checkIns: CheckIn[]; events: MedEvent[]; meds: Medication[]; prevStart: number | null }) {
+  const nameOf = nameFor(realNames);
   const th = useChartTheme();
   const fields = [['mood', 'Mood'], ['energy', 'Energy'], ['focus', 'Focus']] as const;
   const series = fields.map(([f, label], i) => ({ f, label, color: th.series[i], pts: dailyAverages(checkIns, f, start, end, s) }));
@@ -177,7 +183,10 @@ export function FeelingsChart({ checkIns, events, meds, start, end, s, prevStart
   const cur = average(checkIns, 'mood', start, end);
   const prev = prevStart === null ? null : average(checkIns, 'mood', prevStart, start);
   const any = series.some((x) => x.pts.length);
-  const medName = (id: string) => meds.find((m) => m.id === id)?.name ?? 'Medication';
+  const medName = (id: string) => { const m = meds.find((x) => x.id === id); return m ? nameOf(m) : 'Medication'; };
+  // Started/stopped summaries were written with the real name, so rebuild them with the name being shown.
+  const markText = (e: MedEvent) => e.kind === 'changed' ? `${medName(e.medicationId)}: ${e.summary}`
+    : `${e.kind === 'stopped' ? 'Stopped' : e.summary.startsWith('Restarted') ? 'Restarted' : 'Started'} ${medName(e.medicationId)}`;
   return (
     <ChartCard title="How you've felt" key={th.key}
       empty={any ? null : 'No check-ins in this range. A check-in takes about 20 seconds.'}
@@ -186,7 +195,7 @@ export function FeelingsChart({ checkIns, events, meds, start, end, s, prevStart
         .map((t) => [fmtDay(t), ...series.map((x) => x.pts.find((p) => p.t === t)?.v.toFixed(1) ?? '–')]) }}
       footer={marks.length > 0 && (
         <ol className="mt-3 space-y-1 text-sm">
-          {marks.map((e, i) => <li key={e.id} className="flex gap-2"><span className="font-semibold tnum w-4">{i + 1}</span><span className="text-muted tnum">{format(Date.parse(e.at), 'd MMM')}</span><span>{e.kind === 'changed' ? `${medName(e.medicationId)}: ${e.summary}` : e.summary}</span></li>)}
+          {marks.map((e, i) => <li key={e.id} className="flex gap-2"><span className="font-semibold tnum w-4">{i + 1}</span><span className="text-muted tnum">{format(Date.parse(e.at), 'd MMM')}</span><span>{markText(e)}</span></li>)}
         </ol>
       )}>
       <Line
@@ -257,13 +266,14 @@ export function NoticedMost({ checkIns, start, end }: RangeProps & { checkIns: C
 }
 
 // 8. Interval check: hours between consecutive doses on the same day.
-export function IntervalCharts({ meds, doses, start, end, s }: RangeProps & { meds: Medication[]; doses: Dose[] }) {
+export function IntervalCharts({ meds, doses, start, end, s, realNames }: RangeProps & { meds: Medication[]; doses: Dose[] }) {
+  const nameOf = nameFor(realNames);
   const th = useChartTheme();
   const series = meds.map((m) => ({ med: m, gaps: doseIntervals(doses, m.id, start, end, s) })).filter((x) => x.gaps.length);
   return (
     <ChartCard title="Time between doses" height={null} key={th.key}
       empty={series.length ? null : 'Shows up once you log two or more doses of something in a day.'}
-      table={{ head: ['Medication', 'Hours between doses', 'Times'], rows: series.flatMap((x) => histogram(x.gaps).map((b) => [x.med.name, `${b.from}–${b.to}`, b.count])) }}>
+      table={{ head: ['Medication', 'Hours between doses', 'Times'], rows: series.flatMap((x) => histogram(x.gaps).map((b) => [nameOf(x.med), `${b.from}–${b.to}`, b.count])) }}>
       <div className="space-y-5">
         {series.map(({ med, gaps }) => {
           const bins = histogram(gaps, 0.5);
@@ -272,10 +282,10 @@ export function IntervalCharts({ meds, doses, start, end, s }: RangeProps & { me
           const sched = med.schedule.type === 'interval' && med.schedule.intervalHours ? ` Your schedule is every ${med.schedule.intervalHours} hours.` : '';
           return (
             <div key={med.id}>
-              <p className="font-medium">{fmtMedName(med)}</p>
+              <p className="font-medium">{realNames ? fmtMedName(med) : shownMedName(med)}</p>
               <p className="text-sm text-muted tnum">Median gap {fmtDuration(med1 * 3_600_000)} across {gaps.length} gap{gaps.length === 1 ? '' : 's'}.{sched}</p>
               <div style={{ height: 150 }} className="mt-2">
-                <Bar data={{ labels: bins.map((b) => `${b.from}–${b.to}h`), datasets: [{ label: med.name, data: bins.map((b) => b.count), backgroundColor: color, borderRadius: 4, borderSkipped: 'start', maxBarThickness: 24 }] }}
+                <Bar data={{ labels: bins.map((b) => `${b.from}–${b.to}h`), datasets: [{ label: nameOf(med), data: bins.map((b) => b.count), backgroundColor: color, borderRadius: 4, borderSkipped: 'start', maxBarThickness: 24 }] }}
                   options={{ ...baseOptions(th), interaction: { mode: 'nearest', intersect: true },
                     plugins: { ...baseOptions(th).plugins, tooltip: { ...baseOptions(th).plugins.tooltip, callbacks: { label: (c) => `${c.parsed.y} time${c.parsed.y === 1 ? '' : 's'}` } } },
                     scales: { x: { ...baseOptions(th).scales.x, grid: { display: false } }, y: { ...baseOptions(th).scales.y, beginAtZero: true, ticks: { ...baseOptions(th).scales.y.ticks, precision: 0 } } } }} />

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { shownColour, shownMedName, shownName } from '../logic/privacy';
 import { format } from 'date-fns';
 import { Package } from 'lucide-react';
 import type { Medication } from '../db/schema';
@@ -44,7 +45,7 @@ export function RefillCards({ alerts, settings, now }: { alerts: RefillAlert[]; 
         <Card key={med.id} className="flex gap-3 bg-caution-soft shadow-none">
           <Package className="text-caution shrink-0 mt-0.5" aria-hidden="true" />
           <div className="flex-1 min-w-0">
-            <p className="tnum"><strong>{med.name}</strong>
+            <p className="tnum"><strong>{shownName(med)}</strong>
               {med.stockCount !== undefined ? `: ${med.stockCount} left.` : '.'}
               {low && !runningOut && med.lowStockAt !== undefined ? ` You asked to know at ${med.lowStockAt}.` : ''}
             </p>
@@ -73,11 +74,11 @@ export function RestockSheet({ med, onClose }: { med: Medication; onClose: () =>
     if (!valid) return;
     const repeat = usedRepeat && med.repeatsLeft !== undefined && med.repeatsLeft > 0;
     await restock(med.id, n, repeat);
-    toast(`Added ${n}. ${med.name} now has ${Math.round(((med.stockCount ?? 0) + n) * 1000) / 1000}.`, { onAction: () => unrestock(med.id, n, repeat) });
+    toast(`Added ${n}. ${shownName(med)} now has ${Math.round(((med.stockCount ?? 0) + n) * 1000) / 1000}.`, { onAction: () => unrestock(med.id, n, repeat) });
     onClose();
   };
   return (
-    <Sheet open onClose={onClose} title={`Add stock: ${med.name}`}>
+    <Sheet open onClose={onClose} title={`Add stock: ${shownName(med)}`}>
       <div className="space-y-4">
         <TextInput label={`How many ${what} did you get?`} type="number" inputMode="decimal" min="0" step="any" value={added}
           onChange={(e) => setAdded(e.target.value)} autoFocus help={med.stockCount !== undefined ? `You have ${med.stockCount} now.` : undefined} />

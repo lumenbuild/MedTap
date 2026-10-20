@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Check, ClipboardList, Plus, X } from 'lucide-react';
+import { shownName } from '../../logic/privacy';
+import { Check, ClipboardList, EyeOff, Plus, X } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Medication } from '../../db/schema';
 import { db } from '../../db/db';
@@ -17,7 +18,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Sheet } from '../../components/ui/Sheet';
 import { Segmented, Select, TextArea, TextInput } from '../../components/ui/Field';
-import { MED_ICON_COMPONENTS } from '../../components/MedBadge';
+import { MedBadge, MED_ICON_COMPONENTS } from '../../components/MedBadge';
 import { describeChange } from '../../logic/plans';
 import {
   blankSchedule, ScheduleFields, scheduleFormFromMed, scheduleFromForm, validateSchedule, type ScheduleErrors, type ScheduleForm, type ScheduleSetter,
@@ -32,14 +33,14 @@ interface Form extends ScheduleForm {
   name: string; strength: string; unit: string; form: string;
   color: string; icon: string; stockCount: string; lowStockAt: string; scriptNotes: string;
   repeatsLeft: string; scriptExpiry: string;
-  instructions: string; instructionsBy: string;
+  instructions: string; instructionsBy: string; nickname: string;
 }
 
 const blank: Form = {
   ...blankSchedule(),
   name: '', strength: '', unit: 'mg', form: 'tablet',
   color: MED_COLOURS[0].value, icon: 'pill', stockCount: '', lowStockAt: '', scriptNotes: '',
-  repeatsLeft: '', scriptExpiry: '', instructions: '', instructionsBy: '',
+  repeatsLeft: '', scriptExpiry: '', instructions: '', instructionsBy: '', nickname: '',
 };
 
 const str = (n?: number) => (n === undefined || n === null ? '' : String(n));
@@ -51,7 +52,7 @@ function fromMed(m: Medication): Form {
     name: m.name, strength: str(m.strength), unit: m.unit, form: m.form,
     color: m.color, icon: m.icon, stockCount: str(m.stockCount), lowStockAt: str(m.lowStockAt), scriptNotes: m.scriptNotes ?? '',
     repeatsLeft: str(m.repeatsLeft), scriptExpiry: m.scriptExpiry ?? '',
-    instructions: m.instructions ?? '', instructionsBy: m.instructionsBy ?? '',
+    instructions: m.instructions ?? '', instructionsBy: m.instructionsBy ?? '', nickname: m.nickname ?? '',
   };
 }
 
@@ -59,7 +60,7 @@ function toInput(f: Form, before?: Medication): MedInput {
   const { schedule, defaultAmount } = scheduleFromForm(f);
   const instructions = f.instructions.trim() || undefined;
   return {
-    name: f.name.trim(), strength: Number(f.strength) || 0, unit: f.unit, form: f.form,
+    name: f.name.trim(), nickname: f.nickname.trim() || undefined, strength: Number(f.strength) || 0, unit: f.unit, form: f.form,
     defaultAmount, schedule, color: f.color, icon: f.icon,
     stockCount: num(f.stockCount), lowStockAt: num(f.lowStockAt), scriptNotes: f.scriptNotes.trim() || undefined,
     repeatsLeft: num(f.repeatsLeft), scriptExpiry: f.scriptExpiry || undefined,
@@ -122,16 +123,16 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
         before: { strength: existing.strength, unit: existing.unit, defaultAmount: existing.defaultAmount, schedule: existing.schedule },
         after: { strength: input.strength, unit: input.unit, defaultAmount: input.defaultAmount, schedule: input.schedule },
       } : undefined);
-      toast(`Saved ${input.name}`);
+      toast(`Saved ${shownName(input)}`);
       go('/meds');
     } else {
       const med = await createMed(input);
       if (tagId) {
         await linkTag(tagId, med.id);
-        toast(`Saved ${med.name} and linked the tag`);
+        toast(`Saved ${shownName(med)} and linked the tag`);
         replace(`/tag/${tagId}`);
       } else {
-        toast(`Saved ${med.name}. Next, link a tag.`);
+        toast(`Saved ${shownName(med)}. Next, link a tag.`);
         replace(`/meds/${med.id}`);
       }
     }
@@ -153,7 +154,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
   const archive = async () => {
     if (!existing) return;
     await setArchived(existing.id, !existing.archived);
-    toast(existing.archived ? `Restored ${existing.name}` : `Archived ${existing.name}`, {
+    toast(existing.archived ? `Restored ${shownName(existing)}` : `Archived ${shownName(existing)}`, {
       onAction: () => setArchived(existing.id, existing.archived),
     });
     go('/meds');
@@ -182,6 +183,20 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
         <Select label="Form" value={f.form} onChange={(e) => set('form', e.target.value)}>
           {FORMS.map((x) => <option key={x} value={x}>{x[0].toUpperCase() + x.slice(1)}</option>)}
         </Select>
+      </Card>
+
+      <Card className="space-y-3">
+        <h2 className="text-lg font-semibold flex items-center gap-2"><EyeOff size={20} className="text-primary" aria-hidden="true" /> Privacy</h2>
+        <TextInput label="Nickname (optional)" value={f.nickname} onChange={(e) => set('nickname', e.target.value)} autoComplete="off"
+          placeholder="e.g. Morning tablet"
+          help={`Shown instead of the real name on Today, when the tag is tapped, in calendar reminders and on Trends, with a plain grey icon. The real name only shows on this page, in the doctor report and in exports.`} />
+        {f.nickname.trim() && (
+          <div className="flex items-center gap-3 rounded-btn bg-surface-2 p-3" aria-label="Preview">
+            <MedBadge color="private" icon={f.icon} />
+            <span className="font-semibold">{f.nickname.trim()}</span>
+            <span className="text-sm text-muted ml-auto">How it looks</span>
+          </div>
+        )}
       </Card>
 
       <Card className="space-y-4">

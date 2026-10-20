@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { CalendarPlus, Lock, Nfc, Pill, Ruler, Scale, Smile } from 'lucide-react';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
 import { useBodyEntries, useCheckIns, useDoses, useMeds, useScheduleSettings } from '../../app/data';
@@ -9,7 +10,7 @@ import { addToCalendar } from '../../app/calendar';
 import { byUrgency, getNextDue, getStatus } from '../../logic/schedule';
 import { checkInPromptDose, needsBackup, refillAlerts } from '../../logic/reminders';
 import { RefillCards } from '../../components/Refill';
-import { fmtAgo, fmtAmount, fmtMedName, fmtTime, fmtWhen } from '../../logic/format';
+import { fmtAgo, fmtAmount, fmtTime, fmtWhen } from '../../logic/format';
 import { removeDose } from '../../db/repos/doses';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -58,7 +59,7 @@ export function Today() {
     const med = medMap.get(d.medicationId);
     setLogFor(null);
     if (d.skipped) {
-      toast(`Marked ${med?.name ?? 'dose'} as skipped`, { onAction: () => removeDose(d.id) });
+      toast(`Marked ${med ? shownName(med) : 'dose'} as skipped`, { onAction: () => removeDose(d.id) });
       return;
     }
     toast(`Logged ${fmtAmount(d.amount, med?.unit ?? '')} at ${fmtTime(Date.parse(d.takenAt))}`, {
@@ -142,7 +143,7 @@ export function Today() {
         <span>{last ? `Last backup ${fmtAgo(now - last)}` : 'No backup yet'}</span>
       </a>
 
-      <Sheet open={!!logFor} onClose={() => setLogFor(null)} title={logFor ? `Log ${fmtMedName(logFor)}` : ''}>
+      <Sheet open={!!logFor} onClose={() => setLogFor(null)} title={logFor ? `Log ${shownMedName(logFor)}` : ''}>
         {logFor && <LogDoseFlow med={logFor} doses={doses} s={s} now={now} onLogged={onLogged} onCancel={() => setLogFor(null)} />}
       </Sheet>
       <DoseEditSheet dose={editing} med={editing ? medMap.get(editing.medicationId) : undefined} onClose={() => setEditing(null)} />

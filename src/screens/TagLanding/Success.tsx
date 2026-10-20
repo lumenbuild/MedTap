@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { shownName } from '../../logic/privacy';
 import { CalendarPlus } from 'lucide-react';
 import type { Dose, Medication } from '../../db/schema';
 import { addCheckIn } from '../../db/repos/checkIns';
@@ -36,7 +37,7 @@ export function Success({ dose, loggedAt, med, doses, s, now, onUndo, onDone }: 
       <h1 className="text-2xl font-semibold mt-4" role="status">
         Logged {fmtAmount(dose.amount, med.unit)} at <span className="tnum">{fmtTime(Date.parse(dose.takenAt))}</span>
       </h1>
-      <p className="text-muted mt-1">{med.name}{target ? ` · Today: ${count} of ${target}` : ` · Today: ${count}`}</p>
+      <p className="text-muted mt-1">{shownName(med)}{target ? ` · Today: ${count} of ${target}` : ` · Today: ${count}`}</p>
       {status === 'done-today' && <p className="mt-4 text-lg">That's all {target} for today.</p>}
       {next !== null && next > now && (
         <p className={`${status === 'done-today' ? 'mt-1' : 'mt-4 text-lg'} tnum`}>Next due <strong>{fmtWhen(next, now)}</strong> <span className="text-muted">(in {fmtCountdown(next - now)})</span></p>

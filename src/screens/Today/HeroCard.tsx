@@ -1,10 +1,11 @@
 import { CalendarDays, CircleCheck, Info } from 'lucide-react';
+import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import type { Dose, Medication } from '../../db/schema';
 import {
   getDailyAmountTarget, getDailyTarget, getDayBounds, getDosesToday, getExpectedAmount, getLastDose, getNextDue, getProgress, getStatus,
   nextScheduledDayStart, timeInDay, type ScheduleSettings,
 } from '../../logic/schedule';
-import { fmtAgo, fmtAmount, fmtCountdown, fmtCountdownLong, fmtDays, fmtHHmm, fmtMedName, fmtSchedule, fmtTime, fmtWhen } from '../../logic/format';
+import { fmtAgo, fmtAmount, fmtCountdown, fmtCountdownLong, fmtDays, fmtHHmm, fmtSchedule, fmtTime, fmtWhen } from '../../logic/format';
 import { format } from 'date-fns';
 import { nextPlannedChange } from '../../logic/plans';
 import { dayKey } from '../../logic/stats';
@@ -74,21 +75,21 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer }: 
   const changeSoon = change && Date.parse(`${change.from}T12:00`) - now < 8 * 86_400_000 ? change : undefined;
   return (
     <article
-      aria-label={med.name}
+      aria-label={shownName(med)}
       className={`bg-surface rounded-card shadow-card p-5 h-full ${className}`}
       style={due ? { outline: '2px solid var(--primary)', outlineOffset: '-2px' } : undefined}
     >
       <div className="flex items-center gap-3">
-        <MedBadge color={med.color} icon={med.icon} />
+        <MedBadge color={shownColour(med)} icon={med.icon} />
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold leading-6">{fmtMedName(med)}</h2>
+          <h2 className="text-lg font-semibold leading-6">{shownMedName(med)}</h2>
           {days && <p className="text-sm text-muted">{days}</p>}
           {changeSoon && <p className="text-sm text-primary font-medium tnum">Changes {format(new Date(`${changeSoon.from}T12:00`), 'EEE d MMM')}: {fmtSchedule(changeSoon.schedule, med.unit)}</p>}
         </div>
       </div>
       <div className="my-5">
-        <Ring progress={status === 'not-today' && next === null ? 0 : progress} color={medColour(med.color)}>{center}</Ring>
-        <p className="sr-only" aria-live="polite">{med.name}: {spoken}</p>
+        <Ring progress={status === 'not-today' && next === null ? 0 : progress} color={medColour(shownColour(med))}>{center}</Ring>
+        <p className="sr-only" aria-live="polite">{shownName(med)}: {spoken}</p>
       </div>
       <dl className="text-center space-y-0.5 tnum">
         {nextAmount !== null && nextAmount > 0 && (

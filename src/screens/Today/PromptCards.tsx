@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { Download, FolderSync, HardDriveDownload, Smile } from 'lucide-react';
 import { autoBackupState, regainPermission } from '../../app/autoBackup';
 import { useToast } from '../../app/toast';
@@ -18,7 +19,7 @@ export function CheckInPrompt({ dose, med, now, onCheckIn }: { dose: Dose; med?:
       <Smile className="text-primary shrink-0 mt-0.5" aria-hidden="true" />
       <div className="flex-1">
         <p className="font-semibold">How are you feeling?</p>
-        <p className="text-sm text-muted tnum">It's been {fmtAgo(now - Date.parse(dose.takenAt)).replace(' ago', '')} since your {med?.name ?? ''} dose.</p>
+        <p className="text-sm text-muted tnum">It's been {fmtAgo(now - Date.parse(dose.takenAt)).replace(' ago', '')} since your {med ? shownName(med) : ''} dose.</p>
         <div className="flex gap-2 mt-3">
           <Button onClick={onCheckIn}>Check in</Button>
           <Button variant="secondary" onClick={() => setSetting('dismissedCheckInDoseId', dose.id)}>Not now</Button>

@@ -4,6 +4,8 @@ import { Printer } from 'lucide-react';
 import { useBodyEntries, useCheckIns, useDoses, useMedEvents, useMeds, useScheduleSettings } from '../../app/data';
 import { APP_NAME } from '../../config';
 import { fmtAmount, fmtMedName, fmtSchedule } from '../../logic/format';
+import { isPrivate, shownMedName, shownName } from '../../logic/privacy';
+import type { Medication } from '../../db/schema';
 import { adherenceByDay, average, daysBetween } from '../../logic/stats';
 import { getDailyTarget } from '../../logic/schedule';
 import { fmtWeight } from '../../logic/units';
@@ -23,6 +25,7 @@ export function Report() {
   const ss = useScheduleSettings();
   const [from, setFrom] = useState(ymd(Date.now() - 29 * 86_400_000));
   const [to, setTo] = useState(ymd(Date.now()));
+  const [useNicknames, setUseNicknames] = useState(false);
 
   if (!meds || !doses || !checkIns || !body || !events || !ss) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
   const [settings, s] = ss;
@@ -38,6 +41,8 @@ export function Report() {
   const avg = (f: 'mood' | 'energy' | 'focus' | 'appetite') => { const v = average(checkIns, f, start, end); return v === null ? '–' : v.toFixed(1); };
   const nCheckIns = checkIns.filter((c) => !c.deletedAt && inRange(c.at)).length;
   const valid = from <= to;
+  const realNames = !useNicknames;
+  const nameOf = (m: Medication) => (realNames ? m.name : shownName(m));
 
   return (
     <div className="space-y-4 report">
@@ -48,6 +53,12 @@ export function Report() {
           <label className="block space-y-1"><span className="block text-sm font-medium">To</span>
             <input type="date" value={to} max={ymd(Date.now())} onChange={(e) => e.target.value && setTo(e.target.value)} className="w-full min-h-[48px] rounded-btn bg-surface-2 border border-border px-3 tnum" /></label>
         </div>
+        {meds?.some(isPrivate) && (
+          <label className="flex items-center gap-3 min-h-[48px]">
+            <input type="checkbox" checked={useNicknames} onChange={(e) => setUseNicknames(e.target.checked)} className="w-5 h-5 accent-[var(--primary)]" />
+            <span>Use nicknames instead of real names</span>
+          </label>
+        )}
         {!valid && <p className="text-sm text-danger" role="alert">The start date is after the end date.</p>}
         <Button className="w-full min-h-[56px] flex items-center justify-center gap-2" onClick={() => window.print()} disabled={!valid}>
           <Printer size={20} aria-hidden="true" /> Print / Save as PDF
@@ -72,7 +83,7 @@ export function Report() {
                   const ad = adherenceByDay(doses, m, days, s);
                   return (
                     <tr key={m.id} className="tnum">
-                      <td className="py-1.5 pr-3 border-b border-border">{fmtMedName(m)}{m.archived ? ' (stopped)' : ''}</td>
+                      <td className="py-1.5 pr-3 border-b border-border">{realNames ? fmtMedName(m) : shownMedName(m)}{m.archived ? ' (stopped)' : ''}</td>
                       <td className="py-1.5 pr-3 border-b border-border">{m.form}</td>
                       <td className="py-1.5 pr-3 border-b border-border">{fmtAmount(m.defaultAmount, m.unit)}</td>
                       <td className="py-1.5 pr-3 border-b border-border">{fmtSchedule(m.schedule, m.unit)}</td>
@@ -91,7 +102,7 @@ export function Report() {
                 <h3 className="font-semibold mt-4 mb-1">Instructions</h3>
                 <ul className="text-sm space-y-1">
                   {usedMeds.filter((m) => m.instructions?.trim()).map((m) => (
-                    <li key={m.id}><strong>{m.name}:</strong> <span className="whitespace-pre-line">{m.instructions!.trim()}</span>{m.instructionsBy ? <span className="text-muted"> (from {m.instructionsBy})</span> : null}</li>
+                    <li key={m.id}><strong>{nameOf(m)}:</strong> <span className="whitespace-pre-line">{m.instructions!.trim()}</span>{m.instructionsBy ? <span className="text-muted"> (from {m.instructionsBy})</span> : null}</li>
                   ))}
                 </ul>
               </>
@@ -100,7 +111,12 @@ export function Report() {
               <>
                 <h3 className="font-semibold mt-4 mb-1">Changes recorded</h3>
                 <ul className="text-sm space-y-0.5">
-                  {rangeEvents.map((e) => <li key={e.id} className="tnum">{format(Date.parse(e.at), 'd MMM yyyy')}: {e.kind === 'changed' ? `${medById.get(e.medicationId)?.name ?? ''}: ` : ''}{e.summary}</li>)}
+                  {rangeEvents.map((e) => {
+                    const m = medById.get(e.medicationId);
+                    const n = m ? nameOf(m) : '';
+                    const text = e.kind === 'changed' ? `${n}: ${e.summary}` : `${e.kind === 'stopped' ? 'Stopped' : e.summary.startsWith('Restarted') ? 'Restarted' : 'Started'} ${n}`;
+                    return <li key={e.id} className="tnum">{format(Date.parse(e.at), 'd MMM yyyy')}: {text}</li>;
+                  })}
                 </ul>
               </>
             )}
@@ -118,9 +134,9 @@ export function Report() {
             </dl>
           </section>
 
-          <div className="report-block"><AdherenceHeatmap meds={usedMeds} doses={doses} start={start} end={end} s={s} /></div>
-          <div className="report-block"><DoseTimingCharts meds={usedMeds} doses={doses} start={start} end={end} s={s} /></div>
-          <div className="report-block"><FeelingsChart checkIns={checkIns} events={events} meds={meds} start={start} end={end} s={s} prevStart={null} /></div>
+          <div className="report-block"><AdherenceHeatmap meds={usedMeds} doses={doses} start={start} end={end} s={s} realNames={realNames} /></div>
+          <div className="report-block"><DoseTimingCharts meds={usedMeds} doses={doses} start={start} end={end} s={s} realNames={realNames} /></div>
+          <div className="report-block"><FeelingsChart checkIns={checkIns} events={events} meds={meds} start={start} end={end} s={s} prevStart={null} realNames={realNames} /></div>
           <div className="report-block"><WeightChart entries={body} units={settings.units} start={start} end={end} s={s} /></div>
 
           <section className="bg-surface rounded-card shadow-card p-5 report-block">
@@ -135,7 +151,7 @@ export function Report() {
                       <tr key={d.id}>
                         <td className="py-1 pr-3 border-b border-border">{format(Date.parse(d.takenAt), 'EEE d MMM')}</td>
                         <td className="py-1 pr-3 border-b border-border">{format(Date.parse(d.takenAt), 'h:mm a').toLowerCase()}</td>
-                        <td className="py-1 pr-3 border-b border-border">{m?.name ?? '–'}</td>
+                        <td className="py-1 pr-3 border-b border-border">{m ? nameOf(m) : '–'}</td>
                         <td className="py-1 pr-3 border-b border-border">{d.skipped ? '–' : m ? fmtAmount(d.amount, m.unit) : d.amount}</td>
                         <td className="py-1 pr-3 border-b border-border">{d.skipped ? `Skipped${d.skipReason ? ` (${d.skipReason})` : ''}` : SOURCE[d.source]}</td>
                       </tr>

@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import type { Dose, Medication } from '../../db/schema';
 import { removeDose, restoreDose, updateDose } from '../../db/repos/doses';
-import { fmtAmount, fmtMedName, fmtTime, fromLocalInput, toLocalInput } from '../../logic/format';
+import { fmtAmount, fmtTime, fromLocalInput, toLocalInput } from '../../logic/format';
 import { Sheet } from '../../components/ui/Sheet';
 import { Stepper } from '../../components/ui/Stepper';
 import { Button } from '../../components/ui/Button';
@@ -33,7 +34,7 @@ function DoseEditForm({ dose, med, onClose }: { dose: Dose; med?: Medication; on
 
   if (dose.skipped) {
     return (
-      <Sheet open onClose={onClose} title={med ? `${med.name}: skipped` : 'Skipped dose'}>
+      <Sheet open onClose={onClose} title={med ? `${shownName(med)}: skipped` : 'Skipped dose'}>
         <div className="space-y-4">
           <p className="tnum">Marked as skipped for {fmtTime(Date.parse(dose.takenAt))}.{dose.skipReason ? ` ${dose.skipReason}.` : ''}</p>
           <Button variant="danger" className="w-full" onClick={async () => {
@@ -47,7 +48,7 @@ function DoseEditForm({ dose, med, onClose }: { dose: Dose; med?: Medication; on
   }
 
   return (
-    <Sheet open onClose={onClose} title={med ? `Edit ${fmtMedName(med)}` : 'Edit dose'}>
+    <Sheet open onClose={onClose} title={med ? `Edit ${shownMedName(med)}` : 'Edit dose'}>
       <div className="space-y-5">
         <div className="space-y-1.5">
           <span className="block text-sm font-medium">Amount</span>
