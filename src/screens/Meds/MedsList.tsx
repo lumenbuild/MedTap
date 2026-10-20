@@ -1,4 +1,5 @@
 import { ChevronRight, Nfc, Plus } from 'lucide-react';
+import { isPrivate, shownColour, shownMedName } from '../../logic/privacy';
 import { format } from 'date-fns';
 import type { Medication, Tag } from '../../db/schema';
 import { useDoses, useMeds, useScheduleSettings, useSettings, useTags } from '../../app/data';
@@ -9,7 +10,7 @@ import { fmtForecast, fmtScript } from '../../components/Refill';
 import type { Dose } from '../../db/schema';
 import type { ScheduleSettings } from '../../logic/schedule';
 import { go } from '../../app/router';
-import { fmtMedName, fmtSchedule } from '../../logic/format';
+import { fmtSchedule } from '../../logic/format';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { MedBadge } from '../../components/MedBadge';
@@ -67,9 +68,9 @@ function MedRow({ med, tags, doses, s, now }: { med: Medication; tags: Tag[]; do
   return (
     <li>
       <a href={`#/meds/${med.id}`} className="bg-surface rounded-card shadow-card p-4 flex items-center gap-3">
-        <MedBadge color={med.color} icon={med.icon} />
+        <MedBadge color={shownColour(med)} icon={med.icon} />
         <span className="flex-1 min-w-0">
-          <span className="block font-semibold truncate">{fmtMedName(med)}</span>
+          <span className="block font-semibold truncate">{shownMedName(med)}{isPrivate(med) && <span className="ml-2 text-xs font-medium text-muted">Nickname</span>}</span>
           <span className="block text-sm text-muted">{fmtSchedule(med.schedule, med.unit)}</span>
           <span className="block text-sm text-muted tnum">
             {n === 0 ? 'No tag yet' : `${n} tag${n === 1 ? '' : 's'} linked`}

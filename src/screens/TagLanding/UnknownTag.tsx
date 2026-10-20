@@ -1,10 +1,10 @@
 import { Nfc, Plus } from 'lucide-react';
+import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import type { Medication } from '../../db/schema';
 import { linkTag } from '../../db/repos/tags';
 import { addPendingTag } from '../../db/repos/settings';
 import { go, replace } from '../../app/router';
 import { useToast } from '../../app/toast';
-import { fmtMedName } from '../../logic/format';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { MedBadge } from '../../components/MedBadge';
@@ -14,7 +14,7 @@ export function UnknownTag({ id, meds, relinking, onLinked }: { id: string; meds
   const toast = useToast();
   const assign = async (m: Medication) => {
     await linkTag(id, m.id);
-    toast(`Tag linked to ${m.name}`);
+    toast(`Tag linked to ${shownName(m)}`);
     onLinked();
   };
   const notNow = async () => {
@@ -35,8 +35,8 @@ export function UnknownTag({ id, meds, relinking, onLinked }: { id: string; meds
             {meds.map((m) => (
               <li key={m.id}>
                 <button onClick={() => assign(m)} className="w-full min-h-[56px] flex items-center gap-3 px-3 rounded-btn bg-surface-2 text-left font-medium">
-                  <MedBadge color={m.color} icon={m.icon} size={32} />
-                  {fmtMedName(m)}
+                  <MedBadge color={shownColour(m)} icon={m.icon} size={32} />
+                  {shownMedName(m)}
                 </button>
               </li>
             ))}

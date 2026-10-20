@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { isPrivate, shownColour, shownName } from '../../logic/privacy';
 import { X } from 'lucide-react';
 import type { Dose } from '../../db/schema';
 import { db } from '../../db/db';
@@ -86,15 +87,15 @@ export function TagLanding({ id }: { id: string }) {
   return shell(
     <Card>
       <div className="flex items-center gap-3 mb-5">
-        <MedBadge color={med.color} icon={med.icon} size={48} />
+        <MedBadge color={shownColour(med)} icon={med.icon} size={48} />
         <div>
-          <h1 className="text-2xl font-semibold leading-[30px]">{med.name}</h1>
-          {med.strength > 0 && <p className="text-muted">{fmtAmount(med.strength, med.unit)} {med.form}</p>}
+          <h1 className="text-2xl font-semibold leading-[30px]">{shownName(med)}</h1>
+          {med.strength > 0 && !isPrivate(med) && <p className="text-muted">{fmtAmount(med.strength, med.unit)} {med.form}</p>}
         </div>
       </div>
       <LogDoseFlow med={med} doses={doses} s={s} now={now} tagId={id} onLogged={(d) => {
         if (!d.skipped) { setLogged({ dose: d, at: Date.now() }); return; }
-        toast(`Marked ${med.name} as skipped`, { onAction: () => removeDose(d.id) });
+        toast(`Marked ${shownName(med)} as skipped`, { onAction: () => removeDose(d.id) });
         close();
       }} onCancel={close} />
     </Card>,

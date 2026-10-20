@@ -15,10 +15,10 @@ export const MED_COLOURS = [
 
 const slot = (hex: string) => MED_COLOURS.findIndex((c) => c.value.toLowerCase() === hex.toLowerCase()) + 1;
 
-/** CSS colour for a medication's stored colour (themed via CSS variables). */
-export const medColour = (hex: string) => (slot(hex) ? `var(--med-${slot(hex)})` : hex);
+/** CSS colour for a medication's stored colour (themed via CSS variables). 'private' is the plain grey for nicknames. */
+export const medColour = (hex: string) => (hex === 'private' ? 'var(--med-private)' : slot(hex) ? `var(--med-${slot(hex)})` : hex);
 /** Icon/text colour to put on top of the medication colour. */
-export const medInk = (hex: string) => (slot(hex) ? `var(--med-${slot(hex)}-ink)` : '#FFFFFF');
+export const medInk = (hex: string) => (hex === 'private' ? 'var(--med-private-ink)' : slot(hex) ? `var(--med-${slot(hex)}-ink)` : '#FFFFFF');
 
 /** Resolve a CSS colour (including var(--x)) to a concrete value, for canvas charts. */
 export function resolveColour(css: string): string {

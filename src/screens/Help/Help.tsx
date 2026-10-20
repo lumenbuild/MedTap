@@ -138,6 +138,7 @@ const CONTENT: Record<string, ReactNode> = {
         <li>Backup files are encrypted, so opening one (or a cloud drive or email preview) shows only scrambled text. Any copy of {APP_NAME} can restore them without a password, so treat them like the data itself: keep them somewhere private.</li>
         <li>Automatic backups (where the browser allows) only ever go to the folder you choose.</li>
         <li>Progress photos are stored on this phone and never uploaded.</li>
+        <li>Give a medication a <strong>nickname</strong> (on its page in Meds) and that's what shows on Today, when its tag is tapped, in calendar reminders and on Trends, with a plain grey icon. The real name only shows on the medication's own page, in the doctor report (you can choose nicknames there too) and in spreadsheet exports. For everything else, use the app lock.</li>
       </ul>
       <H>What could lose your data</H>
       <p>Clearing your browser's website data, deleting the app, or losing your phone without a backup. Back up regularly and keep the file somewhere safe.</p>

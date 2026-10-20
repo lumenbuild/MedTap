@@ -89,6 +89,14 @@ skipped doses, refill forecasting, encrypted and automatic backups. Awaiting own
   keeps the last N; Today card if the browser needs permission again. Elsewhere (iPhone): "Remind me every N days".
   The folder permission is kept in the device-only `device` table (DB v3), never backed up.
 
+## Nicknames (owner request)
+- Optional per-medication `nickname`: shown instead of the real name (and with a plain grey badge/ring) on Today, the
+  tag screen, success, timeline, sheets, toasts, refill cards, calendar reminders (title + filename), QR stickers and Trends.
+  Strength is hidden from the title too; dose amounts and tablet counts still show (needed to take the right dose).
+- Real name only on the medication's own page, the doctor report (default; "Use nicknames" checkbox) and CSV exports.
+  Started/stopped event text is rebuilt with the shown name, since stored summaries contain the real name.
+- Helpers in `logic/privacy.ts` (`shownName`, `shownMedName`, `shownColour`). Use them for any new on-screen name.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 

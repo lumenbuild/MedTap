@@ -66,3 +66,8 @@
   --med-7: #9085e9; --med-7-ink: #0F172A;
   --med-8: #e66767; --med-8-ink: #0F172A;
 }
+
+/* Plain grey for medications shown under a nickname. */
+:root { --med-private: #5B6475; --med-private-ink: #FFFFFF; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --med-private: #9AA6B5; --med-private-ink: #0F172A; } }
+:root[data-theme="dark"] { --med-private: #9AA6B5; --med-private-ink: #0F172A; }

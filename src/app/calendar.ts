@@ -1,4 +1,5 @@
 import type { Medication } from '../db/schema';
+import { isPrivate, shownName } from '../logic/privacy';
 import { buildIcs } from '../logic/ics';
 import { fmtSchedule } from '../logic/format';
 import { APP_NAME } from '../config';
@@ -9,7 +10,7 @@ export function addToCalendar(med: Medication, start: number) {
   const ics = buildIcs({
     uid: `${crypto.randomUUID()}@medtap`,
     start,
-    title: `${med.name}: next dose`,
+    title: `${shownName(med)}: next dose`,
     description: `Reminder from ${APP_NAME}. Your schedule: ${fmtSchedule(med.schedule, med.unit)}.`,
     now: Date.now(),
   });
@@ -20,7 +21,7 @@ export function addToCalendar(med: Medication, start: number) {
   }
   // Android/desktop: download the .ics; tapping the download opens the calendar app.
   const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
-  const a = Object.assign(document.createElement('a'), { href: url, download: `${med.name}-reminder.ics` });
+  const a = Object.assign(document.createElement('a'), { href: url, download: `${isPrivate(med) ? 'medication' : med.name}-reminder.ics` });
   document.body.appendChild(a);
   a.click();
   a.remove();

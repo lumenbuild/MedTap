@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { shownName } from '../../logic/privacy';
 import { Check, Copy, Nfc, QrCode } from 'lucide-react';
 import type { Medication } from '../../db/schema';
 import { linkTag } from '../../db/repos/tags';
@@ -32,7 +33,7 @@ export function LinkTagSheet({ med, open, onClose, onQr }: { med: Medication; op
   const url = tagUrl(id);
   const save = async () => {
     await linkTag(id, med.id, label);
-    toast(`Tag linked to ${med.name}`);
+    toast(`Tag linked to ${shownName(med)}`);
     setStep('test');
   };
 
@@ -123,7 +124,7 @@ export function LinkTagSheet({ med, open, onClose, onQr }: { med: Medication; op
 
         {step === 'test' && (
           <>
-            <TagTest tagId={id} medName={med.name} />
+            <TagTest tagId={id} medName={shownName(med)} />
             <Button variant="secondary" className="w-full flex items-center justify-center gap-2" onClick={() => onQr(url)}>
               <QrCode size={20} aria-hidden="true" /> Also print a QR sticker
             </Button>

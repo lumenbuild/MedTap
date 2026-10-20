@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { shownName } from '../../logic/privacy';
 import { ChevronRight, Nfc, Plus } from 'lucide-react';
 import type { Medication, Tag } from '../../db/schema';
 import { useTags } from '../../app/data';
@@ -58,7 +59,7 @@ export function TagsSection({ med }: { med: Medication }) {
       </Button>
 
       <LinkTagSheet med={med} open={linking} onClose={() => setLinking(false)} onQr={setQr} />
-      <QrSheet url={qr} medName={med.name} onClose={() => setQr(null)} />
+      <QrSheet url={qr} medName={shownName(med)} onClose={() => setQr(null)} />
 
       <Sheet open={!!selected} onClose={() => setSelected(null)} title={selected ? tagName(selected) : ''}>
         {selected && (
@@ -68,7 +69,7 @@ export function TagsSection({ med }: { med: Medication }) {
               <Button variant="secondary" disabled={label === (selected.label ?? '')}
                 onClick={async () => { await renameTag(selected.id, label); toast('Renamed'); setSelected(null); }}>Save</Button>
             </div>
-            <TagTest tagId={selected.id} medName={med.name} />
+            <TagTest tagId={selected.id} medName={shownName(med)} />
             <Button variant="secondary" className="w-full" onClick={() => { setQr(tagUrl(selected.id)); setSelected(null); }}>Print QR sticker</Button>
             <Button variant="danger" className="w-full" onClick={() => unlink(selected)}>Unlink this tag</Button>
             <p className="text-sm text-muted">Unlinking doesn't erase the tag. Tapping it afterwards shows “New tag found”.</p>

@@ -1,4 +1,5 @@
 import { ChevronRight, Nfc, Ruler, Scale, Smile } from 'lucide-react';
+import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { format } from 'date-fns';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
 import type { Units } from '../../db/repos/settings';
@@ -40,10 +41,10 @@ export function Timeline({ doses, checkIns, body, meds, s, units, now, onDose, o
             if (it.kind === 'dose') {
               const med = meds.get(it.dose.medicationId)!;
               icon = <span className="w-2.5 h-2.5 rounded-full shrink-0 mx-[7px]" aria-hidden="true"
-                style={it.dose.skipped ? { border: `2px solid ${medColour(med.color)}` } : { background: medColour(med.color) }} />;
+                style={it.dose.skipped ? { border: `2px solid ${medColour(shownColour(med))}` } : { background: medColour(shownColour(med)) }} />;
               title = it.dose.skipped
-                ? <><span className="font-medium">{med.name}</span> <span className="text-muted">skipped</span></>
-                : <><span className="font-medium">{med.name}</span> <span className="tnum">{fmtAmount(it.dose.amount, med.unit)}</span></>;
+                ? <><span className="font-medium">{shownName(med)}</span> <span className="text-muted">skipped</span></>
+                : <><span className="font-medium">{shownName(med)}</span> <span className="tnum">{fmtAmount(it.dose.amount, med.unit)}</span></>;
               sub = it.dose.skipped ? it.dose.skipReason : it.dose.source === 'backdated' ? 'Logged later' : undefined;
               extra = it.dose.source === 'tag' ? <Nfc size={16} className="text-muted" aria-label="Logged with a tag" /> : null;
               onClick = () => onDose(it.dose);

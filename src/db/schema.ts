@@ -42,6 +42,9 @@ export interface Medication extends Stamped {
   instructions?: string; instructionsBy?: string; instructionsUpdatedAt?: string;
   /** Future schedule changes, oldest first. Each is moved into `schedule` on its date. */
   plannedChanges?: PlannedChange[];
+  /** Shown instead of the real name wherever someone might glance (Today, tag taps, reminders, charts), with a plain
+   *  grey badge. The real name only shows on the medication's own page, in the doctor report and in exports. */
+  nickname?: string;
   /** Script refills left, and when the script expires ('YYYY-MM-DD'). */
   repeatsLeft?: number; scriptExpiry?: string;
 }

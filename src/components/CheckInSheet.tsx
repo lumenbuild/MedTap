@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { shownColour, shownMedName, shownName } from '../logic/privacy';
 import { Plus } from 'lucide-react';
 import type { CheckIn, Dose, Medication } from '../db/schema';
 import { addCheckIn, removeCheckIn, restoreCheckIn, updateCheckIn, type CheckInInput } from '../db/repos/checkIns';
@@ -131,7 +132,7 @@ function CheckInForm({ seed, onClose, doses, checkIns, meds, chips, s }: Props &
             <option value="">None</option>
             {nearby.map((d) => {
               const m = medName(d);
-              return <option key={d.id} value={d.id}>{m?.name ?? 'Dose'} {m ? fmtAmount(d.amount, m.unit) : ''} · {fmtWhen(Date.parse(d.takenAt), at)}</option>;
+              return <option key={d.id} value={d.id}>{m ? shownName(m) : 'Dose'} {m ? fmtAmount(d.amount, m.unit) : ''} · {fmtWhen(Date.parse(d.takenAt), at)}</option>;
             })}
           </select>
         </div>
