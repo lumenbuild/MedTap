@@ -167,6 +167,18 @@ skipped doses, refill forecasting, encrypted and automatic backups. Awaiting own
   simple decay, labelled an estimate). **Dose levels** table (weight change, appetite, top check-in chips per dose)
   and dose-change markers on the weight chart. Today cards show units/clicks for the next dose.
 
+## Goals and forecasts (weight, waist)
+- `person.goals` (one per metric: target, optional date, start value/date; synced with people).
+- `logic/forecast.ts`, pure: daily series (repeats averaged) → Theil–Sen rate and level over the last 4 weeks
+  (6 if sparse; needs 5 logs over 7+ days). Likely range = 1.5 × the rate's standard error (MAD scatter) plus
+  any change between the window's halves beyond what the scatter explains. ETA with early/late dates (late is
+  open-ended if the slow end isn't heading there; capped at 3 years), "N days sooner/later than last week"
+  (same forecast on data up to a week ago), slowing (last fortnight < 60% of the one before), flat/away states,
+  reached (+ drift since), milestones (5/10/15/20%, halfway, goal), pace needed for a target date with a note
+  over ~1% body weight a week. Chart trend = robust line over the previous 3 weeks at each day (no lag).
+- UI: Body goal cards + goal sheet (start prefilled from the trend), Today one-liner, Trends "goal forecast"
+  chart (logs, trend, goal line, forecast with likely range), Help "Goals and forecasts". kg/lb and cm/in.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 

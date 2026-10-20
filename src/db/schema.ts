@@ -34,7 +34,24 @@ interface Stamped { id: string; createdAt: string; updatedAt: string }
 export interface Bottle { id: string; expiry: string /* 'YYYY-MM-DD' */; label?: string; addedAt: string }
 
 /** A family member. Records without a personId belong to the default person, DEFAULT_PERSON ("Me"). */
-export interface Person extends Stamped { name: string }
+/** Body measurements a goal can be set for. */
+export type GoalMetric = 'weightKg' | 'waistCm';
+
+/** A goal for a body measurement, e.g. weight 95 → 80 kg, optionally by a date. Values are in kg or cm. */
+export interface BodyGoal {
+  metric: GoalMetric;
+  target: number;
+  /** Optional date to reach it by ('YYYY-MM-DD'). */
+  targetDate?: string;
+  /** Where it started (the trend when the goal was set) and when. */
+  start: number; startDate: string;
+}
+
+export interface Person extends Stamped {
+  name: string;
+  /** Body goals, at most one per measurement. */
+  goals?: BodyGoal[];
+}
 export const DEFAULT_PERSON = 'me';
 
 /** A schedule that takes over on a future date (dose change or taper step). Applied automatically on that day. */

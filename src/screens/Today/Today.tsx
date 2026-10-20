@@ -15,6 +15,7 @@ import { byUrgency, getLastDose, getNextDue, getStatus } from '../../logic/sched
 import { checkInPromptDose, needsBackup, refillAlerts } from '../../logic/reminders';
 import { RefillCards } from '../../components/Refill';
 import { VialAlerts } from '../Meds/VialCard';
+import { GoalLines } from '../Body/Goals';
 import { SupplyAlerts } from '../Supplies';
 import { supplyAlerts } from '../../logic/peptide';
 import { fmtAgo, fmtAmount, fmtTime, fmtWhen } from '../../logic/format';
@@ -172,6 +173,8 @@ export function Today() {
         ))}
       </div>
       )}
+
+      {!fam.everyone && <GoalLines goals={fam.people.find((p) => p.id === fam.personId)?.goals ?? []} entries={viewBody} units={settings.units} now={now} />}
 
       {needsBackup(settings.lastBackupAt, firstRecord, now, settings.backupReminderDays) && <BackupReminder days={settings.backupReminderDays} />}
       <AutoBackupPermission enabled={settings.autoBackupEnabled} />
