@@ -16,9 +16,11 @@ type Item =
   | { kind: 'body'; at: number; entry: BodyEntry };
 
 /** Today's doses, check-ins and body entries in time order. Each row opens an editor. */
-export function Timeline({ doses, checkIns, body, meds, s, units, now, onDose, onCheckIn, onBody }: {
+export function Timeline({ doses, checkIns, body, meds, s, units, now, onDose, onCheckIn, onBody, personLabel }: {
   doses: Dose[]; checkIns: CheckIn[]; body: BodyEntry[]; meds: Map<string, Medication>; s: ScheduleSettings; units: Units; now: number;
   onDose: (d: Dose) => void; onCheckIn: (c: CheckIn) => void; onBody: (b: BodyEntry) => void;
+  /** In the Everyone view, whose entry each row is. */
+  personLabel?: (r: { personId?: string }) => string | undefined;
 }) {
   const { start, end } = getDayBounds(now, s.dayStartsAt, s.tz);
   const inDay = (t: number) => t >= start && t < end;
@@ -48,18 +50,21 @@ export function Timeline({ doses, checkIns, body, meds, s, units, now, onDose, o
               sub = it.dose.skipped ? it.dose.skipReason : it.dose.source === 'backdated' ? 'Logged later' : undefined;
               extra = it.dose.source === 'tag' ? <Nfc size={16} className="text-muted" aria-label="Logged with a tag" /> : null;
               onClick = () => onDose(it.dose);
+              if (personLabel) sub = [personLabel(med), sub].filter(Boolean).join(' · ');
             } else if (it.kind === 'checkin') {
               const c = it.checkIn;
               icon = <Smile size={20} className="text-primary shrink-0" aria-hidden="true" />;
               title = <span className="font-medium">Check-in{c.mood ? `: ${MOOD_LABELS[c.mood - 1]}` : ''}</span>;
               sub = [c.energy && `Energy ${c.energy}`, c.focus && `Focus ${c.focus}`, c.chips.length ? c.chips.join(', ') : null].filter(Boolean).join(' · ') || undefined;
               onClick = () => onCheckIn(c);
+              if (personLabel) sub = [personLabel(c), sub].filter(Boolean).join(' · ');
             } else {
               const b = it.entry;
               const n = MEASUREMENTS.filter((m) => b[m.key] !== undefined).length;
               icon = b.weightKg !== undefined ? <Scale size={20} className="text-primary shrink-0" aria-hidden="true" /> : <Ruler size={20} className="text-primary shrink-0" aria-hidden="true" />;
               title = <span className="font-medium tnum">{[b.weightKg !== undefined ? fmtWeight(b.weightKg, units) : null, n ? `${n} measurement${n === 1 ? '' : 's'}` : null].filter(Boolean).join(' · ')}</span>;
               onClick = () => onBody(b);
+              if (personLabel) sub = personLabel(b);
             }
             return (
               <li key={`${it.kind}-${'dose' in it ? it.dose.id : 'checkIn' in it ? it.checkIn.id : it.entry.id}`}>

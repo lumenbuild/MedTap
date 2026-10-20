@@ -5,6 +5,7 @@ import type { Photo } from '../../db/schema';
 import { db } from '../../db/db';
 import { useLive } from '../../db/live';
 import { addPhoto, removePhoto, restorePhoto } from '../../db/repos/photos';
+import { personOf } from '../../db/repos/people';
 import { useToast } from '../../app/toast';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -20,9 +21,9 @@ function usePhotoUrls(photos: Photo[]) {
   return urls;
 }
 
-export function ProgressPhotos() {
+export function ProgressPhotos({ personId }: { personId: string }) {
   const all = useLive(() => db.photos.orderBy('date').toArray());
-  const photos = useMemo(() => (all ?? []).filter((p) => !p.deletedAt), [all]);
+  const photos = useMemo(() => (all ?? []).filter((p) => !p.deletedAt && personOf(p) === personId), [all, personId]);
   const urls = usePhotoUrls(photos);
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -35,7 +36,7 @@ export function ProgressPhotos() {
     if (!file) return;
     setBusy(true);
     try {
-      const p = await addPhoto(date, file);
+      const p = await addPhoto(date, file, personId);
       toast(`Photo saved for ${fmtYmd(p.date)}`, { onAction: () => removePhoto(p.id) });
     } finally { setBusy(false); }
   };

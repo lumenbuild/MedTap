@@ -6,7 +6,10 @@ import { db } from '../../db/db';
 import { useLive } from '../../db/live';
 import { markScanned } from '../../db/repos/tags';
 import { removeDose } from '../../db/repos/doses';
-import { useDoses, useMeds, useScheduleSettings } from '../../app/data';
+import { useDoses, useFamily, useMeds, useScheduleSettings } from '../../app/data';
+import { personOf } from '../../db/repos/people';
+import { setSetting } from '../../db/repos/settings';
+import { PersonBadge } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
 import { useToast } from '../../app/toast';
 import { replace } from '../../app/router';
@@ -26,6 +29,7 @@ export function TagLanding({ id }: { id: string }) {
   const meds = useMeds();
   const doses = useDoses();
   const ss = useScheduleSettings();
+  const fam = useFamily();
   const now = useNow();
   const toast = useToast();
   const [logged, setLogged] = useState<{ dose: Dose; at: number } | null>(null);
@@ -56,14 +60,15 @@ export function TagLanding({ id }: { id: string }) {
       </Card>,
     );
   }
-  if (tag === undefined || !meds || !doses || !ss) {
+  if (tag === undefined || !meds || !doses || !ss || !fam) {
     return shell(<div className="h-[420px] rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />);
   }
 
   const [, s] = ss;
   const med = tag ? meds.find((m) => m.id === tag.medicationId) : undefined;
 
-  if (!med || reassign) return shell(<UnknownTag id={id} meds={meds.filter((m) => !m.archived)} relinking={!!med} onLinked={() => setReassign(false)} />);
+  if (!med || reassign) return shell(<UnknownTag id={id} meds={meds.filter((m) => !m.archived)} relinking={!!med} onLinked={() => setReassign(false)}
+    personName={fam.many ? (m) => fam.nameOf(personOf(m)) : undefined} />);
   if (med.archived) return shell(<ArchivedTag med={med} onReassign={() => setReassign(true)} />);
 
   if (logged) {
@@ -79,13 +84,20 @@ export function TagLanding({ id }: { id: string }) {
           duration: Math.max(left, 5_000), onAction: () => removeDose(logged.dose.id).then(() => toast('Dose removed. Nothing was logged.')),
         });
       }
+      // Show the person this dose was for when going back to Today.
+      if (fam.many) { setSetting('activePersonId', personOf(med)); if (!fam.everyone) setSetting('todayEveryone', false); }
       close();
     };
-    return shell(<Success dose={logged.dose} loggedAt={logged.at} med={med} doses={doses} s={s} now={now} onUndo={undo} onDone={done} />);
+    return shell(<Success dose={logged.dose} loggedAt={logged.at} med={med} doses={doses} s={s} now={now} onUndo={undo} onDone={done} person={fam.many ? fam.nameOf(personOf(med)) : undefined} />);
   }
 
   return shell(
     <Card>
+      {fam.many && (
+        <p className="flex items-center gap-2 mb-4 text-lg font-semibold text-primary" aria-label={`For ${fam.nameOf(personOf(med))}`}>
+          <PersonBadge name={fam.nameOf(personOf(med))} size={32} /> For {fam.nameOf(personOf(med))}
+        </p>
+      )}
       <div className="flex items-center gap-3 mb-5">
         <MedBadge color={shownColour(med)} icon={med.icon} size={48} />
         <div>

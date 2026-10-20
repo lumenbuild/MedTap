@@ -25,6 +25,10 @@ export interface Schedule {
 
 interface Stamped { id: string; createdAt: string; updatedAt: string }
 
+/** A family member. Records without a personId belong to the default person, DEFAULT_PERSON ("Me"). */
+export interface Person extends Stamped { name: string }
+export const DEFAULT_PERSON = 'me';
+
 /** A schedule that takes over on a future date (dose change or taper step). Applied automatically on that day. */
 export interface PlannedChange {
   id: string;
@@ -42,6 +46,8 @@ export interface Medication extends Stamped {
   instructions?: string; instructionsBy?: string; instructionsUpdatedAt?: string;
   /** Future schedule changes, oldest first. Each is moved into `schedule` on its date. */
   plannedChanges?: PlannedChange[];
+  /** Who takes it (a Person id); missing = the default person. */
+  personId?: string;
   /** Shown instead of the real name wherever someone might glance (Today, tag taps, reminders, charts), with a plain
    *  grey badge. The real name only shows on the medication's own page, in the doctor report and in exports. */
   nickname?: string;
@@ -58,12 +64,12 @@ export interface Dose extends Stamped {
 export interface CheckIn extends Stamped {
   at: string; mood?: number; energy?: number; focus?: number; appetite?: number;
   sleepHours?: number; sleepQuality?: number; chips: string[]; note?: string;
-  relatedDoseId?: string; deletedAt?: string;
+  relatedDoseId?: string; deletedAt?: string; personId?: string;
 }
 export interface BodyEntry extends Stamped {
   date: string; // local YYYY-MM-DD
   weightKg?: number; waistCm?: number; hipsCm?: number; chestCm?: number; neckCm?: number;
-  armCm?: number; thighCm?: number; calfCm?: number; note?: string; deletedAt?: string;
+  armCm?: number; thighCm?: number; calfCm?: number; note?: string; deletedAt?: string; personId?: string;
 }
 export interface MedEvent {
   id: string; medicationId: string; at: string; kind: 'started' | 'changed' | 'stopped';
@@ -72,7 +78,7 @@ export interface MedEvent {
 export interface Setting { key: string; value: unknown }
 export interface Photo extends Stamped {
   date: string; // local YYYY-MM-DD
-  blob: Blob; type: string; note?: string; deletedAt?: string;
+  blob: Blob; type: string; note?: string; deletedAt?: string; personId?: string;
 }
 /** Device-only values that must never go into a backup (e.g. a folder permission handle). */
 export interface DeviceValue { key: string; value: unknown }

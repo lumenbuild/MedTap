@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { Printer } from 'lucide-react';
-import { useBodyEntries, useCheckIns, useDoses, useMedEvents, useMeds, useScheduleSettings } from '../../app/data';
+import { useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings } from '../../app/data';
+import { personOf } from '../../db/repos/people';
+import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { APP_NAME } from '../../config';
 import { fmtAmount, fmtMedName, fmtSchedule } from '../../logic/format';
 import { isPrivate, shownMedName, shownName } from '../../logic/privacy';
@@ -17,17 +19,26 @@ const SOURCE: Record<string, string> = { tag: 'Tag', manual: 'In app', backdated
 
 /** A print-friendly summary for a chosen date range. Print / Save as PDF uses the browser's print dialog. */
 export function Report() {
-  const meds = useMeds();
-  const doses = useDoses();
-  const checkIns = useCheckIns();
-  const body = useBodyEntries();
-  const events = useMedEvents();
+  const allMeds = useMeds();
+  const allDoses = useDoses();
+  const allCheckIns = useCheckIns();
+  const allBody = useBodyEntries();
+  const allEvents = useMedEvents();
+  const fam = useFamily();
   const ss = useScheduleSettings();
   const [from, setFrom] = useState(ymd(Date.now() - 29 * 86_400_000));
   const [to, setTo] = useState(ymd(Date.now()));
   const [useNicknames, setUseNicknames] = useState(false);
 
-  if (!meds || !doses || !checkIns || !body || !events || !ss) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
+  if (!allMeds || !allDoses || !allCheckIns || !allBody || !allEvents || !ss || !fam) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
+  // Only the chosen family member's records.
+  const meds = allMeds.filter((m) => personOf(m) === fam.personId);
+  const medIds = new Set(meds.map((m) => m.id));
+  const doses = allDoses.filter((d) => medIds.has(d.medicationId));
+  const checkIns = allCheckIns.filter((c) => personOf(c) === fam.personId);
+  const body = allBody.filter((b) => personOf(b) === fam.personId);
+  const events = allEvents.filter((e) => medIds.has(e.medicationId));
+
   const [settings, s] = ss;
   const start = new Date(`${from}T00:00`).getTime();
   const end = Math.min(new Date(`${to}T23:59:59`).getTime(), Date.now());
@@ -46,6 +57,7 @@ export function Report() {
 
   return (
     <div className="space-y-4 report">
+      <div className="no-print"><PersonSwitcher /></div>
       <div className="no-print bg-surface rounded-card shadow-card p-5 space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <label className="block space-y-1"><span className="block text-sm font-medium">From</span>
@@ -53,7 +65,7 @@ export function Report() {
           <label className="block space-y-1"><span className="block text-sm font-medium">To</span>
             <input type="date" value={to} max={ymd(Date.now())} onChange={(e) => e.target.value && setTo(e.target.value)} className="w-full min-h-[48px] rounded-btn bg-surface-2 border border-border px-3 tnum" /></label>
         </div>
-        {meds?.some(isPrivate) && (
+        {meds.some(isPrivate) && (
           <label className="flex items-center gap-3 min-h-[48px]">
             <input type="checkbox" checked={useNicknames} onChange={(e) => setUseNicknames(e.target.checked)} className="w-5 h-5 accent-[var(--primary)]" />
             <span>Use nicknames instead of real names</span>
@@ -69,7 +81,7 @@ export function Report() {
       {valid && (
         <>
           <header className="bg-surface rounded-card shadow-card p-5 report-block">
-            <h1 className="text-2xl font-semibold">Medication and wellbeing record</h1>
+            <h1 className="text-2xl font-semibold">Medication and wellbeing record{fam.many ? `: ${fam.person}` : ''}</h1>
             <p className="text-muted tnum">{format(start, 'd MMM yyyy')} – {format(end, 'd MMM yyyy')} · {days.length} days</p>
           </header>
 

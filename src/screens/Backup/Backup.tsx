@@ -8,6 +8,8 @@ import { useNow } from '../../app/useNow';
 import { go } from '../../app/router';
 import { shareOrDownload } from '../../app/files';
 import { importBackup, markBackedUp } from '../../db/repos/backup';
+import { listPeople } from '../../db/repos/people';
+import { DEFAULT_PERSON } from '../../db/schema';
 import { setSetting } from '../../db/repos/settings';
 import { isSealed, unsealBackup } from '../../logic/crypto';
 import { autoBackupState, backupText, chooseFolder, regainPermission, runAutoBackup, stopAutoBackup } from '../../app/autoBackup';
@@ -66,10 +68,12 @@ export function Backup() {
 
   const exportCsv = async (kind: 'doses' | 'checkIns' | 'body' | 'meds') => {
     const meds = await db.medications.toArray();
-    const csv = kind === 'doses' ? dosesCsv(await db.doses.toArray(), meds)
-      : kind === 'checkIns' ? checkInsCsv(await db.checkIns.toArray())
-      : kind === 'body' ? bodyCsv(await db.bodyEntries.toArray())
-      : medicationsCsv(meds);
+    const people = await listPeople();
+    const person = (id?: string) => people.find((p) => p.id === (id ?? DEFAULT_PERSON))?.name ?? 'Me';
+    const csv = kind === 'doses' ? dosesCsv(await db.doses.toArray(), meds, person)
+      : kind === 'checkIns' ? checkInsCsv(await db.checkIns.toArray(), person)
+      : kind === 'body' ? bodyCsv(await db.bodyEntries.toArray(), person)
+      : medicationsCsv(meds, person);
     const name = { doses: 'doses', checkIns: 'check-ins', body: 'body', meds: 'medications' }[kind];
     await shareOrDownload(`${APP_NAME}-${name}.csv`, new Blob([csv], { type: 'text/csv' }), `${APP_NAME} ${name}`);
   };

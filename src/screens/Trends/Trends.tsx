@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { FileText } from 'lucide-react';
-import { useBodyEntries, useCheckIns, useDoses, useMedEvents, useMeds, useScheduleSettings } from '../../app/data';
+import { useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings } from '../../app/data';
+import { personOf } from '../../db/repos/people';
+import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
 import { RANGE_DAYS, rangeStart, type Range } from '../../logic/stats';
 import { Segmented } from '../../components/ui/Field';
@@ -9,11 +11,12 @@ import {
 } from '../../components/charts/Charts';
 
 export function Trends() {
-  const meds = useMeds();
-  const doses = useDoses();
-  const checkIns = useCheckIns();
-  const body = useBodyEntries();
-  const events = useMedEvents();
+  const allMeds = useMeds();
+  const allDoses = useDoses();
+  const allCheckIns = useCheckIns();
+  const allBody = useBodyEntries();
+  const allEvents = useMedEvents();
+  const fam = useFamily();
   const ss = useScheduleSettings();
   const now = useNow(60_000);
   const [range, setRange] = useState<Range>(() => {
@@ -21,9 +24,17 @@ export function Trends() {
   });
   const pick = (r: Range) => { setRange(r); try { localStorage.setItem('trendsRange', r); } catch { /* per-device preference only */ } };
 
-  if (!meds || !doses || !checkIns || !body || !events || !ss) {
+  if (!allMeds || !allDoses || !allCheckIns || !allBody || !allEvents || !ss || !fam) {
     return <div className="space-y-4" aria-busy="true" aria-label="Loading">{[0, 1, 2].map((i) => <div key={i} className="h-60 rounded-card bg-surface-2 animate-pulse" />)}</div>;
   }
+  // Only the chosen family member's records.
+  const meds = allMeds.filter((m) => personOf(m) === fam.personId);
+  const medIds = new Set(meds.map((m) => m.id));
+  const doses = allDoses.filter((d) => medIds.has(d.medicationId));
+  const checkIns = allCheckIns.filter((c) => personOf(c) === fam.personId);
+  const body = allBody.filter((b) => personOf(b) === fam.personId);
+  const events = allEvents.filter((e) => medIds.has(e.medicationId));
+
   const [settings, s] = ss;
   const times = [...doses.map((d) => Date.parse(d.takenAt)), ...checkIns.map((c) => Date.parse(c.at)), ...body.map((b) => Date.parse(`${b.date}T00:00`))];
   const earliest = times.length ? Math.min(...times) : null;
@@ -37,6 +48,7 @@ export function Trends() {
 
   return (
     <div className="space-y-4">
+      <PersonSwitcher />
       <div className="sticky top-0 z-10 -mx-4 px-4 py-2 bg-bg">
         <Segmented<Range> label="Date range" value={range} onChange={pick}
           options={[{ value: '7d', label: '7D' }, { value: '30d', label: '30D' }, { value: '90d', label: '90D' }, { value: 'all', label: 'All' }]} />

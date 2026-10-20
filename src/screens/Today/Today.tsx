@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react';
 import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { CalendarPlus, Lock, Nfc, Pill, Ruler, Scale, Smile } from 'lucide-react';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
-import { useBodyEntries, useCheckIns, useDoses, useMeds, useScheduleSettings } from '../../app/data';
+import { useBodyEntries, useCheckIns, useDoses, useFamily, useMeds, useScheduleSettings } from '../../app/data';
+import { personOf } from '../../db/repos/people';
+import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
 import { useToast } from '../../app/toast';
 import { go } from '../../app/router';
@@ -31,6 +33,7 @@ export function Today() {
   const checkIns = useCheckIns();
   const body = useBodyEntries();
   const ss = useScheduleSettings();
+  const fam = useFamily();
   const now = useNow();
   const toast = useToast();
   const [logFor, setLogFor] = useState<Medication | null>(null);
@@ -40,9 +43,18 @@ export function Today() {
 
   const medMap = useMemo(() => new Map((meds ?? []).map((m) => [m.id, m])), [meds]);
 
-  if (!meds || !doses || !checkIns || !body || !ss) return <TodaySkeleton />;
+  if (!meds || !doses || !checkIns || !body || !ss || !fam) return <TodaySkeleton />;
   const [settings, s] = ss;
-  const active = meds.filter((m) => !m.archived);
+  // Whose medications are shown: one family member, or everyone (carer view, each card labelled).
+  const mine = <T extends { personId?: string }>(r: T) => fam.everyone || personOf(r) === fam.personId;
+  const viewMeds = meds.filter(mine);
+  const viewMedIds = new Set(viewMeds.map((m) => m.id));
+  const viewDoses = doses.filter((d) => viewMedIds.has(d.medicationId));
+  const viewCheckIns = checkIns.filter(mine);
+  const viewBody = body.filter(mine);
+  const viewMedMap = new Map(viewMeds.map((m) => [m.id, m]));
+  const whose = (r: { personId?: string }) => (fam.everyone ? fam.nameOf(personOf(r)) : undefined);
+  const active = viewMeds.filter((m) => !m.archived);
   // Order is fixed per minute so cards don't reshuffle under the user's thumb every second.
   const scheduled = byUrgency(active.filter((m) => m.schedule.type !== 'prn'), doses, Math.floor(now / 60_000) * 60_000, s);
   const prn = active.filter((m) => m.schedule.type === 'prn');
@@ -51,8 +63,8 @@ export function Today() {
     const t = Date.parse(r.createdAt);
     return min === null || t < min ? t : min;
   }, null);
-  const promptDose = checkInPromptDose(doses, checkIns, now, settings.checkInDelayMin, settings.dismissedCheckInDoseId);
-  const refills = refillAlerts(meds, doses, Math.floor(now / 60_000) * 60_000, s, settings.refillWarnDays, settings.dismissedLowStock);
+  const promptDose = fam.everyone ? undefined : checkInPromptDose(viewDoses, viewCheckIns, now, settings.checkInDelayMin, settings.dismissedCheckInDoseId);
+  const refills = refillAlerts(viewMeds, doses, Math.floor(now / 60_000) * 60_000, s, settings.refillWarnDays, settings.dismissedLowStock);
   const last = settings.lastBackupAt ? Date.parse(settings.lastBackupAt) : null;
 
   const onLogged = (d: Dose) => {
@@ -71,9 +83,9 @@ export function Today() {
     const showCal = next !== null && next > now && ['not-due', 'not-today', 'done-today'].includes(getStatus(m, doses, now, s));
     return (
       <div key={m.id} className={className}>
-        <HeroCard med={m} doses={doses} s={s} now={now} onLog={() => setLogFor(m)}
+        <HeroCard med={m} doses={doses} s={s} now={now} onLog={() => setLogFor(m)} person={whose(m)}
           footer={showCal ? (
-            <button onClick={() => addToCalendar(m, next!)} className="w-full min-h-[48px] mt-2 flex items-center justify-center gap-2 text-primary font-semibold">
+            <button onClick={() => addToCalendar(m, next!, fam.many ? fam.nameOf(personOf(m)) : undefined)} className="w-full min-h-[48px] mt-2 flex items-center justify-center gap-2 text-primary font-semibold">
               <CalendarPlus size={18} aria-hidden="true" /> Add {fmtWhen(next!, now)} to calendar
             </button>
           ) : null} />
@@ -83,6 +95,7 @@ export function Today() {
 
   return (
     <div className="space-y-4">
+      <PersonSwitcher allowEveryone />
       <IOSBanner dismissed={settings.iosBannerDismissed} />
 
       {settings.pendingTags.length > 0 && (
@@ -96,7 +109,7 @@ export function Today() {
       {active.length === 0 && (
         <Card className="text-center py-8">
           <Pill className="mx-auto text-primary" size={32} aria-hidden="true" />
-          <p className="mt-3">No medications yet. Add one to start logging doses.</p>
+          <p className="mt-3">{fam.many && !fam.everyone ? `No medications for ${fam.person} yet.` : 'No medications yet.'} Add one to start logging doses.</p>
           <Button className="mt-4" onClick={() => go('/meds/new')}>Add medication</Button>
         </Card>
       )}
@@ -114,11 +127,14 @@ export function Today() {
       {prn.length > 0 && (
         <section className="space-y-2" aria-label="As needed">
           <h2 className="text-sm font-semibold text-muted px-1">As needed</h2>
-          {prn.map((m) => <PrnCard key={m.id} med={m} doses={doses} s={s} now={now} onLog={() => setLogFor(m)} />)}
+          {prn.map((m) => <PrnCard key={m.id} med={m} doses={doses} s={s} now={now} onLog={() => setLogFor(m)} person={whose(m)} />)}
         </section>
       )}
 
-      <div className="grid grid-cols-3 gap-2" aria-label="Quick actions">
+      {fam.everyone ? (
+        <p className="text-sm text-muted text-center px-4">Choose a person above to check in or log weight for them.</p>
+      ) : (
+      <div className="grid grid-cols-3 gap-2" aria-label={fam.many ? `Quick actions for ${fam.person}` : 'Quick actions'}>
         {([
           ['Check in', Smile, () => setCheckIn({})],
           ['Log weight', Scale, () => setBodySheet({ kind: 'weight' })],
@@ -129,12 +145,13 @@ export function Today() {
           </button>
         ))}
       </div>
+      )}
 
       {needsBackup(settings.lastBackupAt, firstRecord, now, settings.backupReminderDays) && <BackupReminder days={settings.backupReminderDays} />}
       <AutoBackupPermission enabled={settings.autoBackupEnabled} />
       <InstallCard hasDoses={doses.some((d) => !d.deletedAt)} dismissed={settings.installCardDismissed} />
 
-      <Timeline doses={doses} checkIns={checkIns} body={body} meds={medMap} s={s} units={settings.units} now={now}
+      <Timeline doses={viewDoses} checkIns={viewCheckIns} body={viewBody} meds={viewMedMap} s={s} units={settings.units} now={now} personLabel={fam.everyone ? whose : undefined}
         onDose={setEditing} onCheckIn={(c: CheckIn) => setCheckIn({ editing: c })} onBody={(b: BodyEntry) => setBodySheet({ kind: 'edit', entry: b })} />
 
       <a href="#/backup" className="flex flex-wrap items-center justify-center gap-x-2 min-h-[48px] text-sm text-muted tnum">
@@ -147,8 +164,9 @@ export function Today() {
         {logFor && <LogDoseFlow med={logFor} doses={doses} s={s} now={now} onLogged={onLogged} onCancel={() => setLogFor(null)} />}
       </Sheet>
       <DoseEditSheet dose={editing} med={editing ? medMap.get(editing.medicationId) : undefined} onClose={() => setEditing(null)} />
-      <CheckInSheet seed={checkIn} onClose={() => setCheckIn(null)} doses={doses} checkIns={checkIns} meds={meds} chips={settings.chips} s={s} />
-      <BodySheet state={bodySheet} onClose={() => setBodySheet(null)} units={settings.units} />
+      <CheckInSheet seed={checkIn} onClose={() => setCheckIn(null)} doses={viewDoses} checkIns={viewCheckIns} meds={viewMeds} chips={settings.chips} s={s}
+        personId={checkIn?.editing ? personOf(checkIn.editing) : fam.personId} />
+      <BodySheet state={bodySheet} onClose={() => setBodySheet(null)} units={settings.units} personId={bodySheet?.entry ? personOf(bodySheet.entry) : fam.personId} />
     </div>
   );
 }

@@ -2,7 +2,9 @@ import { ChevronRight, Nfc, Plus } from 'lucide-react';
 import { isPrivate, shownColour, shownMedName } from '../../logic/privacy';
 import { format } from 'date-fns';
 import type { Medication, Tag } from '../../db/schema';
-import { useDoses, useMeds, useScheduleSettings, useSettings, useTags } from '../../app/data';
+import { useDoses, useFamily, useMeds, useScheduleSettings, useSettings, useTags } from '../../app/data';
+import { personOf } from '../../db/repos/people';
+import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
 import { forecastRunOut, nextPlannedChange } from '../../logic/plans';
 import { dayKey } from '../../logic/stats';
@@ -22,13 +24,16 @@ export function MedsList() {
   const doses = useDoses();
   const ss = useScheduleSettings();
   const now = useNow(60_000);
-  if (!meds || !tags || !settings || !doses || !ss) return <div className="h-40 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
+  const fam = useFamily();
+  if (!meds || !tags || !settings || !doses || !ss || !fam) return <div className="h-40 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
 
-  const active = meds.filter((m) => !m.archived);
-  const archived = meds.filter((m) => m.archived);
+  const theirs = meds.filter((m) => personOf(m) === fam.personId);
+  const active = theirs.filter((m) => !m.archived);
+  const archived = theirs.filter((m) => m.archived);
 
   return (
     <div className="space-y-4">
+      <PersonSwitcher />
       {settings.pendingTags.map((id) => (
         <Card key={id} className="flex items-center gap-3">
           <Nfc className="text-primary shrink-0" aria-hidden="true" />
@@ -39,14 +44,14 @@ export function MedsList() {
 
       {active.length === 0 ? (
         <Card className="text-center py-8">
-          <p>No medications yet. Adding one takes about a minute.</p>
+          <p>{fam.many ? `No medications for ${fam.person} yet.` : 'No medications yet.'} Adding one takes about a minute.</p>
         </Card>
       ) : (
         <ul className="space-y-2">{active.map((m) => <MedRow key={m.id} med={m} tags={tags} doses={doses} s={ss[1]} now={now} />)}</ul>
       )}
 
       <Button className="w-full min-h-[56px] flex items-center justify-center gap-2" onClick={() => go('/meds/new')}>
-        <Plus size={20} aria-hidden="true" /> Add medication
+        <Plus size={20} aria-hidden="true" /> Add medication{fam.many ? ` for ${fam.person}` : ''}
       </Button>
 
       {archived.length > 0 && (

@@ -6,11 +6,12 @@ import { APP_NAME } from '../config';
 import { isIOS } from '../platform';
 
 /** Hand the phone's calendar a one-off event at the next due time, with an alert when it starts. */
-export function addToCalendar(med: Medication, start: number) {
+/** `person` is added to the title when several family members are tracked. */
+export function addToCalendar(med: Medication, start: number, person?: string) {
   const ics = buildIcs({
     uid: `${crypto.randomUUID()}@medtap`,
     start,
-    title: `${shownName(med)}: next dose`,
+    title: `${person ? `${person}: ` : ''}${shownName(med)}: next dose`,
     description: `Reminder from ${APP_NAME}. Your schedule: ${fmtSchedule(med.schedule, med.unit)}.`,
     now: Date.now(),
   });

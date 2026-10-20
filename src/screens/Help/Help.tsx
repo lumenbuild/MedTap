@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
-import { BellRing, CalendarClock, ChevronRight, Info, Lock, Nfc, ShieldCheck, Smartphone } from 'lucide-react';
+import { BellRing, CalendarClock, ChevronRight, Info, Lock, Nfc, ShieldCheck, Smartphone, Users } from 'lucide-react';
 import { APP_NAME, DISCLAIMER } from '../../config';
 import { tagBase } from '../../nfc/url';
 import { Card } from '../../components/ui/Card';
 
 const TOPICS = [
   { id: 'schedules', title: 'Setting up a schedule', Icon: CalendarClock },
+  { id: 'family', title: 'Family members', Icon: Users },
   { id: 'tags', title: 'Which tags work', Icon: Nfc },
   { id: 'phones', title: 'iPhone and Android', Icon: Smartphone },
   { id: 'reminders', title: 'Reminders', Icon: BellRing },
@@ -38,6 +39,18 @@ export function Help({ topic }: { topic?: string }) {
 const H = ({ children }: { children: ReactNode }) => <h2 className="text-lg font-semibold">{children}</h2>;
 
 const CONTENT: Record<string, ReactNode> = {
+  family: (
+    <>
+      <H>Tracking for more than one person</H>
+      <p>Go to Settings → Family members → <strong>Add a family member</strong>. You start as “Me”, which you can rename.</p>
+      <p>Each person has their own medications, check-ins, weight, measurements, photos, charts and doctor report. Choose who to show with the names at the top of Today, Trends, Body and Meds.</p>
+      <p>On Today, <strong>Everyone</strong> shows every person's medications at once, each card labelled with whose it is. Handy when you're giving doses to several people.</p>
+      <H>Tags</H>
+      <p>A tag always belongs to one person's medication. When it's tapped, the screen says <strong>For Sam</strong> (or whoever) in large text, so a dose is never logged against the wrong person. Calendar reminders include the name too.</p>
+      <H>Removing someone</H>
+      <p>To avoid losing history by accident, a person can only be removed once their medications and entries have been deleted. Archiving a medication keeps its history.</p>
+    </>
+  ),
   schedules: (
     <>
       <H>Three kinds of schedule</H>

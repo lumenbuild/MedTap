@@ -37,6 +37,10 @@ export interface AppSettings {
   lastAutoBackupAt: string | null;
   /** Warn this many days before a medication is forecast to run out. */
   refillWarnDays: number;
+  /** The family member being shown (Today, Trends, Body, Meds). */
+  activePersonId: string;
+  /** Today shows everyone's medications at once (for carers). */
+  todayEveryone: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -62,6 +66,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   autoBackupKeep: 7,
   lastAutoBackupAt: null,
   refillWarnDays: 7,
+  activePersonId: 'me',
+  todayEveryone: false,
 };
 
 export async function getSettings(): Promise<AppSettings> {

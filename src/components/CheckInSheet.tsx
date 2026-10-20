@@ -4,6 +4,7 @@ import { Plus } from 'lucide-react';
 import type { CheckIn, Dose, Medication } from '../db/schema';
 import { addCheckIn, removeCheckIn, restoreCheckIn, updateCheckIn, type CheckInInput } from '../db/repos/checkIns';
 import { setSetting } from '../db/repos/settings';
+import { storedPerson } from '../db/repos/people';
 import { getDayBounds, type ScheduleSettings } from '../logic/schedule';
 import { fmtAmount, fmtTime, fmtWhen, fromLocalInput, toLocalInput } from '../logic/format';
 import { useToast } from '../app/toast';
@@ -16,7 +17,7 @@ const SIX_HOURS = 6 * 3_600_000;
 
 export interface CheckInSeed { editing?: CheckIn; mood?: number; relatedDoseId?: string }
 
-type Props = { onClose: () => void; doses: Dose[]; checkIns: CheckIn[]; meds: Medication[]; chips: string[]; s: ScheduleSettings };
+type Props = { onClose: () => void; doses: Dose[]; checkIns: CheckIn[]; meds: Medication[]; chips: string[]; s: ScheduleSettings; personId: string };
 
 /** A check-in in under 20 seconds. Everything is optional. */
 export function CheckInSheet({ seed, ...rest }: Props & { seed: CheckInSeed | null }) {
@@ -26,7 +27,7 @@ export function CheckInSheet({ seed, ...rest }: Props & { seed: CheckInSeed | nu
   return seed ? <CheckInForm key={n} seed={seed} {...rest} /> : null;
 }
 
-function CheckInForm({ seed, onClose, doses, checkIns, meds, chips, s }: Props & { seed: CheckInSeed }) {
+function CheckInForm({ seed, onClose, doses, checkIns, meds, chips, s, personId }: Props & { seed: CheckInSeed }) {
   const toast = useToast();
   const [f, setF] = useState<CheckInInput>(() => seed.editing ? { ...seed.editing }
     : { at: new Date().toISOString(), chips: [], mood: seed.mood, relatedDoseId: seed.relatedDoseId });
@@ -57,7 +58,7 @@ function CheckInForm({ seed, onClose, doses, checkIns, meds, chips, s }: Props &
   };
 
   const save = async () => {
-    const input: CheckInInput = { ...f, relatedDoseId, note: f.note?.trim() || undefined };
+    const input: CheckInInput = { ...f, relatedDoseId, note: f.note?.trim() || undefined, personId: storedPerson(personId) };
     if (!showSleep) { delete input.sleepHours; delete input.sleepQuality; }
     if (seed.editing) {
       await updateCheckIn(seed.editing.id, input);

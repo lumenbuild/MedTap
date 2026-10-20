@@ -5,7 +5,9 @@ import { format } from 'date-fns';
 import type { Medication } from '../../db/schema';
 import { db } from '../../db/db';
 import { useLive } from '../../db/live';
-import { useMeds } from '../../app/data';
+import { useFamily, useMeds } from '../../app/data';
+import { personOf, storedPerson } from '../../db/repos/people';
+import { DEFAULT_PERSON } from '../../db/schema';
 import { createMed, deleteMedForever, setArchived, updateMed, type MedInput } from '../../db/repos/meds';
 import { linkTag } from '../../db/repos/tags';
 import { go, replace } from '../../app/router';
@@ -34,13 +36,15 @@ interface Form extends ScheduleForm {
   color: string; icon: string; stockCount: string; lowStockAt: string; scriptNotes: string;
   repeatsLeft: string; scriptExpiry: string;
   instructions: string; instructionsBy: string; nickname: string;
+  /** Who takes it ('' until the family list loads). */
+  personId: string;
 }
 
 const blank: Form = {
   ...blankSchedule(),
   name: '', strength: '', unit: 'mg', form: 'tablet',
   color: MED_COLOURS[0].value, icon: 'pill', stockCount: '', lowStockAt: '', scriptNotes: '',
-  repeatsLeft: '', scriptExpiry: '', instructions: '', instructionsBy: '', nickname: '',
+  repeatsLeft: '', scriptExpiry: '', instructions: '', instructionsBy: '', nickname: '', personId: '',
 };
 
 const str = (n?: number) => (n === undefined || n === null ? '' : String(n));
@@ -53,6 +57,7 @@ function fromMed(m: Medication): Form {
     color: m.color, icon: m.icon, stockCount: str(m.stockCount), lowStockAt: str(m.lowStockAt), scriptNotes: m.scriptNotes ?? '',
     repeatsLeft: str(m.repeatsLeft), scriptExpiry: m.scriptExpiry ?? '',
     instructions: m.instructions ?? '', instructionsBy: m.instructionsBy ?? '', nickname: m.nickname ?? '',
+    personId: personOf(m),
   };
 }
 
@@ -60,6 +65,7 @@ function toInput(f: Form, before?: Medication): MedInput {
   const { schedule, defaultAmount } = scheduleFromForm(f);
   const instructions = f.instructions.trim() || undefined;
   return {
+    personId: storedPerson(f.personId || DEFAULT_PERSON),
     name: f.name.trim(), nickname: f.nickname.trim() || undefined, strength: Number(f.strength) || 0, unit: f.unit, form: f.form,
     defaultAmount, schedule, color: f.color, icon: f.icon,
     stockCount: num(f.stockCount), lowStockAt: num(f.lowStockAt), scriptNotes: f.scriptNotes.trim() || undefined,
@@ -94,6 +100,13 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
   const loadedId = existing?.id;
 
   useEffect(() => { if (existing) setF(fromMed(existing)); }, [loadedId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // New medications are for whoever is selected.
+  const fam = useFamily();
+  const famLoaded = !!fam;
+  useEffect(() => {
+    if (!id && fam) setF((p) => (p.personId ? p : { ...p, personId: fam.personId }));
+  }, [id, famLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // New medications start with a colour no active medication is using, so cards are easy to tell apart.
   const meds = useMeds();
@@ -183,6 +196,11 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
         <Select label="Form" value={f.form} onChange={(e) => set('form', e.target.value)}>
           {FORMS.map((x) => <option key={x} value={x}>{x[0].toUpperCase() + x.slice(1)}</option>)}
         </Select>
+        {fam?.many && (
+          <Select label="Who is this for?" value={f.personId || fam.personId} onChange={(e) => set('personId', e.target.value)}>
+            {fam.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </Select>
+        )}
       </Card>
 
       <Card className="space-y-3">

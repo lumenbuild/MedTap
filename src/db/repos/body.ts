@@ -1,5 +1,5 @@
 import { db } from '../db';
-import type { BodyEntry } from '../schema';
+import { DEFAULT_PERSON, type BodyEntry } from '../schema';
 
 const nowIso = () => new Date().toISOString();
 
@@ -7,15 +7,16 @@ export type BodyFields = Partial<Omit<BodyEntry, 'id' | 'date' | 'createdAt' | '
 
 /** One entry per day: adding weight or measurements for a date fills in that day's entry.
  *  Returns what was there before, so the change can be undone with `undoBody`. */
-export async function upsertBody(date: string, fields: BodyFields): Promise<{ id: string; before: BodyEntry | null }> {
+export async function upsertBody(date: string, fields: BodyFields, personId = DEFAULT_PERSON): Promise<{ id: string; before: BodyEntry | null }> {
   return db.transaction('rw', db.bodyEntries, async () => {
-    const existing = (await db.bodyEntries.where('date').equals(date).toArray()).find((b) => !b.deletedAt) ?? null;
+    const existing = (await db.bodyEntries.where('date').equals(date).toArray())
+      .find((b) => !b.deletedAt && (b.personId ?? DEFAULT_PERSON) === personId) ?? null;
     const now = nowIso();
     if (existing) {
       await db.bodyEntries.put({ ...existing, ...fields, updatedAt: now });
       return { id: existing.id, before: existing };
     }
-    const entry: BodyEntry = { id: crypto.randomUUID(), date, ...fields, createdAt: now, updatedAt: now };
+    const entry: BodyEntry = { id: crypto.randomUUID(), date, ...fields, personId: personId === DEFAULT_PERSON ? undefined : personId, createdAt: now, updatedAt: now };
     await db.bodyEntries.add(entry);
     return { id: entry.id, before: null };
   });

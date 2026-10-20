@@ -16,13 +16,13 @@ export type BodySheetState = { kind: 'weight' | 'measure' | 'edit'; entry?: Body
 const numIn = 'w-full min-h-[48px] rounded-btn bg-surface-2 border border-border px-3.5 tnum';
 
 /** Log weight, add measurements, or edit a day's entry. */
-export function BodySheet({ state, onClose, units }: { state: BodySheetState; onClose: () => void; units: Units }) {
+export function BodySheet({ state, onClose, units, personId }: { state: BodySheetState; onClose: () => void; units: Units; personId: string }) {
   const [n, setN] = useState(0);
   useEffect(() => { if (state) setN((x) => x + 1); }, [state]);
-  return state ? <BodyForm key={n} state={state} onClose={onClose} units={units} /> : null;
+  return state ? <BodyForm key={n} state={state} onClose={onClose} units={units} personId={personId} /> : null;
 }
 
-function BodyForm({ state, onClose, units }: { state: NonNullable<BodySheetState>; onClose: () => void; units: Units }) {
+function BodyForm({ state, onClose, units, personId }: { state: NonNullable<BodySheetState>; onClose: () => void; units: Units; personId: string }) {
   const toast = useToast();
   const [date, setDate] = useState(state.entry?.date ?? todayYmd());
   const [vals, setVals] = useState<Record<string, string>>(() => {
@@ -54,12 +54,12 @@ function BodyForm({ state, onClose, units }: { state: NonNullable<BodySheetState
     const fields = toFields();
     if (state.kind === 'edit' && state.entry) {
       const e = state.entry;
-      const cleared: BodyEntry = { id: e.id, date, createdAt: e.createdAt, updatedAt: e.updatedAt, note: e.note, ...fields };
+      const cleared: BodyEntry = { id: e.id, date, createdAt: e.createdAt, updatedAt: e.updatedAt, note: e.note, personId: e.personId, ...fields };
       await saveBody(cleared);
       toast('Saved changes', { onAction: () => saveBody(e) });
     } else {
       if (!any) return;
-      const r = await upsertBody(date, fields);
+      const r = await upsertBody(date, fields, personId);
       const what = fields.weightKg !== undefined && state.kind === 'weight' ? fmtWeight(fields.weightKg, units) : 'measurements';
       toast(`Saved ${what} for ${fmtDate(date)}`, { onAction: () => undoBody(r.id, r.before) });
     }
