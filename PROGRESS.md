@@ -88,6 +88,13 @@ skipped doses, refill forecasting, encrypted and automatic backups. Awaiting own
 - Automatic backups: File System Access folder (Chrome desktop / recent Android Chrome), daily when the app is open,
   keeps the last N; Today card if the browser needs permission again. Elsewhere (iPhone): "Remind me every N days".
   The folder permission is kept in the device-only `device` table (DB v3), never backed up.
+- Automatic backups in the native apps (owner report: "the button does nothing"): the app WebView's folder picker
+  failed straight away and the cancel was swallowed silently. The apps now use the phone's own picker through
+  MedTapNative (`pickFolder`, `folderAccess`, `writeFile`, `listFiles`, `deleteFile`): Android's storage access
+  framework (persisted tree permission; Android won't allow the Download folder itself, so pick a subfolder) and the
+  iPhone Files picker (security-scoped bookmark). Every tap now ends with a message (saved, "No folder chosen", or the
+  reason it failed), and the card shows the folder's name. Tests: `tests/autoBackup.test.ts`, plus browser runs of the
+  web picker and of the app bundle with a fake native bridge.
 
 ## Nicknames (owner request)
 - Optional per-medication `nickname`: shown instead of the real name (and with a plain grey badge/ring) on Today, the

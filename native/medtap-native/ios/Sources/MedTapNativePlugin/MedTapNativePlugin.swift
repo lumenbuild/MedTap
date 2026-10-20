@@ -2,12 +2,13 @@ import Foundation
 import Capacitor
 import CoreNFC
 import UIKit
+import UniformTypeIdentifiers
 
-/// NFC for MedTap on iPhone (Core NFC NDEF reader sessions) and printing.
+/// NFC for MedTap on iPhone (Core NFC NDEF reader sessions), printing, sharing, and a folder for automatic backups.
 /// iPhones only read tags for an app while it shows the system scanning sheet, so there's no "listen".
 /// Error codes match NfcErrorKind in src/nfc/write.ts.
 @objc(MedTapNativePlugin)
-public class MedTapNativePlugin: CAPPlugin, CAPBridgedPlugin, NFCNDEFReaderSessionDelegate {
+public class MedTapNativePlugin: CAPPlugin, CAPBridgedPlugin, NFCNDEFReaderSessionDelegate, UIDocumentPickerDelegate {
     public let identifier = "MedTapNativePlugin"
     public let jsName = "MedTapNative"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -18,13 +19,19 @@ public class MedTapNativePlugin: CAPPlugin, CAPBridgedPlugin, NFCNDEFReaderSessi
         CAPPluginMethod(name: "nfcCancel", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openNfcSettings", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "print", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "shareFile", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "shareFile", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "pickFolder", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "folderAccess", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "writeFile", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "listFiles", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "deleteFile", returnType: CAPPluginReturnPromise)
     ]
 
     private var session: NFCNDEFReaderSession?
     private var pending: CAPPluginCall?
     private var writeURL: URL?
     private var timeoutWork: DispatchWorkItem?
+    private var folderCall: CAPPluginCall?
 
     @objc func nfcStatus(_ call: CAPPluginCall) {
         let ok = NFCNDEFReaderSession.readingAvailable
@@ -98,6 +105,131 @@ public class MedTapNativePlugin: CAPPlugin, CAPBridgedPlugin, NFCNDEFReaderSessi
             sheet.popoverPresentationController?.sourceView = vc.view
             sheet.completionWithItemsHandler = { _, _, _, _ in call.resolve() }
             vc.present(sheet, animated: true)
+        }
+    }
+
+    // MARK: - Backup folder
+
+    /// The Files folder picker. The folder is kept as a bookmark (base64), which reaches it again after restarts.
+    @objc func pickFolder(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            guard let vc = self.bridge?.viewController else {
+                call.reject("Nothing to show the picker from", "io")
+                return
+            }
+            self.folderCall?.reject("Replaced by a new request", "cancelled")
+            self.folderCall = call
+            let picker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.folder])
+            picker.delegate = self
+            picker.allowsMultipleSelection = false
+            vc.present(picker, animated: true)
+        }
+    }
+
+    public func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        guard let call = folderCall else { return }
+        folderCall = nil
+        guard let url = urls.first else {
+            call.reject("No folder chosen", "cancelled")
+            return
+        }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let bookmark = try url.bookmarkData(options: .minimalBookmark, includingResourceValuesForKeys: nil, relativeTo: nil)
+            call.resolve(["uri": bookmark.base64EncodedString(), "name": url.lastPathComponent])
+        } catch {
+            call.reject("Couldn't keep access to that folder", "io")
+        }
+    }
+
+    public func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+        folderCall?.reject("No folder chosen", "cancelled")
+        folderCall = nil
+    }
+
+    /// Run `body` with access to the bookmarked folder. Rejects with "gone" if it can't be found.
+    private func inFolder(_ call: CAPPluginCall, _ body: (URL) throws -> Void) {
+        guard let b64 = call.getString("uri"), let data = Data(base64Encoded: b64) else {
+            call.reject("Can't reach the backup folder", "gone")
+            return
+        }
+        var stale = false
+        guard let url = try? URL(resolvingBookmarkData: data, options: [], relativeTo: nil, bookmarkDataIsStale: &stale) else {
+            call.reject("Can't reach the backup folder", "gone")
+            return
+        }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        do {
+            try body(url)
+        } catch {
+            call.reject(error.localizedDescription, "io")
+        }
+    }
+
+    /// Coordinated, so folders kept in iCloud Drive or another provider see the change.
+    private func coordinated(writing url: URL, options: NSFileCoordinator.WritingOptions, _ body: (URL) throws -> Void) throws {
+        var coordError: NSError?
+        var bodyError: Error?
+        NSFileCoordinator().coordinate(writingItemAt: url, options: options, error: &coordError) { u in
+            do { try body(u) } catch { bodyError = error }
+        }
+        if let e = coordError ?? bodyError { throw e }
+    }
+
+    @objc func folderAccess(_ call: CAPPluginCall) {
+        guard let b64 = call.getString("uri"), let data = Data(base64Encoded: b64) else {
+            call.resolve(["ok": false])
+            return
+        }
+        var stale = false
+        guard let url = try? URL(resolvingBookmarkData: data, options: [], relativeTo: nil, bookmarkDataIsStale: &stale) else {
+            call.resolve(["ok": false])
+            return
+        }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        var isDir: ObjCBool = false
+        let ok = FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) && isDir.boolValue
+        call.resolve(["ok": ok])
+    }
+
+    @objc func writeFile(_ call: CAPPluginCall) {
+        guard let name = call.getString("name"), let text = call.getString("text") else {
+            call.reject("Nothing to save", "io")
+            return
+        }
+        let safe = name.replacingOccurrences(of: "/", with: "_")
+        inFolder(call) { dir in
+            try coordinated(writing: dir.appendingPathComponent(safe), options: .forReplacing) { u in
+                try Data(text.utf8).write(to: u, options: .atomic)
+            }
+            call.resolve()
+        }
+    }
+
+    @objc func listFiles(_ call: CAPPluginCall) {
+        inFolder(call) { dir in
+            let names = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+            call.resolve(["names": names])
+        }
+    }
+
+    @objc func deleteFile(_ call: CAPPluginCall) {
+        guard let name = call.getString("name") else {
+            call.resolve()
+            return
+        }
+        let safe = name.replacingOccurrences(of: "/", with: "_")
+        inFolder(call) { dir in
+            let file = dir.appendingPathComponent(safe)
+            if FileManager.default.fileExists(atPath: file.path) {
+                try coordinated(writing: file, options: .forDeleting) { u in
+                    try FileManager.default.removeItem(at: u)
+                }
+            }
+            call.resolve()
         }
     }
 

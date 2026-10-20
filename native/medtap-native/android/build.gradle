@@ -38,4 +38,5 @@ repositories {
 dependencies {
     implementation project(':capacitor-android')
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.documentfile:documentfile:1.1.0"
 }
