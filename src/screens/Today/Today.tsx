@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { shownColour, shownMedName, shownName } from '../../logic/privacy';
-import { CalendarPlus, Lock, Nfc, Pill, Ruler, Scale, Smile } from 'lucide-react';
+import { CalendarPlus, HeartPulse, Lock, Nfc, Pill, Ruler, Scale, Smile } from 'lucide-react';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
-import { useBodyEntries, useCheckIns, useDoses, useFamily, useMeds, useScheduleSettings } from '../../app/data';
+import { useBodyEntries, useCheckIns, useDoses, useFamily, useMeds, useScheduleSettings, useVitals } from '../../app/data';
+import { VitalsSheet, type VitalsSheetState } from '../../components/VitalsSheet';
 import { dosesForPerson, medIsFor, personOf } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
@@ -19,6 +20,7 @@ import { Button } from '../../components/ui/Button';
 import { Sheet } from '../../components/ui/Sheet';
 import { LogDoseFlow } from '../../components/LogDoseFlow';
 import { IOSBanner } from '../../components/IOSBanner';
+import { TravelBanner } from '../../components/TravelBanner';
 import { CheckInSheet, type CheckInSeed } from '../../components/CheckInSheet';
 import { BodySheet, type BodySheetState } from '../../components/BodySheets';
 import { HeroCard } from './HeroCard';
@@ -32,6 +34,8 @@ export function Today() {
   const doses = useDoses();
   const checkIns = useCheckIns();
   const body = useBodyEntries();
+  const vitals = useVitals();
+  const [vitalSheet, setVitalSheet] = useState<VitalsSheetState>(null);
   const ss = useScheduleSettings();
   const fam = useFamily();
   const now = useNow();
@@ -43,7 +47,7 @@ export function Today() {
 
   const medMap = useMemo(() => new Map((meds ?? []).map((m) => [m.id, m])), [meds]);
 
-  if (!meds || !doses || !checkIns || !body || !ss || !fam) return <TodaySkeleton />;
+  if (!meds || !doses || !checkIns || !body || !vitals || !ss || !fam) return <TodaySkeleton />;
   const [settings, s] = ss;
   // Whose medications are shown: one family member, or everyone (carer view, each card labelled).
   const mine = <T extends { personId?: string }>(r: T) => fam.everyone || personOf(r) === fam.personId;
@@ -54,6 +58,7 @@ export function Today() {
   const viewDoses = fam.everyone ? medDoses : dosesForPerson(medDoses, viewMeds, fam.personId);
   const viewCheckIns = checkIns.filter(mine);
   const viewBody = body.filter(mine);
+  const viewVitals = vitals.filter(mine);
   const viewMedMap = new Map(viewMeds.map((m) => [m.id, m]));
   const whose = (r: { personId?: string; shared?: boolean }) => {
     if (!fam.everyone) return r.shared && fam.many ? 'Shared' : undefined;
@@ -104,6 +109,7 @@ export function Today() {
     <div className="space-y-4">
       <PersonSwitcher allowEveryone />
       <IOSBanner dismissed={settings.iosBannerDismissed} />
+      <TravelBanner settings={settings} />
 
       {settings.pendingTags.length > 0 && (
         <Card className="flex items-center gap-3">
@@ -134,20 +140,21 @@ export function Today() {
       {prn.length > 0 && (
         <section className="space-y-2" aria-label="As needed">
           <h2 className="text-sm font-semibold text-muted px-1">As needed</h2>
-          {prn.map((m) => <PrnCard key={m.id} med={m} doses={viewDoses} s={s} now={now} onLog={() => setLogFor(m)} person={whose(m)} />)}
+          {prn.map((m) => <PrnCard key={m.id} med={m} doses={viewDoses} s={s} now={now} onLog={() => setLogFor(m)} person={whose(m)} limits={!(fam.everyone && m.shared)} />)}
         </section>
       )}
 
       {fam.everyone ? (
-        <p className="text-sm text-muted text-center px-4">Choose a person above to check in or log weight for them.</p>
+        <p className="text-sm text-muted text-center px-4">Choose a person above to check in or log weight or blood pressure for them.</p>
       ) : (
-      <div className="grid grid-cols-3 gap-2" aria-label={fam.many ? `Quick actions for ${fam.person}` : 'Quick actions'}>
+      <div className="grid grid-cols-4 gap-2" aria-label={fam.many ? `Quick actions for ${fam.person}` : 'Quick actions'}>
         {([
-          ['Check in', Smile, () => setCheckIn({})],
-          ['Log weight', Scale, () => setBodySheet({ kind: 'weight' })],
-          ['Add measurement', Ruler, () => setBodySheet({ kind: 'measure' })],
-        ] as const).map(([label, Icon, on]) => (
-          <button key={label} onClick={on} className="bg-surface rounded-card shadow-card min-h-[80px] flex flex-col items-center justify-center gap-1.5 px-2 text-sm font-medium text-center">
+          ['Check in', 'Check in', Smile, () => setCheckIn({})],
+          ['Weight', 'Log weight', Scale, () => setBodySheet({ kind: 'weight' })],
+          ['Measure', 'Add measurement', Ruler, () => setBodySheet({ kind: 'measure' })],
+          ['BP and pulse', 'Log blood pressure and pulse', HeartPulse, () => setVitalSheet({})],
+        ] as const).map(([label, name, Icon, on]) => (
+          <button key={label} onClick={on} aria-label={name} className="bg-surface rounded-card shadow-card min-h-[80px] flex flex-col items-center justify-center gap-1.5 px-1 text-sm font-medium text-center leading-tight">
             <Icon className="text-primary" aria-hidden="true" /> {label}
           </button>
         ))}
@@ -158,7 +165,7 @@ export function Today() {
       <AutoBackupPermission enabled={settings.autoBackupEnabled} />
       <InstallCard hasDoses={doses.some((d) => !d.deletedAt)} dismissed={settings.installCardDismissed} />
 
-      <Timeline doses={viewDoses} checkIns={viewCheckIns} body={viewBody} meds={viewMedMap} s={s} units={settings.units} now={now} personLabel={fam.everyone ? whose : undefined}
+      <Timeline doses={viewDoses} checkIns={viewCheckIns} body={viewBody} vitals={viewVitals} onVital={(v) => setVitalSheet({ editing: v })} meds={viewMedMap} s={s} units={settings.units} now={now} personLabel={fam.everyone ? whose : undefined}
         onDose={setEditing} onCheckIn={(c: CheckIn) => setCheckIn({ editing: c })} onBody={(b: BodyEntry) => setBodySheet({ kind: 'edit', entry: b })} />
 
       <a href="#/backup" className="flex flex-wrap items-center justify-center gap-x-2 min-h-[48px] text-sm text-muted tnum">
@@ -174,6 +181,7 @@ export function Today() {
       <DoseEditSheet dose={editing} med={editing ? medMap.get(editing.medicationId) : undefined} onClose={() => setEditing(null)} />
       <CheckInSheet seed={checkIn} onClose={() => setCheckIn(null)} doses={viewDoses} checkIns={viewCheckIns} meds={viewMeds} chips={settings.chips} s={s}
         personId={checkIn?.editing ? personOf(checkIn.editing) : fam.personId} />
+      <VitalsSheet state={vitalSheet} onClose={() => setVitalSheet(null)} personId={fam.personId} />
       <BodySheet state={bodySheet} onClose={() => setBodySheet(null)} units={settings.units} personId={bodySheet?.entry ? personOf(bodySheet.entry) : fam.personId} />
     </div>
   );

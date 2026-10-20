@@ -152,3 +152,26 @@ describe('refill alerts', () => {
     expect(refillAlerts([{ ...m, stockCount: 95 }], [], now, S, 7, { m: 100 })).toHaveLength(1);
   });
 });
+
+import { addBottle, removeBottle } from '../src/db/repos/meds';
+
+describe('bottles and expiry dates', () => {
+  const now = syd('2026-07-15', '06:00');
+  it('warn 30 days ahead and once expired, even without a stock count', () => {
+    const m = ritalin({ stockCount: undefined, bottles: [
+      { id: 'a', expiry: '2026-07-01', addedAt: '' }, { id: 'b', expiry: '2026-08-10', label: 'School bag', addedAt: '' }, { id: 'c', expiry: '2027-01-01', addedAt: '' },
+    ] });
+    const a = refillAlerts([m], [], now, S, 7, {});
+    expect(a[0].expiringBottles.map((b) => b.id)).toEqual(['a', 'b']);
+    expect(refillAlerts([m], [], now, S, 7, { m: -1 })).toHaveLength(0); // dismissed
+  });
+  it('are kept soonest first and can be removed', async () => {
+    await eraseAll();
+    const med = await createMed({ name: 'Liquid', strength: 5, unit: 'mL', form: 'liquid', defaultAmount: 5, color: '', icon: 'droplet', schedule: { type: 'prn' } });
+    await addBottle(med.id, { expiry: '2027-03-01', label: 'Kitchen' });
+    const b = await addBottle(med.id, { expiry: '2026-12-01' });
+    expect((await db.medications.get(med.id))!.bottles!.map((x) => x.expiry)).toEqual(['2026-12-01', '2027-03-01']);
+    await removeBottle(med.id, b!.id);
+    expect((await db.medications.get(med.id))!.bottles).toHaveLength(1);
+  });
+});

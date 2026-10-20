@@ -103,7 +103,9 @@ export function fmtSchedule(s: Schedule, unit = ''): string {
     const slots = s.slots?.length ? s.slots : (s.times ?? []).map((time) => ({ time, amount: undefined as number | undefined }));
     main = slots.map((x) => `${fmtHHmm(x.time)}${x.amount !== undefined ? ` ${x.amount}${u}` : ''}`).join(', ') || 'Set times';
   } else {
-    return 'As needed';
+    const lim = [s.maxPer24h ? `up to ${s.maxPer24h} in 24 h` : '', s.minHoursApart ? `${s.minHoursApart} h apart` : '',
+      s.maxAmountPer24h ? `max ${s.maxAmountPer24h}${u} in 24 h` : ''].filter(Boolean).join(', ');
+    return lim ? `As needed: ${lim}` : 'As needed';
   }
   const days = fmtDays(s);
   return days ? `${main} · ${days}` : main;

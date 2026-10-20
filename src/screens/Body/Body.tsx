@@ -9,6 +9,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { BodySheet, todayYmd, type BodySheetState } from '../../components/BodySheets';
 import { ProgressPhotos } from './ProgressPhotos';
+import { VitalsCard } from './VitalsCard';
 
 const fmtYmd = (ymd: string) => (ymd === todayYmd() ? 'Today' : format(new Date(`${ymd}T12:00`), 'EEE d MMM yyyy'));
 
@@ -51,6 +52,8 @@ export function Body() {
         ) : <p className="mt-1">Log any of waist, hips, chest, neck, upper arm, thigh or calf. Only the ones you want.</p>}
         <Button variant="secondary" className="w-full mt-4" onClick={() => setSheet({ kind: 'measure' })}>Add measurements</Button>
       </Card>
+
+      <VitalsCard personId={fam.personId} />
 
       <ProgressPhotos personId={fam.personId} />
 

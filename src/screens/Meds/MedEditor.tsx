@@ -27,6 +27,7 @@ import {
 } from './ScheduleFields';
 import { TagsSection } from './TagsSection';
 import { PlannedChanges } from './PlannedChanges';
+import { BottlesSection } from './BottlesSection';
 
 const UNITS = ['mg', 'mcg', 'mL', 'units', 'tablet'];
 const FORMS = ['tablet', 'capsule', 'liquid', 'patch', 'injection', 'other'];
@@ -184,6 +185,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
       )}
       {existing && <TagsSection med={existing} />}
       {existing && !existing.archived && <PlannedChanges med={existing} />}
+      {existing && !existing.archived && <BottlesSection med={existing} />}
 
       <Card className="space-y-4">
         <h2 className="text-lg font-semibold">Medication</h2>

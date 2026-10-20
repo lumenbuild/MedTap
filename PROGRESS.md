@@ -112,6 +112,18 @@ skipped doses, refill forecasting, encrypted and automatic backups. Awaiting own
   `dosesForPerson()` gives each person's view, so last dose, today's count, double-tap guard, notes, charts and reports
   are per person. Forecast uses everyone's recent use. Everyone view: "Shared · last taken by …".
 
+## Limits, blood pressure, bottle expiry, travel
+- As-needed limits (`schedule.maxPer24h`, `maxAmountPer24h`, `minHoursApart`): counted over a rolling 24 h of taken
+  (not skipped) doses, per person. Today's card shows "Last 24 h: 1 of 4 · … · gap ends …"; logging shows a
+  non-blocking note when a dose would go past a limit. Scheduled meds can carry the same limits.
+- Blood pressure and heart rate (`vitals` table, DB v5): Today quick action, timeline, Body card, Trends/report charts
+  (BP lines on one chart, heart rate on its own — no dual axes), CSV export, backups.
+- Bottles (`medication.bottles`): expiry date + where it's kept, added from Add stock or the medication page. Today
+  warns 30 days before a bottle expires; Meds list shows the soonest.
+- Travel: `homeTimeZone` is set on first use. When the phone's zone differs, Today offers "Keep {home} time" (set
+  times stay on home time, shown in local time) or follow the phone; Settings has the same choice. Interval
+  countdowns are time-zone independent.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 

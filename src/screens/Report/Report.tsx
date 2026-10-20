@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { Printer } from 'lucide-react';
-import { useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings } from '../../app/data';
+import { useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings, useVitals } from '../../app/data';
 import { dosesForPerson, medIsFor, personOf } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { APP_NAME } from '../../config';
@@ -12,7 +12,7 @@ import { adherenceByDay, average, daysBetween } from '../../logic/stats';
 import { getDailyTarget } from '../../logic/schedule';
 import { fmtWeight } from '../../logic/units';
 import { Button } from '../../components/ui/Button';
-import { AdherenceHeatmap, DoseTimingCharts, FeelingsChart, WeightChart } from '../../components/charts/Charts';
+import { AdherenceHeatmap, DoseTimingCharts, FeelingsChart, VitalsCharts, WeightChart } from '../../components/charts/Charts';
 
 const ymd = (ms: number) => format(ms, 'yyyy-MM-dd');
 const SOURCE: Record<string, string> = { tag: 'Tag', manual: 'In app', backdated: 'Logged later' };
@@ -24,13 +24,14 @@ export function Report() {
   const allCheckIns = useCheckIns();
   const allBody = useBodyEntries();
   const allEvents = useMedEvents();
+  const allVitals = useVitals();
   const fam = useFamily();
   const ss = useScheduleSettings();
   const [from, setFrom] = useState(ymd(Date.now() - 29 * 86_400_000));
   const [to, setTo] = useState(ymd(Date.now()));
   const [useNicknames, setUseNicknames] = useState(false);
 
-  if (!allMeds || !allDoses || !allCheckIns || !allBody || !allEvents || !ss || !fam) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
+  if (!allMeds || !allDoses || !allCheckIns || !allBody || !allEvents || !allVitals || !ss || !fam) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
   // Only the chosen family member's records.
   // Their medications plus shared ones, counting only their own doses of shared medications.
   const meds = allMeds.filter((m) => medIsFor(m, fam.personId));
@@ -39,6 +40,7 @@ export function Report() {
   const checkIns = allCheckIns.filter((c) => personOf(c) === fam.personId);
   const body = allBody.filter((b) => personOf(b) === fam.personId);
   const events = allEvents.filter((e) => medIds.has(e.medicationId));
+  const vitals = allVitals.filter((v) => personOf(v) === fam.personId);
 
   const [settings, s] = ss;
   const start = new Date(`${from}T00:00`).getTime();
@@ -152,6 +154,7 @@ export function Report() {
           <div className="report-block"><DoseTimingCharts meds={usedMeds} doses={doses} start={start} end={end} s={s} realNames={realNames} /></div>
           <div className="report-block"><FeelingsChart checkIns={checkIns} events={events} meds={meds} start={start} end={end} s={s} prevStart={null} realNames={realNames} /></div>
           <div className="report-block"><WeightChart entries={body} units={settings.units} start={start} end={end} s={s} /></div>
+          <div className="report-block"><VitalsCharts vitals={vitals} start={start} end={end} s={s} /></div>
 
           <section className="bg-surface rounded-card shadow-card p-5 report-block">
             <h2 className="text-lg font-semibold mb-2">Dose log</h2>

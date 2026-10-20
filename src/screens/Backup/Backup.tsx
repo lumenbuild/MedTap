@@ -14,7 +14,7 @@ import { setSetting } from '../../db/repos/settings';
 import { isSealed, unsealBackup } from '../../logic/crypto';
 import { autoBackupState, backupText, chooseFolder, regainPermission, runAutoBackup, stopAutoBackup } from '../../app/autoBackup';
 import { backupFilename, validateBackup, type BackupFile, type Counts } from '../../logic/backup';
-import { bodyCsv, checkInsCsv, dosesCsv, medicationsCsv } from '../../logic/csv';
+import { bodyCsv, checkInsCsv, dosesCsv, medicationsCsv, vitalsCsv } from '../../logic/csv';
 import { fmtAgo, fmtWhen } from '../../logic/format';
 import { isIOS, isStandalone } from '../../platform';
 import { APP_NAME } from '../../config';
@@ -66,15 +66,16 @@ export function Backup() {
     refresh();
   };
 
-  const exportCsv = async (kind: 'doses' | 'checkIns' | 'body' | 'meds') => {
+  const exportCsv = async (kind: 'doses' | 'checkIns' | 'body' | 'vitals' | 'meds') => {
     const meds = await db.medications.toArray();
     const people = await listPeople();
     const person = (id?: string) => people.find((p) => p.id === (id ?? DEFAULT_PERSON))?.name ?? 'Me';
     const csv = kind === 'doses' ? dosesCsv(await db.doses.toArray(), meds, person)
       : kind === 'checkIns' ? checkInsCsv(await db.checkIns.toArray(), person)
       : kind === 'body' ? bodyCsv(await db.bodyEntries.toArray(), person)
+      : kind === 'vitals' ? vitalsCsv(await db.vitals.toArray(), person)
       : medicationsCsv(meds, person);
-    const name = { doses: 'doses', checkIns: 'check-ins', body: 'body', meds: 'medications' }[kind];
+    const name = { doses: 'doses', checkIns: 'check-ins', body: 'body', vitals: 'blood-pressure', meds: 'medications' }[kind];
     await shareOrDownload(`${APP_NAME}-${name}.csv`, new Blob([csv], { type: 'text/csv' }), `${APP_NAME} ${name}`);
   };
 
@@ -197,7 +198,7 @@ export function Backup() {
       <Card className="space-y-2">
         <h2 className="text-lg font-semibold">Spreadsheets</h2>
         <p className="text-sm text-muted">CSV files you can open in Excel, Numbers or Google Sheets. These can't be restored.</p>
-        {([['doses', 'Doses'], ['checkIns', 'Check-ins'], ['body', 'Weight and measurements'], ['meds', 'Medications']] as const).map(([k, label]) => (
+        {([['doses', 'Doses'], ['checkIns', 'Check-ins'], ['body', 'Weight and measurements'], ['vitals', 'Blood pressure and heart rate'], ['meds', 'Medications']] as const).map(([k, label]) => (
           <button key={k} onClick={() => exportCsv(k)} className="w-full min-h-[48px] flex items-center gap-3 px-3 rounded-btn bg-surface-2 text-left font-medium">
             <FileSpreadsheet size={20} className="text-primary" aria-hidden="true" /> {label}
           </button>

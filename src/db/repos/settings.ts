@@ -41,6 +41,10 @@ export interface AppSettings {
   activePersonId: string;
   /** Today shows everyone's medications at once (for carers). */
   todayEveryone: boolean;
+  /** Time zone the person normally lives in (recorded on first use). */
+  homeTimeZone: string | null;
+  /** Travel: set times and the day boundary follow the phone's current time zone ('device', default) or home time. */
+  timeMode: 'device' | 'home';
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -68,6 +72,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   refillWarnDays: 7,
   activePersonId: 'me',
   todayEveryone: false,
+  homeTimeZone: null,
+  timeMode: 'device',
 };
 
 export async function getSettings(): Promise<AppSettings> {
@@ -81,7 +87,12 @@ export async function setSetting<K extends keyof AppSettings>(key: K, value: App
   await db.settings.put({ key, value });
 }
 
-export function scheduleSettings(s: AppSettings, tz = deviceTimeZone()): ScheduleSettings {
+/** The time zone schedules run in: the phone's current one, unless the person chose to keep home time while away. */
+export function scheduleTimeZone(s: Pick<AppSettings, 'timeMode' | 'homeTimeZone'>, device = deviceTimeZone()): string {
+  return s.timeMode === 'home' && s.homeTimeZone ? s.homeTimeZone : device;
+}
+
+export function scheduleSettings(s: AppSettings, tz = scheduleTimeZone(s)): ScheduleSettings {
   return { dayStartsAt: s.dayStartsAt, guardMinutes: s.guardMinutes, tz };
 }
 

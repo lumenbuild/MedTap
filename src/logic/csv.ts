@@ -1,6 +1,6 @@
 // Spreadsheet exports. One CSV per kind of record; deleted records are left out.
 import { format } from 'date-fns';
-import type { BodyEntry, CheckIn, Dose, Medication } from '../db/schema';
+import type { BodyEntry, CheckIn, Dose, Medication, Vital } from '../db/schema';
 import { fmtSchedule } from './format';
 import { MEASUREMENTS } from './units';
 
@@ -50,5 +50,13 @@ export function medicationsCsv(meds: Medication[], person: PersonName = me): str
     ['person', 'name', 'strength', 'unit', 'form', 'usual dose', 'schedule', 'stock', 'archived', 'instructions', 'instructions from', 'notes'],
     meds.map((m) => [person(m.personId), m.name, m.strength, m.unit, m.form, m.defaultAmount, fmtSchedule(m.schedule, m.unit), m.stockCount, m.archived ? 'yes' : 'no',
       m.instructions ?? '', m.instructionsBy ?? '', m.scriptNotes ?? '']),
+  );
+}
+
+export function vitalsCsv(rows: Vital[], person: PersonName = me): string {
+  return toCsv(
+    ['person', 'date', 'time', 'systolic mmHg', 'diastolic mmHg', 'heart rate bpm', 'note'],
+    rows.filter((v) => !v.deletedAt).sort((a, b) => a.at.localeCompare(b.at))
+      .map((v) => [person(v.personId), day(v.at), time(v.at), v.systolic, v.diastolic, v.heartRate, v.note ?? '']),
   );
 }

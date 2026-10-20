@@ -130,3 +130,33 @@ describe('Every few hours, weekdays only', () => {
     expect(getStatus(med, [], syd('2026-07-17', '09:00'), S)).toBe('none-today'); // Friday
   });
 });
+
+import { getRollingUsage } from '../src/logic/schedule';
+
+describe('As-needed limits over any 24 hours (e.g. paracetamol: 1000 mg, at least 4 h apart, max 4 doses / 4000 mg)', () => {
+  const para = base({ name: 'Panadol', strength: 500, defaultAmount: 1000,
+    schedule: { type: 'prn', maxPer24h: 4, maxAmountPer24h: 4000, minHoursApart: 4 } });
+  const now = syd('2026-07-15', '20:00');
+  const taken = ['00:30', '06:00', '11:00', '16:00'].map((t) => dose(syd('2026-07-15', t), 1000));
+
+  it('counts the last 24 hours, not the calendar day', () => {
+    const yesterdayLate = dose(syd('2026-07-14', '21:00'), 1000);
+    const u = getRollingUsage(para, [yesterdayLate, ...taken], now);
+    expect(u.count).toBe(5); // 21:00 yesterday is within 24 h of 20:00 today
+    expect(u.amount).toBe(5000);
+    expect(getRollingUsage(para, [yesterdayLate], syd('2026-07-15', '21:30')).count).toBe(0);
+  });
+
+  it('notes the 5th dose, going over the amount, and a short gap — without blocking', () => {
+    const notes = getContextNotes(para, taken, syd('2026-07-15', '18:00'), S, 1000);
+    expect(notes).toContainEqual({ kind: 'rolling-count', doseNumber: 5, max: 4 });
+    expect(notes).toContainEqual({ kind: 'rolling-amount', total: 5000, max: 4000 });
+    expect(notes).toContainEqual({ kind: 'min-gap', elapsedMs: 2 * 3_600_000, minHours: 4 });
+  });
+
+  it('is quiet when within the limits, and gives when the gap ends', () => {
+    const two = taken.slice(0, 2);
+    expect(getContextNotes(para, two, syd('2026-07-15', '11:00'), S, 1000)).toEqual([]);
+    expect(getRollingUsage(para, two, syd('2026-07-15', '08:00')).gapEndsAt).toBe(syd('2026-07-15', '10:00'));
+  });
+});

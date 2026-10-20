@@ -21,9 +21,15 @@ export interface Schedule {
   /** Every N days counting from startDate (e.g. 14 for fortnightly). */
   everyNDays?: number;
   startDate?: string; // 'YYYY-MM-DD'
+  // Rolling 24-hour limits the person enters from the label or their doctor (mainly for as-needed medicines).
+  maxPer24h?: number;
+  maxAmountPer24h?: number;
+  minHoursApart?: number;
 }
 
 interface Stamped { id: string; createdAt: string; updatedAt: string }
+
+export interface Bottle { id: string; expiry: string /* 'YYYY-MM-DD' */; label?: string; addedAt: string }
 
 /** A family member. Records without a personId belong to the default person, DEFAULT_PERSON ("Me"). */
 export interface Person extends Stamped { name: string }
@@ -53,6 +59,8 @@ export interface Medication extends Stamped {
   /** Shown instead of the real name wherever someone might glance (Today, tag taps, reminders, charts), with a plain
    *  grey badge. The real name only shows on the medication's own page, in the doctor report and in exports. */
   nickname?: string;
+  /** Bottles/packs on hand, each with its own expiry (e.g. a liquid at home and one in the school bag). */
+  bottles?: Bottle[];
   /** Script refills left, and when the script expires ('YYYY-MM-DD'). */
   repeatsLeft?: number; scriptExpiry?: string;
 }
@@ -75,6 +83,14 @@ export interface BodyEntry extends Stamped {
   weightKg?: number; waistCm?: number; hipsCm?: number; chestCm?: number; neckCm?: number;
   armCm?: number; thighCm?: number; calfCm?: number; note?: string; deletedAt?: string; personId?: string;
 }
+/** A blood pressure and/or heart rate reading. */
+export interface Vital extends Stamped {
+  at: string; // UTC
+  systolic?: number; diastolic?: number; // mmHg
+  heartRate?: number; // beats per minute
+  note?: string; personId?: string; deletedAt?: string;
+}
+
 export interface MedEvent {
   id: string; medicationId: string; at: string; kind: 'started' | 'changed' | 'stopped';
   summary: string; before?: unknown; after?: unknown;

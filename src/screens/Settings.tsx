@@ -15,6 +15,7 @@ import { eraseAll } from '../db/repos/backup';
 import { fmtAgo, fmtHHmm } from '../logic/format';
 import { hashPin, isValidPin, newSalt } from '../logic/pin';
 import { FamilyCard } from './Family';
+import { placeName } from '../components/TravelBanner';
 
 const selectCls = 'w-full min-h-[48px] rounded-btn bg-surface-2 border border-border px-3';
 
@@ -71,6 +72,14 @@ export function Settings() {
             {[2, 5, 10, 15, 30, 60].map((m) => <option key={m} value={m}>{m} minutes</option>)}
           </select>
           <p className="text-sm text-muted">Catches a tag that fires twice, or a dose you already logged.</p>
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor="time-mode" className="block text-sm font-medium">When travelling, set times follow</label>
+          <select id="time-mode" value={settings.timeMode} onChange={(e) => setSetting('timeMode', e.target.value as 'device' | 'home')} className={selectCls}>
+            <option value="device">This phone's time zone</option>
+            <option value="home">Home time{settings.homeTimeZone ? ` (${placeName(settings.homeTimeZone)})` : ''}</option>
+          </select>
+          <p className="text-sm text-muted">Every-few-hours countdowns always use real time passed, so they're unaffected.</p>
         </div>
         <div className="space-y-1.5">
           <label htmlFor="refill-warn" className="block text-sm font-medium">Warn me before a medication runs out</label>

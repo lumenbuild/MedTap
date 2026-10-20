@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { shownColour, shownMedName, shownName } from '../logic/privacy';
 import { format } from 'date-fns';
 import { Package } from 'lucide-react';
-import type { Medication } from '../db/schema';
+import type { Bottle, Medication } from '../db/schema';
+import { go } from '../app/router';
 import type { Forecast } from '../logic/plans';
 import type { RefillAlert } from '../logic/reminders';
-import { restock, unrestock } from '../db/repos/meds';
+import { addBottle, restock, unrestock } from '../db/repos/meds';
 import { setSetting, type AppSettings } from '../db/repos/settings';
 import { useToast } from '../app/toast';
 import { Card } from './ui/Card';
@@ -25,6 +26,13 @@ export function fmtForecast(f: Forecast | null): string | null {
   return `About ${days} left${f.basis === 'recent-use' ? ' at your recent use' : ''} · runs out around ${when}`;
 }
 
+/** "Kitchen bottle expires 12 Nov 2026" / "A bottle expired 2 Oct 2026" */
+export function fmtBottle(b: Bottle, now: number): string {
+  const exp = Date.parse(`${b.expiry}T23:59:59`);
+  const name = b.label ? `${b.label} bottle` : 'A bottle';
+  return `${name} ${exp < now ? 'expired' : 'expires'} ${format(exp, 'd MMM yyyy')}`;
+}
+
 export function fmtScript(med: Medication, now: number): string | null {
   const parts: string[] = [];
   if (med.repeatsLeft !== undefined) parts.push(med.repeatsLeft === 0 ? 'No repeats left' : `${med.repeatsLeft} repeat${med.repeatsLeft === 1 ? '' : 's'} left`);
@@ -38,10 +46,11 @@ export function fmtScript(med: Medication, now: number): string | null {
 
 /** Today card: low by your number, running out soon by your plan, or the script needs renewing. */
 export function RefillCards({ alerts, settings, now }: { alerts: RefillAlert[]; settings: AppSettings; now: number }) {
+  // (alerts include low stock, running out by the plan, scripts and bottles expiring)
   const [restocking, setRestocking] = useState<Medication | null>(null);
   return (
     <>
-      {alerts.map(({ med, forecast, low, runningOut, scriptExpiring }) => (
+      {alerts.map(({ med, forecast, low, runningOut, scriptExpiring, expiringBottles }) => (
         <Card key={med.id} className="flex gap-3 bg-caution-soft shadow-none">
           <Package className="text-caution shrink-0 mt-0.5" aria-hidden="true" />
           <div className="flex-1 min-w-0">
@@ -51,8 +60,10 @@ export function RefillCards({ alerts, settings, now }: { alerts: RefillAlert[]; 
             </p>
             {(runningOut || low) && fmtForecast(forecast) && <p className="text-sm tnum">{fmtForecast(forecast)}</p>}
             {(scriptExpiring || med.repeatsLeft !== undefined) && fmtScript(med, now) && <p className="text-sm tnum">{fmtScript(med, now)}</p>}
+            {expiringBottles.map((b) => <p key={b.id} className="text-sm tnum font-medium">{fmtBottle(b, now)}</p>)}
             <div className="flex flex-wrap gap-2 mt-3">
               <Button variant="secondary" onClick={() => setRestocking(med)}>Add stock</Button>
+              {expiringBottles.length > 0 && <Button variant="secondary" onClick={() => go(`/meds/${med.id}`)}>Bottles</Button>}
               <Button variant="secondary" onClick={() => setSetting('dismissedLowStock', { ...settings.dismissedLowStock, [med.id]: med.stockCount ?? -1 })}>Dismiss</Button>
             </div>
           </div>
@@ -67,6 +78,8 @@ export function RestockSheet({ med, onClose }: { med: Medication; onClose: () =>
   const toast = useToast();
   const [added, setAdded] = useState('');
   const [usedRepeat, setUsedRepeat] = useState(med.repeatsLeft !== undefined && med.repeatsLeft > 0);
+  const [expiry, setExpiry] = useState('');
+  const [label, setLabel] = useState('');
   const n = Number(added);
   const valid = added.trim() !== '' && n > 0;
   const what = med.unit === 'tablet' || !med.strength ? `${med.form}s` : `${med.form}s (${med.strength} ${med.unit} each)`;
@@ -74,6 +87,7 @@ export function RestockSheet({ med, onClose }: { med: Medication; onClose: () =>
     if (!valid) return;
     const repeat = usedRepeat && med.repeatsLeft !== undefined && med.repeatsLeft > 0;
     await restock(med.id, n, repeat);
+    if (expiry) await addBottle(med.id, { expiry, label });
     toast(`Added ${n}. ${shownName(med)} now has ${Math.round(((med.stockCount ?? 0) + n) * 1000) / 1000}.`, { onAction: () => unrestock(med.id, n, repeat) });
     onClose();
   };
@@ -88,6 +102,10 @@ export function RestockSheet({ med, onClose }: { med: Medication; onClose: () =>
             <span>This used a repeat ({med.repeatsLeft} left)</span>
           </label>
         )}
+        <div className="grid grid-cols-2 gap-3 items-start">
+          <TextInput label="Expiry date (optional)" type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
+          <TextInput label="Where it's kept (optional)" placeholder="e.g. Kitchen" value={label} onChange={(e) => setLabel(e.target.value)} />
+        </div>
         <Button className="w-full min-h-[56px]" onClick={save} disabled={!valid}>Add to stock</Button>
       </div>
     </Sheet>

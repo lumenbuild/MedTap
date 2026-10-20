@@ -20,6 +20,12 @@ function noteText(n: ContextNote, isNow: boolean, unit: string): string {
       return "Today isn't one of your scheduled days for this medication.";
     case 'amount':
       return `Your schedule has ${fmtAmount(n.expected, unit)} for this dose.`;
+    case 'rolling-count':
+      return `This would be dose ${n.doseNumber} in 24 hours. Your limit is ${n.max}.`;
+    case 'rolling-amount':
+      return `This would make ${fmtAmount(n.total, unit)} in 24 hours. Your limit is ${fmtAmount(n.max, unit)}.`;
+    case 'min-gap':
+      return `${isNow ? "It's been" : "That's"} ${fmtDuration(n.elapsedMs)} since the last dose. Your limit is at least ${n.minHours} hour${n.minHours === 1 ? '' : 's'} apart.`;
     case 'interval':
       return `${isNow ? "It's been" : "That's"} ${fmtDuration(n.elapsedMs)} since your last dose. Your schedule is every ${n.intervalHours} hour${n.intervalHours === 1 ? '' : 's'}.`;
     case 'count':
