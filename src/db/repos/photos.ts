@@ -1,5 +1,6 @@
 import { db } from '../db';
-import type { Photo } from '../schema';
+import { DEFAULT_PERSON, type Photo } from '../schema';
+import { storedPerson } from './people';
 
 const nowIso = () => new Date().toISOString();
 const MAX_SIDE = 1600;
@@ -21,10 +22,10 @@ async function shrink(file: Blob): Promise<Blob> {
   }
 }
 
-export async function addPhoto(date: string, file: Blob): Promise<Photo> {
+export async function addPhoto(date: string, file: Blob, personId = DEFAULT_PERSON): Promise<Photo> {
   const blob = await shrink(file);
   const now = nowIso();
-  const p: Photo = { id: crypto.randomUUID(), date, blob, type: blob.type, createdAt: now, updatedAt: now };
+  const p: Photo = { id: crypto.randomUUID(), date, blob, type: blob.type, personId: storedPerson(personId), createdAt: now, updatedAt: now };
   await db.photos.add(p);
   return p;
 }

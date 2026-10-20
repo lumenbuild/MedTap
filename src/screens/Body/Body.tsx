@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { ChevronRight, Ruler, Scale } from 'lucide-react';
-import { useBodyEntries, useSettings } from '../../app/data';
+import { useBodyEntries, useFamily, useSettings } from '../../app/data';
+import { personOf } from '../../db/repos/people';
+import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { fmtLength, fmtWeight, MEASUREMENTS } from '../../logic/units';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -13,17 +15,19 @@ const fmtYmd = (ymd: string) => (ymd === todayYmd() ? 'Today' : format(new Date(
 export function Body() {
   const settings = useSettings();
   const all = useBodyEntries();
+  const fam = useFamily();
   const [sheet, setSheet] = useState<BodySheetState>(null);
-  if (!settings || !all) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
+  if (!settings || !all || !fam) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
 
   const units = settings.units;
-  const entries = all.filter((b) => !b.deletedAt).sort((a, b) => b.date.localeCompare(a.date));
+  const entries = all.filter((b) => !b.deletedAt && personOf(b) === fam.personId).sort((a, b) => b.date.localeCompare(a.date));
   const latestWeight = entries.find((e) => e.weightKg !== undefined);
   const latestOf = (k: (typeof MEASUREMENTS)[number]['key']) => entries.find((e) => e[k] !== undefined);
   const measured = MEASUREMENTS.map((m) => ({ ...m, entry: latestOf(m.key) })).filter((m) => m.entry);
 
   return (
     <div className="space-y-4">
+      <PersonSwitcher />
       <Card>
         <div className="flex items-center gap-2 text-muted"><Scale size={18} aria-hidden="true" /><h2 className="font-semibold">Weight</h2></div>
         {latestWeight ? (
@@ -48,7 +52,7 @@ export function Body() {
         <Button variant="secondary" className="w-full mt-4" onClick={() => setSheet({ kind: 'measure' })}>Add measurements</Button>
       </Card>
 
-      <ProgressPhotos />
+      <ProgressPhotos personId={fam.personId} />
 
       {entries.length > 0 && (
         <Card>
@@ -78,7 +82,7 @@ export function Body() {
         <p className="text-sm">Weigh at the same time of day, ideally in the morning before eating, for the most useful trends.</p>
       </Card>
 
-      <BodySheet state={sheet} onClose={() => setSheet(null)} units={units} />
+      <BodySheet state={sheet} onClose={() => setSheet(null)} units={units} personId={fam.personId} />
     </div>
   );
 }

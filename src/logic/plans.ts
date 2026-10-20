@@ -56,7 +56,8 @@ export function forecastRunOut(med: Medication, doses: Dose[], now: number, s: S
   const today = getDayBounds(now, s.dayStartsAt, s.tz);
   const planToday = plannedAmounts(medOn(med, dayKey(now, s)), now, s);
 
-  if (med.schedule.type !== 'prn' && (planToday.length || hasAnyPlan(med))) {
+  // Shared medications (several people, one stock) are forecast from everyone's recent use.
+  if (med.schedule.type !== 'prn' && !med.shared && (planToday.length || hasAnyPlan(med))) {
     // Today: only the doses still to come (skips and doses taken already hold their places).
     const done = getDosesToday(doses, med.id, now, s).length;
     for (const a of planToday.slice(done)) {

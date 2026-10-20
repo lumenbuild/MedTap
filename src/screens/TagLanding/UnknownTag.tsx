@@ -10,7 +10,9 @@ import { Button } from '../../components/ui/Button';
 import { MedBadge } from '../../components/MedBadge';
 
 /** "New tag found": assign to an existing medication (one tap), create one, or leave it for later. */
-export function UnknownTag({ id, meds, relinking, onLinked }: { id: string; meds: Medication[]; relinking: boolean; onLinked: () => void }) {
+export function UnknownTag({ id, meds, relinking, onLinked, personName }: {
+  id: string; meds: Medication[]; relinking: boolean; onLinked: () => void; personName?: (m: Medication) => string;
+}) {
   const toast = useToast();
   const assign = async (m: Medication) => {
     await linkTag(id, m.id);
@@ -36,7 +38,7 @@ export function UnknownTag({ id, meds, relinking, onLinked }: { id: string; meds
               <li key={m.id}>
                 <button onClick={() => assign(m)} className="w-full min-h-[56px] flex items-center gap-3 px-3 rounded-btn bg-surface-2 text-left font-medium">
                   <MedBadge color={shownColour(m)} icon={m.icon} size={32} />
-                  {shownMedName(m)}
+                  <span>{shownMedName(m)}{personName && <span className="block text-sm font-normal text-muted">For {personName(m)}</span>}</span>
                 </button>
               </li>
             ))}

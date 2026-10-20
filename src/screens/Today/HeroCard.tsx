@@ -14,11 +14,14 @@ import { medColour } from '../../logic/palette';
 import { Ring } from '../../components/ui/Ring';
 import { Button } from '../../components/ui/Button';
 import { MedBadge } from '../../components/MedBadge';
+import { PersonBadge } from '../../components/PersonSwitcher';
 
 const dayName = new Intl.DateTimeFormat('en-AU', { weekday: 'long' });
 
-export function HeroCard({ med, doses, s, now, onLog, className = '', footer }: {
+export function HeroCard({ med, doses, s, now, onLog, className = '', footer, person }: {
   med: Medication; doses: Dose[]; s: ScheduleSettings; now: number; onLog: () => void; className?: string; footer?: React.ReactNode;
+  /** Whose medication this is (shown in the Everyone view). */
+  person?: string;
 }) {
   const status = getStatus(med, doses, now, s);
   const next = getNextDue(med, doses, now, s);
@@ -75,10 +78,11 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer }: 
   const changeSoon = change && Date.parse(`${change.from}T12:00`) - now < 8 * 86_400_000 ? change : undefined;
   return (
     <article
-      aria-label={shownName(med)}
+      aria-label={person ? `${person}: ${shownName(med)}` : shownName(med)}
       className={`bg-surface rounded-card shadow-card p-5 h-full ${className}`}
       style={due ? { outline: '2px solid var(--primary)', outlineOffset: '-2px' } : undefined}
     >
+      {person && <p className="flex items-center gap-2 text-sm font-semibold text-primary mb-3"><PersonBadge name={person} size={24} /> {person}</p>}
       <div className="flex items-center gap-3">
         <MedBadge color={shownColour(med)} icon={med.icon} />
         <div className="min-w-0">
@@ -89,7 +93,7 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer }: 
       </div>
       <div className="my-5">
         <Ring progress={status === 'not-today' && next === null ? 0 : progress} color={medColour(shownColour(med))}>{center}</Ring>
-        <p className="sr-only" aria-live="polite">{shownName(med)}: {spoken}</p>
+        <p className="sr-only" aria-live="polite">{person ? `${person}, ` : ''}{shownName(med)}: {spoken}</p>
       </div>
       <dl className="text-center space-y-0.5 tnum">
         {nextAmount !== null && nextAmount > 0 && (

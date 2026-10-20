@@ -14,6 +14,7 @@ import { DEFAULT_CHIPS, setSetting, type Units } from '../db/repos/settings';
 import { eraseAll } from '../db/repos/backup';
 import { fmtAgo, fmtHHmm } from '../logic/format';
 import { hashPin, isValidPin, newSalt } from '../logic/pin';
+import { FamilyCard } from './Family';
 
 const selectCls = 'w-full min-h-[48px] rounded-btn bg-surface-2 border border-border px-3';
 
@@ -50,6 +51,8 @@ export function Settings() {
         </span>
         <ChevronRight className="text-muted" aria-hidden="true" />
       </a>
+
+      <FamilyCard />
 
       <Card className="space-y-4">
         <h2 className="text-lg font-semibold">Your day</h2>

@@ -6,13 +6,14 @@ import { MedBadge } from '../../components/MedBadge';
 import { Button } from '../../components/ui/Button';
 
 /** As-needed medications: last taken only, no countdown. */
-export function PrnCard({ med, doses, s, now, onLog }: { med: Medication; doses: Dose[]; s: ScheduleSettings; now: number; onLog: () => void }) {
+export function PrnCard({ med, doses, s, now, onLog, person }: { med: Medication; doses: Dose[]; s: ScheduleSettings; now: number; onLog: () => void; person?: string }) {
   const last = getLastDose(doses, med.id, now);
   const count = getDosesToday(doses, med.id, now, s).length;
   return (
     <article aria-label={shownName(med)} className="bg-surface rounded-card shadow-card p-4 flex items-center gap-3">
       <MedBadge color={shownColour(med)} icon={med.icon} />
       <div className="flex-1 min-w-0">
+        {person && <p className="text-xs font-semibold text-primary">{person}</p>}
         <h3 className="font-semibold truncate">{shownMedName(med)}</h3>
         <p className="text-sm text-muted tnum">
           {last ? <>Last taken {fmtAgo(now - Date.parse(last.takenAt))} · {fmtWhen(Date.parse(last.takenAt), now)}</> : 'Not taken yet'}

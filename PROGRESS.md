@@ -97,6 +97,21 @@ skipped doses, refill forecasting, encrypted and automatic backups. Awaiting own
   Started/stopped event text is rebuilt with the shown name, since stored summaries contain the real name.
 - Helpers in `logic/privacy.ts` (`shownName`, `shownMedName`, `shownColour`). Use them for any new on-screen name.
 
+## Family members (owner request)
+- `people` table (DB v4). Records carry `personId`; missing = the default person `'me'` ("Me", renameable), so existing
+  data needs no migration. `personOf()` / `storedPerson()` in `db/repos/people.ts`; `useFamily()` hook for UI.
+- Per person: medications ("Who is this for?"), check-ins, body entries (one per person per day), photos, refill cards,
+  Trends, Body, Meds list and the doctor report (title names the person). Doses belong via their medication.
+- Switcher (names) at the top of Today, Trends, Body, Meds and Report, only when there are 2+ people. Today also has
+  "Everyone": all medications, each card and timeline row labelled; quick actions hidden there (choose a person).
+- Tag taps: "For Sam" shown prominently; Done switches Today to that person. "New tag found" lists whose each med is.
+  Calendar reminders are titled "Sam: …". CSV exports have a person column. People are in backups.
+- A person can only be removed once they have no medications/records (prevents losing history by accident).
+- Shared medications (`medication.shared`, e.g. Panadol): listed for everyone with one stock count; each dose stores who
+  took it (`dose.personId`). Logging asks "Who's taking it?" (no default after a tag tap; the current person from Today).
+  `dosesForPerson()` gives each person's view, so last dose, today's count, double-tap guard, notes, charts and reports
+  are per person. Forecast uses everyone's recent use. Everyone view: "Shared · last taken by …".
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 
