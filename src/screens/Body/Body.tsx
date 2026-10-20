@@ -10,6 +10,8 @@ import { Button } from '../../components/ui/Button';
 import { BodySheet, todayYmd, type BodySheetState } from '../../components/BodySheets';
 import { ProgressPhotos } from './ProgressPhotos';
 import { VitalsCard } from './VitalsCard';
+import { GoalsSection } from './Goals';
+import { useNow } from '../../app/useNow';
 
 const fmtYmd = (ymd: string) => (ymd === todayYmd() ? 'Today' : format(new Date(`${ymd}T12:00`), 'EEE d MMM yyyy'));
 
@@ -18,6 +20,7 @@ export function Body() {
   const all = useBodyEntries();
   const fam = useFamily();
   const [sheet, setSheet] = useState<BodySheetState>(null);
+  const now = useNow(60_000);
   if (!settings || !all || !fam) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
 
   const units = settings.units;
@@ -37,6 +40,8 @@ export function Body() {
         ) : <p className="mt-1">No weight logged yet. It takes a few seconds.</p>}
         <Button className="w-full min-h-[56px] mt-4" onClick={() => setSheet({ kind: 'weight' })}>Log weight</Button>
       </Card>
+
+      <GoalsSection personId={fam.personId} goals={fam.people.find((p) => p.id === fam.personId)?.goals ?? []} entries={entries} units={units} now={now} />
 
       <Card>
         <div className="flex items-center gap-2 text-muted"><Ruler size={18} aria-hidden="true" /><h2 className="font-semibold">Measurements</h2></div>

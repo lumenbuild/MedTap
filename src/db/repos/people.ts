@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { DEFAULT_PERSON, type Dose, type Medication, type Person } from '../schema';
+import { DEFAULT_PERSON, type BodyGoal, type Dose, type GoalMetric, type Medication, type Person } from '../schema';
 
 const nowIso = () => new Date().toISOString();
 
@@ -57,4 +57,13 @@ export async function removePerson(id: string): Promise<boolean> {
   if (id === DEFAULT_PERSON || (await personRecordCount(id)) > 0) return false;
   await db.people.delete(id);
   return true;
+}
+
+/** Set (or with `undefined`, clear) a person's goal for a measurement. */
+export async function setGoal(personId: string, metric: GoalMetric, goal: BodyGoal | undefined) {
+  const now = nowIso();
+  const existing = await db.people.get(personId);
+  const base = existing ?? { id: personId, name: 'Me', createdAt: now };
+  const goals = [...(existing?.goals ?? []).filter((g) => g.metric !== metric), ...(goal ? [goal] : [])];
+  await db.people.put({ ...base, goals: goals.length ? goals : undefined, updatedAt: now });
 }

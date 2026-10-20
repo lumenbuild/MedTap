@@ -9,6 +9,7 @@ import { Segmented } from '../../components/ui/Field';
 import {
   AdherenceHeatmap, AppetiteWeight, VitalsCharts, DoseTimingCharts, FeelingsChart, IntervalCharts, MeasurementCharts, NoticedMost, WeightChart,
 } from '../../components/charts/Charts';
+import { GoalForecastCharts } from '../../components/charts/GoalCharts';
 import { BlendCharts, DoseLevelsCards, EstimatedLevelCharts } from '../../components/charts/PeptideCharts';
 import { shownName } from '../../logic/privacy';
 
@@ -62,6 +63,7 @@ export function Trends() {
         <Segmented<Range> label="Date range" value={range} onChange={pick}
           options={[{ value: '7d', label: '7D' }, { value: '30d', label: '30D' }, { value: '90d', label: '90D' }, { value: 'all', label: 'All' }]} />
       </div>
+      <GoalForecastCharts goals={fam.people.find((p) => p.id === fam.personId)?.goals ?? []} entries={body} units={settings.units} now={now} />
       <WeightChart entries={body} units={settings.units} {...common} marks={weightMarks} />
       <MeasurementCharts entries={body} units={settings.units} {...common} />
       <AdherenceHeatmap meds={active} doses={doses} {...common} />

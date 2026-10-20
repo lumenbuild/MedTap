@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { BellRing, CalendarClock, ChevronRight, Info, Lock, Nfc, RefreshCw, ScanText, ShieldCheck, Smartphone, Syringe, Users } from 'lucide-react';
+import { BellRing, CalendarClock, ChevronRight, Info, Lock, Nfc, RefreshCw, ScanText, ShieldCheck, Smartphone, Syringe, Target, Users } from 'lucide-react';
 import { isNative } from '../../platform';
 import { APP_NAME, DISCLAIMER } from '../../config';
 import { tagBase } from '../../nfc/url';
@@ -8,6 +8,7 @@ import { Card } from '../../components/ui/Card';
 const TOPICS = [
   { id: 'schedules', title: 'Setting up a schedule', Icon: CalendarClock },
   { id: 'scan', title: 'Scanning a pharmacy label', Icon: ScanText },
+  { id: 'goals', title: 'Goals and forecasts', Icon: Target },
   { id: 'peptides', title: 'Peptides and injections', Icon: Syringe },
   { id: 'family', title: 'Family members', Icon: Users },
   { id: 'sync', title: 'Family sync', Icon: RefreshCw },
@@ -43,6 +44,25 @@ export function Help({ topic }: { topic?: string }) {
 const H = ({ children }: { children: ReactNode }) => <h2 className="text-lg font-semibold">{children}</h2>;
 
 const CONTENT: Record<string, ReactNode> = {
+  goals: (
+    <>
+      <H>Setting a goal</H>
+      <p>On Body, tap <strong>Set a weight or waist goal</strong>. Enter the goal and, if you like, a date. {APP_NAME} starts from where your trend is now.</p>
+      <H>How the forecast works</H>
+      <ul className="list-disc pl-5 space-y-1">
+        <li><strong>Trend, not the scale.</strong> Weight swings by a kilo or more day to day with water and food. The forecast uses the trend over the last 4 weeks, worked out so one odd day barely moves it.</li>
+        <li><strong>A date with a range.</strong> “Likely around 28 Mar, between 12 Mar and 2 Apr.” The range narrows the more steadily you log.</li>
+        <li><strong>It updates every time you log</strong>, and shows how the date has moved since last week.</li>
+        <li><strong>Slow-downs</strong> are pointed out, and the forecast follows the recent rate rather than an early fast start.</li>
+        <li><strong>Milestones</strong>: 5% and 10% down, halfway, and the goal, each dated when the trend reaches it.</li>
+        <li><strong>With a date</strong>, it says whether you're on track and the weekly pace that would get you there. A pace faster than about 1% of body weight a week gets a note to check with your doctor.</li>
+        <li><strong>After you reach it</strong>, the card shows how close you're holding to it.</li>
+      </ul>
+      <H>Getting the best forecast</H>
+      <p>Weigh in every day if you can, at the same time (first thing in the morning, after the bathroom, before eating). It needs at least 5 weigh-ins over a week to start. Gaps are fine; it just gets less certain.</p>
+      <p>The forecast describes your own trend. It isn't advice about how fast to go; your doctor can help with that.</p>
+    </>
+  ),
   peptides: (
     <>
       <H>Turning it on</H>
