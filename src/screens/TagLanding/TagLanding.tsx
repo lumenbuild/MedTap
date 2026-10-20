@@ -16,6 +16,8 @@ import { useToast } from '../../app/toast';
 import { replace } from '../../app/router';
 import { fmtAmount, fmtTime } from '../../logic/format';
 import { APP_NAME } from '../../config';
+import { isAndroid, isNative } from '../../platform';
+import { appIntentUrl } from '../../nfc/url';
 import { LogDoseFlow } from '../../components/LogDoseFlow';
 import { MedBadge } from '../../components/MedBadge';
 import { Card } from '../../components/ui/Card';
@@ -49,6 +51,12 @@ export function TagLanding({ id }: { id: string }) {
         <button onClick={close} aria-label="Close" className="w-12 h-12 -mr-3 flex items-center justify-center"><X aria-hidden="true" /></button>
       </header>
       <main className="flex-1 flex flex-col justify-center pb-6">{children}</main>
+      {isAndroid && !isNative && id && (
+        // The Android app keeps its own data. Older tags open the browser; this hands the tap to the app instead.
+        <p className="text-sm text-muted text-center pb-[max(16px,env(safe-area-inset-bottom))]">
+          Using the {APP_NAME} Android app? <a className="text-primary font-semibold underline" href={appIntentUrl(id)}>Open in the app</a>
+        </p>
+      )}
     </div>
   );
 

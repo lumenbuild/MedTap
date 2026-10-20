@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { newTagId, TAG_ALPHABET } from '../src/logic/tagId';
-import { parseTagParam, tagIdFromUrl, tagUrl } from '../src/nfc/url';
+import { appIntentUrl, parseTagParam, tagIdFromUrl, tagUrl } from '../src/nfc/url';
 
 describe('tag IDs', () => {
   it('are 8 characters with no look-alikes', () => {
@@ -22,5 +22,13 @@ describe('tag IDs', () => {
     expect(parseTagParam('?t=ab3defgh')).toBe('ab3defgh');
     expect(parseTagParam('?x=1')).toBeNull();
     expect(parseTagParam('?t=<script>')).toBe('');
+  });
+});
+
+describe('appIntentUrl', () => {
+  it('opens the same tag link in the Android app, falling back to the download page', () => {
+    const u = appIntentUrl('ab3defgh', 'https://lumenbuild.github.io/MedTap/');
+    expect(u).toBe('intent://lumenbuild.github.io/MedTap/?t=ab3defgh#Intent;scheme=https;package=app.medtap.tracker;'
+      + 'S.browser_fallback_url=https%3A%2F%2Fgithub.com%2Flumenbuild%2FMedTap%2Freleases%2Ftag%2Fandroid;end');
   });
 });

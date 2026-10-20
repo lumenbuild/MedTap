@@ -226,6 +226,7 @@ const CONTENT: Record<string, ReactNode> = {
       <H>The {APP_NAME} app</H>
       <p>There's also an installable app. It sends dose reminders, writes tags on iPhone and Android, and on Android a tag tap opens it even when it's closed.</p>
       <p><strong>Android:</strong> download MedTap.apk from github.com/lumenbuild/MedTap/releases on your phone and open it. Android asks you to allow installing from your browser the first time.</p>
+      <p>Tags written by the Android app open the app. Older tags, or ones written from the website, open Chrome instead. To fix one, open the medication in the app, tap the tag, then <strong>Test this tag</strong> → <strong>Update this tag</strong>. It stays linked.</p>
       <p><strong>iPhone:</strong> the app needs to be signed with an Apple Developer account before it can be installed (see NATIVE.md in {APP_NAME}'s code).</p>
       <p>The app keeps its own data. To move across, back up here (Settings → Backup and restore) and restore the file in the app. Or turn on family sync in both.</p>
       <H>iPhone</H>
