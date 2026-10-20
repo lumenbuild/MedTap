@@ -111,8 +111,15 @@ export function fmtSchedule(s: Schedule, unit = ''): string {
   return days ? `${main} · ${days}` : main;
 }
 
-export function fmtMedName(m: Pick<Medication, 'name' | 'strength' | 'unit'>): string {
-  return m.strength ? `${m.name} ${fmtAmount(m.strength, m.unit)}` : m.name;
+/** "Ritalin 10 mg". A mixed vial's strength is the whole vial, not a dose, so it's left off. */
+export function fmtMedName(m: Pick<Medication, 'name' | 'strength' | 'unit'> & { peptide?: unknown }): string {
+  return m.strength && !m.peptide ? `${m.name} ${fmtAmount(m.strength, m.unit)}` : m.name;
+}
+
+/** "18 left", or "2.9 vials left" for mixed vials. */
+export function fmtStock(m: Pick<Medication, 'stockCount'> & { peptide?: unknown }): string {
+  const n = Math.round((m.stockCount ?? 0) * 100) / 100;
+  return m.peptide ? `${n} vial${n === 1 ? '' : 's'} left` : `${n} left`;
 }
 
 /** Value for <input type="datetime-local"> in device time. */

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { ChevronRight, HardDriveDownload, HelpCircle, Lock, RefreshCw, X } from 'lucide-react';
+import { Calculator, ChevronRight, HardDriveDownload, HelpCircle, Lock, RefreshCw, Syringe, X } from 'lucide-react';
 import { useSyncConfig } from '../app/sync';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -122,6 +122,23 @@ export function Settings() {
           <Segmented<Units> label="Units" value={settings.units} onChange={(v) => setSetting('units', v)}
             options={[{ value: 'metric', label: 'kg and cm' }, { value: 'imperial', label: 'lb and in' }]} />
         </div>
+      </Card>
+
+      <Card className="space-y-3">
+        <h2 className="text-lg font-semibold flex items-center gap-2"><Syringe size={18} aria-hidden="true" /> Peptides and injections</h2>
+        <label className="flex items-center justify-between gap-3 min-h-[48px]">
+          <span>
+            <span className="block font-medium">Peptide and injection tools</span>
+            <span className="block text-sm text-muted">Vials you mix with water, syringe units for each dose, a calculator, titration plans and injection site rotation.</span>
+          </span>
+          <input type="checkbox" role="switch" checked={settings.peptideTools} onChange={(e) => setSetting('peptideTools', e.target.checked)}
+            className="w-6 h-6 accent-[var(--primary)] shrink-0" aria-label="Peptide and injection tools" />
+        </label>
+        {settings.peptideTools && (
+          <a href="#/calc" className="min-h-[48px] flex items-center gap-3 px-3 rounded-btn bg-surface-2 font-medium">
+            <Calculator size={20} className="text-primary" aria-hidden="true" /> <span className="flex-1">Peptide calculator</span> <ChevronRight className="text-muted" aria-hidden="true" />
+          </a>
+        )}
       </Card>
 
       <Card className="space-y-4">

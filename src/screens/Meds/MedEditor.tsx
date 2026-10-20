@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { shownName } from '../../logic/privacy';
 import { Check, ClipboardList, EyeOff, Plus, X } from 'lucide-react';
 import { format } from 'date-fns';
-import type { Medication } from '../../db/schema';
+import type { Medication, SyringeType } from '../../db/schema';
 import { db } from '../../db/db';
 import { useLive } from '../../db/live';
-import { useFamily, useMeds } from '../../app/data';
+import { useFamily, useMeds, useSettings } from '../../app/data';
 import { personOf, storedPerson } from '../../db/repos/people';
 import { DEFAULT_PERSON } from '../../db/schema';
 import { addBottle, createMed, deleteMedForever, setArchived, updateMed, type MedInput } from '../../db/repos/meds';
@@ -29,6 +29,9 @@ import { TagsSection } from './TagsSection';
 import { PlannedChanges } from './PlannedChanges';
 import { BottlesSection } from './BottlesSection';
 import { ScanLabelCard } from './ScanLabel';
+import { TitrationCard, VialCard } from './PeptideSections';
+import { DrawGuide, syringeSizes } from '../../components/Syringe';
+import { SYRINGES } from '../../logic/peptide';
 import type { LabelDetails } from '../../logic/label';
 
 const UNITS = ['mg', 'mcg', 'mL', 'units', 'tablet'];
@@ -39,6 +42,8 @@ interface Form extends ScheduleForm {
   color: string; icon: string; stockCount: string; lowStockAt: string; scriptNotes: string;
   repeatsLeft: string; scriptExpiry: string;
   instructions: string; instructionsBy: string; nickname: string;
+  /** Mixed from a powder vial (peptide tools). */
+  mixed: boolean; waterMl: string; syringe: SyringeType; syringeUnits: string; useWithinDays: string;
   /** Who takes it ('' until the family list loads). */
   personId: string;
 }
@@ -48,6 +53,7 @@ const blank: Form = {
   name: '', strength: '', unit: 'mg', form: 'tablet',
   color: MED_COLOURS[0].value, icon: 'pill', stockCount: '', lowStockAt: '', scriptNotes: '',
   repeatsLeft: '', scriptExpiry: '', instructions: '', instructionsBy: '', nickname: '', personId: '',
+  mixed: false, waterMl: '', syringe: 'U-100', syringeUnits: '30', useWithinDays: '',
 };
 
 const str = (n?: number) => (n === undefined || n === null ? '' : String(n));
@@ -61,6 +67,8 @@ function fromMed(m: Medication): Form {
     repeatsLeft: str(m.repeatsLeft), scriptExpiry: m.scriptExpiry ?? '',
     instructions: m.instructions ?? '', instructionsBy: m.instructionsBy ?? '', nickname: m.nickname ?? '',
     personId: m.shared ? 'shared' : personOf(m),
+    mixed: !!m.peptide, waterMl: str(m.peptide?.waterMl), syringe: m.peptide?.syringe ?? 'U-100',
+    syringeUnits: str(m.peptide?.syringeUnits) || '30', useWithinDays: str(m.peptide?.useWithinDays),
   };
 }
 
@@ -75,6 +83,10 @@ function toInput(f: Form, before?: Medication): MedInput {
     stockCount: num(f.stockCount), lowStockAt: num(f.lowStockAt), scriptNotes: f.scriptNotes.trim() || undefined,
     repeatsLeft: num(f.repeatsLeft), scriptExpiry: f.scriptExpiry || undefined,
     instructions, instructionsBy: instructions ? f.instructionsBy.trim() || undefined : undefined,
+    peptide: f.mixed ? {
+      waterMl: Number(f.waterMl), syringe: f.syringe, syringeUnits: Number(f.syringeUnits) || 30,
+      useWithinDays: num(f.useWithinDays), mixedAt: before?.peptide?.mixedAt,
+    } : undefined,
     instructionsUpdatedAt: !instructions ? undefined
       : instructions === before?.instructions?.trim() ? before?.instructionsUpdatedAt : new Date().toISOString(),
   };
@@ -87,6 +99,11 @@ function validate(f: Form): Errors {
   const posOrBlank = (s: string) => s.trim() === '' || Number(s) > 0;
   if (!f.name.trim()) e.name = 'Enter a name.';
   if (!posOrBlank(f.strength)) e.strength = 'Enter a number above 0, or leave it blank.';
+  if (f.mixed) {
+    if (!(Number(f.strength) > 0)) e.strength = 'Enter the amount in each vial.';
+    if (!(Number(f.waterMl) > 0)) e.waterMl = 'Enter the water you add, in mL.';
+    if (f.useWithinDays.trim() && !(Number(f.useWithinDays) >= 1)) e.useWithinDays = 'Enter a number of days, or leave it blank.';
+  }
   if (f.stockCount.trim() && !(Number(f.stockCount) >= 0)) e.stockCount = 'Enter a number, or leave it blank.';
   if (f.lowStockAt.trim() && !(Number(f.lowStockAt) >= 0)) e.lowStockAt = 'Enter a number, or leave it blank.';
   if (f.repeatsLeft.trim() && !(Number.isInteger(Number(f.repeatsLeft)) && Number(f.repeatsLeft) >= 0)) e.repeatsLeft = 'Enter a whole number, or leave it blank.';
@@ -146,6 +163,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
 
   useEffect(() => { if (existing) setF(fromMed(existing)); }, [loadedId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const settings = useSettings();
   // New medications are for whoever is selected.
   const fam = useFamily();
   const famLoaded = !!fam;
@@ -235,14 +253,16 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
         }} />
       )}
       {existing && <TagsSection med={existing} />}
+      {existing?.peptide && !existing.archived && <VialCard med={existing} />}
       {existing && !existing.archived && <PlannedChanges med={existing} />}
+      {existing && !existing.archived && settings?.peptideTools && <TitrationCard med={existing} />}
       {existing && !existing.archived && <BottlesSection med={existing} />}
 
       <Card className="space-y-4">
         <h2 className="text-lg font-semibold">Medication</h2>
         <TextInput label="Name" value={f.name} onChange={(e) => set('name', e.target.value)} error={errors.name} autoComplete="off" autoFocus={!id} />
         <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
-          <TextInput label="Strength" type="number" inputMode="decimal" min="0" step="any" value={f.strength} onChange={(e) => set('strength', e.target.value)} error={errors.strength} />
+          <TextInput label={f.mixed ? 'Amount in each vial' : 'Strength'} type="number" inputMode="decimal" min="0" step="any" value={f.strength} onChange={(e) => set('strength', e.target.value)} error={errors.strength} />
           <Select label="Unit" value={f.unit} onChange={(e) => set('unit', e.target.value)}>
             {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
           </Select>
@@ -250,6 +270,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
         <Select label="Form" value={f.form} onChange={(e) => set('form', e.target.value)}>
           {FORMS.map((x) => <option key={x} value={x}>{x[0].toUpperCase() + x.slice(1)}</option>)}
         </Select>
+        {(f.mixed || (settings?.peptideTools && f.form === 'injection')) && <MixedVialFields f={f} set={set} errors={errors} />}
         {fam?.many && (
           <Select label="Who is this for?" value={f.personId || fam.personId} onChange={(e) => set('personId', e.target.value)}
             help={f.personId === 'shared' ? "One stock count for everyone. When it's logged, you choose who took it, and each person's count and history are their own." : undefined}>
@@ -321,7 +342,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
 
       <Card className="space-y-4">
         <h2 className="text-lg font-semibold">Stock and refills</h2>
-        <TextInput label={`How many ${f.unit === 'tablet' || !Number(f.strength) ? `${f.form}s` : `${f.form}s (${f.strength} ${f.unit} each)`} you have (optional)`}
+        <TextInput label={f.mixed ? `How many vials you have (optional)` : `How many ${f.unit === 'tablet' || !Number(f.strength) ? `${f.form}s` : `${f.form}s (${f.strength} ${f.unit} each)`} you have (optional)`}
           type="number" inputMode="decimal" min="0" step="any" value={f.stockCount} onChange={(e) => set('stockCount', e.target.value)} error={errors.stockCount}
           help={perDose !== undefined ? `Goes down by ${perDose} each time you log ${fmtAmount(draftAmount, f.unit)}. Undo puts it back.` : undefined} />
         <TextInput label="Let me know when it's down to (optional)" type="number" inputMode="decimal" min="0" step="any" value={f.lowStockAt}
@@ -377,6 +398,40 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
           </div>
         )}
       </Sheet>
+    </div>
+  );
+}
+
+/** A powder vial mixed with water (peptide tools): what goes in, and the syringe used. */
+function MixedVialFields({ f, set, errors }: { f: Form; set: <K extends keyof Form>(k: K, v: Form[K]) => void; errors: Errors }) {
+  const sizes = syringeSizes(f.syringe);
+  return (
+    <div className="rounded-btn bg-surface-2 p-3 space-y-3">
+      <label className="flex items-start gap-3 min-h-[48px] py-1">
+        <input type="checkbox" checked={f.mixed} onChange={(e) => set('mixed', e.target.checked)} className="w-5 h-5 mt-0.5 accent-[var(--primary)]" />
+        <span>
+          <span className="block font-medium">I mix this from a powder vial</span>
+          <span className="block text-sm text-muted">Peptides and similar. {APP_NAME} works out the syringe units for each dose.</span>
+        </span>
+      </label>
+      {f.mixed && (
+        <>
+          <TextInput label="Water added to each vial (mL)" type="number" inputMode="decimal" min="0" step="any" value={f.waterMl}
+            onChange={(e) => set('waterMl', e.target.value)} error={errors.waterMl} />
+          <div className="grid grid-cols-2 gap-3 items-start">
+            <Select label="Syringe" value={f.syringe} onChange={(e) => { set('syringe', e.target.value as SyringeType); set('syringeUnits', String(syringeSizes(e.target.value as SyringeType)[0].units)); }}>
+              {SYRINGES.map((x) => <option key={x.value} value={x.value}>{x.value}</option>)}
+            </Select>
+            <Select label="Size" value={f.syringeUnits} onChange={(e) => set('syringeUnits', e.target.value)}>
+              {sizes.map((x) => <option key={x.ml} value={String(x.units)}>{x.ml} mL ({x.units} units)</option>)}
+            </Select>
+          </div>
+          <TextInput label="Use a mixed vial within (days, optional)" help="From the label or your pharmacist. Today warns you when a vial is past it."
+            type="number" inputMode="numeric" min="1" step="1" value={f.useWithinDays} onChange={(e) => set('useWithinDays', e.target.value)} error={errors.useWithinDays} />
+          <DrawGuide med={{ strength: Number(f.strength), unit: f.unit, peptide: { waterMl: Number(f.waterMl), syringe: f.syringe, syringeUnits: Number(f.syringeUnits) || 30 } }}
+            amount={Number(f.defaultAmount) || Number(f.slots[0]?.amount) || 0} />
+        </>
+      )}
     </div>
   );
 }

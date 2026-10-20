@@ -149,6 +149,16 @@ skipped doses, refill forecasting, encrypted and automatic backups. Awaiting own
   Stock: `medication.stockBase` (count + time, set on create/edit/refill) and `recountStock` after merges, so doses
   logged on two phones both come off. Joining phones move their own "Me" records to a new person first.
 
+## Peptides and injections (optional, Settings toggle `peptideTools`)
+- Mixed vials: `medication.peptide` (water mL, syringe U-100/U-40 and size, use-within days, `mixedAt`). `strength` is
+  the amount per vial, so stock counts vials. `logic/peptide.ts`: concentration, units/mL for a dose, dose for units,
+  water for a target number of units, draw warnings (<2 units, over capacity, off the half-unit marks), vial status
+  (left = vial − doses since mixed), titration steps, injection-site rotation. Pure, tested; never suggests doses.
+- UI: editor "I mix this from a powder vial" (injection form), Vial card (mixed / left / use-by, "I've mixed a new
+  vial" with undo), Log dose "Draw to N units" with a syringe gauge and entry in syringe units, injection-site picker
+  (longest-unused first; per medication), Today alerts for a vial past its use-within date or ~1 dose left,
+  calculator at `#/calc`, titration planner that writes planned changes (step k of n). Sites in timeline and CSV.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 

@@ -22,6 +22,8 @@ export interface NewDose {
   skipReason?: string;
   /** Who took it (shared medications). */
   personId?: string;
+  /** Injection site (peptide tools). */
+  site?: string;
 }
 
 /** Save a dose and take it off the stock count. */

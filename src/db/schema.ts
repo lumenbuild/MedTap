@@ -44,6 +44,21 @@ export interface PlannedChange {
   note?: string;
 }
 
+export type SyringeType = 'U-100' | 'U-40';
+
+/** A powder vial mixed with water before use (peptides and similar). `strength` is the amount in each vial. */
+export interface PeptideSetup {
+  /** Water added to each vial, mL. */
+  waterMl: number;
+  syringe: SyringeType;
+  /** Syringe capacity in units (30, 50 or 100 on a U-100 syringe). */
+  syringeUnits: number;
+  /** Days a mixed vial can be used for, from the label or pharmacist (optional). */
+  useWithinDays?: number;
+  /** When the vial in use was mixed. */
+  mixedAt?: string;
+}
+
 export interface Medication extends Stamped {
   name: string; strength: number; unit: string; form: string; defaultAmount: number;
   schedule: Schedule; color: string; icon: string;
@@ -66,6 +81,8 @@ export interface Medication extends Stamped {
   bottles?: Bottle[];
   /** Script refills left, and when the script expires ('YYYY-MM-DD'). */
   repeatsLeft?: number; scriptExpiry?: string;
+  /** Mixed from a powder vial: syringe units are worked out from this (peptide tools). */
+  peptide?: PeptideSetup;
 }
 export interface Tag { id: string; medicationId: string; label?: string; createdAt: string; lastScannedAt?: string }
 export interface Dose extends Stamped {
@@ -73,6 +90,8 @@ export interface Dose extends Stamped {
   source: 'tag' | 'manual' | 'backdated' | 'reminder'; tagId?: string; note?: string; deletedAt?: string;
   /** Recorded as skipped on purpose: covers its place in the plan but wasn't taken (no stock change). */
   skipped?: boolean; skipReason?: string;
+  /** Injection site, when site rotation is on. */
+  site?: string;
   /** Who took it, for shared medications (otherwise the medication's person). */
   personId?: string;
 }

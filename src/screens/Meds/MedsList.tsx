@@ -12,7 +12,7 @@ import { fmtBottle, fmtForecast, fmtScript } from '../../components/Refill';
 import type { Dose } from '../../db/schema';
 import type { ScheduleSettings } from '../../logic/schedule';
 import { go } from '../../app/router';
-import { fmtSchedule } from '../../logic/format';
+import { fmtSchedule, fmtStock } from '../../logic/format';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { MedBadge } from '../../components/MedBadge';
@@ -79,7 +79,7 @@ function MedRow({ med, tags, doses, s, now }: { med: Medication; tags: Tag[]; do
           <span className="block text-sm text-muted">{fmtSchedule(med.schedule, med.unit)}</span>
           <span className="block text-sm text-muted tnum">
             {n === 0 ? 'No tag yet' : `${n} tag${n === 1 ? '' : 's'} linked`}
-            {med.stockCount !== undefined && <> · <span className={low ? 'text-caution font-medium' : ''}>{med.stockCount} left</span></>}
+            {med.stockCount !== undefined && <> · <span className={low ? 'text-caution font-medium' : ''}>{fmtStock(med)}</span></>}
           </span>
           {forecast && <span className="block text-sm text-muted tnum">{forecast}</span>}
           {script && <span className="block text-sm text-muted tnum">{script}</span>}

@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { Package } from 'lucide-react';
 import type { Bottle, Medication } from '../db/schema';
 import { go } from '../app/router';
+import { fmtStock } from '../logic/format';
 import type { Forecast } from '../logic/plans';
 import type { RefillAlert } from '../logic/reminders';
 import { addBottle, restock, unrestock } from '../db/repos/meds';
@@ -55,7 +56,7 @@ export function RefillCards({ alerts, settings, now }: { alerts: RefillAlert[]; 
           <Package className="text-caution shrink-0 mt-0.5" aria-hidden="true" />
           <div className="flex-1 min-w-0">
             <p className="tnum"><strong>{shownName(med)}</strong>
-              {med.stockCount !== undefined ? `: ${med.stockCount} left.` : '.'}
+              {med.stockCount !== undefined ? `: ${fmtStock(med)}.` : '.'}
               {low && !runningOut && med.lowStockAt !== undefined ? ` You asked to know at ${med.lowStockAt}.` : ''}
             </p>
             {(runningOut || low) && fmtForecast(forecast) && <p className="text-sm tnum">{fmtForecast(forecast)}</p>}

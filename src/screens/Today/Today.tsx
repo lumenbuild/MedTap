@@ -14,6 +14,7 @@ import { addToCalendar } from '../../app/calendar';
 import { byUrgency, getLastDose, getNextDue, getStatus } from '../../logic/schedule';
 import { checkInPromptDose, needsBackup, refillAlerts } from '../../logic/reminders';
 import { RefillCards } from '../../components/Refill';
+import { VialAlerts } from '../Meds/PeptideSections';
 import { fmtAgo, fmtAmount, fmtTime, fmtWhen } from '../../logic/format';
 import { removeDose } from '../../db/repos/doses';
 import { Card } from '../../components/ui/Card';
@@ -142,6 +143,7 @@ export function Today() {
 
       {promptDose && <CheckInPrompt dose={promptDose} med={medMap.get(promptDose.medicationId)} now={now} onCheckIn={() => setCheckIn({ relatedDoseId: promptDose.id })} />}
       <RefillCards alerts={refills} settings={settings} now={now} />
+      <VialAlerts meds={viewMeds} doses={doses} now={now} />
 
       {prn.length > 0 && (
         <section className="space-y-2" aria-label="As needed">
