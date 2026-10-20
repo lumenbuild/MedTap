@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { readFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 import { createRequire } from 'node:module';
 import { basename, dirname, join } from 'node:path';
 import type { Plugin } from 'vite';
@@ -27,7 +28,12 @@ function ocrAssets(): Plugin {
       });
     },
     generateBundle() {
-      for (const f of OCR_FILES) this.emitFile({ type: 'asset', fileName: `ocr/${basename(f)}`, source: readFileSync(f) });
+      for (const f of OCR_FILES) {
+        // Android's packager unzips .gz assets and drops the extension, so app builds ship the language data
+        // uncompressed under its plain name (and src/app/ocr.ts asks for that name in the app).
+        if (native && f.endsWith('.gz')) this.emitFile({ type: 'asset', fileName: `ocr/${basename(f, '.gz')}`, source: gunzipSync(readFileSync(f)) });
+        else this.emitFile({ type: 'asset', fileName: `ocr/${basename(f)}`, source: readFileSync(f) });
+      }
     },
   };
 }
