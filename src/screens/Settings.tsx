@@ -17,7 +17,7 @@ import { fmtAgo, fmtHHmm } from '../logic/format';
 import { hashPin, isValidPin, newSalt } from '../logic/pin';
 import { FamilyCard } from './Family';
 import { placeName } from '../components/TravelBanner';
-import { isNative } from '../platform';
+import { isAndroid, isIOS, isNative, isStandalone } from '../platform';
 
 const RemindersCard = lazy(() => import('./RemindersCard'));
 
@@ -30,13 +30,24 @@ export function Settings() {
   const now = useNow(60_000);
   const toast = useToast();
   const [persisted, setPersisted] = useState<boolean | null>(null);
+  /** The browser was asked on this screen and said no (browsers decide silently; there's no prompt). */
+  const [refused, setRefused] = useState(false);
   const [newChip, setNewChip] = useState('');
   const [pinSheet, setPinSheet] = useState(false);
   const [eraseSheet, setEraseSheet] = useState(false);
   const [typed, setTyped] = useState('');
 
-  useEffect(() => { navigator.storage?.persisted?.().then(setPersisted).catch(() => setPersisted(false)); }, []);
-  const requestPersist = async () => setPersisted((await navigator.storage?.persist?.()) ?? false);
+  useEffect(() => {
+    if (!navigator.storage?.persisted) { setPersisted(false); return; }
+    navigator.storage.persisted().then(setPersisted).catch(() => setPersisted(false));
+  }, []);
+  const requestPersist = async () => {
+    let ok = false;
+    try { ok = (await navigator.storage?.persist?.()) ?? false; } catch { ok = false; }
+    setPersisted(ok);
+    setRefused(!ok);
+    toast(ok ? 'Done. This browser will keep your data.' : 'Your browser said no this time. See below for what helps.');
+  };
 
   if (!settings) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
   const last = settings.lastBackupAt ? Date.parse(settings.lastBackupAt) : null;
@@ -169,14 +180,29 @@ export function Settings() {
       <Card className="space-y-3">
         <h2 className="text-lg font-semibold">Storage</h2>
         <p className="text-sm">Everything is saved on this device only.</p>
-        {persisted ? (
+        {isNative ? (
+          <p className="text-sm text-success font-medium" role="status">✓ Kept by the app. It's only removed if you uninstall {APP_NAME}.</p>
+        ) : persisted ? (
           <p className="text-sm text-success font-medium" role="status">✓ Protected from automatic clean-up.</p>
         ) : (
           <>
             <p className="text-sm text-muted" role="status">
               {persisted === false ? 'Your browser may clear this data if the phone runs low on space. Regular use and backups keep it safe.' : 'Checking…'}
             </p>
-            <Button variant="secondary" className="w-full" onClick={requestPersist}>Ask to keep my data</Button>
+            {refused && (
+              <div className="text-sm rounded-btn bg-surface-2 p-3 space-y-2" role="status">
+                <p className="font-medium">The browser decides this by itself; there's no prompt to accept.</p>
+                {isIOS ? (
+                  <p>Safari doesn't let websites keep data for sure. It can remove a website's data if you go 7 days of using Safari without opening it, so open {APP_NAME} at least every few days and keep a recent backup. The {APP_NAME} app doesn't have this limit.</p>
+                ) : isAndroid ? (
+                  <p>Chrome usually agrees once {APP_NAME} is installed{isStandalone ? '' : ' (Chrome menu → Install app)'} and used for a while. Try again in a few days.</p>
+                ) : (
+                  <p>Browsers usually agree once a site is bookmarked or installed and used regularly. Try again later.</p>
+                )}
+                <p>Either way, backups keep your data safe: <a href="#/backup" className="text-primary font-semibold">Backup and restore</a>.</p>
+              </div>
+            )}
+            <Button variant="secondary" className="w-full" onClick={requestPersist}>{refused ? 'Ask again' : 'Ask to keep my data'}</Button>
           </>
         )}
       </Card>
