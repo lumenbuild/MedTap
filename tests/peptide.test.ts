@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  concentration, convert, doseForUnits, drawFor, drawWarnings, fmtUnits, nextSite, scheduleAtDose, titrationSteps,
+  concentration, convert, doseForUnits, drawFor, drawWarnings, fmtUnits, scheduleAtDose, titrationSteps,
   vialStatus, waterForUnits,
 } from '../src/logic/peptide';
 import type { Dose } from '../src/db/schema';
@@ -80,17 +80,5 @@ describe('titrationSteps', () => {
   });
   it('a titrated schedule uses one dose at every time', () => {
     expect(scheduleAtDose({ type: 'fixed', slots: [{ time: '08:00', amount: 2 }], days: [0] })).toEqual({ type: 'fixed', slots: [{ time: '08:00' }], days: [0] });
-  });
-});
-
-describe('nextSite', () => {
-  it('rotates to the site used longest ago, never-used first', () => {
-    const sites = ['A', 'B', 'C'];
-    expect(nextSite([], sites)).toBe('A');
-    expect(nextSite([dose({ site: 'A', takenAt: '2026-07-01T00:00:00Z' })], sites)).toBe('B');
-    expect(nextSite([
-      dose({ site: 'A', takenAt: '2026-07-03T00:00:00Z' }), dose({ site: 'B', takenAt: '2026-07-01T00:00:00Z' }),
-      dose({ site: 'C', takenAt: '2026-07-02T00:00:00Z' }),
-    ], sites)).toBe('B');
   });
 });

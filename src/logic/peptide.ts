@@ -128,21 +128,4 @@ export function scheduleAtDose(sc: Schedule): Schedule {
   return sc;
 }
 
-// ── Injection sites ─────────────────────────────────────────────────────────────────────────────────
-
-export const SITES = [
-  'Tummy left', 'Tummy right', 'Thigh left', 'Thigh right', 'Arm left', 'Arm right', 'Buttock left', 'Buttock right',
-];
-
-/** The site used longest ago (or never), to rotate through. `doses` should be one person's. */
-export function nextSite(doses: Dose[], sites = SITES): string {
-  const last = new Map<string, number>();
-  for (const d of doses) {
-    if (!d.site || d.deletedAt || d.skipped) continue;
-    const t = Date.parse(d.takenAt);
-    if (t > (last.get(d.site) ?? -Infinity)) last.set(d.site, t);
-  }
-  return [...sites].sort((a, b) => (last.get(a) ?? -Infinity) - (last.get(b) ?? -Infinity))[0];
-}
-
 export const isMixedVial = (m: Pick<Medication, 'peptide'>): m is { peptide: PeptideSetup } => !!m.peptide;

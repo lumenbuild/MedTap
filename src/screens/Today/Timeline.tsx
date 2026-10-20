@@ -50,7 +50,7 @@ export function Timeline({ doses, checkIns, body, vitals, meds, s, units, now, o
               title = it.dose.skipped
                 ? <><span className="font-medium">{shownName(med)}</span> <span className="text-muted">skipped</span></>
                 : <><span className="font-medium">{shownName(med)}</span> <span className="tnum">{fmtAmount(it.dose.amount, med.unit)}</span></>;
-              sub = it.dose.skipped ? it.dose.skipReason : [it.dose.site, it.dose.source === 'backdated' ? 'Logged later' : it.dose.source === 'reminder' ? 'From a reminder' : ''].filter(Boolean).join(' · ') || undefined;
+              sub = it.dose.skipped ? it.dose.skipReason : it.dose.source === 'backdated' ? 'Logged later' : it.dose.source === 'reminder' ? 'From a reminder' : undefined;
               extra = it.dose.source === 'tag' ? <Nfc size={16} className="text-muted" aria-label="Logged with a tag" /> : null;
               onClick = () => onDose(it.dose);
               // Shared medications: label with who took this dose.

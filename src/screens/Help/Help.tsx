@@ -46,7 +46,7 @@ const CONTENT: Record<string, ReactNode> = {
   peptides: (
     <>
       <H>Turning it on</H>
-      <p>Settings → <strong>Peptides and injections</strong>. This adds vials you mix, syringe units, a calculator, titration plans and injection sites. Turning it off hides them again; nothing is deleted.</p>
+      <p>Settings → <strong>Peptides and injections</strong>. This adds vials you mix, syringe units, a calculator and titration plans. Turning it off hides them again; nothing is deleted.</p>
       <H>A vial you mix</H>
       <ol className="list-decimal pl-5 space-y-1">
         <li>Add the medication with Form <strong>Injection</strong>, and tick <strong>I mix this from a powder vial</strong>.</li>
@@ -59,8 +59,6 @@ const CONTENT: Record<string, ReactNode> = {
       <p>Settings → Peptides and injections → <strong>Peptide calculator</strong>. Work out the units for a dose, the dose for a number of units, or how much water makes your dose an easy number of units.</p>
       <H>Titration</H>
       <p>On the medication's page, <strong>Plan a titration</strong>: enter the first dose, how much it goes up (or down) each step, how often, and the final dose. Each step is saved as a planned change, switches over on its day and shows in your charts. Remove any step under Planned changes.</p>
-      <H>Injection sites</H>
-      <p>Log dose shows the injection sites, with the one used longest ago picked for you, to help you rotate. Change it with a tap. Sites show in the timeline and spreadsheet exports.</p>
       <H>Check your numbers</H>
       <p>{APP_NAME} only does sums on the numbers you enter; it doesn't suggest doses. Check the units against the label, your prescriber's directions or your pharmacist, especially the first time. Under 2 units is hard to measure accurately.</p>
     </>

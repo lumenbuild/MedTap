@@ -129,7 +129,7 @@ export function Settings() {
         <label className="flex items-center justify-between gap-3 min-h-[48px]">
           <span>
             <span className="block font-medium">Peptide and injection tools</span>
-            <span className="block text-sm text-muted">Vials you mix with water, syringe units for each dose, a calculator, titration plans and injection site rotation.</span>
+            <span className="block text-sm text-muted">Vials you mix with water, syringe units for each dose, a calculator and titration plans.</span>
           </span>
           <input type="checkbox" role="switch" checked={settings.peptideTools} onChange={(e) => setSetting('peptideTools', e.target.checked)}
             className="w-6 h-6 accent-[var(--primary)] shrink-0" aria-label="Peptide and injection tools" />

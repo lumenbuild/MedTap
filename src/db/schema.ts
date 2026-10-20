@@ -90,8 +90,6 @@ export interface Dose extends Stamped {
   source: 'tag' | 'manual' | 'backdated' | 'reminder'; tagId?: string; note?: string; deletedAt?: string;
   /** Recorded as skipped on purpose: covers its place in the plan but wasn't taken (no stock change). */
   skipped?: boolean; skipReason?: string;
-  /** Injection site, when site rotation is on. */
-  site?: string;
   /** Who took it, for shared medications (otherwise the medication's person). */
   personId?: string;
 }

@@ -6,8 +6,7 @@ import { PersonBadge } from './PersonSwitcher';
 import { logDose } from '../db/repos/doses';
 import { FIXED_MATCH_MS, getContextNotes, getExpectedAmount, getFixedSlots, getLastDose, getRecentDose, type ContextNote, type ScheduleSettings } from '../logic/schedule';
 import { stockUnitsFor } from '../logic/stock';
-import { doseForUnits, drawFor, nextSite, SITES } from '../logic/peptide';
-import { useSettings } from '../app/data';
+import { doseForUnits, drawFor } from '../logic/peptide';
 import { DrawGuide } from './Syringe';
 import { MedInstructions } from './MedInstructions';
 import { fmtAgo, fmtAmount, fmtDuration, fmtHHmm, fmtTime, fmtWhen, fromLocalInput, toLocalInput } from '../logic/format';
@@ -53,12 +52,9 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, onLogged, onC
   const doses = choosing && who ? allDoses.filter((d) => d.medicationId !== med.id || personOf(d) === who) : allDoses;
   // The amount follows the plan for this dose (e.g. 20, 20, then 10 mg) until the person changes it.
   const [amountEdit, setAmountEdit] = useState<number | null>(null);
-  // Peptide tools: syringe units for mixed vials, and injection sites.
-  const settings = useSettings();
+  // Peptide tools: syringe units for mixed vials.
   const vial = med.peptide && med.strength > 0 && med.peptide.waterMl > 0 ? med.peptide : undefined;
   const [inUnits, setInUnits] = useState(false);
-  const tracksSites = !!settings?.peptideTools && med.form === 'injection';
-  const [site, setSite] = useState<string | null>(null);
   const [earlier, setEarlier] = useState(false);
   const [when, setWhen] = useState(() => toLocalInput(now - 30 * 60_000));
   const [override, setOverride] = useState(false);
@@ -115,8 +111,6 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, onLogged, onC
   const amountError = !(amount > 0) ? 'Enter an amount.' : undefined;
   const notes = Number.isFinite(takenAt) ? getContextNotes(med, doses, takenAt, s, amount > 0 ? amount : undefined) : [];
   const last = getLastDose(doses, med.id, now);
-  const suggestedSite = tracksSites ? nextSite(doses.filter((d) => d.medicationId === med.id)) : undefined;
-  const chosenSite = site ?? suggestedSite;
 
   const submit = async () => {
     if (timeError || amountError || saving) return;
@@ -129,7 +123,6 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, onLogged, onC
         source: earlier && now - takenAt > 2 * 60_000 ? 'backdated' : tagId ? 'tag' : 'manual',
         tagId,
         personId: choosing && who ? storedPerson(who) : undefined,
-        site: tracksSites ? chosenSite : undefined,
       });
       if (canVibrate) navigator.vibrate(30);
       navigator.storage?.persist?.().catch(() => {}); // ask the browser to keep data once there's something worth keeping
@@ -217,19 +210,6 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, onLogged, onC
         {amountError && <p className="text-sm text-danger" role="alert">{amountError}</p>}
       </div>
 
-      {tracksSites && (
-        <fieldset>
-          <legend className="text-sm font-medium mb-2">Injection site{suggestedSite ? ` · next in rotation: ${suggestedSite}` : ''}</legend>
-          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Injection site">
-            {SITES.map((x) => (
-              <button key={x} type="button" role="radio" aria-checked={chosenSite === x} onClick={() => setSite(x)}
-                className={`min-h-[44px] px-3 rounded-btn border text-sm font-medium ${chosenSite === x ? 'bg-primary text-on-primary border-primary' : 'bg-surface border-border'}`}>
-                {x}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-      )}
 
       <div className="space-y-2">
         <span className="block text-sm font-medium">Time</span>
