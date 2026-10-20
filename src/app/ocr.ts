@@ -1,6 +1,7 @@
 // On-device text recognition (Tesseract, WebAssembly). The photo never leaves the phone.
 // Its files are served from our own site under ocr/ (see vite.config.ts), downloaded on the first scan.
 import type { Worker } from 'tesseract.js';
+import { isNative } from '../platform';
 
 const base = `${import.meta.env.BASE_URL}ocr/`;
 let worker: Promise<Worker> | null = null;
@@ -12,6 +13,8 @@ function getWorker(): Promise<Worker> {
       workerPath: `${base}worker.min.js`,
       corePath: base,
       langPath: base,
+      // The app ships the language data uncompressed (see vite.config.ts); the website serves it gzipped.
+      gzip: !isNative,
       workerBlobURL: false,
       logger: (m) => onProgress?.(m.progress, m.status),
     }));
