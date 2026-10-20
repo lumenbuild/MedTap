@@ -30,6 +30,15 @@ export async function addPhoto(date: string, file: Blob, personId = DEFAULT_PERS
   return p;
 }
 
+/** A photo of a vial's label or certificate of analysis (peptide tools). */
+export async function addVialPhoto(vialId: string, file: Blob, personId = DEFAULT_PERSON): Promise<Photo> {
+  const blob = await shrink(file);
+  const now = nowIso();
+  const p: Photo = { id: crypto.randomUUID(), date: now.slice(0, 10), blob, type: blob.type, personId: storedPerson(personId), vialId, createdAt: now, updatedAt: now };
+  await db.photos.add(p);
+  return p;
+}
+
 export async function removePhoto(id: string) {
   const now = nowIso();
   await db.photos.update(id, { deletedAt: now, updatedAt: now });

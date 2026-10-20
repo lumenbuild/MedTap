@@ -206,7 +206,7 @@ async function doSync() {
   }
 }
 
-const SYNCED_TABLES = ['people', 'medications', 'tags', 'doses', 'checkIns', 'bodyEntries', 'vitals', 'medEvents'];
+const SYNCED_TABLES = ['people', 'medications', 'tags', 'doses', 'checkIns', 'bodyEntries', 'vitals', 'medEvents', 'supplies'];
 
 /** Sync with the relay on start, every 5 minutes while open, when the app comes back, and soon after changes. */
 let started = false;

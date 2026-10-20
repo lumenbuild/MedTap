@@ -9,6 +9,8 @@ import { Segmented } from '../../components/ui/Field';
 import {
   AdherenceHeatmap, AppetiteWeight, VitalsCharts, DoseTimingCharts, FeelingsChart, IntervalCharts, MeasurementCharts, NoticedMost, WeightChart,
 } from '../../components/charts/Charts';
+import { BlendCharts, DoseLevelsCards, EstimatedLevelCharts } from '../../components/charts/PeptideCharts';
+import { shownName } from '../../logic/privacy';
 
 export function Trends() {
   const allMeds = useMeds();
@@ -48,6 +50,10 @@ export function Trends() {
   const prevStart = days === null ? null : start - days * 86_400_000;
   const active = meds.filter((m) => !m.archived || doses.some((d) => d.medicationId === m.id && Date.parse(d.takenAt) >= start));
   const common = { start, end, s };
+  // Peptide tools: dose changes of injected medications marked on the weight chart.
+  const peptideMeds = settings.peptideTools ? meds.filter((m) => m.peptide) : [];
+  const weightMarks = events.filter((e) => e.kind === 'changed' && peptideMeds.some((m) => m.id === e.medicationId))
+    .map((e) => ({ at: Date.parse(e.at), text: `${shownName(peptideMeds.find((m) => m.id === e.medicationId)!)}: ${e.summary}` }));
 
   return (
     <div className="space-y-4">
@@ -56,7 +62,7 @@ export function Trends() {
         <Segmented<Range> label="Date range" value={range} onChange={pick}
           options={[{ value: '7d', label: '7D' }, { value: '30d', label: '30D' }, { value: '90d', label: '90D' }, { value: 'all', label: 'All' }]} />
       </div>
-      <WeightChart entries={body} units={settings.units} {...common} />
+      <WeightChart entries={body} units={settings.units} {...common} marks={weightMarks} />
       <MeasurementCharts entries={body} units={settings.units} {...common} />
       <AdherenceHeatmap meds={active} doses={doses} {...common} />
       <DoseTimingCharts meds={active} doses={doses} {...common} />
@@ -65,6 +71,13 @@ export function Trends() {
       <VitalsCharts vitals={vitals} {...common} />
       <NoticedMost checkIns={checkIns} {...common} />
       <IntervalCharts meds={active} doses={doses} {...common} />
+      {peptideMeds.length > 0 && (
+        <>
+          <EstimatedLevelCharts meds={peptideMeds} doses={doses} {...common} />
+          <BlendCharts meds={peptideMeds} doses={doses} {...common} />
+          <DoseLevelsCards meds={peptideMeds} doses={doses} body={body} checkIns={checkIns} units={settings.units} now={now} />
+        </>
+      )}
       <a href="#/report" className="bg-surface rounded-card shadow-card p-5 flex items-center gap-3 min-h-[56px]">
         <FileText className="text-primary" aria-hidden="true" />
         <span className="flex-1">

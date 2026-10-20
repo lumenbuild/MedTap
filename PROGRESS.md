@@ -157,6 +157,15 @@ skipped doses, refill forecasting, encrypted and automatic backups. Awaiting own
 - UI: editor "I mix this from a powder vial" (injection form), Vial card (mixed / left / use-by, "I've mixed a new
   vial" with undo), Log dose "Draw to N units" with a syringe gauge and entry in syringe units, Today alerts for a vial past its use-within date or ~1 dose left,
   calculator at `#/calc`, titration planner that writes planned changes (step k of n).
+- v2: **vial records** (`medication.vials`: stock → in-use → finished, each with its own water, amount, lot,
+  supplier, purity, expiry; photos in `photos` with `vialId`; doses record `vialId`). Units always come from the
+  vial in use (`doseGuide`), so a vial mixed with different water is right. Older `peptide.mixedAt` reads as a
+  "legacy" vial. **Pens** (`peptide.kind: 'pen'`, optional amount per click → clicks). **Blends**
+  (`peptide.blend`, proportional amounts, Trends bar chart). **Supplies** (DB v6 `supplies`, synced; counts are
+  base + recount from doses/vials like stock, so no writes per dose). **Cycles** (`schedule.cycle`, applied in
+  `isScheduledDay`; Today shows "Week 3 of 8 on"/"Off until"). **Estimated level** (`peptide.halfLifeHours`,
+  simple decay, labelled an estimate). **Dose levels** table (weight change, appetite, top check-in chips per dose)
+  and dose-change markers on the weight chart. Today cards show units/clicks for the next dose.
 
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).

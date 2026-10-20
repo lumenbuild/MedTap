@@ -1,6 +1,7 @@
 import { db } from '../db';
-import type { Bottle, MedEvent, Medication, PlannedChange } from '../schema';
+import type { Bottle, PeptideVial, MedEvent, Medication, PlannedChange } from '../schema';
 import { describeChange, splitDueChanges } from '../../logic/plans';
+import { vialsOf } from '../../logic/peptide';
 
 const nowIso = () => new Date().toISOString();
 
@@ -108,12 +109,48 @@ export async function removePlannedChanges(medId: string, ids: string[]) {
   await db.medications.update(medId, { plannedChanges: rest.length ? rest : undefined, updatedAt: nowIso() });
 }
 
-/** A new vial has been mixed (peptide tools): what's left is counted from now. Returns the previous time, for undo. */
-export async function setVialMixed(medId: string, mixedAt: string | undefined): Promise<string | undefined> {
+// ── Vials and pens (peptide tools) ───────────────────────────────────────────────────────────────────
+
+export type VialDetails = Pick<PeptideVial, 'amount' | 'lot' | 'supplier' | 'purity' | 'expiry' | 'note'>;
+
+/** Add unopened vials or pens to stock (and to the stock count). Returns their ids, for undo. */
+export async function addVials(medId: string, count: number, details: VialDetails): Promise<string[]> {
   const med = await db.medications.get(medId);
-  if (!med?.peptide) return undefined;
-  await db.medications.update(medId, { peptide: { ...med.peptide, mixedAt }, updatedAt: nowIso() });
-  return med.peptide.mixedAt;
+  if (!med || !(count >= 1)) return [];
+  const now = nowIso();
+  const added: PeptideVial[] = Array.from({ length: count }, () => ({ ...details, id: crypto.randomUUID(), status: 'stock', addedAt: now }));
+  const stockCount = Math.round(((med.stockCount ?? 0) + count) * 1000) / 1000;
+  await db.medications.update(medId, {
+    vials: [...vialsOf(med), ...added], stockCount, stockBase: { count: stockCount, at: now }, updatedAt: now,
+  });
+  return added.map((v) => v.id);
+}
+
+/** Start a vial or pen: one from stock (`vialId`), or one that wasn't recorded (`details`). The one in use is finished.
+ *  Returns what the list was before, for undo. */
+export async function startVial(medId: string, opts: { vialId?: string; details?: VialDetails; waterMl?: number }): Promise<PeptideVial[] | undefined> {
+  const med = await db.medications.get(medId);
+  if (!med) return undefined;
+  const before = vialsOf(med);
+  const now = nowIso();
+  let list = before.map((v) => (v.status === 'in-use' ? { ...v, status: 'finished' as const, finishedAt: now } : v));
+  if (opts.vialId && list.some((v) => v.id === opts.vialId)) {
+    list = list.map((v) => (v.id === opts.vialId ? { ...v, status: 'in-use' as const, startedAt: now, waterMl: opts.waterMl ?? v.waterMl } : v));
+  } else {
+    list = [...list, { amount: med.strength, ...opts.details, id: crypto.randomUUID(), status: 'in-use', addedAt: now, startedAt: now, waterMl: opts.waterMl }];
+  }
+  await db.medications.update(medId, { vials: list, updatedAt: now });
+  return med.vials;
+}
+
+export async function setVials(medId: string, vials: PeptideVial[] | undefined) {
+  await db.medications.update(medId, { vials, updatedAt: nowIso() });
+}
+
+export async function updateVial(medId: string, vialId: string, patch: Partial<PeptideVial>) {
+  const med = await db.medications.get(medId);
+  if (!med) return;
+  await setVials(medId, vialsOf(med).map((v) => (v.id === vialId ? { ...v, ...patch, id: v.id } : v)));
 }
 
 export async function removePlannedChange(medId: string, changeId: string): Promise<PlannedChange | undefined> {

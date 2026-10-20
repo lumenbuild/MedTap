@@ -3,13 +3,13 @@ import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import type { Dose, Medication } from '../../db/schema';
 import {
   getDailyAmountTarget, getDailyTarget, getDayBounds, getDosesToday, getExpectedAmount, getLastDose, getNextDue, getProgress, getStatus,
-  nextScheduledDayStart, timeInDay, type ScheduleSettings,
-} from '../../logic/schedule';
+  nextScheduledDayStart, timeInDay, type ScheduleSettings, cycleInfo } from '../../logic/schedule';
 import { fmtAgo, fmtAmount, fmtCountdown, fmtCountdownLong, fmtDays, fmtHHmm, fmtSchedule, fmtTime, fmtWhen } from '../../logic/format';
 import { format } from 'date-fns';
 import { nextPlannedChange } from '../../logic/plans';
 import { dayKey } from '../../logic/stats';
 import { stockUnitsFor } from '../../logic/stock';
+import { guideText } from '../../logic/peptide';
 import { medColour } from '../../logic/palette';
 import { Ring } from '../../components/ui/Ring';
 import { Button } from '../../components/ui/Button';
@@ -37,7 +37,13 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer, pe
   const latestMs = latest ? timeInDay(getDayBounds(now, s.dayStartsAt, s.tz).start, latest, s) : undefined;
   // What the plan says for the next dose (shown when it differs from dose to dose, or always for set amounts).
   const nextAmount = status !== 'done-today' && status !== 'not-today' ? getExpectedAmount(med, doses, next ?? now, s) : null;
-  const nextUnits = nextAmount && med.strength > 0 && med.unit !== 'tablet' ? stockUnitsFor(med, nextAmount) : null;
+  const nextUnits = nextAmount && med.strength > 0 && med.unit !== 'tablet' && !med.peptide ? stockUnitsFor(med, nextAmount) : null;
+  const nextGuide = nextAmount ? guideText(med, nextAmount) : undefined;
+  const cyc = med.schedule.cycle ? cycleInfo(med.schedule.cycle, getDayBounds(now, s.dayStartsAt, s.tz).start, s) : undefined;
+  const cycleEnd = (ymd: string) => format(new Date(`${ymd}T12:00`), 'EEE d MMM');
+  const cycle = !cyc ? null : cyc.phase === 'before' ? `Cycle starts ${cycleEnd(cyc.nextChange)}`
+    : cyc.phase === 'off' ? `Off until ${cycleEnd(cyc.nextChange)}`
+      : cyc.length % 7 === 0 && cyc.length >= 14 ? `Week ${Math.ceil(cyc.day / 7)} of ${cyc.length / 7} on` : `Day ${cyc.day} of ${cyc.length} on`;
 
   let center;
   let spoken: string;
@@ -88,6 +94,7 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer, pe
         <div className="min-w-0">
           <h2 className="text-lg font-semibold leading-6">{shownMedName(med)}</h2>
           {days && <p className="text-sm text-muted">{days}</p>}
+          {cycle && <p className="text-sm font-medium tnum">{cycle}</p>}
           {changeSoon && <p className="text-sm text-primary font-medium tnum">Changes {format(new Date(`${changeSoon.from}T12:00`), 'EEE d MMM')}: {fmtSchedule(changeSoon.schedule, med.unit)}</p>}
         </div>
       </div>
@@ -99,7 +106,7 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer, pe
         {nextAmount !== null && nextAmount > 0 && (
           <div>
             <dt className="sr-only">Next dose amount</dt>
-            <dd className="font-semibold">Next: {fmtAmount(nextAmount, med.unit)}{nextUnits !== null ? ` · ${nextUnits} ${med.form === 'other' ? 'units' : `${med.form}${nextUnits === 1 ? '' : 's'}`}` : ''}</dd>
+            <dd className="font-semibold">Next: {fmtAmount(nextAmount, med.unit)}{nextGuide ? ` · ${nextGuide}` : nextUnits !== null ? ` · ${nextUnits} ${med.form === 'other' ? 'units' : `${med.form}${nextUnits === 1 ? '' : 's'}`}` : ''}</dd>
           </div>
         )}
         <div>

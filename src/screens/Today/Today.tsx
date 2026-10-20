@@ -3,7 +3,7 @@ import { clearLogRequest, onLogRequest } from '../../app/pendingLog';
 import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { CalendarPlus, HeartPulse, Lock, Nfc, Pill, Ruler, Scale, Smile } from 'lucide-react';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
-import { useBodyEntries, useCheckIns, useDoses, useFamily, useMeds, useScheduleSettings, useVitals } from '../../app/data';
+import { useBodyEntries, useCheckIns, useDoses, useFamily, useMeds, useScheduleSettings, useSupplies, useVitals } from '../../app/data';
 import { VitalsSheet, type VitalsSheetState } from '../../components/VitalsSheet';
 import { dosesForPerson, medIsFor, personOf } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
@@ -14,7 +14,9 @@ import { addToCalendar } from '../../app/calendar';
 import { byUrgency, getLastDose, getNextDue, getStatus } from '../../logic/schedule';
 import { checkInPromptDose, needsBackup, refillAlerts } from '../../logic/reminders';
 import { RefillCards } from '../../components/Refill';
-import { VialAlerts } from '../Meds/PeptideSections';
+import { VialAlerts } from '../Meds/VialCard';
+import { SupplyAlerts } from '../Supplies';
+import { supplyAlerts } from '../../logic/peptide';
 import { fmtAgo, fmtAmount, fmtTime, fmtWhen } from '../../logic/format';
 import { removeDose } from '../../db/repos/doses';
 import { Card } from '../../components/ui/Card';
@@ -37,6 +39,7 @@ export function Today() {
   const checkIns = useCheckIns();
   const body = useBodyEntries();
   const vitals = useVitals();
+  const supplies = useSupplies();
   const [vitalSheet, setVitalSheet] = useState<VitalsSheetState>(null);
   const ss = useScheduleSettings();
   const fam = useFamily();
@@ -144,6 +147,7 @@ export function Today() {
       {promptDose && <CheckInPrompt dose={promptDose} med={medMap.get(promptDose.medicationId)} now={now} onCheckIn={() => setCheckIn({ relatedDoseId: promptDose.id })} />}
       <RefillCards alerts={refills} settings={settings} now={now} />
       <VialAlerts meds={viewMeds} doses={doses} now={now} />
+      {settings.peptideTools && supplies && <SupplyAlerts alerts={supplyAlerts(supplies, meds, doses)} />}
 
       {prn.length > 0 && (
         <section className="space-y-2" aria-label="As needed">

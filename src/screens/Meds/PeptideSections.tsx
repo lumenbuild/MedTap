@@ -1,54 +1,18 @@
 import { useState } from 'react';
 import { addDays, format } from 'date-fns';
-import { FlaskConical, TrendingUp } from 'lucide-react';
-import type { Dose, Medication } from '../../db/schema';
-import { shownName } from '../../logic/privacy';
-import { addPlannedChanges, removePlannedChanges, setVialMixed } from '../../db/repos/meds';
-import { useDoses } from '../../app/data';
-import { useNow } from '../../app/useNow';
+import { TrendingUp } from 'lucide-react';
+import type { Medication } from '../../db/schema';
+import { addPlannedChanges, removePlannedChanges } from '../../db/repos/meds';
 import { useToast } from '../../app/toast';
 import { fmtAmount } from '../../logic/format';
 import { medOn } from '../../logic/plans';
-import { scheduleAtDose, titrationSteps, vialStatus } from '../../logic/peptide';
+import { scheduleAtDose, titrationSteps } from '../../logic/peptide';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Sheet } from '../../components/ui/Sheet';
 import { Segmented, TextInput } from '../../components/ui/Field';
-import { DrawGuide } from '../../components/Syringe';
-import { APP_NAME } from '../../config';
 
-const fmtDay = (ms: number) => format(ms, 'EEE d MMM');
 const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
-
-/** The vial in use: mixed when, what's left, use-by. */
-export function VialCard({ med }: { med: Medication }) {
-  const doses = useDoses();
-  const now = useNow(60_000);
-  const toast = useToast();
-  if (!med.peptide || !doses) return null;
-  const v = vialStatus(med, doses, now);
-  const mixed = async () => {
-    const before = await setVialMixed(med.id, new Date().toISOString());
-    toast('New vial: counting from now', { onAction: () => setVialMixed(med.id, before) });
-  };
-  return (
-    <Card className="space-y-3">
-      <h2 className="text-lg font-semibold flex items-center gap-2"><FlaskConical size={20} className="text-primary" aria-hidden="true" /> Vial</h2>
-      {v ? (
-        <ul className="space-y-1 tnum">
-          <li>Mixed {fmtDay(v.mixedAt)}</li>
-          <li>About <strong>{fmtAmount(v.left, med.unit)}</strong> left{med.defaultAmount > 0 ? ` · ${v.dosesLeft} dose${v.dosesLeft === 1 ? '' : 's'} of ${fmtAmount(med.defaultAmount, med.unit)}` : ''}</li>
-          {v.useBy && <li className={v.expired ? 'text-danger font-semibold' : ''}>{v.expired ? `Past its use-within date (${fmtDay(v.useBy)})` : `Use by ${fmtDay(v.useBy)}`}</li>}
-        </ul>
-      ) : (
-        <p className="text-muted">Tap below when you mix a vial, and {APP_NAME} keeps count of what's left in it.</p>
-      )}
-      <DrawGuide med={med} amount={med.defaultAmount} />
-      <Button variant="secondary" className="w-full" onClick={mixed}>I've mixed a new vial</Button>
-      <a href="#/calc" className="block text-center min-h-[44px] leading-[44px] text-primary font-semibold">Open the peptide calculator</a>
-    </Card>
-  );
-}
 
 /** Build a titration (or taper) as planned changes, from the person's own numbers. */
 export function TitrationCard({ med }: { med: Medication }) {
@@ -116,32 +80,5 @@ function TitrationSheet({ med, onClose }: { med: Medication; onClose: () => void
         <Button className="w-full min-h-[56px]" disabled={!steps.length || !!dateError} onClick={save}>Add {steps.length || ''} planned change{steps.length === 1 ? '' : 's'}</Button>
       </div>
     </Sheet>
-  );
-}
-
-/** Today: a vial past its use-within date, or about to run out. */
-export function VialAlerts({ meds, doses, now }: { meds: Medication[]; doses: Dose[]; now: number }) {
-  const toast = useToast();
-  const alerts = meds.filter((m) => m.peptide && !m.archived).map((m) => ({ m, v: vialStatus(m, doses, now) }))
-    .filter((x): x is { m: Medication; v: NonNullable<typeof x.v> } => !!x.v && (x.v.expired || x.v.dosesLeft <= 1));
-  if (!alerts.length) return null;
-  return (
-    <>
-      {alerts.map(({ m, v }) => (
-        <Card key={m.id} className="bg-caution-soft shadow-none flex gap-3">
-          <FlaskConical className="text-caution shrink-0 mt-0.5" aria-hidden="true" />
-          <div className="flex-1 space-y-2">
-            <p><strong>{shownName(m)} vial:</strong>{' '}
-              {v.expired ? `past its use-within date (mixed ${fmtDay(v.mixedAt)}).`
-                : v.dosesLeft === 0 ? 'probably empty.' : 'about 1 dose left.'}
-            </p>
-            <Button variant="secondary" onClick={async () => {
-              const before = await setVialMixed(m.id, new Date().toISOString());
-              toast('New vial: counting from now', { onAction: () => setVialMixed(m.id, before) });
-            }}>I've mixed a new vial</Button>
-          </div>
-        </Card>
-      ))}
-    </>
   );
 }

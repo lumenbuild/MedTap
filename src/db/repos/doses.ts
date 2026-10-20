@@ -22,6 +22,8 @@ export interface NewDose {
   skipReason?: string;
   /** Who took it (shared medications). */
   personId?: string;
+  /** The vial or pen it came from (peptide tools). */
+  vialId?: string;
 }
 
 /** Save a dose and take it off the stock count. */

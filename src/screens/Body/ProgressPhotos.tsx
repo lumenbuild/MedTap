@@ -15,7 +15,7 @@ import { todayYmd } from '../../components/BodySheets';
 const fmtYmd = (ymd: string) => format(new Date(`${ymd}T12:00`), 'd MMM yyyy');
 
 /** Object URLs for photo blobs, released when no longer shown. */
-function usePhotoUrls(photos: Photo[]) {
+export function usePhotoUrls(photos: Photo[]) {
   const urls = useMemo(() => new Map(photos.map((p) => [p.id, URL.createObjectURL(p.blob)])), [photos]);
   useEffect(() => () => urls.forEach((u) => URL.revokeObjectURL(u)), [urls]);
   return urls;
@@ -23,7 +23,7 @@ function usePhotoUrls(photos: Photo[]) {
 
 export function ProgressPhotos({ personId }: { personId: string }) {
   const all = useLive(() => db.photos.orderBy('date').toArray());
-  const photos = useMemo(() => (all ?? []).filter((p) => !p.deletedAt && personOf(p) === personId), [all, personId]);
+  const photos = useMemo(() => (all ?? []).filter((p) => !p.deletedAt && !p.vialId && personOf(p) === personId), [all, personId]);
   const urls = usePhotoUrls(photos);
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);

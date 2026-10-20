@@ -1,6 +1,7 @@
 import { AlertTriangle } from 'lucide-react';
 import type { Medication, SyringeType } from '../db/schema';
-import { drawFor, drawWarnings, fmtMl, fmtUnits, unitsPerMl, type Draw, type DrawWarning } from '../logic/peptide';
+import { blendAmounts, doseGuide, drawWarnings, fmtMl, fmtUnits, unitsPerMl, type Draw, type DrawWarning } from '../logic/peptide';
+import { fmtAmount } from '../logic/format';
 
 const WARN_TEXT: Record<DrawWarning, string> = {
   'too-small': 'Under 2 units is hard to measure accurately. More water in the vial makes each dose bigger to draw.',
@@ -56,15 +57,26 @@ export function DrawResult({ draw, capacity, syringe }: { draw: Draw; capacity: 
   );
 }
 
-/** For a mixed-vial medication: how much to draw for this amount. */
-export function DrawGuide({ med, amount }: { med: Pick<Medication, 'strength' | 'unit' | 'peptide'>; amount: number }) {
-  const p = med.peptide;
-  if (!p || !(med.strength > 0) || !(p.waterMl > 0) || !(amount > 0)) return null;
+/** For a vial or pen medication: what to draw (from the vial in use) or dial for this amount. */
+export function DrawGuide({ med, amount }: { med: Pick<Medication, 'id' | 'strength' | 'unit' | 'peptide' | 'vials' | 'defaultAmount' | 'name'>; amount: number }) {
+  const g = doseGuide(med, amount);
+  if (!g) return null;
+  const parts = blendAmounts(med, amount).slice(1);
+  if (g.kind === 'pen') {
+    return (
+      <div className="rounded-btn bg-primary-soft p-3 space-y-1" aria-live="polite">
+        <p className="text-sm font-medium">On the pen</p>
+        <p className="text-2xl font-semibold tnum">{g.clicks !== undefined ? `${g.clicks} click${g.clicks === 1 ? '' : 's'}` : `Set to ${fmtAmount(amount, med.unit)}`}</p>
+        {g.clicks !== undefined && !Number.isInteger(g.clicks) && <p className="text-sm">Not a whole click: check the dose with your pharmacist.</p>}
+      </div>
+    );
+  }
   return (
     <div className="rounded-btn bg-primary-soft p-3 space-y-1">
       <p className="text-sm font-medium">Draw to</p>
-      <DrawResult draw={drawFor(amount, med.strength, p.waterMl, p.syringe)} capacity={p.syringeUnits} syringe={p.syringe} />
-      <p className="text-xs text-muted">From {med.strength} {med.unit} mixed with {p.waterMl} mL. Check against your own working or your pharmacist's.</p>
+      <DrawResult draw={g.draw} capacity={g.capacity} syringe={g.syringe} />
+      {parts.length > 0 && <p className="text-sm tnum">Also in this dose: {parts.map((b) => fmtAmount(b.amount, b.unit) + ' ' + b.name).join(', ')}</p>}
+      <p className="text-xs text-muted">From {fmtAmount(g.amount, med.unit)} mixed with {g.waterMl} mL. Check against your own working or your pharmacist's.</p>
     </div>
   );
 }

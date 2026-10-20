@@ -25,6 +25,8 @@ export interface Schedule {
   maxPer24h?: number;
   maxAmountPer24h?: number;
   minHoursApart?: number;
+  /** On/off cycle (peptide tools): `on` days taking it, then `off` days not, repeating from `start` ('YYYY-MM-DD'). */
+  cycle?: { on: number; off: number; start: string };
 }
 
 interface Stamped { id: string; createdAt: string; updatedAt: string }
@@ -46,17 +48,43 @@ export interface PlannedChange {
 
 export type SyringeType = 'U-100' | 'U-40';
 
-/** A powder vial mixed with water before use (peptides and similar). `strength` is the amount in each vial. */
+/** Another peptide in the same vial (a blend), with its amount per vial. */
+export interface BlendPart { name: string; amount: number; unit: string }
+
+/** Injected from a vial mixed with water ('vial', the default) or a pre-filled pen (peptide tools).
+ *  `strength` is the amount in each vial or pen. */
 export interface PeptideSetup {
-  /** Water added to each vial, mL. */
+  kind?: 'vial' | 'pen';
+  /** Usual water added to a vial, mL (each vial records its own). */
   waterMl: number;
   syringe: SyringeType;
   /** Syringe capacity in units (30, 50 or 100 on a U-100 syringe). */
   syringeUnits: number;
-  /** Days a mixed vial can be used for, from the label or pharmacist (optional). */
+  /** Days a mixed vial or an in-use pen can be used for, from the label or pharmacist (optional). */
   useWithinDays?: number;
-  /** When the vial in use was mixed. */
+  /** Before vial records: when the vial in use was mixed. Read-only. */
   mixedAt?: string;
+  /** Pens: amount per click of the dose dial (optional). */
+  amountPerClick?: number;
+  /** Blends: the other peptides in each vial. The medication's own name and strength are the first. */
+  blend?: BlendPart[];
+  /** Half-life in hours, entered by the person, for the estimated level chart (optional). */
+  halfLifeHours?: number;
+}
+
+/** One vial or pen: in stock (unmixed/unused), in use, or finished. */
+export interface PeptideVial {
+  id: string;
+  status: 'stock' | 'in-use' | 'finished';
+  /** Amount in it, in the medication's unit. */
+  amount: number;
+  /** Vials: water added when it was mixed. */
+  waterMl?: number;
+  lot?: string; supplier?: string; purity?: number;
+  /** Expiry printed on it ('YYYY-MM-DD'). */
+  expiry?: string;
+  addedAt: string; startedAt?: string; finishedAt?: string;
+  note?: string;
 }
 
 export interface Medication extends Stamped {
@@ -81,8 +109,10 @@ export interface Medication extends Stamped {
   bottles?: Bottle[];
   /** Script refills left, and when the script expires ('YYYY-MM-DD'). */
   repeatsLeft?: number; scriptExpiry?: string;
-  /** Mixed from a powder vial: syringe units are worked out from this (peptide tools). */
+  /** Mixed from a powder vial, or a pre-filled pen: syringe units are worked out from this (peptide tools). */
   peptide?: PeptideSetup;
+  /** Vials or pens: in stock, in use and finished, each with its own water, lot and expiry. */
+  vials?: PeptideVial[];
 }
 export interface Tag { id: string; medicationId: string; label?: string; createdAt: string; lastScannedAt?: string }
 export interface Dose extends Stamped {
@@ -92,6 +122,8 @@ export interface Dose extends Stamped {
   skipped?: boolean; skipReason?: string;
   /** Who took it, for shared medications (otherwise the medication's person). */
   personId?: string;
+  /** The vial or pen it came from (peptide tools). */
+  vialId?: string;
 }
 export interface CheckIn extends Stamped {
   at: string; mood?: number; energy?: number; focus?: number; appetite?: number;
@@ -119,6 +151,21 @@ export interface Setting { key: string; value: unknown }
 export interface Photo extends Stamped {
   date: string; // local YYYY-MM-DD
   blob: Blob; type: string; note?: string; deletedAt?: string; personId?: string;
+  /** A photo of a vial's label or certificate (peptide tools), not a progress photo. */
+  vialId?: string;
+}
+
+/** Injection supplies. The count on hand is worked out from `base` and the doses logged since (so it syncs). */
+export type SupplyKind = 'syringes' | 'pen-needles' | 'swabs' | 'water' | 'sharps';
+export interface Supply extends Stamped {
+  kind: SupplyKind;
+  deletedAt?: string;
+  /** Count on hand (mL for water; for the sharps container, how many are in it) and when it was set. */
+  base: { count: number; at: string };
+  /** Sharps container: how many it holds. */
+  capacity?: number;
+  /** Warn at or below this many (or for sharps, at this many in it). */
+  warnAt?: number;
 }
 /** Device-only values that must never go into a backup (e.g. a folder permission handle). */
 export interface DeviceValue { key: string; value: unknown }
