@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { Download, FolderSync, HardDriveDownload, Smile } from 'lucide-react';
-import { autoBackupState, regainPermission } from '../../app/autoBackup';
+import { autoBackupState, BackupError, regainPermission } from '../../app/autoBackup';
+import { isNative } from '../../nfc/native';
 import { useToast } from '../../app/toast';
 import type { Dose, Medication } from '../../db/schema';
 import { setSetting } from '../../db/repos/settings';
@@ -75,11 +76,15 @@ export function AutoBackupPermission({ enabled }: { enabled: boolean }) {
       <FolderSync className="text-primary shrink-0 mt-0.5" aria-hidden="true" />
       <div className="flex-1">
         <p className="font-semibold">Keep automatic backups going</p>
-        <p className="text-sm text-muted">Your browser needs your OK again to save into the backup folder.</p>
+        <p className="text-sm text-muted">{isNative ? "Can't reach the backup folder any more. It may have been moved or deleted." : 'Your browser needs your OK again to save into the backup folder.'}</p>
         <Button className="mt-3" onClick={async () => {
-          const r = await regainPermission().catch(() => 'error');
-          if (r === 'done') { toast('Backed up to your folder'); setNeeds(false); }
-        }}>Allow</Button>
+          try {
+            if ((await regainPermission()) === 'done') { toast('Backed up to your folder'); setNeeds(false); }
+            else toast("Couldn't save into that folder. Try again from Settings → Backup and restore.");
+          } catch (e) {
+            toast(e instanceof BackupError ? e.message : "Couldn't save into that folder.");
+          }
+        }}>{isNative ? 'Choose folder' : 'Allow'}</Button>
       </div>
     </Card>
   );

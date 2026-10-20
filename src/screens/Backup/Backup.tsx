@@ -12,7 +12,8 @@ import { listPeople } from '../../db/repos/people';
 import { DEFAULT_PERSON } from '../../db/schema';
 import { setSetting } from '../../db/repos/settings';
 import { isSealed, unsealBackup } from '../../logic/crypto';
-import { autoBackupState, backupText, chooseFolder, regainPermission, runAutoBackup, stopAutoBackup } from '../../app/autoBackup';
+import { autoBackupState, BackupError, backupText, chooseFolder, folderName, regainPermission, runAutoBackup, stopAutoBackup } from '../../app/autoBackup';
+import { isNative, nativePlatform } from '../../nfc/native';
 import { backupFilename, validateBackup, type BackupFile, type Counts } from '../../logic/backup';
 import { bodyCsv, checkInsCsv, dosesCsv, medicationsCsv, vitalsCsv } from '../../logic/csv';
 import { fmtAgo, fmtWhen } from '../../logic/format';
@@ -38,9 +39,15 @@ export function Backup() {
   const [error, setError] = useState('');
   const [confirmReplace, setConfirmReplace] = useState(false);
   const [auto, setAuto] = useState<Awaited<ReturnType<typeof autoBackupState>>>('off');
+  const [folder, setFolder] = useState<string>();
+  const [autoBusy, setAutoBusy] = useState(false);
+  const [autoError, setAutoError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const refresh = useCallback(async () => { setAuto(await autoBackupState()); }, []);
+  const refresh = useCallback(async () => {
+    setAuto(await autoBackupState().catch(() => 'needs-permission' as const));
+    setFolder(await folderName().catch(() => undefined));
+  }, []);
   useEffect(() => { refresh(); }, [refresh]);
 
   const doExport = async () => {
@@ -54,15 +61,21 @@ export function Backup() {
     } finally { setBusy(false); }
   };
 
+  /** Every tap ends with a message: saved, cancelled, or what went wrong. */
   const autoAction = async (fn: () => Promise<string>) => {
+    setAutoError('');
+    setAutoBusy(true);
     try {
       const r = await fn();
-      if (r === 'done') toast('Backed up to your folder');
-      else if (r === 'needs-permission') toast('Allow access to the folder to keep automatic backups going');
-      else if (r === 'error') toast("Couldn't write to that folder. Try choosing it again.");
+      if (r === 'done') toast(`Backed up to ${(await folderName().catch(() => undefined)) ?? 'your folder'}`);
+      else if (r === 'needs-permission') setAutoError(isNative ? "Can't reach that folder. Choose it again, or pick another." : 'Allow access to the folder to keep automatic backups going.');
+      else if (r === 'error') setAutoError("Couldn't save into that folder. Try choosing it again.");
+      else if (r === 'unsupported') setAutoError("This browser can't save backups by itself. Use Back up now instead.");
+      else if (r === 'off') setAutoError('Choose a folder first.');
     } catch (e) {
-      if ((e as DOMException).name !== 'AbortError') toast("Couldn't use that folder. Try another one.");
-    }
+      if (e instanceof BackupError && e.cancelled) toast('No folder chosen');
+      else setAutoError(e instanceof BackupError ? e.message : `Something went wrong (${String(e)}).`);
+    } finally { setAutoBusy(false); }
     refresh();
   };
 
@@ -148,18 +161,21 @@ export function Backup() {
         ) : auto === 'off' ? (
           <>
             <p className="text-sm">Choose a folder, such as one your cloud drive syncs, and {APP_NAME} saves a backup there each day you open it, keeping the last {settings?.autoBackupKeep ?? 7}.</p>
-            <Button className="w-full" onClick={() => autoAction(chooseFolder)}>Choose a folder</Button>
+            {nativePlatform === 'android' && <p className="text-sm text-muted">Pick or make a folder, such as Documents/{APP_NAME}, then tap <strong>Use this folder</strong>. Android doesn't allow the Download folder itself.</p>}
+            <Button className="w-full" onClick={() => autoAction(chooseFolder)} disabled={autoBusy}>{autoBusy ? 'Saving…' : 'Choose a folder'}</Button>
           </>
         ) : auto === 'needs-permission' ? (
           <>
-            <p className="text-sm rounded-btn bg-caution-soft p-3">The browser needs your OK again to save into the backup folder.</p>
-            <Button className="w-full" onClick={() => autoAction(regainPermission)}>Allow automatic backups</Button>
+            <p className="text-sm rounded-btn bg-caution-soft p-3">
+              {isNative ? `${APP_NAME} can't reach ${folder ?? 'the backup folder'} any more. It may have been moved or deleted.` : 'The browser needs your OK again to save into the backup folder.'}
+            </p>
+            <Button className="w-full" onClick={() => autoAction(regainPermission)} disabled={autoBusy}>{isNative ? 'Choose the folder again' : 'Allow automatic backups'}</Button>
             <Button variant="secondary" className="w-full" onClick={async () => { await stopAutoBackup(); refresh(); }}>Turn off</Button>
           </>
         ) : (
           <>
             <p className="text-sm tnum" role="status">
-              On. {settings?.lastAutoBackupAt ? `Last saved ${fmtAgo(now - Date.parse(settings.lastAutoBackupAt))}.` : 'Nothing saved yet.'}
+              On{folder ? <>, saving to <strong>{folder}</strong></> : ''}. {settings?.lastAutoBackupAt ? `Last saved ${fmtAgo(now - Date.parse(settings.lastAutoBackupAt))}.` : 'Nothing saved yet.'}
             </p>
             <label className="block space-y-1.5">
               <span className="block text-sm font-medium">Keep</span>
@@ -169,12 +185,13 @@ export function Backup() {
               </select>
             </label>
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="secondary" onClick={() => autoAction(() => runAutoBackup(true))}>Back up now</Button>
-              <Button variant="secondary" onClick={() => autoAction(chooseFolder)}>Change folder</Button>
+              <Button variant="secondary" onClick={() => autoAction(() => runAutoBackup(true))} disabled={autoBusy}>{autoBusy ? 'Saving…' : 'Back up now'}</Button>
+              <Button variant="secondary" onClick={() => autoAction(chooseFolder)} disabled={autoBusy}>Change folder</Button>
             </div>
             <Button variant="secondary" className="w-full" onClick={async () => { await stopAutoBackup(); refresh(); }}>Turn off</Button>
           </>
         )}
+        {autoError && <p role="alert" className="text-sm rounded-btn bg-caution-soft p-3">{autoError}</p>}
         <label className="block space-y-1.5 pt-1">
           <span className="block text-sm font-medium">Remind me to back up when it's been</span>
           <select value={settings?.backupReminderDays ?? 7} onChange={(e) => setSetting('backupReminderDays', Number(e.target.value))}
