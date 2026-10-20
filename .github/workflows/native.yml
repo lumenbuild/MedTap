@@ -1,0 +1,68 @@
+name: Native apps
+# Builds the Android app (APK) and checks the iOS app compiles, on every push.
+# Android: with the MEDTAP_KEYSTORE_BASE64 and MEDTAP_KEYSTORE_PASSWORD secrets set, builds a signed release
+# and, on the default branch, publishes it as the "Android app" release so phones can download it.
+on:
+  push:
+  workflow_dispatch:
+concurrency:
+  group: native-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      HAS_KEY: ${{ secrets.MEDTAP_KEYSTORE_BASE64 != '' }}
+      MEDTAP_VERSION_CODE: ${{ github.run_number }}
+      MEDTAP_VERSION_NAME: 1.0.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - run: npm ci
+      - run: npm test
+      - run: npm run build:native
+      - name: Build signed release
+        if: env.HAS_KEY == 'true'
+        env:
+          MEDTAP_KEYSTORE_PASSWORD: ${{ secrets.MEDTAP_KEYSTORE_PASSWORD }}
+        run: |
+          echo "${{ secrets.MEDTAP_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/medtap.keystore"
+          export MEDTAP_KEYSTORE="$RUNNER_TEMP/medtap.keystore"
+          cd android && ./gradlew --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/MedTap.apk"
+      - name: Build debug (no signing key set)
+        if: env.HAS_KEY != 'true'
+        run: |
+          cd android && ./gradlew --no-daemon assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/MedTap-debug.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MedTap-android
+          path: ${{ runner.temp }}/MedTap*.apk
+      - name: Publish the Android app
+        if: env.HAS_KEY == 'true' && github.ref_name == github.event.repository.default_branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete android --yes --cleanup-tag || true
+          gh release create android "$RUNNER_TEMP/MedTap.apk" --target "$GITHUB_SHA" --latest \
+            --title "MedTap for Android (build ${{ github.run_number }})" \
+            --notes "Download MedTap.apk on your Android phone and open it to install. Updates install over the top and keep your data."
+
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run build:native
+      # Unsigned simulator build: proves the app and its native plugin compile. Installing on an iPhone needs an
+      # Apple Developer account (see NATIVE.md).
+      - run: xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build | tail -50
+        shell: bash -o pipefail {0}

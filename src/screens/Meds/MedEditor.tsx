@@ -8,7 +8,7 @@ import { useLive } from '../../db/live';
 import { useFamily, useMeds } from '../../app/data';
 import { personOf, storedPerson } from '../../db/repos/people';
 import { DEFAULT_PERSON } from '../../db/schema';
-import { createMed, deleteMedForever, setArchived, updateMed, type MedInput } from '../../db/repos/meds';
+import { addBottle, createMed, deleteMedForever, setArchived, updateMed, type MedInput } from '../../db/repos/meds';
 import { linkTag } from '../../db/repos/tags';
 import { go, replace } from '../../app/router';
 import { useToast } from '../../app/toast';
@@ -28,6 +28,8 @@ import {
 import { TagsSection } from './TagsSection';
 import { PlannedChanges } from './PlannedChanges';
 import { BottlesSection } from './BottlesSection';
+import { ScanLabelCard } from './ScanLabel';
+import type { LabelDetails } from '../../logic/label';
 
 const UNITS = ['mg', 'mcg', 'mL', 'units', 'tablet'];
 const FORMS = ['tablet', 'capsule', 'liquid', 'patch', 'injection', 'other'];
@@ -91,6 +93,45 @@ function validate(f: Form): Errors {
   return e;
 }
 
+/** Fill the form from a scanned pharmacy label. Only what was found is changed. */
+function fromLabel(p: Form, d: LabelDetails): Form {
+  const f: Form = { ...p };
+  const strength = d.strength;
+  if (d.name) f.name = d.name;
+  if (d.form) f.form = d.form;
+  if (d.unit) f.unit = d.unit;
+  if (strength !== undefined) f.strength = String(strength);
+  else if (d.unit === 'mL') f.strength = '';
+  // The label counts tablets (or mL, units); the app's amounts are in the medication's unit.
+  const perUnit = strength && d.unit !== 'mL' && (d.form === 'tablet' || d.form === 'capsule' || !d.form) ? strength : 1;
+  if (!strength && d.count !== undefined && d.unit !== 'mL' && (d.form === 'tablet' || d.form === 'capsule')) f.unit = 'tablet';
+  const amount = (n?: number) => (n === undefined ? '' : String(Math.round(n * perUnit * 1000) / 1000));
+  if (d.count !== undefined) f.defaultAmount = amount(d.count);
+  const s = d.schedule;
+  if (s?.type === 'fixed') {
+    f.type = 'fixed';
+    f.slots = s.slots.map((x) => ({ time: x.time, amount: x.count !== undefined && x.count !== d.count ? amount(x.count) : '' }));
+    if (s.days?.length) { f.dayMode = 'days'; f.days = s.days; }
+    else if (s.everyNDays && s.everyNDays > 1) { f.dayMode = 'everyN'; f.everyNDays = String(s.everyNDays); }
+    else f.dayMode = 'every';
+  } else if (s?.type === 'interval') {
+    f.type = 'interval';
+    f.intervalHours = String(s.hours);
+  } else if (s?.type === 'prn') {
+    f.type = 'prn';
+    if (s.maxDoses) f.maxPer24h = String(s.maxDoses);
+    if (s.maxCount) f.maxAmountPer24h = amount(s.maxCount);
+    if (s.minHoursApart) f.minHoursApart = String(s.minHoursApart);
+  }
+  if (d.quantity !== undefined) f.stockCount = String(d.quantity);
+  if (d.repeats !== undefined) f.repeatsLeft = String(d.repeats);
+  if (d.directions) {
+    f.instructions = d.directions;
+    f.instructionsBy = d.prescriber ? `Pharmacy label (${d.prescriber})` : 'Pharmacy label';
+  }
+  return f;
+}
+
 export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
   const existing = useLive(() => (id ? db.medications.get(id).then((m) => m ?? null) : null), [id]);
   const toast = useToast();
@@ -99,6 +140,8 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
   const [change, setChange] = useState<{ lines: string[]; date: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [typed, setTyped] = useState('');
+  /** Bottle expiry from a scanned label, added once the new medication is saved. */
+  const [labelExpiry, setLabelExpiry] = useState<string | undefined>();
   const loadedId = existing?.id;
 
   useEffect(() => { if (existing) setF(fromMed(existing)); }, [loadedId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -142,6 +185,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
       go('/meds');
     } else {
       const med = await createMed(input);
+      if (labelExpiry) await addBottle(med.id, { expiry: labelExpiry });
       if (tagId) {
         await linkTag(tagId, med.id);
         toast(`Saved ${shownName(med)} and linked the tag`);
@@ -182,6 +226,13 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
     <div className="space-y-4 pb-24">
       {tagId && (
         <Card className="bg-primary-soft shadow-none"><p>After you save, the tag you tapped will be linked to this medication.</p></Card>
+      )}
+      {!existing && (
+        <ScanLabelCard onApply={(d) => {
+          setF((p) => fromLabel(p, d));
+          setLabelExpiry(d.expiry);
+          toast('Filled in from the label. Check each detail before saving.');
+        }} />
       )}
       {existing && <TagsSection med={existing} />}
       {existing && !existing.archived && <PlannedChanges med={existing} />}

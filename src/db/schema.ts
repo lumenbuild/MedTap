@@ -48,6 +48,9 @@ export interface Medication extends Stamped {
   name: string; strength: number; unit: string; form: string; defaultAmount: number;
   schedule: Schedule; color: string; icon: string;
   stockCount?: number; lowStockAt?: number; scriptNotes?: string; archived: boolean;
+  /** The stock count as last set by hand or by a refill, and when. Family sync recounts stock from here plus the
+   *  doses logged since, so doses logged on two phones both come off. */
+  stockBase?: { count: number; at: string };
   /** Free-text instructions shown when the tag is tapped (from the person, a carer, pharmacist or doctor). */
   instructions?: string; instructionsBy?: string; instructionsUpdatedAt?: string;
   /** Future schedule changes, oldest first. Each is moved into `schedule` on its date. */
@@ -67,7 +70,7 @@ export interface Medication extends Stamped {
 export interface Tag { id: string; medicationId: string; label?: string; createdAt: string; lastScannedAt?: string }
 export interface Dose extends Stamped {
   medicationId: string; takenAt: string; amount: number;
-  source: 'tag' | 'manual' | 'backdated'; tagId?: string; note?: string; deletedAt?: string;
+  source: 'tag' | 'manual' | 'backdated' | 'reminder'; tagId?: string; note?: string; deletedAt?: string;
   /** Recorded as skipped on purpose: covers its place in the plan but wasn't taken (no stock change). */
   skipped?: boolean; skipReason?: string;
   /** Who took it, for shared medications (otherwise the medication's person). */
