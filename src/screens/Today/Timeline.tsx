@@ -1,7 +1,8 @@
-import { ChevronRight, Nfc, Ruler, Scale, Smile } from 'lucide-react';
+import { ChevronRight, HeartPulse, Nfc, Ruler, Scale, Smile } from 'lucide-react';
+import { fmtVital } from '../../components/VitalsSheet';
 import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { format } from 'date-fns';
-import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
+import type { BodyEntry, CheckIn, Dose, Medication, Vital } from '../../db/schema';
 import type { Units } from '../../db/repos/settings';
 import { getDayBounds, type ScheduleSettings } from '../../logic/schedule';
 import { fmtAmount, fmtTime } from '../../logic/format';
@@ -13,12 +14,13 @@ import { Card } from '../../components/ui/Card';
 type Item =
   | { kind: 'dose'; at: number; dose: Dose }
   | { kind: 'checkin'; at: number; checkIn: CheckIn }
-  | { kind: 'body'; at: number; entry: BodyEntry };
+  | { kind: 'body'; at: number; entry: BodyEntry }
+  | { kind: 'vital'; at: number; vital: Vital };
 
 /** Today's doses, check-ins and body entries in time order. Each row opens an editor. */
-export function Timeline({ doses, checkIns, body, meds, s, units, now, onDose, onCheckIn, onBody, personLabel }: {
-  doses: Dose[]; checkIns: CheckIn[]; body: BodyEntry[]; meds: Map<string, Medication>; s: ScheduleSettings; units: Units; now: number;
-  onDose: (d: Dose) => void; onCheckIn: (c: CheckIn) => void; onBody: (b: BodyEntry) => void;
+export function Timeline({ doses, checkIns, body, vitals, meds, s, units, now, onDose, onCheckIn, onBody, onVital, personLabel }: {
+  doses: Dose[]; checkIns: CheckIn[]; body: BodyEntry[]; vitals: Vital[]; meds: Map<string, Medication>; s: ScheduleSettings; units: Units; now: number;
+  onDose: (d: Dose) => void; onCheckIn: (c: CheckIn) => void; onBody: (b: BodyEntry) => void; onVital: (v: Vital) => void;
   /** In the Everyone view, whose entry each row is. */
   personLabel?: (r: { personId?: string }) => string | undefined;
 }) {
@@ -29,6 +31,7 @@ export function Timeline({ doses, checkIns, body, meds, s, units, now, onDose, o
     ...doses.filter((d) => !d.deletedAt && meds.has(d.medicationId) && inDay(Date.parse(d.takenAt))).map((dose) => ({ kind: 'dose' as const, at: Date.parse(dose.takenAt), dose })),
     ...checkIns.filter((c) => !c.deletedAt && inDay(Date.parse(c.at))).map((checkIn) => ({ kind: 'checkin' as const, at: Date.parse(checkIn.at), checkIn })),
     ...body.filter((b) => !b.deletedAt && b.date === today).map((entry) => ({ kind: 'body' as const, at: Date.parse(entry.updatedAt), entry })),
+    ...vitals.filter((v) => !v.deletedAt && inDay(Date.parse(v.at))).map((vital) => ({ kind: 'vital' as const, at: Date.parse(vital.at), vital })),
   ].sort((a, b) => a.at - b.at);
 
   return (
@@ -59,6 +62,11 @@ export function Timeline({ doses, checkIns, body, meds, s, units, now, onDose, o
               sub = [c.energy && `Energy ${c.energy}`, c.focus && `Focus ${c.focus}`, c.chips.length ? c.chips.join(', ') : null].filter(Boolean).join(' · ') || undefined;
               onClick = () => onCheckIn(c);
               if (personLabel) sub = [personLabel(c), sub].filter(Boolean).join(' · ');
+            } else if (it.kind === 'vital') {
+              icon = <HeartPulse size={20} className="text-primary shrink-0" aria-hidden="true" />;
+              title = <span className="font-medium tnum">{fmtVital(it.vital)}</span>;
+              onClick = () => onVital(it.vital);
+              if (personLabel) sub = personLabel(it.vital);
             } else {
               const b = it.entry;
               const n = MEASUREMENTS.filter((m) => b[m.key] !== undefined).length;
@@ -68,7 +76,7 @@ export function Timeline({ doses, checkIns, body, meds, s, units, now, onDose, o
               if (personLabel) sub = personLabel(b);
             }
             return (
-              <li key={`${it.kind}-${'dose' in it ? it.dose.id : 'checkIn' in it ? it.checkIn.id : it.entry.id}`}>
+              <li key={`${it.kind}-${'dose' in it ? it.dose.id : 'checkIn' in it ? it.checkIn.id : 'vital' in it ? it.vital.id : it.entry.id}`}>
                 <button onClick={onClick} className="w-full min-h-[56px] flex items-center gap-3 px-2 rounded-btn text-left hover:bg-surface-2">
                   <span className="w-[5.25rem] whitespace-nowrap tnum text-muted shrink-0">{fmtTime(it.at)}</span>
                   {icon}

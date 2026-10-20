@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { FileText } from 'lucide-react';
-import { useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings } from '../../app/data';
+import { useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings, useVitals } from '../../app/data';
 import { dosesForPerson, medIsFor, personOf } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
 import { RANGE_DAYS, rangeStart, type Range } from '../../logic/stats';
 import { Segmented } from '../../components/ui/Field';
 import {
-  AdherenceHeatmap, AppetiteWeight, DoseTimingCharts, FeelingsChart, IntervalCharts, MeasurementCharts, NoticedMost, WeightChart,
+  AdherenceHeatmap, AppetiteWeight, VitalsCharts, DoseTimingCharts, FeelingsChart, IntervalCharts, MeasurementCharts, NoticedMost, WeightChart,
 } from '../../components/charts/Charts';
 
 export function Trends() {
@@ -16,6 +16,7 @@ export function Trends() {
   const allCheckIns = useCheckIns();
   const allBody = useBodyEntries();
   const allEvents = useMedEvents();
+  const allVitals = useVitals();
   const fam = useFamily();
   const ss = useScheduleSettings();
   const now = useNow(60_000);
@@ -24,7 +25,7 @@ export function Trends() {
   });
   const pick = (r: Range) => { setRange(r); try { localStorage.setItem('trendsRange', r); } catch { /* per-device preference only */ } };
 
-  if (!allMeds || !allDoses || !allCheckIns || !allBody || !allEvents || !ss || !fam) {
+  if (!allMeds || !allDoses || !allCheckIns || !allBody || !allEvents || !allVitals || !ss || !fam) {
     return <div className="space-y-4" aria-busy="true" aria-label="Loading">{[0, 1, 2].map((i) => <div key={i} className="h-60 rounded-card bg-surface-2 animate-pulse" />)}</div>;
   }
   // Only the chosen family member's records.
@@ -35,6 +36,7 @@ export function Trends() {
   const checkIns = allCheckIns.filter((c) => personOf(c) === fam.personId);
   const body = allBody.filter((b) => personOf(b) === fam.personId);
   const events = allEvents.filter((e) => medIds.has(e.medicationId));
+  const vitals = allVitals.filter((v) => personOf(v) === fam.personId);
 
   const [settings, s] = ss;
   const times = [...doses.map((d) => Date.parse(d.takenAt)), ...checkIns.map((c) => Date.parse(c.at)), ...body.map((b) => Date.parse(`${b.date}T00:00`))];
@@ -60,6 +62,7 @@ export function Trends() {
       <DoseTimingCharts meds={active} doses={doses} {...common} />
       <FeelingsChart checkIns={checkIns} events={events} meds={meds} prevStart={prevStart} {...common} />
       <AppetiteWeight checkIns={checkIns} entries={body} units={settings.units} {...common} />
+      <VitalsCharts vitals={vitals} {...common} />
       <NoticedMost checkIns={checkIns} {...common} />
       <IntervalCharts meds={active} doses={doses} {...common} />
       <a href="#/report" className="bg-surface rounded-card shadow-card p-5 flex items-center gap-3 min-h-[56px]">

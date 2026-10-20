@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { getSettings, scheduleSettings } from '../db/repos/settings';
+import { getSettings, scheduleSettings, setSetting } from '../db/repos/settings';
+import { deviceTimeZone } from '../logic/tz';
 import { applyDuePlannedChanges } from '../db/repos/meds';
 import { dayKey } from '../logic/stats';
 import { runAutoBackup } from './autoBackup';
@@ -8,6 +9,7 @@ import { runAutoBackup } from './autoBackup';
  *  switch to planned schedules whose day has come, and write the daily automatic backup. */
 export async function runMaintenance() {
   const st = await getSettings();
+  if (!st.homeTimeZone) await setSetting('homeTimeZone', deviceTimeZone()); // first use: this is home
   await applyDuePlannedChanges(dayKey(Date.now(), scheduleSettings(st)), st.dayStartsAt);
   await runAutoBackup();
 }

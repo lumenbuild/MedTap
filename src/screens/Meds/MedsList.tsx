@@ -8,7 +8,7 @@ import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
 import { forecastRunOut, nextPlannedChange } from '../../logic/plans';
 import { dayKey } from '../../logic/stats';
-import { fmtForecast, fmtScript } from '../../components/Refill';
+import { fmtBottle, fmtForecast, fmtScript } from '../../components/Refill';
 import type { Dose } from '../../db/schema';
 import type { ScheduleSettings } from '../../logic/schedule';
 import { go } from '../../app/router';
@@ -83,6 +83,7 @@ function MedRow({ med, tags, doses, s, now }: { med: Medication; tags: Tag[]; do
           </span>
           {forecast && <span className="block text-sm text-muted tnum">{forecast}</span>}
           {script && <span className="block text-sm text-muted tnum">{script}</span>}
+          {med.bottles?.[0] && <span className={`block text-sm tnum ${Date.parse(`${med.bottles[0].expiry}T23:59:59`) - now < 30 * 86_400_000 ? 'text-caution font-medium' : 'text-muted'}`}>{fmtBottle(med.bottles[0], now)}</span>}
           {change && <span className="block text-sm text-primary tnum">Change planned from {format(new Date(`${change.from}T12:00`), 'EEE d MMM')}</span>}
         </span>
         <ChevronRight className="text-muted" aria-hidden="true" />

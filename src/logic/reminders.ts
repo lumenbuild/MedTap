@@ -1,5 +1,5 @@
 // When Today should show its gentle prompts. Pure; `now` is always passed in.
-import type { CheckIn, Dose, Medication } from '../db/schema';
+import type { Bottle, CheckIn, Dose, Medication } from '../db/schema';
 import { forecastRunOut, type Forecast } from './plans';
 import type { ScheduleSettings } from './schedule';
 
@@ -38,6 +38,8 @@ export interface RefillAlert {
   low: boolean;          // at or below the person's own low-stock number
   runningOut: boolean;   // forecast to run out within `warnDays`
   scriptExpiring: boolean; // script expires within 30 days (or has expired)
+  /** Bottles that expire within 30 days or have expired, soonest first. */
+  expiringBottles: Bottle[];
 }
 
 /** Medications that need a refill or a new script soon, by the person's own numbers and plan.
@@ -51,9 +53,10 @@ export function refillAlerts(meds: Medication[], doses: Dose[], now: number, s: 
     const low = med.stockCount !== undefined && med.lowStockAt !== undefined && med.stockCount <= med.lowStockAt;
     const runningOut = !!forecast && forecast.runOutAt !== null && forecast.daysLeft <= warnDays;
     const scriptExpiring = !!med.scriptExpiry && Date.parse(`${med.scriptExpiry}T23:59:59`) - now < 30 * DAY;
-    if (!(low || runningOut || scriptExpiring)) continue;
-    if (med.stockCount !== undefined && dismissed[med.id] === med.stockCount) continue;
-    out.push({ med, forecast, low, runningOut, scriptExpiring });
+    const expiringBottles = (med.bottles ?? []).filter((b) => Date.parse(`${b.expiry}T23:59:59`) - now < 30 * DAY);
+    if (!(low || runningOut || scriptExpiring || expiringBottles.length)) continue;
+    if (dismissed[med.id] === (med.stockCount ?? -1)) continue;
+    out.push({ med, forecast, low, runningOut, scriptExpiring, expiringBottles });
   }
   return out;
 }

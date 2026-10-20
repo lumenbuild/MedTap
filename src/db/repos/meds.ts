@@ -1,5 +1,5 @@
 import { db } from '../db';
-import type { MedEvent, Medication, PlannedChange } from '../schema';
+import type { Bottle, MedEvent, Medication, PlannedChange } from '../schema';
 import { describeChange, splitDueChanges } from '../../logic/plans';
 
 const nowIso = () => new Date().toISOString();
@@ -111,4 +111,28 @@ export async function unrestock(medId: string, added: number, usedRepeat: boolea
     repeatsLeft: usedRepeat && med.repeatsLeft !== undefined ? med.repeatsLeft + 1 : med.repeatsLeft,
     updatedAt: nowIso(),
   });
+}
+
+// ── Bottles and expiry dates ─────────────────────────────────────────────────────────────────────────
+
+export async function addBottle(medId: string, b: { expiry: string; label?: string }): Promise<Bottle | undefined> {
+  const med = await db.medications.get(medId);
+  if (!med) return;
+  const bottle: Bottle = { id: crypto.randomUUID(), expiry: b.expiry, label: b.label?.trim() || undefined, addedAt: nowIso() };
+  await db.medications.update(medId, { bottles: [...(med.bottles ?? []), bottle].sort((x, y) => x.expiry.localeCompare(y.expiry)), updatedAt: nowIso() });
+  return bottle;
+}
+
+export async function removeBottle(medId: string, bottleId: string): Promise<Bottle | undefined> {
+  const med = await db.medications.get(medId);
+  const removed = med?.bottles?.find((b) => b.id === bottleId);
+  const rest = (med?.bottles ?? []).filter((b) => b.id !== bottleId);
+  await db.medications.update(medId, { bottles: rest.length ? rest : undefined, updatedAt: nowIso() });
+  return removed;
+}
+
+export async function restoreBottle(medId: string, bottle: Bottle) {
+  const med = await db.medications.get(medId);
+  if (!med) return;
+  await db.medications.update(medId, { bottles: [...(med.bottles ?? []), bottle].sort((x, y) => x.expiry.localeCompare(y.expiry)), updatedAt: nowIso() });
 }

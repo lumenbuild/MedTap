@@ -1,6 +1,6 @@
 import { Bar, Line, Scatter } from 'react-chartjs-2';
 import { format } from 'date-fns';
-import type { BodyEntry, CheckIn, Dose, MedEvent, Medication } from '../../db/schema';
+import type { BodyEntry, CheckIn, Dose, MedEvent, Medication, Vital } from '../../db/schema';
 import type { Units } from '../../db/repos/settings';
 import type { ScheduleSettings } from '../../logic/schedule';
 import { getDailyTarget } from '../../logic/schedule';
@@ -298,3 +298,53 @@ export function IntervalCharts({ meds, doses, start, end, s, realNames }: RangeP
   );
 }
 
+
+// 9. Blood pressure and heart rate: two charts on the same dates (different units, so never one chart with two scales).
+export function VitalsCharts({ vitals, start, end }: RangeProps & { vitals: Vital[] }) {
+  const th = useChartTheme();
+  const inRange = vitals.filter((v) => !v.deletedAt && Date.parse(v.at) >= start && Date.parse(v.at) <= end).sort((a, b) => a.at.localeCompare(b.at));
+  const bp = inRange.filter((v) => v.systolic && v.diastolic);
+  const hr = inRange.filter((v) => v.heartRate);
+  const avg = (xs: number[]) => Math.round(xs.reduce((a, b) => a + b, 0) / xs.length);
+  const summary = [
+    bp.length ? `Blood pressure averaged ${avg(bp.map((v) => v.systolic!))}/${avg(bp.map((v) => v.diastolic!))} mmHg over ${bp.length} reading${bp.length === 1 ? '' : 's'}` : '',
+    hr.length ? `heart rate averaged ${avg(hr.map((v) => v.heartRate!))} bpm` : '',
+  ].filter(Boolean).join('; ');
+  const line = (label: string, pts: { x: number; y: number }[], color: string) =>
+    ({ label, data: pts, borderColor: color, backgroundColor: color, borderWidth: 2, tension: 0.2, ...point(th, color), pointRadius: pts.length > 40 ? 0 : 4 });
+  return (
+    <ChartCard title="Blood pressure and heart rate" height={null} key={th.key}
+      empty={inRange.length ? null : 'No readings in this range. Log one from Today or Body.'}
+      summary={summary ? summary[0].toUpperCase() + summary.slice(1) : null}
+      table={{ head: ['When', 'Blood pressure (mmHg)', 'Heart rate (bpm)'], rows: [...inRange].reverse().map((v) =>
+        [format(Date.parse(v.at), 'EEE d MMM, h:mm a'), v.systolic ? `${v.systolic}/${v.diastolic}` : '–', v.heartRate ?? '–']) }}>
+      <div className="space-y-4">
+        {bp.length > 0 && (
+          <div>
+            <p className="text-sm font-semibold">Blood pressure (mmHg)</p>
+            <div style={{ height: 170 }} className="mt-1">
+              <Line data={{ datasets: [
+                line('Top (systolic)', bp.map((v) => ({ x: Date.parse(v.at), y: v.systolic! })), th.series[0]),
+                line('Bottom (diastolic)', bp.map((v) => ({ x: Date.parse(v.at), y: v.diastolic! })), th.series[1]),
+              ] }}
+                options={{ ...baseOptions(th),
+                  plugins: { ...baseOptions(th).plugins, legend: { ...baseOptions(th).plugins.legend, display: true, position: 'top', align: 'start' },
+                    tooltip: { ...baseOptions(th).plugins.tooltip, mode: 'index', callbacks: { label: (c) => `${c.dataset.label}: ${c.parsed.y}` } } },
+                  scales: { x: timeAxis(th, start, end), y: { ...baseOptions(th).scales.y, grace: '10%' } } }} />
+            </div>
+          </div>
+        )}
+        {hr.length > 0 && (
+          <div>
+            <p className="text-sm font-semibold">Heart rate (bpm)</p>
+            <div style={{ height: 130 }} className="mt-1">
+              <Line data={{ datasets: [line('Heart rate', hr.map((v) => ({ x: Date.parse(v.at), y: v.heartRate! })), th.series[2])] }}
+                options={{ ...baseOptions(th), plugins: { ...baseOptions(th).plugins, tooltip: { ...baseOptions(th).plugins.tooltip, callbacks: { label: (c) => `${c.parsed.y} bpm` } } },
+                  scales: { x: timeAxis(th, start, end), y: { ...baseOptions(th).scales.y, grace: '10%' } } }} />
+            </div>
+          </div>
+        )}
+      </div>
+    </ChartCard>
+  );
+}

@@ -18,7 +18,10 @@ export type ContextNote =
   | { kind: 'count'; doseNumber: number; target: number }
   | { kind: 'past-latest'; latestDoseTime: string }
   | { kind: 'not-scheduled-day' }
-  | { kind: 'amount'; expected: number };
+  | { kind: 'amount'; expected: number }
+  | { kind: 'rolling-count'; doseNumber: number; max: number }
+  | { kind: 'rolling-amount'; total: number; max: number }
+  | { kind: 'min-gap'; elapsedMs: number; minHours: number };
 
 const HOUR = 3_600_000;
 const MIN = 60_000;
@@ -244,11 +247,45 @@ export function getRecentDose(doses: Dose[], medId: string, now: number, guardMi
   return last && now - at(last) < guardMinutes * MIN ? last : undefined;
 }
 
+export interface RollingUsage {
+  /** Doses taken in the 24 hours up to `now`, and their total amount. */
+  count: number;
+  amount: number;
+  /** When the minimum gap since the last dose ends, if it hasn't yet. */
+  gapEndsAt: number | null;
+}
+
+/** Use in the last 24 hours (a rolling window, not the calendar day) against the person's own limits. */
+export function getRollingUsage(med: Medication, doses: Dose[], now: number): RollingUsage {
+  const recent = doses.filter((d) => d.medicationId === med.id && !d.deletedAt && !d.skipped && at(d) <= now && at(d) > now - 24 * HOUR);
+  const last = getLastDose(doses, med.id, now);
+  const minH = med.schedule.minHoursApart;
+  const gapEnd = last && minH ? at(last) + minH * HOUR : null;
+  return { count: recent.length, amount: recent.reduce((t, d) => t + d.amount, 0), gapEndsAt: gapEnd !== null && gapEnd > now ? gapEnd : null };
+}
+
+/** Notes for the rolling 24-hour limits, if the person set any. */
+function limitNotes(med: Medication, doses: Dose[], when: number, amount?: number): ContextNote[] {
+  const sc = med.schedule;
+  const out: ContextNote[] = [];
+  if (!sc.maxPer24h && !sc.maxAmountPer24h && !sc.minHoursApart) return out;
+  const u = getRollingUsage(med, doses, when);
+  if (sc.maxPer24h && u.count >= sc.maxPer24h) out.push({ kind: 'rolling-count', doseNumber: u.count + 1, max: sc.maxPer24h });
+  if (sc.maxAmountPer24h && amount !== undefined && u.amount + amount > sc.maxAmountPer24h + 1e-9) {
+    out.push({ kind: 'rolling-amount', total: u.amount + amount, max: sc.maxAmountPer24h });
+  }
+  const last = getLastDose(doses, med.id, when);
+  if (sc.minHoursApart && last && when - at(last) < sc.minHoursApart * HOUR) {
+    out.push({ kind: 'min-gap', elapsedMs: when - at(last), minHours: sc.minHoursApart });
+  }
+  return out;
+}
+
 /** Non-blocking notes that compare logging `amount` at `when` against the user's own settings. */
 export function getContextNotes(med: Medication, doses: Dose[], when: number, s: ScheduleSettings, amount?: number): ContextNote[] {
   const notes: ContextNote[] = [];
   const sc = med.schedule;
-  if (sc.type === 'prn') return notes;
+  if (sc.type === 'prn') return limitNotes(med, doses, when, amount);
   if (!isScheduledDay(med, when, s)) {
     notes.push({ kind: 'not-scheduled-day' });
     return notes;
@@ -271,7 +308,7 @@ export function getContextNotes(med: Medication, doses: Dose[], when: number, s:
     const expected = getExpectedAmount(med, doses, when, s);
     if (Math.abs(amount - expected) > 1e-9) notes.push({ kind: 'amount', expected });
   }
-  return notes;
+  return [...notes, ...limitNotes(med, doses, when, amount)];
 }
 
 /** 0–1 progress through the current wait, for the countdown ring. */

@@ -47,9 +47,10 @@ export async function renamePerson(id: string, name: string) {
 /** How much is recorded for a person (removing someone with records isn't allowed, to avoid losing history). */
 export async function personRecordCount(id: string): Promise<number> {
   const mine = (r: { personId?: string; deletedAt?: string }) => personOf(r) === id && !r.deletedAt;
-  const [meds, checks, body, photos, doses] = await Promise.all([db.medications.toArray(), db.checkIns.toArray(), db.bodyEntries.toArray(), db.photos.toArray(), db.doses.toArray()]);
+  const [meds, checks, body, photos, doses, vitals] = await Promise.all([db.medications.toArray(), db.checkIns.toArray(), db.bodyEntries.toArray(),
+    db.photos.toArray(), db.doses.toArray(), db.vitals.toArray()]);
   return meds.filter((m) => !m.shared && personOf(m) === id).length + checks.filter(mine).length + body.filter(mine).length
-    + photos.filter(mine).length + doses.filter((d) => d.personId === id && !d.deletedAt).length;
+    + photos.filter(mine).length + doses.filter((d) => d.personId === id && !d.deletedAt).length + vitals.filter(mine).length;
 }
 
 export async function removePerson(id: string): Promise<boolean> {

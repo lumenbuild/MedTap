@@ -43,7 +43,7 @@ const CONTENT: Record<string, ReactNode> = {
     <>
       <H>Tracking for more than one person</H>
       <p>Go to Settings → Family members → <strong>Add a family member</strong>. You start as “Me”, which you can rename.</p>
-      <p>Each person has their own medications, check-ins, weight, measurements, photos, charts and doctor report. Choose who to show with the names at the top of Today, Trends, Body and Meds.</p>
+      <p>Each person has their own medications, check-ins, weight, measurements, blood pressure, photos, charts and doctor report. Choose who to show with the names at the top of Today, Trends, Body and Meds.</p>
       <p>On Today, <strong>Everyone</strong> shows every person's medications at once, each card labelled with whose it is. Handy when you're giving doses to several people.</p>
       <H>Tags</H>
       <p>A tag always belongs to one person's medication. When it's tapped, the screen says <strong>For Sam</strong> (or whoever) in large text, so a dose is never logged against the wrong person. Calendar reminders include the name too.</p>
@@ -89,8 +89,15 @@ const CONTENT: Record<string, ReactNode> = {
       <p>For a change on a future date, or a taper in steps, open the medication and use <strong>Plan a change</strong>. Add one change per step. On each date {APP_NAME} switches to the new schedule by itself and records it.</p>
       <H>Skipping a dose</H>
       <p>If you don't take a dose on purpose, open Log dose and choose <strong>Skip this dose</strong>, with a reason if you like. It holds that dose's place in your day (so the next amount and time move on), isn't counted as taken, and doesn't change your stock.</p>
+      <H>Limits for as-needed medications</H>
+      <p>For something like paracetamol, you can enter your limits: how many doses in 24 hours, the most in 24 hours (such as 4000 mg), and the hours to wait between doses. Use the limits on the packet or from your pharmacist or doctor.</p>
+      <p>Today then shows how much you've had in the last 24 hours and when the wait ends. If logging a dose would go over a limit, {APP_NAME} tells you, but it never stops you logging.</p>
+      <H>Travelling</H>
+      <p>Set times follow your home time zone. When your phone changes time zone, Today asks whether to keep home time (useful on short trips or for time-critical medications) or follow the phone's time. Change this any time in Settings. Check timing changes with your pharmacist or doctor.</p>
       <H>Refills</H>
       <p>Add how many you have and, optionally, your repeats and script expiry date. {APP_NAME} works out when you'll run out from your schedule (or your recent use for as-needed medications) and shows a card on Today a few days before. Tap <strong>Add stock</strong> when you pick up a refill.</p>
+      <H>Expiry dates</H>
+      <p>When you add stock you can enter the bottle's expiry date and where it's kept. Each bottle is listed on the medication's page, and Today warns you 30 days before one expires.</p>
     </>
   ),
   tags: (

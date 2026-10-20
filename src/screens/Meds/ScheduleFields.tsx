@@ -20,6 +20,8 @@ export interface ScheduleForm {
   /** Set times, each with an optional amount. */
   slots: { time: string; amount: string }[];
   dayMode: DayMode; days: number[]; everyNDays: string; startDate: string;
+  /** As needed: limits from the label or the doctor. */
+  maxPer24h: string; maxAmountPer24h: string; minHoursApart: string;
 }
 
 export type ScheduleErrors = Partial<Record<keyof ScheduleForm | `dose${number}` | `slot${number}`, string>>;
@@ -33,6 +35,7 @@ export const blankSchedule = (): ScheduleForm => ({
   defaultAmount: '', type: 'interval', intervalHours: '4', maxPerDay: '', latestDoseTime: '',
   varyAmounts: false, doseAmounts: ['', ''], slots: [{ time: '08:00', amount: '' }],
   dayMode: 'every', days: [], everyNDays: '14', startDate: todayYmd(),
+  maxPer24h: '', maxAmountPer24h: '', minHoursApart: '',
 });
 
 export function scheduleFormFromMed(m: Pick<Medication, 'schedule' | 'defaultAmount'>): ScheduleForm {
@@ -45,6 +48,7 @@ export function scheduleFormFromMed(m: Pick<Medication, 'schedule' | 'defaultAmo
     slots: slots.length ? slots.map((x) => ({ time: x.time, amount: str(x.amount) })) : [{ time: '08:00', amount: '' }],
     dayMode: sc.everyNDays && sc.everyNDays > 1 ? 'everyN' : sc.days?.length ? 'days' : 'every',
     days: sc.days ?? [], everyNDays: str(sc.everyNDays) || '14', startDate: sc.startDate ?? todayYmd(),
+    maxPer24h: str(sc.maxPer24h), maxAmountPer24h: str(sc.maxAmountPer24h), minHoursApart: str(sc.minHoursApart),
   };
 }
 
@@ -63,7 +67,7 @@ export function scheduleFromForm(f: ScheduleForm): { schedule: Schedule; default
       .sort((a, b) => a.time.localeCompare(b.time));
     schedule = { type: 'fixed', slots };
   } else {
-    schedule = { type: 'prn' };
+    schedule = { type: 'prn', maxPer24h: num(f.maxPer24h), maxAmountPer24h: num(f.maxAmountPer24h), minHoursApart: num(f.minHoursApart) };
   }
   if (f.type !== 'prn') {
     if (f.dayMode === 'days' && f.days.length && f.days.length < 7) schedule.days = [...f.days].sort((a, b) => a - b);
@@ -94,6 +98,11 @@ export function validateSchedule(f: ScheduleForm): ScheduleErrors {
     f.slots.forEach((x, i) => { if (!posOrBlank(x.amount)) e[`slot${i}`] = 'Enter an amount above 0, or leave it blank for your usual dose.'; });
     const times = f.slots.map((x) => x.time).filter(Boolean);
     if (new Set(times).size !== times.length) e.slots = 'Each time can only be listed once.';
+  }
+  if (f.type === 'prn') {
+    if (f.maxPer24h.trim() && !(Number.isInteger(Number(f.maxPer24h)) && Number(f.maxPer24h) > 0)) e.maxPer24h = 'Enter a whole number, or leave it blank.';
+    if (!posOrBlank(f.maxAmountPer24h)) e.maxAmountPer24h = 'Enter a number above 0, or leave it blank.';
+    if (!posOrBlank(f.minHoursApart)) e.minHoursApart = 'Enter a number above 0, or leave it blank.';
   }
   if (f.type !== 'prn' && f.dayMode === 'days' && !f.days.length) e.days = 'Choose at least one day.';
   if (f.type !== 'prn' && f.dayMode === 'everyN') {
@@ -202,7 +211,24 @@ export function ScheduleFields({ f, set, errors, unit }: { f: ScheduleForm; set:
         </div>
       )}
 
-      {f.type === 'prn' && <p className="text-sm text-muted">No countdown. Today shows when you last took it.</p>}
+      {f.type === 'prn' && (
+        <div className="space-y-3">
+          <p className="text-sm text-muted">No countdown. Today shows when it was last taken.</p>
+          <div>
+            <h3 className="font-semibold">Limits (optional)</h3>
+            <p className="text-sm text-muted">From the label or the doctor. Counted over any 24 hours, not just today. Logging shows a note if a dose would go past them.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 items-start">
+            <TextInput label="Most doses in 24 hours" type="number" inputMode="numeric" min="1" step="1" value={f.maxPer24h}
+              onChange={(e) => set('maxPer24h', e.target.value)} error={errors.maxPer24h} />
+            <TextInput label="Hours apart, at least" type="number" inputMode="decimal" min="0" step="0.5" value={f.minHoursApart}
+              onChange={(e) => set('minHoursApart', e.target.value)} error={errors.minHoursApart} />
+          </div>
+          <TextInput label={`Most in 24 hours (${amountLabel})`} type="number" inputMode="decimal" min="0" step="any" value={f.maxAmountPer24h}
+            onChange={(e) => set('maxAmountPer24h', e.target.value)} error={errors.maxAmountPer24h}
+            help="For example 4000 mg for adult paracetamol, or a child's limit from the doctor." />
+        </div>
+      )}
 
       {f.type !== 'prn' && (
         <div className="space-y-3 pt-1">
