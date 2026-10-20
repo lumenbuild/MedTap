@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { clearLogRequest, onLogRequest } from '../../app/pendingLog';
 import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { CalendarPlus, HeartPulse, Lock, Nfc, Pill, Ruler, Scale, Smile } from 'lucide-react';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
@@ -46,6 +47,11 @@ export function Today() {
   const [bodySheet, setBodySheet] = useState<BodySheetState>(null);
 
   const medMap = useMemo(() => new Map((meds ?? []).map((m) => [m.id, m])), [meds]);
+  // A tapped reminder notification opens Log dose for that medication.
+  useEffect(() => onLogRequest((id) => {
+    const m = medMap.get(id);
+    if (m) { clearLogRequest(); setLogFor(m); }
+  }), [medMap]);
 
   if (!meds || !doses || !checkIns || !body || !vitals || !ss || !fam) return <TodaySkeleton />;
   const [settings, s] = ss;

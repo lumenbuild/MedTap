@@ -14,8 +14,11 @@ import { Body } from '../screens/Body/Body';
 import { Backup } from '../screens/Backup/Backup';
 import { Help, helpTitle } from '../screens/Help/Help';
 import { Onboarding } from '../screens/Onboarding/Onboarding';
+import { JoinSync, Sync } from '../screens/Sync';
 import { UpdatePrompt } from './UpdatePrompt';
 import { useMaintenance } from './maintenance';
+import { ScanTagButton } from '../components/ScanTagButton';
+import { isNativeIOS } from '../platform';
 
 // Charts are the heaviest code; load them only when Trends or the report is opened, so tag taps stay fast.
 const Trends = lazy(() => import('../screens/Trends/Trends').then((m) => ({ default: m.Trends })));
@@ -34,6 +37,8 @@ function title(r: Route): string {
     case 'backup': return 'Backup and restore';
     case 'report': return 'Doctor report';
     case 'help': return helpTitle(r.topic);
+    case 'sync': return 'Family sync';
+    case 'join': return 'Join family sync';
     default: return '';
   }
 }
@@ -42,7 +47,7 @@ function backTo(r: Route): string | undefined {
   switch (r.name) {
     case 'settings': return '#/today';
     case 'medNew': case 'med': return '#/meds';
-    case 'backup': return '#/settings';
+    case 'backup': case 'sync': case 'join': return '#/settings';
     case 'report': return '#/trends';
     case 'help': return r.topic ? '#/help' : '#/settings';
     default: return undefined;
@@ -61,6 +66,8 @@ function Screen({ r }: { r: Route }) {
     case 'backup': return <Backup />;
     case 'report': return <Suspense fallback={<ChartsLoading />}><Report /></Suspense>;
     case 'help': return <Help topic={r.topic} />;
+    case 'sync': return <Sync />;
+    case 'join': return <JoinSync code={r.code} />;
     default: return <Today />;
   }
 }
@@ -73,7 +80,7 @@ export function App() {
   const back = backTo(r);
   const showTabs = !back && r.name !== 'tag';
   // First run only: no medications yet and never onboarded. Tag taps and help skip it.
-  const onboarding = settings && meds && !settings.onboarded && meds.length === 0 && !['tag', 'help', 'medNew', 'backup'].includes(r.name);
+  const onboarding = settings && meds && !settings.onboarded && meds.length === 0 && !['tag', 'help', 'medNew', 'backup', 'join'].includes(r.name);
 
   return (
     <ToastProvider raised={showTabs && !onboarding}>
@@ -85,7 +92,7 @@ export function App() {
                 <header className="app-header flex items-center justify-between h-14">
                   {back ? (
                     <a href={back} aria-label="Back" className="w-12 h-12 -ml-3 flex items-center justify-center"><ArrowLeft aria-hidden="true" /></a>
-                  ) : <span className="w-12" />}
+                  ) : r.name === 'today' && isNativeIOS ? <ScanTagButton /> : <span className="w-12" />}
                   <h1 className="text-2xl font-semibold truncate">{title(r)}</h1>
                   {r.name === 'today' ? (
                     <a href="#/settings" aria-label="Settings" className="w-12 h-12 -mr-3 flex items-center justify-center"><SettingsIcon aria-hidden="true" /></a>

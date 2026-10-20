@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Lock, Nfc, Pill, Smartphone } from 'lucide-react';
 import { APP_NAME, DISCLAIMER } from '../../config';
-import { isAndroid, isIOS, isStandalone } from '../../platform';
+import { isAndroid, isIOS, isNative, isNativeIOS, isStandalone } from '../../platform';
 import { setSetting } from '../../db/repos/settings';
 import { go } from '../../app/router';
 import { useInstallPrompt } from '../../app/install';
@@ -29,8 +29,15 @@ export function Onboarding() {
     },
     {
       Icon: Smartphone,
-      title: isIOS ? 'Use it in Safari' : isAndroid ? 'Install the app' : 'Set up your phone',
-      body: isIOS ? (
+      title: isNative ? 'Tags and reminders' : isIOS ? 'Use it in Safari' : isAndroid ? 'Install the app' : 'Set up your phone',
+      body: isNative ? (
+        <>
+          {isNativeIOS
+            ? <p>To log with a tag, tap <strong>Scan tag</strong> at the top of Today and hold the top of your iPhone near it.</p>
+            : <p>Tapping a tag opens {APP_NAME} straight to that medication, even when the app is closed.</p>}
+          <p>{APP_NAME} can remind you when set-time doses are due. Turn reminders on in Settings.</p>
+        </>
+      ) : isIOS ? (
         <>
           <p>On iPhone, tag taps open in Safari, and home-screen apps keep separate data from Safari. So keep using {APP_NAME} in Safari: add it to your Favourites or bookmark it.</p>
           {isStandalone && <p className="rounded-btn bg-caution-soft p-3">You've opened the home-screen app. For tags to work, open {APP_NAME} in Safari instead.</p>}

@@ -1,12 +1,15 @@
 import type { ReactNode } from 'react';
-import { BellRing, CalendarClock, ChevronRight, Info, Lock, Nfc, ShieldCheck, Smartphone, Users } from 'lucide-react';
+import { BellRing, CalendarClock, ChevronRight, Info, Lock, Nfc, RefreshCw, ScanText, ShieldCheck, Smartphone, Users } from 'lucide-react';
+import { isNative } from '../../platform';
 import { APP_NAME, DISCLAIMER } from '../../config';
 import { tagBase } from '../../nfc/url';
 import { Card } from '../../components/ui/Card';
 
 const TOPICS = [
   { id: 'schedules', title: 'Setting up a schedule', Icon: CalendarClock },
+  { id: 'scan', title: 'Scanning a pharmacy label', Icon: ScanText },
   { id: 'family', title: 'Family members', Icon: Users },
+  { id: 'sync', title: 'Family sync', Icon: RefreshCw },
   { id: 'tags', title: 'Which tags work', Icon: Nfc },
   { id: 'phones', title: 'iPhone and Android', Icon: Smartphone },
   { id: 'reminders', title: 'Reminders', Icon: BellRing },
@@ -39,6 +42,38 @@ export function Help({ topic }: { topic?: string }) {
 const H = ({ children }: { children: ReactNode }) => <h2 className="text-lg font-semibold">{children}</h2>;
 
 const CONTENT: Record<string, ReactNode> = {
+  scan: (
+    <>
+      <H>Fill in a medication from its label</H>
+      <p>In Meds, tap <strong>Add</strong>, then <strong>Take photo</strong> (or <strong>Choose photo</strong>) under “Scan the pharmacy label”. {APP_NAME} reads the label and fills in the name, strength, directions, schedule, quantity and repeats.</p>
+      <p>The photo is read on your phone. It isn't uploaded or kept. {isNative ? '' : 'The first scan downloads the reader (about 6 MB) from this site; after that it works offline.'}</p>
+      <H>Check everything</H>
+      <p>Labels vary and photos can be misread. Before you save, check every detail against the label. If something was misread, fix the text on the review screen and the details update, or edit the form. Ask your pharmacist about anything unclear.</p>
+      <H>For a good read</H>
+      <ul className="list-disc pl-5 space-y-1">
+        <li>Lay the box or bottle flat, in good light, without glare.</li>
+        <li>Fill the photo with the label and hold the phone still.</li>
+        <li>For round bottles, photograph the part with the directions.</li>
+      </ul>
+    </>
+  ),
+  sync: (
+    <>
+      <H>Keep phones the same</H>
+      <p>Family sync shares {APP_NAME}'s records between your phones and your family's: medications, doses, check-ins, weight, blood pressure and tags. A dose logged on one phone shows on the others, and stock counts include doses logged on every phone. Photos and settings stay on each phone.</p>
+      <H>Setting it up</H>
+      <ol className="list-decimal pl-5 space-y-1">
+        <li>On one phone: Settings → Family sync. Enter your name and tap <strong>Start family sync</strong>.</li>
+        <li>Tap <strong>Invite a phone</strong>. On the other phone, scan the QR code with the camera (or send the invite privately and open it there).</li>
+        <li>On the other phone, enter your name and tap <strong>Join</strong>. Anything already on that phone is kept, under that name.</li>
+      </ol>
+      <H>How phones swap records</H>
+      <p>With a <strong>sync server</strong>, phones sync by themselves every few minutes while {APP_NAME} is open. You can run your own for free (see sync-relay in {APP_NAME}'s code). Without one, tap <strong>Send update</strong> to send a file by Messages, email or AirDrop, and <strong>Open update</strong> on the other phone.</p>
+      <H>Privacy</H>
+      <p>Records are encrypted on the phone with a key only your family's phones have. A sync server, or anyone who sees an update file, gets only scrambled data. Anyone with the invite can see and change everything, so only send it to people you trust.</p>
+      <p>If two phones change the same thing before syncing, the later change wins.</p>
+    </>
+  ),
   family: (
     <>
       <H>Tracking for more than one person</H>
@@ -132,6 +167,11 @@ const CONTENT: Record<string, ReactNode> = {
   ),
   phones: (
     <>
+      <H>The {APP_NAME} app</H>
+      <p>There's also an installable app. It sends dose reminders, writes tags on iPhone and Android, and on Android a tag tap opens it even when it's closed.</p>
+      <p><strong>Android:</strong> download MedTap.apk from github.com/lumenbuild/MedTap/releases on your phone and open it. Android asks you to allow installing from your browser the first time.</p>
+      <p><strong>iPhone:</strong> the app needs to be signed with an Apple Developer account before it can be installed (see NATIVE.md in {APP_NAME}'s code).</p>
+      <p>The app keeps its own data. To move across, back up here (Settings → Backup and restore) and restore the file in the app. Or turn on family sync in both.</p>
       <H>iPhone</H>
       <p>Tag taps always open in <strong>Safari</strong>. On iPhone, apps added to the home screen keep their own separate data, so a dose logged from a tag wouldn't show up in the home-screen app.</p>
       <p><strong>So on iPhone, use {APP_NAME} in Safari.</strong> Add it to your Favourites or bookmark it instead of adding it to your home screen.</p>
@@ -143,7 +183,14 @@ const CONTENT: Record<string, ReactNode> = {
       <p>Browsers can clear website data when a phone is short on space, and clearing browsing data removes it too. Back up regularly from Settings → Backup and restore.</p>
     </>
   ),
-  reminders: (
+  reminders: isNative ? (
+    <>
+      <H>Dose reminders</H>
+      <p>Turn on <strong>Remind me when doses are due</strong> in Settings. {APP_NAME} schedules a notification for each set time over the next week, and for the next dose of every-few-hours medications, from your own schedule. Logging a dose clears its reminder.</p>
+      <p><strong>Log it</strong> on a reminder logs the planned amount without opening the app. Tap the reminder itself to check the amount first.</p>
+      <p>Reminders show nicknames for medications that have one, so the lock screen doesn't reveal them.</p>
+    </>
+  ) : (
     <>
       <H>Why the calendar?</H>
       <p>{APP_NAME} can't send alerts by itself, so it adds the reminder to your phone's calendar. After you log a dose, tap <strong>Add to calendar</strong>. Your calendar app opens with an event at the next due time, set to alert you when it starts.</p>
@@ -156,11 +203,11 @@ const CONTENT: Record<string, ReactNode> = {
       <ul className="list-disc pl-5 space-y-1">
         <li>Everything you enter is saved on this device only.</li>
         <li>There are no accounts, no analytics and no tracking.</li>
-        <li>After the app loads, it makes no network requests except checking for app updates from {tagBase()}.</li>
-        <li>Nothing leaves the phone unless you export it: backups, spreadsheets, calendar events and printed reports.</li>
+        <li>After the app loads, it makes no network requests except checking for app updates from {tagBase()} (and, if you scan a label, downloading the label reader from the same place once).</li>
+        <li>Nothing leaves the phone unless you export it (backups, spreadsheets, calendar events and printed reports) or turn on family sync, which encrypts everything first.</li>
         <li>Backup files are encrypted, so opening one (or a cloud drive or email preview) shows only scrambled text. Any copy of {APP_NAME} can restore them without a password, so treat them like the data itself: keep them somewhere private.</li>
         <li>Automatic backups (where the browser allows) only ever go to the folder you choose.</li>
-        <li>Progress photos are stored on this phone and never uploaded.</li>
+        <li>Progress photos are stored on this phone and never uploaded. Label photos are read on the phone and not kept.</li>
         <li>Give a medication a <strong>nickname</strong> (on its page in Meds) and that's what shows on Today, when its tag is tapped, in calendar reminders and on Trends, with a plain grey icon. The real name only shows on the medication's own page, in the doctor report (you can choose nicknames there too) and in spreadsheet exports. For everything else, use the app lock.</li>
       </ul>
       <H>What could lose your data</H>

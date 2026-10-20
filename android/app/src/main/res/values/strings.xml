@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MedTap</string>
+    <string name="title_activity_main">MedTap</string>
+    <string name="package_name">app.medtap.tracker</string>
+    <string name="custom_url_scheme">app.medtap.tracker</string>
+</resources>

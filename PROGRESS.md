@@ -124,6 +124,31 @@ skipped doses, refill forecasting, encrypted and automatic backups. Awaiting own
   times stay on home time, shown in local time) or follow the phone; Settings has the same choice. Interval
   countdowns are time-zone independent.
 
+## Native apps, label scanning, family sync, NFC fix
+- **NFC writing fix (web):** Chrome reports "NFC is turned off" as NotReadableError; it was shown as "this phone
+  can't write tags". Errors are now mapped properly (off, permission, wrong tag, locked, too small) and the
+  browser's own message is kept for reporting. `src/nfc/write.ts` uses the native plugin inside the app.
+- **Native apps (Capacitor 8):** `android/`, `ios/`, `capacitor.config.ts`, `npm run build:native` (no service
+  worker, `VITE_TAG_BASE` still pinned). Our plugin `native/medtap-native` (Java + Swift): NFC read/write
+  (Android reader mode; iOS Core NFC sessions), tag taps delivered to the app (Android NDEF_DISCOVERED intent filter
+  for `https://lumenbuild.github.io/MedTap`), printing, and the share sheet for files. phonegap-nfc was rejected:
+  its PendingIntent crashes on Android 12+.
+  Reminders: `@capacitor/local-notifications`, planned by `logic/notify.ts` (set times for 7 days + next interval
+  dose, max 60 for iOS), rescheduled on any change; "Log it" action logs the planned amount (guarded). iPhone app
+  has a Scan button on Today (iPhones only read tags for an app on request).
+  CI: `.github/workflows/native.yml` builds the APK (signed + published as the `android` release once the
+  keystore secrets exist; see NATIVE.md) and compiles iOS for the simulator on macOS.
+- **Label scanning:** Tesseract.js on the phone, assets self-hosted under `ocr/` (not precached; runtime-cached on
+  first scan). `logic/label.ts` parses Australian dispensing labels (name/strength, directions, per-dose count,
+  set times with own amounts, every N hours, weekly/every N days, as-needed limits, Qty, Rpt n of m, Dr, Exp) and
+  tolerates common OCR slips. Review screen shows the text (editable, re-parses live) before filling the form.
+- **Family sync:** shared 256-bit family key (invite QR/link `#/join/<code>`, never sent to a server), snapshots
+  = backup tables minus settings/photos, gzip + AES-GCM. Merge = backup merge (newest `updatedAt` wins, soft
+  deletes travel). Transports: optional self-hosted relay (`sync-relay/`, Cloudflare Worker + KV, stores only
+  ciphertext, first writer's token guards writes) syncing on open/every 5 min/after changes; or update files.
+  Stock: `medication.stockBase` (count + time, set on create/edit/refill) and `recountStock` after merges, so doses
+  logged on two phones both come off. Joining phones move their own "Me" records to a new person first.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 

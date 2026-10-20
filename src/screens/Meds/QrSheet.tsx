@@ -1,3 +1,4 @@
+import { printPage } from '../../app/print';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import QRCode from 'qrcode';
@@ -32,7 +33,7 @@ export function QrSheet({ url, medName, onClose }: { url: string | null; medName
           <input type="checkbox" checked={showName} onChange={(e) => setShowName(e.target.checked)} className="w-5 h-5 accent-[var(--primary)]" />
           <span>Print the medication name on the sticker</span>
         </label>
-        <Button className="w-full min-h-[56px] flex items-center justify-center gap-2" onClick={() => window.print()} disabled={!src}>
+        <Button className="w-full min-h-[56px] flex items-center justify-center gap-2" onClick={() => printPage('MedTap tag sticker')} disabled={!src}>
           <Printer size={20} aria-hidden="true" /> Print stickers
         </Button>
       </div>

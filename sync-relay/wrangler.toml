@@ -1,0 +1,9 @@
+name = "medtap-sync"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+# Create the store once with: npx wrangler kv namespace create SYNC
+# then paste the id it prints here.
+[[kv_namespaces]]
+binding = "SYNC"
+id = "PASTE_THE_ID_HERE"

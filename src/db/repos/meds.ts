@@ -12,7 +12,10 @@ async function addEvent(medicationId: string, kind: MedEvent['kind'], summary: s
 
 export async function createMed(input: MedInput): Promise<Medication> {
   const now = nowIso();
-  const med: Medication = { ...input, id: crypto.randomUUID(), archived: false, createdAt: now, updatedAt: now };
+  const med: Medication = {
+    ...input, id: crypto.randomUUID(), archived: false, createdAt: now, updatedAt: now,
+    stockBase: input.stockCount !== undefined ? { count: input.stockCount, at: now } : undefined,
+  };
   await db.transaction('rw', db.medications, db.medEvents, async () => {
     await db.medications.add(med);
     await addEvent(med.id, 'started', `Started ${med.name}`);
@@ -23,7 +26,12 @@ export async function createMed(input: MedInput): Promise<Medication> {
 /** Save edits. Pass `change` to record a dated medication event (for chart markers). */
 export async function updateMed(id: string, input: MedInput, change?: { at: string; summary: string; before: unknown; after: unknown }) {
   await db.transaction('rw', db.medications, db.medEvents, async () => {
-    await db.medications.update(id, { ...input, updatedAt: nowIso() });
+    const before = await db.medications.get(id);
+    const now = nowIso();
+    // A stock count typed in is a new starting point for counting.
+    const stockBase = input.stockCount === undefined ? undefined
+      : input.stockCount !== before?.stockCount || !before?.stockBase ? { count: input.stockCount, at: now } : before.stockBase;
+    await db.medications.update(id, { ...input, stockBase, updatedAt: now });
     if (change) await addEvent(id, 'changed', change.summary, change.at, change.before, change.after);
   });
 }
@@ -95,10 +103,12 @@ export async function removePlannedChange(medId: string, changeId: string): Prom
 export async function restock(medId: string, added: number, usedRepeat: boolean) {
   const med = await db.medications.get(medId);
   if (!med) return;
+  const now = nowIso();
+  const stockCount = Math.round(((med.stockCount ?? 0) + added) * 1000) / 1000;
   await db.medications.update(medId, {
-    stockCount: Math.round(((med.stockCount ?? 0) + added) * 1000) / 1000,
+    stockCount, stockBase: { count: stockCount, at: now },
     repeatsLeft: usedRepeat && med.repeatsLeft !== undefined ? Math.max(0, med.repeatsLeft - 1) : med.repeatsLeft,
-    updatedAt: nowIso(),
+    updatedAt: now,
   });
 }
 
@@ -106,10 +116,12 @@ export async function restock(medId: string, added: number, usedRepeat: boolean)
 export async function unrestock(medId: string, added: number, usedRepeat: boolean) {
   const med = await db.medications.get(medId);
   if (!med) return;
+  const now = nowIso();
+  const stockCount = Math.round(((med.stockCount ?? 0) - added) * 1000) / 1000;
   await db.medications.update(medId, {
-    stockCount: Math.round(((med.stockCount ?? 0) - added) * 1000) / 1000,
+    stockCount, stockBase: { count: stockCount, at: now },
     repeatsLeft: usedRepeat && med.repeatsLeft !== undefined ? med.repeatsLeft + 1 : med.repeatsLeft,
-    updatedAt: nowIso(),
+    updatedAt: now,
   });
 }
 

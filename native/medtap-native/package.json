@@ -1,0 +1,12 @@
+{
+  "name": "medtap-native",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MedTap's own native plugin: NFC tag reading and writing on Android and iPhone, and printing.",
+  "main": "index.js",
+  "capacitor": {
+    "ios": { "src": "ios" },
+    "android": { "src": "android" }
+  },
+  "peerDependencies": { "@capacitor/core": ">=8.0.0" }
+}

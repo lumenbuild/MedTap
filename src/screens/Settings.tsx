@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { ChevronRight, HardDriveDownload, HelpCircle, Lock, X } from 'lucide-react';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { ChevronRight, HardDriveDownload, HelpCircle, Lock, RefreshCw, X } from 'lucide-react';
+import { useSyncConfig } from '../app/sync';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Sheet } from '../components/ui/Sheet';
@@ -16,12 +17,16 @@ import { fmtAgo, fmtHHmm } from '../logic/format';
 import { hashPin, isValidPin, newSalt } from '../logic/pin';
 import { FamilyCard } from './Family';
 import { placeName } from '../components/TravelBanner';
+import { isNative } from '../platform';
+
+const RemindersCard = lazy(() => import('./RemindersCard'));
 
 const selectCls = 'w-full min-h-[48px] rounded-btn bg-surface-2 border border-border px-3';
 
 export function Settings() {
   const [theme, setT] = useState<Theme>(getTheme());
   const settings = useSettings();
+  const sync = useSyncConfig();
   const now = useNow(60_000);
   const toast = useToast();
   const [persisted, setPersisted] = useState<boolean | null>(null);
@@ -54,6 +59,19 @@ export function Settings() {
       </a>
 
       <FamilyCard />
+
+      <a href="#/sync" className="bg-surface rounded-card shadow-card p-5 flex items-center gap-3">
+        <RefreshCw className="text-primary" aria-hidden="true" />
+        <span className="flex-1">
+          <span className="block font-semibold">Family sync</span>
+          <span className="block text-sm text-muted tnum">
+            {!sync ? 'Share records between phones' : sync.lastSyncAt ? `On · synced ${fmtAgo(now - Date.parse(sync.lastSyncAt))}` : 'On'}
+          </span>
+        </span>
+        <ChevronRight className="text-muted" aria-hidden="true" />
+      </a>
+
+      {isNative && <Suspense fallback={null}><RemindersCard enabled={settings.remindersEnabled} /></Suspense>}
 
       <Card className="space-y-4">
         <h2 className="text-lg font-semibold">Your day</h2>
@@ -103,7 +121,7 @@ export function Settings() {
             <option value={0}>Off</option>
             {[30, 60, 90, 120, 180].map((m) => <option key={m} value={m}>{m < 60 ? `${m} minutes` : `${m / 60} hour${m === 60 ? '' : 's'}`} later</option>)}
           </select>
-          <p className="text-sm text-muted">Shows a card on Today. {APP_NAME} can't send notifications.</p>
+          <p className="text-sm text-muted">Shows a card on Today.{isNative ? '' : ` ${APP_NAME} can't send notifications.`}</p>
         </div>
         <div>
           <span className="block text-sm font-medium mb-2">“What are you noticing?” options</span>

@@ -45,6 +45,8 @@ export interface AppSettings {
   homeTimeZone: string | null;
   /** Travel: set times and the day boundary follow the phone's current time zone ('device', default) or home time. */
   timeMode: 'device' | 'home';
+  /** Native app: phone notifications when doses are due. */
+  remindersEnabled: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -74,6 +76,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   todayEveryone: false,
   homeTimeZone: null,
   timeMode: 'device',
+  remindersEnabled: false,
 };
 
 export async function getSettings(): Promise<AppSettings> {

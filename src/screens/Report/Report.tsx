@@ -1,3 +1,4 @@
+import { printPage } from '../../app/print';
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { Printer } from 'lucide-react';
@@ -76,7 +77,7 @@ export function Report() {
           </label>
         )}
         {!valid && <p className="text-sm text-danger" role="alert">The start date is after the end date.</p>}
-        <Button className="w-full min-h-[56px] flex items-center justify-center gap-2" onClick={() => window.print()} disabled={!valid}>
+        <Button className="w-full min-h-[56px] flex items-center justify-center gap-2" onClick={() => printPage('MedTap report')} disabled={!valid}>
           <Printer size={20} aria-hidden="true" /> Print / Save as PDF
         </Button>
         <p className="text-sm text-muted">In the print dialog, choose “Save as PDF” to get a file you can email or bring to an appointment.</p>
