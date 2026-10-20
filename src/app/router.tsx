@@ -23,7 +23,7 @@ export type Route =
   | { name: 'today' } | { name: 'trends' } | { name: 'body' } | { name: 'settings' }
   | { name: 'backup' } | { name: 'report' } | { name: 'help'; topic?: string }
   | { name: 'meds' } | { name: 'medNew'; tagId?: string } | { name: 'med'; id: string }
-  | { name: 'tag'; id: string } | { name: 'sync' } | { name: 'join'; code: string };
+  | { name: 'tag'; id: string } | { name: 'sync' } | { name: 'join'; code: string } | { name: 'calc' };
 
 export function parseRoute(path: string): Route {
   const [, a, b, c, d] = path.split('/').map(decodeURIComponent);
@@ -36,6 +36,7 @@ export function parseRoute(path: string): Route {
     case 'help': return { name: 'help', topic: b || undefined };
     case 'tag': return { name: 'tag', id: b ?? '' };
     case 'sync': return { name: 'sync' };
+    case 'calc': return { name: 'calc' };
     case 'join': return { name: 'join', code: b ?? '' };
     case 'meds':
       if (b === 'new') return { name: 'medNew', tagId: c === 'tag' ? d : undefined };

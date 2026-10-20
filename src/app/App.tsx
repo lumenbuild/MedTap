@@ -15,6 +15,7 @@ import { Backup } from '../screens/Backup/Backup';
 import { Help, helpTitle } from '../screens/Help/Help';
 import { Onboarding } from '../screens/Onboarding/Onboarding';
 import { JoinSync, Sync } from '../screens/Sync';
+import { PeptideCalc } from '../screens/PeptideCalc';
 import { UpdatePrompt } from './UpdatePrompt';
 import { useMaintenance } from './maintenance';
 import { ScanTagButton } from '../components/ScanTagButton';
@@ -39,6 +40,7 @@ function title(r: Route): string {
     case 'help': return helpTitle(r.topic);
     case 'sync': return 'Family sync';
     case 'join': return 'Join family sync';
+    case 'calc': return 'Peptide calculator';
     default: return '';
   }
 }
@@ -47,7 +49,7 @@ function backTo(r: Route): string | undefined {
   switch (r.name) {
     case 'settings': return '#/today';
     case 'medNew': case 'med': return '#/meds';
-    case 'backup': case 'sync': case 'join': return '#/settings';
+    case 'backup': case 'sync': case 'join': case 'calc': return '#/settings';
     case 'report': return '#/trends';
     case 'help': return r.topic ? '#/help' : '#/settings';
     default: return undefined;
@@ -68,6 +70,7 @@ function Screen({ r }: { r: Route }) {
     case 'help': return <Help topic={r.topic} />;
     case 'sync': return <Sync />;
     case 'join': return <JoinSync code={r.code} />;
+    case 'calc': return <PeptideCalc />;
     default: return <Today />;
   }
 }

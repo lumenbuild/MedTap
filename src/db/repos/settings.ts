@@ -47,6 +47,8 @@ export interface AppSettings {
   timeMode: 'device' | 'home';
   /** Native app: phone notifications when doses are due. */
   remindersEnabled: boolean;
+  /** Peptides and injections: mixed vials, syringe units, titration plans, injection sites. */
+  peptideTools: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -77,6 +79,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   homeTimeZone: null,
   timeMode: 'device',
   remindersEnabled: false,
+  peptideTools: false,
 };
 
 export async function getSettings(): Promise<AppSettings> {

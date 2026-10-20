@@ -6,6 +6,8 @@ import { PersonBadge } from './PersonSwitcher';
 import { logDose } from '../db/repos/doses';
 import { FIXED_MATCH_MS, getContextNotes, getExpectedAmount, getFixedSlots, getLastDose, getRecentDose, type ContextNote, type ScheduleSettings } from '../logic/schedule';
 import { stockUnitsFor } from '../logic/stock';
+import { doseForUnits, drawFor } from '../logic/peptide';
+import { DrawGuide } from './Syringe';
 import { MedInstructions } from './MedInstructions';
 import { fmtAgo, fmtAmount, fmtDuration, fmtHHmm, fmtTime, fmtWhen, fromLocalInput, toLocalInput } from '../logic/format';
 import { canVibrate } from '../platform';
@@ -50,6 +52,9 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, onLogged, onC
   const doses = choosing && who ? allDoses.filter((d) => d.medicationId !== med.id || personOf(d) === who) : allDoses;
   // The amount follows the plan for this dose (e.g. 20, 20, then 10 mg) until the person changes it.
   const [amountEdit, setAmountEdit] = useState<number | null>(null);
+  // Peptide tools: syringe units for mixed vials.
+  const vial = med.peptide && med.strength > 0 && med.peptide.waterMl > 0 ? med.peptide : undefined;
+  const [inUnits, setInUnits] = useState(false);
   const [earlier, setEarlier] = useState(false);
   const [when, setWhen] = useState(() => toLocalInput(now - 30 * 60_000));
   const [override, setOverride] = useState(false);
@@ -186,10 +191,25 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, onLogged, onC
 
       <div className="space-y-1.5">
         <span className="block text-sm font-medium">Amount</span>
-        <Stepper label="Amount" value={amount} onChange={setAmountEdit} step={med.strength > 0 && med.unit !== 'tablet' ? med.strength : 1} suffix={med.unit === 'tablet' ? 'tablets' : med.unit} />
-        {units !== null && <p className="text-sm text-muted tnum">{units} {med.form === 'other' ? 'units' : `${med.form}${units === 1 ? '' : 's'}`} of {fmtAmount(med.strength, med.unit)}</p>}
+        {vial && inUnits ? (
+          <Stepper label="Syringe units" value={drawFor(amount, med.strength, vial.waterMl, vial.syringe).units}
+            onChange={(u) => setAmountEdit(Number.isFinite(u) ? doseForUnits(u, med.strength, vial.waterMl, vial.syringe) : NaN)} step={1} suffix="units" />
+        ) : (
+          <Stepper label="Amount" value={amount} onChange={setAmountEdit}
+            step={vial ? doseForUnits(1, med.strength, vial.waterMl, vial.syringe) : med.strength > 0 && med.unit !== 'tablet' ? med.strength : 1}
+            suffix={med.unit === 'tablet' ? 'tablets' : med.unit} />
+        )}
+        {vial && (
+          <button type="button" onClick={() => setInUnits(!inUnits)} className="min-h-[44px] text-sm text-primary font-semibold">
+            {inUnits ? `Enter in ${med.unit}` : 'Enter in syringe units'}
+          </button>
+        )}
+        {vial ? <p className="text-sm tnum">{inUnits && amount > 0 ? `= ${fmtAmount(amount, med.unit)}` : ''}</p>
+          : units !== null && <p className="text-sm text-muted tnum">{units} {med.form === 'other' ? 'units' : `${med.form}${units === 1 ? '' : 's'}`} of {fmtAmount(med.strength, med.unit)}</p>}
+        {vial && amount > 0 && <DrawGuide med={med} amount={amount} />}
         {amountError && <p className="text-sm text-danger" role="alert">{amountError}</p>}
       </div>
+
 
       <div className="space-y-2">
         <span className="block text-sm font-medium">Time</span>

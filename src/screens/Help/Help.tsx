@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { BellRing, CalendarClock, ChevronRight, Info, Lock, Nfc, RefreshCw, ScanText, ShieldCheck, Smartphone, Users } from 'lucide-react';
+import { BellRing, CalendarClock, ChevronRight, Info, Lock, Nfc, RefreshCw, ScanText, ShieldCheck, Smartphone, Syringe, Users } from 'lucide-react';
 import { isNative } from '../../platform';
 import { APP_NAME, DISCLAIMER } from '../../config';
 import { tagBase } from '../../nfc/url';
@@ -8,6 +8,7 @@ import { Card } from '../../components/ui/Card';
 const TOPICS = [
   { id: 'schedules', title: 'Setting up a schedule', Icon: CalendarClock },
   { id: 'scan', title: 'Scanning a pharmacy label', Icon: ScanText },
+  { id: 'peptides', title: 'Peptides and injections', Icon: Syringe },
   { id: 'family', title: 'Family members', Icon: Users },
   { id: 'sync', title: 'Family sync', Icon: RefreshCw },
   { id: 'tags', title: 'Which tags work', Icon: Nfc },
@@ -42,6 +43,26 @@ export function Help({ topic }: { topic?: string }) {
 const H = ({ children }: { children: ReactNode }) => <h2 className="text-lg font-semibold">{children}</h2>;
 
 const CONTENT: Record<string, ReactNode> = {
+  peptides: (
+    <>
+      <H>Turning it on</H>
+      <p>Settings → <strong>Peptides and injections</strong>. This adds vials you mix, syringe units, a calculator and titration plans. Turning it off hides them again; nothing is deleted.</p>
+      <H>A vial you mix</H>
+      <ol className="list-decimal pl-5 space-y-1">
+        <li>Add the medication with Form <strong>Injection</strong>, and tick <strong>I mix this from a powder vial</strong>.</li>
+        <li>Enter the <strong>amount in each vial</strong> (e.g. 5 mg), the <strong>water</strong> you add (e.g. 2 mL), and your syringe (U-100 0.3 mL is common).</li>
+        <li>Set the dose and schedule your prescriber gave you, as for any medication.</li>
+      </ol>
+      <p>Log dose then shows what to draw, e.g. <strong>10 units · 0.1 mL</strong> for 0.25 mg from 5 mg in 2 mL, on a picture of the syringe. You can also enter a dose in syringe units.</p>
+      <p>Tap <strong>I've mixed a new vial</strong> on the medication's page each time you mix one. {APP_NAME} then counts what's left from the doses you log, and Today warns you when about one dose is left or the vial is past its use-within date. Stock counts whole vials.</p>
+      <H>Calculator</H>
+      <p>Settings → Peptides and injections → <strong>Peptide calculator</strong>. Work out the units for a dose, the dose for a number of units, or how much water makes your dose an easy number of units.</p>
+      <H>Titration</H>
+      <p>On the medication's page, <strong>Plan a titration</strong>: enter the first dose, how much it goes up (or down) each step, how often, and the final dose. Each step is saved as a planned change, switches over on its day and shows in your charts. Remove any step under Planned changes.</p>
+      <H>Check your numbers</H>
+      <p>{APP_NAME} only does sums on the numbers you enter; it doesn't suggest doses. Check the units against the label, your prescriber's directions or your pharmacist, especially the first time. Under 2 units is hard to measure accurately.</p>
+    </>
+  ),
   scan: (
     <>
       <H>Fill in a medication from its label</H>

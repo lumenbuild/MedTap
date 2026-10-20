@@ -91,6 +91,31 @@ export async function addPlannedChange(medId: string, change: Omit<PlannedChange
   await db.medications.update(medId, { plannedChanges: list, updatedAt: nowIso() });
 }
 
+/** Several planned changes at once (a titration). Returns their ids, for undo. */
+export async function addPlannedChanges(medId: string, changes: Omit<PlannedChange, 'id'>[]): Promise<string[]> {
+  const med = await db.medications.get(medId);
+  if (!med) return [];
+  const added = changes.map((c) => ({ ...c, id: crypto.randomUUID() }));
+  const dates = new Set(added.map((c) => c.from));
+  const list = [...(med.plannedChanges ?? []).filter((c) => !dates.has(c.from)), ...added].sort((a, b) => a.from.localeCompare(b.from));
+  await db.medications.update(medId, { plannedChanges: list, updatedAt: nowIso() });
+  return added.map((c) => c.id);
+}
+
+export async function removePlannedChanges(medId: string, ids: string[]) {
+  const med = await db.medications.get(medId);
+  const rest = (med?.plannedChanges ?? []).filter((c) => !ids.includes(c.id));
+  await db.medications.update(medId, { plannedChanges: rest.length ? rest : undefined, updatedAt: nowIso() });
+}
+
+/** A new vial has been mixed (peptide tools): what's left is counted from now. Returns the previous time, for undo. */
+export async function setVialMixed(medId: string, mixedAt: string | undefined): Promise<string | undefined> {
+  const med = await db.medications.get(medId);
+  if (!med?.peptide) return undefined;
+  await db.medications.update(medId, { peptide: { ...med.peptide, mixedAt }, updatedAt: nowIso() });
+  return med.peptide.mixedAt;
+}
+
 export async function removePlannedChange(medId: string, changeId: string): Promise<PlannedChange | undefined> {
   const med = await db.medications.get(medId);
   const removed = med?.plannedChanges?.find((c) => c.id === changeId);
