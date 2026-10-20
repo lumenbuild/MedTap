@@ -46,23 +46,38 @@ const CONTENT: Record<string, ReactNode> = {
   peptides: (
     <>
       <H>Turning it on</H>
-      <p>Settings → <strong>Peptides and injections</strong>. This adds vials you mix, syringe units, a calculator and titration plans. Turning it off hides them again; nothing is deleted.</p>
+      <p>Settings → <strong>Peptides and injections</strong>. This adds vials you mix, pre-filled pens, syringe units, a calculator, titration plans, on/off cycles, supplies, and charts in Trends. Turning it off hides them; nothing is deleted.</p>
       <H>A vial you mix</H>
       <ol className="list-decimal pl-5 space-y-1">
-        <li>Add the medication with Form <strong>Injection</strong>, and tick <strong>I mix this from a powder vial</strong>.</li>
-        <li>Enter the <strong>amount in each vial</strong> (e.g. 5 mg), the <strong>water</strong> you add (e.g. 2 mL), and your syringe (U-100 0.3 mL is common).</li>
-        <li>Set the dose and schedule your prescriber gave you, as for any medication.</li>
+        <li>Add the medication with Form <strong>Injection</strong>, and choose <strong>A vial I mix with water</strong>.</li>
+        <li>Enter the <strong>amount in each vial</strong>, the water you usually add, and your syringe (U-100 0.3 mL is common).</li>
+        <li>Set the dose and schedule your prescriber gave you.</li>
       </ol>
-      <p>Log dose then shows what to draw, e.g. <strong>10 units · 0.1 mL</strong> for 0.25 mg from 5 mg in 2 mL, on a picture of the syringe. You can also enter a dose in syringe units.</p>
-      <p>Tap <strong>I've mixed a new vial</strong> on the medication's page each time you mix one. {APP_NAME} then counts what's left from the doses you log, and Today warns you when about one dose is left or the vial is past its use-within date. Stock counts whole vials.</p>
-      <H>Calculator</H>
-      <p>Settings → Peptides and injections → <strong>Peptide calculator</strong>. Work out the units for a dose, the dose for a number of units, or how much water makes your dose an easy number of units.</p>
+      <p>Each time you mix one, tap <strong>I've mixed a new vial</strong> and enter the water you used. Units are worked out from <em>that</em> vial, so a vial mixed with more or less water still shows the right units. Log dose shows what to draw, e.g. <strong>10 units · 0.1 mL</strong>, and Today shows it on the card.</p>
+      <H>Pre-filled pens</H>
+      <p>Choose <strong>A pre-filled pen</strong> and enter the amount in each pen. If you add the amount per click of the dial (from the pen's instructions), Log dose shows the clicks for each dose. Tap <strong>I've started a new pen</strong> when you start one; Today warns when it's nearly empty or past its in-use days.</p>
+      <H>Blends</H>
+      <p>If a vial holds more than one peptide, add the others under <strong>Blend</strong> with their amount per vial. Log dose and Trends show how much of each you took.</p>
+      <H>Stock and batches</H>
+      <p>On the medication's page, <strong>Add</strong> vials or pens to stock with their lot, expiry, supplier and purity. Mixing a new vial takes the one that expires soonest. Tap any vial to add photos of its label or certificate of analysis, and to see the doses taken from it, so you can trace a batch.</p>
+      <H>Supplies</H>
+      <p>Settings → Peptides and injections → <strong>Supplies</strong>. Enter how many syringes, pen needles and swabs you have, and your water. They count down as you log injections and mix vials. The sharps container counts up, and Today reminds you when it's nearly full.</p>
+      <H>On and off cycles</H>
+      <p>In a medication's schedule, tick <strong>On and off cycles</strong>, e.g. 8 weeks on, 4 off, or 5 days on, 2 off. Off days aren't scheduled, and Today shows “Week 3 of 8 on” or “Off until …”.</p>
       <H>Titration</H>
-      <p>On the medication's page, <strong>Plan a titration</strong>: enter the first dose, how much it goes up (or down) each step, how often, and the final dose. Each step is saved as a planned change, switches over on its day and shows in your charts. Remove any step under Planned changes.</p>
+      <p>On the medication's page, <strong>Plan a titration</strong>: the first dose, the step up (or down), how often, and the final dose. Each step is a planned change that switches over on its day, and it's marked on the weight chart.</p>
+      <H>Charts</H>
+      <ul className="list-disc pl-5 space-y-1">
+        <li><strong>Estimated level</strong>: enter a half-life on the medication and Trends estimates the amount in your body from your doses. It's a simple model on the figure you enter, not a measurement.</li>
+        <li><strong>Dose levels</strong>: for each dose you've been on, your weight change, appetite and what you noted in check-ins. Settings can add common injection side effects to check-ins.</li>
+      </ul>
+      <H>Calculator</H>
+      <p>Settings → Peptides and injections → <strong>Peptide calculator</strong>: units for a dose, the dose for a number of units, or the water that makes your dose an easy number of units.</p>
       <H>Check your numbers</H>
-      <p>{APP_NAME} only does sums on the numbers you enter; it doesn't suggest doses. Check the units against the label, your prescriber's directions or your pharmacist, especially the first time. Under 2 units is hard to measure accurately.</p>
+      <p>{APP_NAME} only does sums on the numbers you enter; it doesn't suggest doses. Check against the label, your prescriber's directions or your pharmacist, especially the first time. Under 2 units is hard to measure accurately.</p>
     </>
   ),
+
   scan: (
     <>
       <H>Fill in a medication from its label</H>

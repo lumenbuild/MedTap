@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Calculator, ChevronRight, HardDriveDownload, HelpCircle, Lock, RefreshCw, Syringe, X } from 'lucide-react';
+import { Calculator, ChevronRight, Package, HardDriveDownload, HelpCircle, Lock, RefreshCw, Syringe, X } from 'lucide-react';
 import { useSyncConfig } from '../app/sync';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -20,6 +20,9 @@ import { placeName } from '../components/TravelBanner';
 import { isAndroid, isIOS, isNative, isStandalone } from '../platform';
 
 const RemindersCard = lazy(() => import('./RemindersCard'));
+
+/** Common with GLP-1s and other injections, for the dose-level table in Trends. */
+const SIDE_EFFECT_CHIPS = ['Nausea', 'Reflux', 'Constipation', 'Diarrhoea', 'Injection site reaction', 'Tired'];
 
 const selectCls = 'w-full min-h-[48px] rounded-btn bg-surface-2 border border-border px-3';
 
@@ -129,7 +132,7 @@ export function Settings() {
         <label className="flex items-center justify-between gap-3 min-h-[48px]">
           <span>
             <span className="block font-medium">Peptide and injection tools</span>
-            <span className="block text-sm text-muted">Vials you mix with water, syringe units for each dose, a calculator and titration plans.</span>
+            <span className="block text-sm text-muted">Vials you mix with water, syringe units for each dose, a calculator, titration plans, on/off cycles, supplies and level estimates.</span>
           </span>
           <input type="checkbox" role="switch" checked={settings.peptideTools} onChange={(e) => setSetting('peptideTools', e.target.checked)}
             className="w-6 h-6 accent-[var(--primary)] shrink-0" aria-label="Peptide and injection tools" />
@@ -137,6 +140,17 @@ export function Settings() {
         {settings.peptideTools && (
           <a href="#/calc" className="min-h-[48px] flex items-center gap-3 px-3 rounded-btn bg-surface-2 font-medium">
             <Calculator size={20} className="text-primary" aria-hidden="true" /> <span className="flex-1">Peptide calculator</span> <ChevronRight className="text-muted" aria-hidden="true" />
+          </a>
+        )}
+        {settings.peptideTools && SIDE_EFFECT_CHIPS.some((c) => !settings.chips.includes(c)) && (
+          <button onClick={() => { setSetting('chips', [...settings.chips, ...SIDE_EFFECT_CHIPS.filter((c) => !settings.chips.includes(c))]); toast('Added to check-ins'); }}
+            className="w-full min-h-[48px] px-3 rounded-btn bg-surface-2 font-medium text-left">
+            Add injection side effects to check-ins <span className="block text-sm text-muted font-normal">{SIDE_EFFECT_CHIPS.join(', ')}</span>
+          </button>
+        )}
+        {settings.peptideTools && (
+          <a href="#/supplies" className="min-h-[48px] flex items-center gap-3 px-3 rounded-btn bg-surface-2 font-medium">
+            <Package size={20} className="text-primary" aria-hidden="true" /> <span className="flex-1">Supplies</span> <ChevronRight className="text-muted" aria-hidden="true" />
           </a>
         )}
       </Card>

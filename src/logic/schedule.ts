@@ -1,7 +1,7 @@
 // Pure schedule logic. Every function takes `now` as a parameter so it can be tested; never call Date.now() here.
 // All instants are UTC milliseconds; wall-clock times ('HH:mm') and days are interpreted in settings.tz,
 // on the user's day (which starts at settings.dayStartsAt, not midnight).
-import type { DoseSlot, Dose, Medication } from '../db/schema';
+import type { DoseSlot, Dose, Medication, Schedule } from '../db/schema';
 import { addDays, hhmmToMinutes, zonedParts, zonedToUtc } from './tz';
 
 export interface ScheduleSettings {
@@ -85,6 +85,7 @@ export function isScheduledDay(med: Medication, t: number, s: ScheduleSettings):
   const sc = med.schedule;
   if (sc.type === 'prn') return true;
   const start = getDayBounds(t, s.dayStartsAt, s.tz).start;
+  if (sc.cycle && cycleInfo(sc.cycle, start, s)?.phase === 'off') return false;
   if (sc.everyNDays && sc.everyNDays > 1 && sc.startDate) {
     const { y, m, d } = dayDate(start, s);
     const [sy, sm, sd] = sc.startDate.split('-').map(Number);
@@ -93,6 +94,29 @@ export function isScheduledDay(med: Medication, t: number, s: ScheduleSettings):
   }
   if (sc.days?.length) return sc.days.includes(weekdayOf(start, s));
   return true;
+}
+
+export interface CycleInfo {
+  phase: 'on' | 'off' | 'before';
+  /** 1-based day within this phase, and the phase's length in days. */
+  day: number; length: number;
+  /** Calendar date ('YYYY-MM-DD') the next phase starts. */
+  nextChange: string;
+}
+
+/** Where the user's day starting at `dayStart` falls in an on/off cycle. */
+export function cycleInfo(c: NonNullable<Schedule['cycle']>, dayStart: number, s: ScheduleSettings): CycleInfo | undefined {
+  if (!(c.on >= 1) || !(c.off >= 0)) return undefined;
+  const { y, m, d } = dayDate(dayStart, s);
+  const [sy, sm, sd] = c.start.split('-').map(Number);
+  const diff = Math.round((Date.UTC(y, m - 1, d) - Date.UTC(sy, sm - 1, sd)) / DAY);
+  const ymd = (n: number) => { const x = addDays(y, m, d, n); return `${x.y}-${String(x.m).padStart(2, '0')}-${String(x.d).padStart(2, '0')}`; };
+  if (diff < 0) return { phase: 'before', day: 0, length: 0, nextChange: c.start };
+  const period = c.on + c.off;
+  const k = diff % period;
+  return k < c.on
+    ? { phase: 'on', day: k + 1, length: c.on, nextChange: ymd(c.on - k) }
+    : { phase: 'off', day: k - c.on + 1, length: c.off, nextChange: ymd(period - k) };
 }
 
 /** Start of the next scheduled user day after the one containing `now` (null if none within ~a year). */

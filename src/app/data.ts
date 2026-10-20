@@ -18,6 +18,7 @@ export const useCheckIns = () => useLive(() => db.checkIns.toArray());
 export const useBodyEntries = () => useLive(() => db.bodyEntries.orderBy('date').toArray());
 export const useMedEvents = () => useLive(() => db.medEvents.toArray());
 export const useVitals = () => useLive(() => db.vitals.toArray());
+export const useSupplies = () => useLive(() => db.supplies.toArray());
 export const usePeople = () => useLive(listPeople);
 
 /** The family member being shown, validated against the people list, plus Today's "Everyone" mode. */

@@ -2,6 +2,7 @@ import type { Dose, Medication } from '../../db/schema';
 import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { getDosesToday, getLastDose, getRollingUsage, type ScheduleSettings } from '../../logic/schedule';
 import { fmtAgo, fmtAmount, fmtTime, fmtWhen } from '../../logic/format';
+import { guideText } from '../../logic/peptide';
 import { MedBadge } from '../../components/MedBadge';
 import { Button } from '../../components/ui/Button';
 
@@ -27,6 +28,9 @@ export function PrnCard({ med, doses, s, now, onLog, person, limits = true }: {
           {last ? <>Last taken {fmtAgo(now - Date.parse(last.takenAt))} · {fmtWhen(Date.parse(last.takenAt), now)}</> : 'Not taken yet'}
           {count > 0 && !u && <> · Today: {count}</>}
         </p>
+        {med.peptide && guideText(med, med.defaultAmount) && (
+          <p className="text-sm font-medium tnum">Usual dose {fmtAmount(med.defaultAmount, med.unit)} · {guideText(med, med.defaultAmount)}</p>
+        )}
         {u && (
           <p className={`text-sm tnum ${atLimit || u.gapEndsAt ? 'text-caution font-medium' : 'text-muted'}`}>
             Last 24 h: {u.count}{sc.maxPer24h ? ` of ${sc.maxPer24h}` : ''}

@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { BodyEntry, CheckIn, DeviceValue, Dose, MedEvent, Medication, Person, Photo, Setting, Tag, Vital } from './schema';
+import type { BodyEntry, CheckIn, DeviceValue, Dose, MedEvent, Medication, Person, Photo, Setting, Tag, Vital, Supply } from './schema';
 import { LEGACY_COLOURS } from '../logic/palette';
 
 class MedDB extends Dexie {
@@ -14,6 +14,7 @@ class MedDB extends Dexie {
   device!: Table<DeviceValue, string>;
   people!: Table<Person, string>;
   vitals!: Table<Vital, string>;
+  supplies!: Table<Supply, string>;
 
   constructor() {
     super('medtap');
@@ -39,11 +40,13 @@ class MedDB extends Dexie {
     this.version(4).stores({ people: 'id' });
     // v5: blood pressure and heart rate readings.
     this.version(5).stores({ vitals: 'id, at' });
+    // v6: injection supplies (peptide tools).
+    this.version(6).stores({ supplies: 'id, kind' });
   }
 }
 
 export const db = new MedDB();
 
 /** Every table, in a fixed order. Used by backup, restore and erase. */
-export const TABLES = ['people', 'medications', 'tags', 'doses', 'checkIns', 'bodyEntries', 'vitals', 'medEvents', 'settings', 'photos'] as const;
+export const TABLES = ['people', 'medications', 'tags', 'doses', 'checkIns', 'bodyEntries', 'vitals', 'medEvents', 'settings', 'photos', 'supplies'] as const;
 export type TableName = (typeof TABLES)[number];
