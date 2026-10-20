@@ -1,6 +1,6 @@
 // Writing and reading tags. In the native app this uses our plugin (Android and iPhone);
 // on the website it uses Web NFC, which only Chrome on Android has.
-import { isNative, MedTapNative } from './native';
+import { isNative, MedTapNative, nativePlatform } from './native';
 
 export type NfcErrorKind = 'unavailable' | 'disabled' | 'permission' | 'unsupported-tag' | 'read-only' | 'too-small' | 'timeout' | 'cancelled' | 'io';
 
@@ -85,9 +85,10 @@ async function nativeCall<T>(run: () => Promise<T>, signal?: AbortSignal): Promi
   }
 }
 
-/** Write a single URL record to the next tag held to the phone. */
+/** Write a single URL record to the next tag held to the phone.
+ *  The Android app also adds a record so tapping the tag opens the app; without it, Android hands the link to Chrome. */
 export async function writeUrlToTag(url: string, signal?: AbortSignal): Promise<void> {
-  if (isNative) return nativeCall(() => MedTapNative.nfcWrite({ url, timeoutMs: TIMEOUT_MS }), signal);
+  if (isNative) return nativeCall(() => MedTapNative.nfcWrite({ url, timeoutMs: TIMEOUT_MS, openInApp: nativePlatform === 'android' }), signal);
   if (!hasWebNfc()) throw new NfcError('unavailable');
   const t = withTimeout(signal);
   try {
@@ -99,9 +100,16 @@ export async function writeUrlToTag(url: string, signal?: AbortSignal): Promise<
   }
 }
 
+/** Wait for the next tag and return the first URL on it (null if it has no URL), and, in the Android app,
+ *  whether tapping it opens the app (false for tags written before that, or by the website). */
+export async function readTag(signal?: AbortSignal): Promise<{ url: string | null; opensApp?: boolean }> {
+  if (isNative) return nativeCall(() => MedTapNative.nfcRead({ timeoutMs: TIMEOUT_MS }), signal);
+  return { url: await readUrlFromTag(signal) };
+}
+
 /** Wait for the next tag and return the first URL on it (null if it has no URL). */
 export async function readUrlFromTag(signal?: AbortSignal): Promise<string | null> {
-  if (isNative) return nativeCall(async () => (await MedTapNative.nfcRead({ timeoutMs: TIMEOUT_MS })).url, signal);
+  if (isNative) return (await readTag(signal)).url;
   if (!hasWebNfc()) throw new NfcError('unavailable');
   const t = withTimeout(signal);
   const reader = new NDEFReader();

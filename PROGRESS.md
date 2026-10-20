@@ -96,6 +96,16 @@ skipped doses, refill forecasting, encrypted and automatic backups. Awaiting own
   reason it failed), and the card shows the folder's name. Tests: `tests/autoBackup.test.ts`, plus browser runs of the
   web picker and of the app bundle with a fake native bridge.
 
+## Tags open the Android app (owner report: "tags open the browser, not the app")
+- Cause: Chrome registers NDEF_DISCOVERED for every http/https link, so a tag holding only the link goes to Chrome
+  (or a chooser) even with the app's own NDEF filter. Fix: the Android app writes an Android Application Record
+  (`android.com:pkg` = app.medtap.tracker) after the link record. Android then opens the app directly; iPhones and
+  browsers still use the link (first record). Trade-off: on an Android phone without the app, such a tag opens the
+  Play Store page for the package (not listed) instead of the website.
+- Existing tags: Test this tag (in the app) reports tags without the record and offers **Update this tag**, which
+  rewrites the same link plus the record (still linked). The website's tag page on Android shows "Open in the app"
+  (an intent:// link to the same tag, falling back to the download page).
+
 ## Nicknames (owner request)
 - Optional per-medication `nickname`: shown instead of the real name (and with a plain grey badge/ring) on Today, the
   tag screen, success, timeline, sheets, toasts, refill cards, calendar reminders (title + filename), QR stickers and Trends.

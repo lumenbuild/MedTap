@@ -55,6 +55,7 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
     private boolean resumed = true;
     private PluginCall pending;
     private String writeUrl;
+    private boolean writeAar;
     private final Handler main = new Handler(Looper.getMainLooper());
     private Runnable timeout;
 
@@ -104,6 +105,17 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
         notifyListeners("tag", o, true);
     }
 
+    /** True if the tag carries an Android Application Record for this app, so Android opens the app rather than
+     *  offering the link to a browser (Chrome also claims every web link read from a tag). */
+    private boolean opensThisApp(NdefMessage msg) {
+        if (msg == null) return false;
+        for (NdefRecord r : msg.getRecords()) {
+            if (r.getTnf() == NdefRecord.TNF_EXTERNAL_TYPE && "android.com:pkg".equals(new String(r.getType(), java.nio.charset.StandardCharsets.US_ASCII))
+                && getContext().getPackageName().equals(new String(r.getPayload(), java.nio.charset.StandardCharsets.US_ASCII))) return true;
+        }
+        return false;
+    }
+
     private static String urlFrom(NdefMessage msg) {
         if (msg == null) return null;
         for (NdefRecord r : msg.getRecords()) {
@@ -146,12 +158,12 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
     public void nfcWrite(PluginCall call) {
         String url = call.getString("url");
         if (url == null) { call.reject("No link to write", "io"); return; }
-        begin(call, url);
+        begin(call, url, Boolean.TRUE.equals(call.getBoolean("openInApp", false)));
     }
 
     @PluginMethod
     public void nfcRead(PluginCall call) {
-        begin(call, null);
+        begin(call, null, false);
     }
 
     @PluginMethod
@@ -326,12 +338,13 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
 
     // ---- One write or read at a time ----
 
-    private synchronized void begin(PluginCall call, String url) {
+    private synchronized void begin(PluginCall call, String url, boolean aar) {
         if (adapter == null) { call.reject("This phone has no NFC", "unavailable"); return; }
         if (!adapter.isEnabled()) { call.reject("NFC is turned off", "disabled"); return; }
         finishError("Replaced by a new request", "cancelled");
         pending = call;
         writeUrl = url;
+        writeAar = aar;
         long ms = call.getLong("timeoutMs", 30000L);
         timeout = () -> finishError("No tag found", "timeout");
         main.postDelayed(timeout, ms);
@@ -342,6 +355,7 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
         PluginCall c = pending;
         pending = null;
         writeUrl = null;
+        writeAar = false;
         if (timeout != null) main.removeCallbacks(timeout);
         timeout = null;
         updateReaderMode();
@@ -356,22 +370,26 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
     @Override
     public void onTagDiscovered(Tag tag) {
         String url;
+        boolean aar;
         PluginCall call;
         synchronized (this) {
             url = writeUrl;
+            aar = writeAar;
             call = pending;
         }
         if (call != null && url != null) {
-            write(tag, url);
+            write(tag, url, aar);
             return;
         }
         Ndef ndef = Ndef.get(tag);
-        String found = ndef != null ? urlFrom(ndef.getCachedNdefMessage()) : null;
+        NdefMessage cached = ndef != null ? ndef.getCachedNdefMessage() : null;
+        String found = urlFrom(cached);
         if (call != null) {
             PluginCall c = take();
             if (c != null) {
                 JSObject o = new JSObject();
                 o.put("url", found);
+                o.put("opensApp", opensThisApp(cached));
                 c.resolve(o);
             }
         } else if (listening) {
@@ -379,8 +397,11 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
         }
     }
 
-    private void write(Tag tag, String url) {
-        NdefMessage msg = new NdefMessage(NdefRecord.createUri(url));
+    private void write(Tag tag, String url, boolean aar) {
+        // The link comes first (iPhones and browsers use it); the app record after it makes Android open this app.
+        NdefMessage msg = aar
+            ? new NdefMessage(NdefRecord.createUri(url), NdefRecord.createApplicationRecord(getContext().getPackageName()))
+            : new NdefMessage(NdefRecord.createUri(url));
         Ndef ndef = Ndef.get(tag);
         try {
             if (ndef != null) {

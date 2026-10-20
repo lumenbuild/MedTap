@@ -22,6 +22,14 @@ export function tagUrl(id: string, base = tagBase()): string {
   return `${base}?${TAG_PARAM}=${id}`;
 }
 
+/** Android: a link that opens this tag in the MedTap app, if it's installed (Chrome falls back to the download page).
+ *  Tags written before the app added its "open in app" record open the browser, which shows this link. */
+export function appIntentUrl(id: string, base = tagBase()): string {
+  const url = new URL(tagUrl(id, base));
+  const fallback = encodeURIComponent('https://github.com/lumenbuild/MedTap/releases/tag/android');
+  return `intent://${url.host}${url.pathname}${url.search}#Intent;scheme=${url.protocol.replace(':', '')};package=app.medtap.tracker;S.browser_fallback_url=${fallback};end`;
+}
+
 /** Read the tag ID from a query string. Lenient on purpose: we only generate 8-char IDs,
  *  but accept any URL-safe ID so a tag is never silently ignored. */
 export function parseTagParam(search: string): string | null {

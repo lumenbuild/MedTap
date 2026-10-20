@@ -4,10 +4,12 @@ import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor
 
 export interface MedTapNativePlugin {
   nfcStatus(): Promise<{ supported: boolean; enabled: boolean }>;
-  /** Waits for a tag and writes one URL record to it. Rejects with `code` set to an NfcErrorKind. */
-  nfcWrite(options: { url: string; timeoutMs: number }): Promise<void>;
-  /** Waits for a tag and returns the first URL on it. */
-  nfcRead(options: { timeoutMs: number }): Promise<{ url: string | null }>;
+  // nfcWrite rejects with `code` set to an NfcErrorKind.
+  /** Waits for a tag and writes one URL record to it. Android: `openInApp` adds a record that makes tapping the tag
+   *  open this app instead of the browser. */
+  nfcWrite(options: { url: string; timeoutMs: number; openInApp?: boolean }): Promise<void>;
+  /** Waits for a tag and returns the first URL on it. Android: `opensApp` says whether it has the open-in-app record. */
+  nfcRead(options: { timeoutMs: number }): Promise<{ url: string | null; opensApp?: boolean }>;
   nfcCancel(): Promise<void>;
   /** Android: deliver tag taps to the app while it's open ('tag' events). */
   nfcListen(): Promise<void>;
