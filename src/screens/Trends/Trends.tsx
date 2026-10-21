@@ -12,6 +12,7 @@ import {
 import { GoalForecastCharts } from '../../components/charts/GoalCharts';
 import { BlendCharts, DoseLevelsCards, EstimatedLevelCharts } from '../../components/charts/PeptideCharts';
 import { shownName } from '../../logic/privacy';
+import { HAS_BODY } from '../../edition';
 
 export function Trends() {
   const allMeds = useMeds();
@@ -63,13 +64,17 @@ export function Trends() {
         <Segmented<Range> label="Date range" value={range} onChange={pick}
           options={[{ value: '7d', label: '7D' }, { value: '30d', label: '30D' }, { value: '90d', label: '90D' }, { value: 'all', label: 'All' }]} />
       </div>
-      <GoalForecastCharts goals={fam.people.find((p) => p.id === fam.personId)?.goals ?? []} entries={body} units={settings.units} now={now} />
-      <WeightChart entries={body} units={settings.units} {...common} marks={weightMarks} />
-      <MeasurementCharts entries={body} units={settings.units} {...common} />
+      {HAS_BODY && (
+        <>
+          <GoalForecastCharts goals={fam.people.find((p) => p.id === fam.personId)?.goals ?? []} entries={body} units={settings.units} now={now} />
+          <WeightChart entries={body} units={settings.units} {...common} marks={weightMarks} />
+          <MeasurementCharts entries={body} units={settings.units} {...common} />
+        </>
+      )}
       <AdherenceHeatmap meds={active} doses={doses} {...common} />
       <DoseTimingCharts meds={active} doses={doses} {...common} />
       <FeelingsChart checkIns={checkIns} events={events} meds={meds} prevStart={prevStart} {...common} />
-      <AppetiteWeight checkIns={checkIns} entries={body} units={settings.units} {...common} />
+      <AppetiteWeight checkIns={checkIns} entries={body} units={settings.units} weight={HAS_BODY} {...common} />
       <VitalsCharts vitals={vitals} {...common} />
       <NoticedMost checkIns={checkIns} {...common} />
       <IntervalCharts meds={active} doses={doses} {...common} />

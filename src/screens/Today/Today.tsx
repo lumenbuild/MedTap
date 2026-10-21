@@ -33,6 +33,7 @@ import { PrnCard } from './PrnCard';
 import { Timeline } from './Timeline';
 import { DoseEditSheet } from './DoseEditSheet';
 import { AutoBackupPermission, BackupReminder, CheckInPrompt, InstallCard } from './PromptCards';
+import { HAS_BODY, HAS_PEPTIDES } from '../../edition';
 
 export function Today() {
   const meds = useMeds();
@@ -147,7 +148,7 @@ export function Today() {
 
       {promptDose && <CheckInPrompt dose={promptDose} med={medMap.get(promptDose.medicationId)} now={now} onCheckIn={() => setCheckIn({ relatedDoseId: promptDose.id })} />}
       <RefillCards alerts={refills} settings={settings} now={now} />
-      <VialAlerts meds={viewMeds} doses={doses} now={now} />
+      {HAS_PEPTIDES && <VialAlerts meds={viewMeds} doses={doses} now={now} />}
       {settings.peptideTools && supplies && <SupplyAlerts alerts={supplyAlerts(supplies, meds, doses)} />}
 
       {prn.length > 0 && (
@@ -158,13 +159,15 @@ export function Today() {
       )}
 
       {fam.everyone ? (
-        <p className="text-sm text-muted text-center px-4">Choose a person above to check in or log weight or blood pressure for them.</p>
+        <p className="text-sm text-muted text-center px-4">Choose a person above to check in or log {HAS_BODY ? 'weight or ' : ''}blood pressure for them.</p>
       ) : (
-      <div className="grid grid-cols-4 gap-2" aria-label={fam.many ? `Quick actions for ${fam.person}` : 'Quick actions'}>
+      <div className={`grid ${HAS_BODY ? 'grid-cols-4' : 'grid-cols-2'} gap-2`} aria-label={fam.many ? `Quick actions for ${fam.person}` : 'Quick actions'}>
         {([
           ['Check in', 'Check in', Smile, () => setCheckIn({})],
-          ['Weight', 'Log weight', Scale, () => setBodySheet({ kind: 'weight' })],
-          ['Measure', 'Add measurement', Ruler, () => setBodySheet({ kind: 'measure' })],
+          ...(HAS_BODY ? [
+            ['Weight', 'Log weight', Scale, () => setBodySheet({ kind: 'weight' })],
+            ['Measure', 'Add measurement', Ruler, () => setBodySheet({ kind: 'measure' })],
+          ] as const : []),
           ['BP and pulse', 'Log blood pressure and pulse', HeartPulse, () => setVitalSheet({})],
         ] as const).map(([label, name, Icon, on]) => (
           <button key={label} onClick={on} aria-label={name} className="bg-surface rounded-card shadow-card min-h-[80px] flex flex-col items-center justify-center gap-1.5 px-1 text-sm font-medium text-center leading-tight">
@@ -174,13 +177,13 @@ export function Today() {
       </div>
       )}
 
-      {!fam.everyone && <GoalLines goals={fam.people.find((p) => p.id === fam.personId)?.goals ?? []} entries={viewBody} units={settings.units} now={now} />}
+      {HAS_BODY && !fam.everyone && <GoalLines goals={fam.people.find((p) => p.id === fam.personId)?.goals ?? []} entries={viewBody} units={settings.units} now={now} />}
 
       {needsBackup(settings.lastBackupAt, firstRecord, now, settings.backupReminderDays) && <BackupReminder days={settings.backupReminderDays} />}
       <AutoBackupPermission enabled={settings.autoBackupEnabled} />
       <InstallCard hasDoses={doses.some((d) => !d.deletedAt)} dismissed={settings.installCardDismissed} />
 
-      <Timeline doses={viewDoses} checkIns={viewCheckIns} body={viewBody} vitals={viewVitals} onVital={(v) => setVitalSheet({ editing: v })} meds={viewMedMap} s={s} units={settings.units} now={now} personLabel={fam.everyone ? whose : undefined}
+      <Timeline doses={viewDoses} checkIns={viewCheckIns} body={HAS_BODY ? viewBody : []} vitals={viewVitals} onVital={(v) => setVitalSheet({ editing: v })} meds={viewMedMap} s={s} units={settings.units} now={now} personLabel={fam.everyone ? whose : undefined}
         onDose={setEditing} onCheckIn={(c: CheckIn) => setCheckIn({ editing: c })} onBody={(b: BodyEntry) => setBodySheet({ kind: 'edit', entry: b })} />
 
       <a href="#/backup" className="flex flex-wrap items-center justify-center gap-x-2 min-h-[48px] text-sm text-muted tnum">

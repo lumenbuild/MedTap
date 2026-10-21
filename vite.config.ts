@@ -28,6 +28,8 @@ function ocrAssets(): Plugin {
       });
     },
     generateBundle() {
+      // The Android build checks this matches the app it's building (android/app/build.gradle).
+      if (native) this.emitFile({ type: 'asset', fileName: 'edition.txt', source: tapdose ? 'tapdose' : 'medtap' });
       for (const f of OCR_FILES) {
         // Android's packager unzips .gz assets and drops the extension, so app builds ship the language data
         // uncompressed under its plain name (and src/app/ocr.ts asks for that name in the app).
@@ -42,35 +44,50 @@ function ocrAssets(): Plugin {
 const base = process.env.BASE_PATH ?? '/';
 // NATIVE=1 builds for the iOS/Android app: no service worker (the app ships its files itself).
 const native = !!process.env.NATIVE;
+// VITE_EDITION=tapdose builds TapDose (see src/edition.ts); otherwise MedTap. TapDose's website lives in tapdose/ under
+// MedTap's, so MedTap's service worker must leave that folder alone.
+const tapdose = process.env.VITE_EDITION === 'tapdose';
+const brand = tapdose
+  ? { name: 'TapDose', icons: 'icons/tapdose/', theme: '#5B3FD1', description: 'Log doses with an NFC tap, see when the next one is due, and track how you feel. Your data stays on your phone.' }
+  : { name: 'MedTap', icons: 'icons/', theme: '#0B7A75', description: 'Log doses with an NFC tap and track how you feel. Your data stays on your phone.' };
+
+/** index.html carries __APP_NAME__, __THEME__, __ICONS__ and __EDITION__ for the edition being built. */
+function brandHtml(): Plugin {
+  return {
+    name: 'brand-html',
+    transformIndexHtml: (html) => html.replaceAll('__APP_NAME__', brand.name).replaceAll('__THEME__', brand.theme).replaceAll('__ICONS__', brand.icons).replaceAll('__EDITION__', tapdose ? 'tapdose' : 'medtap'),
+  };
+}
 
 export default defineConfig({
   base,
   plugins: [
     react(),
     ocrAssets(),
+    brandHtml(),
     VitePWA({
       disable: native,
       registerType: 'prompt',
-      includeAssets: ['icons/apple-touch-icon.png', 'icons/icon.svg'],
+      includeAssets: [`${brand.icons}apple-touch-icon.png`, `${brand.icons}icon.svg`],
       manifest: {
-        name: 'MedTap',
-        short_name: 'MedTap',
-        description: 'Log doses with an NFC tap and track how you feel. Your data stays on your phone.',
-        theme_color: '#0B7A75',
+        name: brand.name,
+        short_name: brand.name,
+        description: brand.description,
+        theme_color: brand.theme,
         background_color: '#F6F7F9',
         display: 'standalone',
         start_url: base,
         scope: base,
         icons: [
-          { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: 'icons/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: `${brand.icons}icon-192.png`, sizes: '192x192', type: 'image/png' },
+          { src: `${brand.icons}icon-512.png`, sizes: '512x512', type: 'image/png' },
+          { src: `${brand.icons}maskable-512.png`, sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,woff}'],
         navigateFallback: `${base}index.html`,
-        navigateFallbackDenylist: [/^\/404\.html$/],
+        navigateFallbackDenylist: [/^\/404\.html$/, ...(tapdose ? [] : [new RegExp(`^${base}tapdose/`)])],
         // The label reader is big; it's cached the first time someone scans a label, not up front.
         globIgnores: ['ocr/**'],
         runtimeCaching: [{ urlPattern: /\/ocr\//, handler: 'CacheFirst', options: { cacheName: 'ocr', expiration: { maxEntries: 10 } } }],

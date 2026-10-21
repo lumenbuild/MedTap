@@ -18,6 +18,7 @@ import { hashPin, isValidPin, newSalt } from '../logic/pin';
 import { FamilyCard } from './Family';
 import { placeName } from '../components/TravelBanner';
 import { isAndroid, isIOS, isNative, isStandalone } from '../platform';
+import { HAS_BODY, HAS_PEPTIDES } from '../edition';
 
 const RemindersCard = lazy(() => import('./RemindersCard'));
 
@@ -120,14 +121,16 @@ export function Settings() {
           </select>
           <p className="text-sm text-muted">Worked out from your stock count and your schedule, including planned changes.</p>
         </div>
-        <div className="space-y-1.5">
-          <span className="block text-sm font-medium">Units</span>
-          <Segmented<Units> label="Units" value={settings.units} onChange={(v) => setSetting('units', v)}
-            options={[{ value: 'metric', label: 'kg and cm' }, { value: 'imperial', label: 'lb and in' }]} />
-        </div>
+        {HAS_BODY && (
+          <div className="space-y-1.5">
+            <span className="block text-sm font-medium">Units</span>
+            <Segmented<Units> label="Units" value={settings.units} onChange={(v) => setSetting('units', v)}
+              options={[{ value: 'metric', label: 'kg and cm' }, { value: 'imperial', label: 'lb and in' }]} />
+          </div>
+        )}
       </Card>
 
-      <Card className="space-y-3">
+      {HAS_PEPTIDES && <Card className="space-y-3">
         <h2 className="text-lg font-semibold flex items-center gap-2"><Syringe size={18} aria-hidden="true" /> Peptides and injections</h2>
         <label className="flex items-center justify-between gap-3 min-h-[48px]">
           <span>
@@ -153,7 +156,7 @@ export function Settings() {
             <Package size={20} className="text-primary" aria-hidden="true" /> <span className="flex-1">Supplies</span> <ChevronRight className="text-muted" aria-hidden="true" />
           </a>
         )}
-      </Card>
+      </Card>}
 
       <Card className="space-y-4">
         <h2 className="text-lg font-semibold">Check-ins</h2>
@@ -269,7 +272,7 @@ export function Settings() {
 
       <Sheet open={eraseSheet} onClose={() => setEraseSheet(false)} title="Erase all data?">
         <div className="space-y-4">
-          <p>This removes every medication, dose, check-in, body entry, photo and tag link from this phone. It can't be undone.</p>
+          <p>This removes every medication, dose, check-in, {HAS_BODY ? 'body entry, photo' : 'blood pressure reading'} and tag link from this phone. It can't be undone.</p>
           <Button className="w-full" onClick={() => { setEraseSheet(false); go('/backup'); }}>Back up first</Button>
           <TextInput label="Type ERASE to confirm" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" autoCapitalize="characters" />
           <Button variant="danger" className="w-full min-h-[56px]" disabled={typed.trim() !== 'ERASE'}

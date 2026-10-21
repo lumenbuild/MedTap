@@ -1,6 +1,7 @@
 // Family sync: phones that share a family key exchange encrypted snapshots of their records and merge them.
 // Only phones with the key can read a snapshot: the relay (or whatever carries the file) sees random bytes.
 import type { BackupFile } from './backup';
+import { APP_NAME } from '../config';
 
 const MAGIC = new TextEncoder().encode('MTS1');
 const enc = new TextEncoder();
@@ -73,7 +74,7 @@ export class SyncError extends Error {
 }
 
 export async function openSnapshot(bytes: Uint8Array<ArrayBuffer>, key: string): Promise<Snapshot> {
-  if (bytes.length < 32 || MAGIC.some((b, i) => bytes[i] !== b)) throw new SyncError('not-sync', "This isn't a MedTap family update.");
+  if (bytes.length < 32 || MAGIC.some((b, i) => bytes[i] !== b)) throw new SyncError('not-sync', `This isn't a ${APP_NAME} family update.`);
   const iv = bytes.slice(MAGIC.length, MAGIC.length + 12);
   let plain: ArrayBuffer;
   try {

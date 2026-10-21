@@ -17,6 +17,22 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Two apps from one project (see src/edition.ts): MedTap (everything) and TapDose (medications and ADHD support).
+    // Each installs separately and opens only its own tags. Build the matching web app first:
+    // `npm run build:native` then assembleMedtapRelease, or `npm run build:native:tapdose` then assembleTapdoseRelease.
+    flavorDimensions = ["edition"]
+    productFlavors {
+        medtap {
+            dimension "edition"
+            applicationId "app.medtap.tracker"
+            manifestPlaceholders = [tagPath: "/MedTap/"]
+        }
+        tapdose {
+            dimension "edition"
+            applicationId "app.tapdose.tracker"
+            manifestPlaceholders = [tagPath: "/MedTap/tapdose/"]
+        }
+    }
     // Release builds are signed with the keystore in MEDTAP_KEYSTORE (CI writes it from repository secrets).
     // Keep the same key forever: Android only installs an update signed with the key the app was first installed with.
     signingConfigs {
@@ -58,6 +74,22 @@ dependencies {
 }
 
 apply from: 'capacitor.build.gradle'
+
+// The web app in assets/ must be the same edition as the app being built, or MedTap could ship TapDose's screens.
+android.applicationVariants.configureEach { variant ->
+    def flavor = variant.flavorName
+    def check = tasks.register("check${variant.name.capitalize()}Edition") {
+        doLast {
+            def f = file('src/main/assets/public/edition.txt')
+            def built = f.exists() ? f.text.trim() : 'missing'
+            if (built != flavor) {
+                throw new GradleException("The web app in assets is '${built}', not '${flavor}'. Run " +
+                    (flavor == 'tapdose' ? "npm run build:native:tapdose" : "npm run build:native") + " first.")
+            }
+        }
+    }
+    variant.preBuildProvider.configure { dependsOn check }
+}
 
 try {
     def servicesJSON = file('google-services.json')

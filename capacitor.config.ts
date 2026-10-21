@@ -1,14 +1,16 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
-// The native apps load the same web app, built with `npm run build:native` into dist-native/.
+// The native apps load the same web app, built with `npm run build:native` (or build:native:tapdose) into dist-native/.
+// TapDose is a second Android app from the same code (see src/edition.ts and the flavours in android/app/build.gradle).
+const tapdose = process.env.VITE_EDITION === 'tapdose';
 const config: CapacitorConfig = {
-  appId: 'app.medtap.tracker',
-  appName: 'MedTap',
+  appId: tapdose ? 'app.tapdose.tracker' : 'app.medtap.tracker',
+  appName: tapdose ? 'TapDose' : 'MedTap',
   webDir: 'dist-native',
   android: { allowMixedContent: false },
   ios: { contentInset: 'never' },
   plugins: {
-    LocalNotifications: { smallIcon: 'ic_stat_medtap', iconColor: '#0B7A75' },
+    LocalNotifications: { smallIcon: 'ic_stat_medtap', iconColor: tapdose ? '#5B3FD1' : '#0B7A75' },
   },
 };
 

@@ -1,7 +1,8 @@
 name: Native apps
 # Builds the Android app (APK) and checks the iOS app compiles, on every push.
-# Android: with the MEDTAP_KEYSTORE_BASE64 and MEDTAP_KEYSTORE_PASSWORD secrets set, builds a signed release
-# and, on the default branch, publishes it as the "Android app" release so phones can download it.
+# Android: builds both apps, MedTap and TapDose. With the MEDTAP_KEYSTORE_BASE64 and MEDTAP_KEYSTORE_PASSWORD secrets
+# set, they're signed releases, and on the default branch they're published as the "android" and "tapdose-android"
+# releases so phones can download them.
 on:
   push:
   workflow_dispatch:
@@ -25,26 +26,36 @@ jobs:
         with: { distribution: temurin, java-version: 21 }
       - run: npm ci
       - run: npm test
-      - run: npm run build:native
-      - name: Build signed release
+      # Two apps (see src/edition.ts): MedTap, then TapDose. Each needs its own web build in the app's assets first.
+      - name: Build signed releases
         if: env.HAS_KEY == 'true'
         env:
           MEDTAP_KEYSTORE_PASSWORD: ${{ secrets.MEDTAP_KEYSTORE_PASSWORD }}
         run: |
           echo "${{ secrets.MEDTAP_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/medtap.keystore"
           export MEDTAP_KEYSTORE="$RUNNER_TEMP/medtap.keystore"
-          cd android && ./gradlew --no-daemon assembleRelease
-          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/MedTap.apk"
+          npm run build:native
+          (cd android && ./gradlew --no-daemon assembleMedtapRelease)
+          cp android/app/build/outputs/apk/medtap/release/app-medtap-release.apk "$RUNNER_TEMP/MedTap.apk"
+          npm run build:native:tapdose
+          (cd android && ./gradlew --no-daemon assembleTapdoseRelease)
+          cp android/app/build/outputs/apk/tapdose/release/app-tapdose-release.apk "$RUNNER_TEMP/TapDose.apk"
       - name: Build debug (no signing key set)
         if: env.HAS_KEY != 'true'
         run: |
-          cd android && ./gradlew --no-daemon assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/MedTap-debug.apk"
+          npm run build:native
+          (cd android && ./gradlew --no-daemon assembleMedtapDebug)
+          cp android/app/build/outputs/apk/medtap/debug/app-medtap-debug.apk "$RUNNER_TEMP/MedTap-debug.apk"
+          npm run build:native:tapdose
+          (cd android && ./gradlew --no-daemon assembleTapdoseDebug)
+          cp android/app/build/outputs/apk/tapdose/debug/app-tapdose-debug.apk "$RUNNER_TEMP/TapDose-debug.apk"
       - uses: actions/upload-artifact@v4
         with:
-          name: MedTap-android
-          path: ${{ runner.temp }}/MedTap*.apk
-      - name: Publish the Android app
+          name: android-apps
+          path: |
+            ${{ runner.temp }}/MedTap*.apk
+            ${{ runner.temp }}/TapDose*.apk
+      - name: Publish the Android apps
         if: env.HAS_KEY == 'true' && github.ref_name == github.event.repository.default_branch
         env:
           GH_TOKEN: ${{ github.token }}
@@ -53,6 +64,10 @@ jobs:
           gh release create android "$RUNNER_TEMP/MedTap.apk" --target "$GITHUB_SHA" --latest \
             --title "MedTap for Android (build ${{ github.run_number }})" \
             --notes "Download MedTap.apk on your Android phone and open it to install. Updates install over the top and keep your data."
+          gh release delete tapdose-android --yes --cleanup-tag || true
+          gh release create tapdose-android "$RUNNER_TEMP/TapDose.apk" --target "$GITHUB_SHA" --latest=false \
+            --title "TapDose for Android (build ${{ github.run_number }})" \
+            --notes "Download TapDose.apk on your Android phone and open it to install. Updates install over the top and keep your data."
 
   ios:
     runs-on: macos-latest

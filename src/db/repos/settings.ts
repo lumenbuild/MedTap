@@ -1,6 +1,7 @@
 import { db } from '../db';
 import { deviceTimeZone } from '../../logic/tz';
 import type { ScheduleSettings } from '../../logic/schedule';
+import { HAS_PEPTIDES } from '../../edition';
 
 export type Units = 'metric' | 'imperial';
 
@@ -86,6 +87,7 @@ export async function getSettings(): Promise<AppSettings> {
   const rows = await db.settings.toArray();
   const out = { ...DEFAULT_SETTINGS } as Record<string, unknown>;
   for (const r of rows) if (r.key in DEFAULT_SETTINGS) out[r.key] = r.value;
+  if (!HAS_PEPTIDES) out.peptideTools = false; // e.g. after restoring a MedTap backup into TapDose
   return out as unknown as AppSettings;
 }
 

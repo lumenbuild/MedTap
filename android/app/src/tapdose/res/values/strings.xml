@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- TapDose's name; everything else comes from src/main. -->
+<resources>
+    <string name="app_name">TapDose</string>
+    <string name="title_activity_main">TapDose</string>
+    <string name="package_name">app.tapdose.tracker</string>
+    <string name="custom_url_scheme">app.tapdose.tracker</string>
+</resources>

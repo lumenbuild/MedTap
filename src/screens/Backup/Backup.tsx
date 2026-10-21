@@ -22,6 +22,7 @@ import { APP_NAME } from '../../config';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Sheet } from '../../components/ui/Sheet';
+import { HAS_BODY } from '../../edition';
 
 const LABELS: Record<string, string> = {
   medications: 'medications', tags: 'tags', doses: 'doses', checkIns: 'check-ins', bodyEntries: 'body entries',
@@ -215,7 +216,7 @@ export function Backup() {
       <Card className="space-y-2">
         <h2 className="text-lg font-semibold">Spreadsheets</h2>
         <p className="text-sm text-muted">CSV files you can open in Excel, Numbers or Google Sheets. These can't be restored.</p>
-        {([['doses', 'Doses'], ['checkIns', 'Check-ins'], ['body', 'Weight and measurements'], ['vitals', 'Blood pressure and heart rate'], ['meds', 'Medications']] as const).map(([k, label]) => (
+        {([['doses', 'Doses'], ['checkIns', 'Check-ins'], ...(HAS_BODY ? [['body', 'Weight and measurements'] as const] : []), ['vitals', 'Blood pressure and heart rate'], ['meds', 'Medications']] as const).map(([k, label]) => (
           <button key={k} onClick={() => exportCsv(k)} className="w-full min-h-[48px] flex items-center gap-3 px-3 rounded-btn bg-surface-2 text-left font-medium">
             <FileSpreadsheet size={20} className="text-primary" aria-hidden="true" /> {label}
           </button>
@@ -229,7 +230,7 @@ export function Backup() {
               Made {pending.backup.exportedAt ? fmtWhen(Date.parse(pending.backup.exportedAt), now) : 'at an unknown time'}. It contains:
             </p>
             <ul className="grid grid-cols-2 gap-x-4 gap-y-1 tnum">
-              {Object.entries(pending.counts).filter(([k]) => k !== 'settings').map(([k, n]) => <li key={k}>{n} {LABELS[k] ?? k}</li>)}
+              {Object.entries(pending.counts).filter(([k]) => k !== 'settings' && (HAS_BODY || !['bodyEntries', 'photos'].includes(k))).map(([k, n]) => <li key={k}>{n} {LABELS[k] ?? k}</li>)}
             </ul>
             {!confirmReplace ? (
               <>

@@ -1,9 +1,11 @@
-import { CalendarCheck, LineChart, Pill, Scale } from 'lucide-react';
+import { CalendarCheck, HeartPulse, LineChart, Pill, Scale } from 'lucide-react';
+import { HAS_BODY } from '../edition';
 
 const tabs = [
   { path: '/today', label: 'Today', Icon: CalendarCheck },
   { path: '/trends', label: 'Trends', Icon: LineChart },
-  { path: '/body', label: 'Body', Icon: Scale },
+  // TapDose has no weight or measurements; the tab holds blood pressure and heart rate only.
+  HAS_BODY ? { path: '/body', label: 'Body', Icon: Scale } : { path: '/body', label: 'Vitals', Icon: HeartPulse },
   { path: '/meds', label: 'Meds', Icon: Pill },
 ];
 

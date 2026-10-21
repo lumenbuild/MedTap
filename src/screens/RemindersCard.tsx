@@ -4,6 +4,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useToast } from '../app/toast';
 import { allowExactReminders, exactRemindersAllowed, reminderPermission, setRemindersEnabled, type ReminderPermission } from '../app/native';
+import { APP_NAME } from '../config';
 
 /** Native app only: phone notifications when doses are due. */
 export default function RemindersCard({ enabled }: { enabled: boolean }) {
@@ -18,7 +19,7 @@ export default function RemindersCard({ enabled }: { enabled: boolean }) {
 
   const toggle = async () => {
     const on = await setRemindersEnabled(!enabled);
-    if (!enabled && !on) toast('Notifications are turned off for MedTap. Turn them on in your phone’s settings.');
+    if (!enabled && !on) toast(`Notifications are turned off for ${APP_NAME}. Turn them on in your phone’s settings.`);
     refresh();
   };
 

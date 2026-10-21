@@ -5,6 +5,8 @@
 // │ Changing the parameter name, the path, or the domain breaks every tag      │
 // │ people have already stuck on their medication.                             │
 // └────────────────────────────────────────────────────────────────────────────┘
+import { edition, releasePage } from '../edition';
+
 export const TAG_PARAM = 't';
 
 /** Where tag URLs point. Set VITE_TAG_BASE (e.g. https://meds.example.com/) for production builds. */
@@ -22,12 +24,12 @@ export function tagUrl(id: string, base = tagBase()): string {
   return `${base}?${TAG_PARAM}=${id}`;
 }
 
-/** Android: a link that opens this tag in the MedTap app, if it's installed (Chrome falls back to the download page).
+/** Android: a link that opens this tag in the Android app, if it's installed (Chrome falls back to the download page).
  *  Tags written before the app added its "open in app" record open the browser, which shows this link. */
 export function appIntentUrl(id: string, base = tagBase()): string {
   const url = new URL(tagUrl(id, base));
-  const fallback = encodeURIComponent('https://github.com/lumenbuild/MedTap/releases/tag/android');
-  return `intent://${url.host}${url.pathname}${url.search}#Intent;scheme=${url.protocol.replace(':', '')};package=app.medtap.tracker;S.browser_fallback_url=${fallback};end`;
+  const fallback = encodeURIComponent(releasePage);
+  return `intent://${url.host}${url.pathname}${url.search}#Intent;scheme=${url.protocol.replace(':', '')};package=${edition.androidId};S.browser_fallback_url=${fallback};end`;
 }
 
 /** Read the tag ID from a query string. Lenient on purpose: we only generate 8-char IDs,
