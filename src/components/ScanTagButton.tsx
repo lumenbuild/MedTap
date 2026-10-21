@@ -4,6 +4,7 @@ import { nfcErrorText, NfcError, readUrlFromTag } from '../nfc/write';
 import { tagIdFromUrl } from '../nfc/url';
 import { go } from '../app/router';
 import { useToast } from '../app/toast';
+import { APP_NAME } from '../config';
 
 /** iPhone app: iPhones only read tags for an app while it's asking, so Today has a Scan tag button. */
 export function ScanTagButton() {
@@ -18,7 +19,7 @@ export function ScanTagButton() {
       const url = await readUrlFromTag(ctrl.current.signal);
       const id = url ? tagIdFromUrl(url) : null;
       if (id) go(`/tag/${encodeURIComponent(id)}`);
-      else toast(url ? "That tag isn't a MedTap tag." : 'That tag is blank. Link it to a medication first.');
+      else toast(url ? `That tag isn't a ${APP_NAME} tag.` : 'That tag is blank. Link it to a medication first.');
     } catch (e) {
       if (!(e instanceof NfcError && e.kind === 'cancelled')) toast(nfcErrorText(e));
     } finally {

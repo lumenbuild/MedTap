@@ -13,14 +13,34 @@ small plugin of our own (`native/medtap-native`) for the things a website can't 
 Tags don't change: they still hold `https://lumenbuild.github.io/MedTap/?t=<ID>`, so the same tags work with
 the website and the app.
 
+## Two apps: MedTap and TapDose
+
+The same code builds two apps (`src/edition.ts`, chosen with `VITE_EDITION` at build time):
+
+| | MedTap | TapDose |
+|---|---|---|
+| For | Everything | Medications and ADHD support |
+| Leaves out | Nothing | Peptide tools, weight, measurements, goals, progress photos |
+| Website | lumenbuild.github.io/MedTap/ | lumenbuild.github.io/MedTap/tapdose/ |
+| Tags hold | `…/MedTap/?t=<ID>` | `…/MedTap/tapdose/?t=<ID>` |
+| Android app | `app.medtap.tracker` (release **android**) | `app.tapdose.tracker` (release **tapdose-android**) |
+| Colour | Teal | Violet |
+
+Each keeps its own data, even on the same website, and opens only its own tags. A fix in shared code reaches both.
+Both Android apps are signed with the same key. TapDose isn't set up for iPhone yet.
+
 ## Build
 
 ```sh
 npm ci
-npm run build:native   # builds the web app into dist-native/ and copies it into android/ and ios/
+npm run build:native           # MedTap: builds the web app into dist-native/ and copies it into android/ and ios/
+npm run build:native:tapdose   # TapDose: the same, Android only
 ```
 
-Then open `android/` in Android Studio, or `ios/App/App.xcodeproj` in Xcode.
+Then open `android/` in Android Studio and pick the **medtap** or **tapdose** build variant to match the last web
+build (the build stops with a message if they don't match), or open `ios/App/App.xcodeproj` in Xcode (MedTap).
+From the command line: `cd android && ./gradlew assembleMedtapRelease` (or `assembleTapdoseRelease`).
+TapDose's icons: `node scripts/make-icons.mjs tapdose` and `node scripts/make-native-icons.mjs tapdose`.
 
 ## Android
 
@@ -38,7 +58,9 @@ to uninstall the app (losing its data unless they back up first) to install a ne
 
 With the secrets set, each push to the default branch publishes `MedTap.apk` as the **android** release:
 `https://github.com/lumenbuild/MedTap/releases/download/android/MedTap.apk`. Open that on an Android phone to
-install or update. Without the secrets, CI still builds an unsigned debug APK as a workflow artifact.
+install or update. TapDose is published the same way as the **tapdose-android** release:
+`https://github.com/lumenbuild/MedTap/releases/download/tapdose-android/TapDose.apk`. Without the secrets, CI still
+builds unsigned debug APKs of both as a workflow artifact.
 
 To make a keystore yourself:
 

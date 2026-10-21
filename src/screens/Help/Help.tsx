@@ -4,12 +4,13 @@ import { isNative } from '../../platform';
 import { APP_NAME, DISCLAIMER } from '../../config';
 import { tagBase } from '../../nfc/url';
 import { Card } from '../../components/ui/Card';
+import { apkDownload, edition, HAS_BODY, HAS_PEPTIDES } from '../../edition';
 
 const TOPICS = [
   { id: 'schedules', title: 'Setting up a schedule', Icon: CalendarClock },
   { id: 'scan', title: 'Scanning a pharmacy label', Icon: ScanText },
-  { id: 'goals', title: 'Goals and forecasts', Icon: Target },
-  { id: 'peptides', title: 'Peptides and injections', Icon: Syringe },
+  ...(HAS_BODY ? [{ id: 'goals', title: 'Goals and forecasts', Icon: Target }] as const : []),
+  ...(HAS_PEPTIDES ? [{ id: 'peptides', title: 'Peptides and injections', Icon: Syringe }] as const : []),
   { id: 'family', title: 'Family members', Icon: Users },
   { id: 'sync', title: 'Family sync', Icon: RefreshCw },
   { id: 'tags', title: 'Which tags work', Icon: Nfc },
@@ -38,7 +39,8 @@ export function Help({ topic }: { topic?: string }) {
       </ul>
     );
   }
-  return <Card className="space-y-4 help-prose">{CONTENT[topic] ?? <p>That help page doesn't exist.</p>}</Card>;
+  const page = TOPICS.some((t) => t.id === topic) ? CONTENT[topic] : undefined;
+  return <Card className="space-y-4 help-prose">{page ?? <p>That help page doesn't exist.</p>}</Card>;
 }
 
 const H = ({ children }: { children: ReactNode }) => <h2 className="text-lg font-semibold">{children}</h2>;
@@ -116,7 +118,7 @@ const CONTENT: Record<string, ReactNode> = {
   sync: (
     <>
       <H>Keep phones the same</H>
-      <p>Family sync shares {APP_NAME}'s records between your phones and your family's: medications, doses, check-ins, weight, blood pressure and tags. A dose logged on one phone shows on the others, and stock counts include doses logged on every phone. Photos and settings stay on each phone.</p>
+      <p>Family sync shares {APP_NAME}'s records between your phones and your family's: medications, doses, check-ins, {HAS_BODY ? 'weight, ' : ''}blood pressure and tags. A dose logged on one phone shows on the others, and stock counts include doses logged on every phone. {HAS_BODY ? 'Photos and settings stay' : 'Settings stay'} on each phone.</p>
       <H>Setting it up</H>
       <ol className="list-decimal pl-5 space-y-1">
         <li>On one phone: Settings → Family sync. Enter your name and tap <strong>Start family sync</strong>.</li>
@@ -134,7 +136,7 @@ const CONTENT: Record<string, ReactNode> = {
     <>
       <H>Tracking for more than one person</H>
       <p>Go to Settings → Family members → <strong>Add a family member</strong>. You start as “Me”, which you can rename.</p>
-      <p>Each person has their own medications, check-ins, weight, measurements, blood pressure, photos, charts and doctor report. Choose who to show with the names at the top of Today, Trends, Body and Meds.</p>
+      <p>Each person has their own medications, check-ins, {HAS_BODY ? 'weight, measurements, blood pressure, photos' : 'blood pressure'}, charts and doctor report. Choose who to show with the names at the top of Today, Trends, {HAS_BODY ? 'Body' : 'Vitals'} and Meds.</p>
       <p>On Today, <strong>Everyone</strong> shows every person's medications at once, each card labelled with whose it is. Handy when you're giving doses to several people.</p>
       <H>Tags</H>
       <p>A tag always belongs to one person's medication. When it's tapped, the screen says <strong>For Sam</strong> (or whoever) in large text, so a dose is never logged against the wrong person. Calendar reminders include the name too.</p>
@@ -225,7 +227,7 @@ const CONTENT: Record<string, ReactNode> = {
     <>
       <H>The {APP_NAME} app</H>
       <p>There's also an installable app. It sends dose reminders, writes tags on iPhone and Android, and on Android a tag tap opens it even when it's closed.</p>
-      <p><strong>Android:</strong> download MedTap.apk from github.com/lumenbuild/MedTap/releases on your phone and open it. Android asks you to allow installing from your browser the first time.</p>
+      <p><strong>Android:</strong> on your phone, open <a className="text-primary underline break-all" href={apkDownload}>{apkDownload.replace('https://', '')}</a> and open the downloaded {edition.apk}. Android asks you to allow installing from your browser the first time. Updates install over the top and keep your data.</p>
       <p>Tags written by the Android app open the app. Older tags, or ones written from the website, open Chrome instead. To fix one, open the medication in the app, tap the tag, then <strong>Test this tag</strong> → <strong>Update this tag</strong>. It stays linked.</p>
       <p><strong>iPhone:</strong> the app needs to be signed with an Apple Developer account before it can be installed (see NATIVE.md in {APP_NAME}'s code).</p>
       <p>The app keeps its own data. To move across, back up here (Settings → Backup and restore) and restore the file in the app. Or turn on family sync in both.</p>
@@ -264,7 +266,7 @@ const CONTENT: Record<string, ReactNode> = {
         <li>Nothing leaves the phone unless you export it (backups, spreadsheets, calendar events and printed reports) or turn on family sync, which encrypts everything first.</li>
         <li>Backup files are encrypted, so opening one (or a cloud drive or email preview) shows only scrambled text. Any copy of {APP_NAME} can restore them without a password, so treat them like the data itself: keep them somewhere private.</li>
         <li>Automatic backups (where the browser allows) only ever go to the folder you choose.</li>
-        <li>Progress photos are stored on this phone and never uploaded. Label photos are read on the phone and not kept.</li>
+        <li>{HAS_BODY ? 'Progress photos are stored on this phone and never uploaded. ' : ''}Label photos are read on the phone and not kept.</li>
         <li>Give a medication a <strong>nickname</strong> (on its page in Meds) and that's what shows on Today, when its tag is tapped, in calendar reminders and on Trends, with a plain grey icon. The real name only shows on the medication's own page, in the doctor report (you can choose nicknames there too) and in spreadsheet exports. For everything else, use the app lock.</li>
       </ul>
       <H>What could lose your data</H>

@@ -22,11 +22,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Tapping a MedTap tag opens the app, even when it's closed (tags hold https://lumenbuild.github.io/MedTap/?t=ID). -->
+            <!-- Tapping one of this app's tags opens it, even when it's closed. Tags hold https://lumenbuild.github.io/MedTap/?t=ID
+                 (MedTap) or https://lumenbuild.github.io/MedTap/tapdose/?t=ID (TapDose); tagPath is set per app in build.gradle. -->
             <intent-filter>
                 <action android:name="android.nfc.action.NDEF_DISCOVERED" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:scheme="https" android:host="lumenbuild.github.io" android:pathPrefix="/MedTap" />
+                <data android:scheme="https" android:host="lumenbuild.github.io" android:path="${tagPath}" />
             </intent-filter>
 
             <!-- QR stickers and links can open the app too (Android asks which app to use). -->
@@ -34,7 +35,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="lumenbuild.github.io" android:pathPrefix="/MedTap" />
+                <data android:scheme="https" android:host="lumenbuild.github.io" android:path="${tagPath}" />
             </intent-filter>
 
         </activity>

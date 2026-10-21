@@ -1,6 +1,7 @@
 import Dexie, { type Table } from 'dexie';
 import type { BodyEntry, CheckIn, DeviceValue, Dose, MedEvent, Medication, Person, Photo, Setting, Tag, Vital, Supply } from './schema';
 import { LEGACY_COLOURS } from '../logic/palette';
+import { edition } from '../edition';
 
 class MedDB extends Dexie {
   medications!: Table<Medication, string>;
@@ -17,7 +18,7 @@ class MedDB extends Dexie {
   supplies!: Table<Supply, string>;
 
   constructor() {
-    super('medtap');
+    super(edition.dbName); // each edition keeps its own data, even on the same website
     // Add new versions below with .upgrade() migrations; never edit a shipped version.
     this.version(1).stores({
       medications: 'id, name, archived',

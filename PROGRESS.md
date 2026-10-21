@@ -96,6 +96,20 @@ skipped doses, refill forecasting, encrypted and automatic backups. Awaiting own
   reason it failed), and the card shows the folder's name. Tests: `tests/autoBackup.test.ts`, plus browser runs of the
   web picker and of the app bundle with a fake native bridge.
 
+## Two editions: MedTap and TapDose (owner request)
+- One codebase, two apps (owner chose one repo; `src/edition.ts`, `VITE_EDITION=tapdose`). TapDose ("general
+  medication / ADHD support") never shows or mentions peptides, weight, measurements, goals or progress photos; it
+  keeps blood pressure and heart rate (Body tab becomes **Vitals**), check-ins (appetite chart without weight),
+  reminders, tags, family, sync, backups and the doctor report. Peptide tools are forced off even after restoring
+  a MedTap backup.
+- Separate everything: name, violet colour and icons, website `/MedTap/tapdose/` (MedTap's service worker ignores
+  that folder), IndexedDB `tapdose`, tag links `…/MedTap/tapdose/?t=ID` (PERMANENT, like MedTap's), Android
+  `app.tapdose.tracker` via the `tapdose` product flavour, release `tapdose-android`. MedTap's NFC/link filters are
+  now exact-path `/MedTap/` so they don't catch TapDose's links. A Gradle check stops an app being built with the
+  other edition's web files.
+- Tested: `tests/edition.test.ts`; a browser scan of every TapDose screen and Help page for forbidden words (none);
+  MedTap and TapDose data kept apart on the same site; both Android flavours build with the right id, name and tag path.
+
 ## Tags open the Android app (owner report: "tags open the browser, not the app")
 - Cause: Chrome registers NDEF_DISCOVERED for every http/https link, so a tag holding only the link goes to Chrome
   (or a chooser) even with the app's own NDEF filter. Fix: the Android app writes an Android Application Record

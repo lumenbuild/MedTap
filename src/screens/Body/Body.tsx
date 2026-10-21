@@ -12,6 +12,7 @@ import { ProgressPhotos } from './ProgressPhotos';
 import { VitalsCard } from './VitalsCard';
 import { GoalsSection } from './Goals';
 import { useNow } from '../../app/useNow';
+import { HAS_BODY } from '../../edition';
 
 const fmtYmd = (ymd: string) => (ymd === todayYmd() ? 'Today' : format(new Date(`${ymd}T12:00`), 'EEE d MMM yyyy'));
 
@@ -22,6 +23,13 @@ export function Body() {
   const [sheet, setSheet] = useState<BodySheetState>(null);
   const now = useNow(60_000);
   if (!settings || !all || !fam) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
+
+  if (!HAS_BODY) return (
+    <div className="space-y-4">
+      <PersonSwitcher />
+      <VitalsCard personId={fam.personId} />
+    </div>
+  );
 
   const units = settings.units;
   const entries = all.filter((b) => !b.deletedAt && personOf(b) === fam.personId).sort((a, b) => b.date.localeCompare(a.date));

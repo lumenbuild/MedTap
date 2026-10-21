@@ -14,6 +14,7 @@ import { getDailyTarget } from '../../logic/schedule';
 import { fmtWeight } from '../../logic/units';
 import { Button } from '../../components/ui/Button';
 import { AdherenceHeatmap, DoseTimingCharts, FeelingsChart, VitalsCharts, WeightChart } from '../../components/charts/Charts';
+import { HAS_BODY } from '../../edition';
 
 const ymd = (ms: number) => format(ms, 'yyyy-MM-dd');
 const SOURCE: Record<string, string> = { tag: 'Tag', manual: 'In app', backdated: 'Logged later' };
@@ -77,7 +78,7 @@ export function Report() {
           </label>
         )}
         {!valid && <p className="text-sm text-danger" role="alert">The start date is after the end date.</p>}
-        <Button className="w-full min-h-[56px] flex items-center justify-center gap-2" onClick={() => printPage('MedTap report')} disabled={!valid}>
+        <Button className="w-full min-h-[56px] flex items-center justify-center gap-2" onClick={() => printPage(`${APP_NAME} report`)} disabled={!valid}>
           <Printer size={20} aria-hidden="true" /> Print / Save as PDF
         </Button>
         <p className="text-sm text-muted">In the print dialog, choose “Save as PDF” to get a file you can email or bring to an appointment.</p>
@@ -140,21 +141,21 @@ export function Report() {
           </section>
 
           <section className="bg-surface rounded-card shadow-card p-5 report-block">
-            <h2 className="text-lg font-semibold mb-2">Check-ins and body</h2>
+            <h2 className="text-lg font-semibold mb-2">{HAS_BODY ? 'Check-ins and body' : 'Check-ins'}</h2>
             <dl className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm tnum">
               <div><dt className="text-muted">Check-ins</dt><dd className="font-semibold">{nCheckIns}</dd></div>
               <div><dt className="text-muted">Average mood (1–5)</dt><dd className="font-semibold">{avg('mood')}</dd></div>
               <div><dt className="text-muted">Average energy</dt><dd className="font-semibold">{avg('energy')}</dd></div>
               <div><dt className="text-muted">Average focus</dt><dd className="font-semibold">{avg('focus')}</dd></div>
               <div><dt className="text-muted">Average appetite</dt><dd className="font-semibold">{avg('appetite')}</dd></div>
-              <div><dt className="text-muted">Weight</dt><dd className="font-semibold">{weights.length ? `${fmtWeight(weights[0].weightKg!, settings.units)} → ${fmtWeight(weights[weights.length - 1].weightKg!, settings.units)}` : '–'}</dd></div>
+              {HAS_BODY && <div><dt className="text-muted">Weight</dt><dd className="font-semibold">{weights.length ? `${fmtWeight(weights[0].weightKg!, settings.units)} → ${fmtWeight(weights[weights.length - 1].weightKg!, settings.units)}` : '–'}</dd></div>}
             </dl>
           </section>
 
           <div className="report-block"><AdherenceHeatmap meds={usedMeds} doses={doses} start={start} end={end} s={s} realNames={realNames} /></div>
           <div className="report-block"><DoseTimingCharts meds={usedMeds} doses={doses} start={start} end={end} s={s} realNames={realNames} /></div>
           <div className="report-block"><FeelingsChart checkIns={checkIns} events={events} meds={meds} start={start} end={end} s={s} prevStart={null} realNames={realNames} /></div>
-          <div className="report-block"><WeightChart entries={body} units={settings.units} start={start} end={end} s={s} /></div>
+          {HAS_BODY && <div className="report-block"><WeightChart entries={body} units={settings.units} start={start} end={end} s={s} /></div>}
           <div className="report-block"><VitalsCharts vitals={vitals} start={start} end={end} s={s} /></div>
 
           <section className="bg-surface rounded-card shadow-card p-5 report-block">

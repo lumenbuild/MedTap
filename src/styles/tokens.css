@@ -32,6 +32,23 @@
   --shadow-card: 0 1px 2px rgba(0,0,0,.3);
 }
 
+/* TapDose (data-edition set in index.html at build time): violet instead of teal. Light: 6.8:1 for white text on
+   --primary; dark: 7:1 for --on-primary on --primary. */
+:root[data-edition="tapdose"] {
+  --primary: #5B3FD1; --primary-hover: #4A30B8; --on-primary: #FFFFFF;
+  --primary-soft: #ECE8FB;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-edition="tapdose"]:not([data-theme="light"]) {
+    --primary: #A897F5; --primary-hover: #B9AAF8; --on-primary: #1A1240;
+    --primary-soft: #221A45;
+  }
+}
+:root[data-edition="tapdose"][data-theme="dark"] {
+  --primary: #A897F5; --primary-hover: #B9AAF8; --on-primary: #1A1240;
+  --primary-soft: #221A45;
+}
+
 /* Medication / chart series colours: a validated categorical palette (CVD-safe adjacent order),
    stepped separately for light and dark surfaces. Ink is the icon colour that contrasts most. */
 :root {

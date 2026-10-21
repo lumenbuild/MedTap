@@ -222,10 +222,11 @@ export function FeelingsChart({ checkIns, events, meds, start, end, s, prevStart
 }
 
 // 6. Appetite and weight: two charts on the same dates (never one chart with two scales).
-export function AppetiteWeight({ checkIns, entries, start, end, s, units }: RangeProps & { checkIns: CheckIn[]; entries: BodyEntry[]; units: Units }) {
+/** Appetite from check-ins beside the weight trend. `weight={false}` (TapDose) shows appetite alone. */
+export function AppetiteWeight({ checkIns, entries, start, end, s, units, weight = true }: RangeProps & { checkIns: CheckIn[]; entries: BodyEntry[]; units: Units; weight?: boolean }) {
   const th = useChartTheme();
   const app = dailyAverages(checkIns, 'appetite', start, end, s);
-  const all = bodySeries(entries, 'weightKg', -Infinity, Infinity);
+  const all = weight ? bodySeries(entries, 'weightKg', -Infinity, Infinity) : [];
   const w = rollingAverage(all).filter((p) => p.t >= start - DAY / 2 && p.t <= end + DAY / 2);
   const appAvg = average(checkIns, 'appetite', start, end);
   const summary = [appAvg !== null ? `Appetite averaged ${appAvg.toFixed(1)}` : null, changeSummary(w, (v) => fmtWeight(v, units))].filter(Boolean).join('. ');
@@ -242,14 +243,16 @@ export function AppetiteWeight({ checkIns, entries, start, end, s, units }: Rang
     </div>
   );
   return (
-    <ChartCard title="Appetite and weight" height={null} key={th.key}
-      empty={app.length || w.length ? null : 'Log appetite in a check-in and your weight to compare them here.'}
+    <ChartCard title={weight ? 'Appetite and weight' : 'Appetite'} height={null} key={th.key}
+      empty={app.length || w.length ? null : weight ? 'Log appetite in a check-in and your weight to compare them here.' : 'Log appetite in a check-in to see it here.'}
       summary={summary || null}
-      table={{ head: ['Date', 'Appetite (avg)', `Weight 7-day avg (${weightUnit(units)})`],
-        rows: [...new Set([...app, ...w].map((p) => p.t))].sort((a, b) => b - a).map((t) => [fmtDay(t), app.find((p) => p.t === t)?.v.toFixed(1) ?? '–', w.find((p) => p.t === t) ? kgTo(w.find((p) => p.t === t)!.v, units) : '–']) }}>
+      table={weight
+        ? { head: ['Date', 'Appetite (avg)', `Weight 7-day avg (${weightUnit(units)})`],
+          rows: [...new Set([...app, ...w].map((p) => p.t))].sort((a, b) => b - a).map((t) => [fmtDay(t), app.find((p) => p.t === t)?.v.toFixed(1) ?? '–', w.find((p) => p.t === t) ? kgTo(w.find((p) => p.t === t)!.v, units) : '–']) }
+        : { head: ['Date', 'Appetite (avg)'], rows: [...app].sort((a, b) => b.t - a.t).map((p) => [fmtDay(p.t), p.v.toFixed(1)]) }}>
       <div className="space-y-4">
         {mini('Appetite (daily average, 1–5)', app, th.series[1], { min: 1, max: 5, ticks: { ...baseOptions(th).scales.y.ticks, stepSize: 1 } }, (v) => `Appetite ${v.toFixed(1)}`)}
-        {mini(`Weight (7-day average, ${weightUnit(units)})`, w.map((p) => ({ t: p.t, v: kgTo(p.v, units) })), th.series[0], { grace: '5%' }, (v) => `${v.toFixed(1)} ${weightUnit(units)}`)}
+        {weight && mini(`Weight (7-day average, ${weightUnit(units)})`, w.map((p) => ({ t: p.t, v: kgTo(p.v, units) })), th.series[0], { grace: '5%' }, (v) => `${v.toFixed(1)} ${weightUnit(units)}`)}
       </div>
     </ChartCard>
   );

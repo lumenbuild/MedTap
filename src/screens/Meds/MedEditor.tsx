@@ -34,6 +34,7 @@ import { VialCard } from './VialCard';
 import { DrawGuide, syringeSizes } from '../../components/Syringe';
 import { SYRINGES } from '../../logic/peptide';
 import type { LabelDetails } from '../../logic/label';
+import { HAS_PEPTIDES } from '../../edition';
 
 const UNITS = ['mg', 'mcg', 'mL', 'units', 'tablet'];
 const FORMS = ['tablet', 'capsule', 'liquid', 'patch', 'injection', 'other'];
@@ -266,7 +267,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
         }} />
       )}
       {existing && <TagsSection med={existing} />}
-      {existing?.peptide && !existing.archived && <VialCard med={existing} />}
+      {HAS_PEPTIDES && existing?.peptide && !existing.archived && <VialCard med={existing} />}
       {existing && !existing.archived && <PlannedChanges med={existing} />}
       {existing && !existing.archived && settings?.peptideTools && <TitrationCard med={existing} />}
       {existing && !existing.archived && <BottlesSection med={existing} />}
@@ -283,7 +284,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
         <Select label="Form" value={f.form} onChange={(e) => set('form', e.target.value)}>
           {FORMS.map((x) => <option key={x} value={x}>{x[0].toUpperCase() + x.slice(1)}</option>)}
         </Select>
-        {(f.mixed || (settings?.peptideTools && f.form === 'injection')) && <MixedVialFields f={f} set={set} errors={errors} vials={existing?.vials} />}
+        {HAS_PEPTIDES && (f.mixed || (settings?.peptideTools && f.form === 'injection')) && <MixedVialFields f={f} set={set} errors={errors} vials={existing?.vials} />}
         {fam?.many && (
           <Select label="Who is this for?" value={f.personId || fam.personId} onChange={(e) => set('personId', e.target.value)}
             help={f.personId === 'shared' ? "One stock count for everyone. When it's logged, you choose who took it, and each person's count and history are their own." : undefined}>

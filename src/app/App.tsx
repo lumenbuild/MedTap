@@ -21,6 +21,7 @@ import { UpdatePrompt } from './UpdatePrompt';
 import { useMaintenance } from './maintenance';
 import { ScanTagButton } from '../components/ScanTagButton';
 import { isNativeIOS } from '../platform';
+import { HAS_BODY, HAS_PEPTIDES } from '../edition';
 
 // Charts are the heaviest code; load them only when Trends or the report is opened, so tag taps stay fast.
 const Trends = lazy(() => import('../screens/Trends/Trends').then((m) => ({ default: m.Trends })));
@@ -31,7 +32,7 @@ function title(r: Route): string {
   switch (r.name) {
     case 'today': return 'Today';
     case 'trends': return 'Trends';
-    case 'body': return 'Body';
+    case 'body': return HAS_BODY ? 'Body' : 'Vitals';
     case 'meds': return 'Meds';
     case 'settings': return 'Settings';
     case 'medNew': return 'Add medication';
@@ -41,8 +42,8 @@ function title(r: Route): string {
     case 'help': return helpTitle(r.topic);
     case 'sync': return 'Family sync';
     case 'join': return 'Join family sync';
-    case 'calc': return 'Peptide calculator';
-    case 'supplies': return 'Supplies';
+    case 'calc': return HAS_PEPTIDES ? 'Peptide calculator' : 'Today';
+    case 'supplies': return HAS_PEPTIDES ? 'Supplies' : 'Today';
     default: return '';
   }
 }
@@ -72,8 +73,8 @@ function Screen({ r }: { r: Route }) {
     case 'help': return <Help topic={r.topic} />;
     case 'sync': return <Sync />;
     case 'join': return <JoinSync code={r.code} />;
-    case 'calc': return <PeptideCalc />;
-    case 'supplies': return <Supplies />;
+    case 'calc': return HAS_PEPTIDES ? <PeptideCalc /> : <Today />;
+    case 'supplies': return HAS_PEPTIDES ? <Supplies /> : <Today />;
     default: return <Today />;
   }
 }

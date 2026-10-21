@@ -12,6 +12,7 @@ import { personRecordCount, renamePerson } from '../db/repos/people';
 import { setSetting } from '../db/repos/settings';
 import { DEFAULT_PERSON } from '../db/schema';
 import { familyId, newFamilyKey, openSnapshot, sealSnapshot, writeToken, type Invite, type Snapshot } from '../logic/sync';
+import { APP_NAME } from '../config';
 
 export interface SyncPeer { name: string; exportedAt: string; seen: number }
 
@@ -126,7 +127,7 @@ async function makeSnapshot(c: SyncConfig): Promise<Snapshot> {
 /** Merge another phone's snapshot into this one. */
 export async function mergeSnapshot(snap: Snapshot) {
   const v = validateBackup(snap, db.verno);
-  if (!v.ok) throw new Error(v.error.includes('newer') ? 'Another phone has a newer version of MedTap. Update this one to keep syncing.' : v.error);
+  if (!v.ok) throw new Error(v.error.includes('newer') ? `Another phone has a newer version of ${APP_NAME}. Update this one to keep syncing.` : v.error);
   await importBackup(v.backup, 'merge');
   await recountAll();
 }

@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "build:native": "NATIVE=1 VITE_TAG_BASE=https://lumenbuild.github.io/MedTap/ vite build --outDir dist-native && cap sync"
+    "build:native": "NATIVE=1 VITE_TAG_BASE=https://lumenbuild.github.io/MedTap/ vite build --outDir dist-native && cap sync",
+    "build:native:tapdose": "VITE_EDITION=tapdose NATIVE=1 VITE_TAG_BASE=https://lumenbuild.github.io/MedTap/tapdose/ vite build --outDir dist-native && cap sync android"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.2",
