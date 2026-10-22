@@ -21,7 +21,7 @@ import { isIOS, isStandalone } from '../../platform';
 import { APP_NAME } from '../../config';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Sheet } from '../../components/ui/Sheet';
+import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { HAS_BODY } from '../../edition';
 
 const LABELS: Record<string, string> = {
@@ -234,15 +234,19 @@ export function Backup() {
             </ul>
             {!confirmReplace ? (
               <>
-                <Button className="w-full min-h-[56px]" onClick={() => restore('merge')} disabled={busy}>Merge with this phone</Button>
-                <p className="text-sm text-muted">Keeps everything already here and adds what's missing. Where both have the same record, the newer edit wins.</p>
-                <Button variant="secondary" className="w-full" onClick={() => setConfirmReplace(true)} disabled={busy}>Replace this phone's data</Button>
+                <p className="text-sm text-muted"><strong className="text-text">Merge</strong> keeps everything already here and adds what's missing. Where both have the same record, the newer edit wins.</p>
+                <SheetActions>
+                  <Button className="w-full min-h-[56px]" onClick={() => restore('merge')} disabled={busy}>Merge with this phone</Button>
+                  <Button variant="secondary" className="w-full" onClick={() => setConfirmReplace(true)} disabled={busy}>Replace this phone's data</Button>
+                </SheetActions>
               </>
             ) : (
               <>
                 <p className="rounded-btn bg-caution-soft p-3">Everything currently on this phone will be removed and replaced with the backup. This can't be undone.</p>
-                <Button variant="danger" className="w-full min-h-[56px]" onClick={() => restore('replace')} disabled={busy}>Replace everything</Button>
-                <Button variant="secondary" className="w-full" onClick={() => setConfirmReplace(false)}>Go back</Button>
+                <SheetActions>
+                  <Button variant="danger" className="w-full min-h-[56px]" onClick={() => restore('replace')} disabled={busy}>Replace everything</Button>
+                  <Button variant="secondary" className="w-full" onClick={() => setConfirmReplace(false)}>Go back</Button>
+                </SheetActions>
               </>
             )}
           </div>

@@ -4,7 +4,7 @@ import { addVital, removeVital, restoreVital, updateVital } from '../db/repos/vi
 import { storedPerson } from '../db/repos/people';
 import { fmtTime, fmtWhen, fromLocalInput, toLocalInput } from '../logic/format';
 import { useToast } from '../app/toast';
-import { Sheet } from './ui/Sheet';
+import { Sheet, SheetActions } from './ui/Sheet';
 import { Button } from './ui/Button';
 
 /** "120/80 mmHg · 72 bpm" */
@@ -90,7 +90,9 @@ function VitalsForm({ editing, onClose, personId }: { editing?: Vital; onClose: 
         </div>
         {(sys || dia || hr) && error && <p className="text-sm text-danger" role="alert">{error}</p>}
         <p className="text-sm text-muted">For comparable readings, measure seated and rested, at a similar time of day.</p>
-        <Button className="w-full min-h-[56px]" onClick={save} disabled={!!error}>{editing ? 'Save changes' : 'Save reading'}</Button>
+        <SheetActions>
+          <Button className="w-full min-h-[56px]" onClick={save} disabled={!!error}>{editing ? 'Save changes' : 'Save reading'}</Button>
+        </SheetActions>
         {editing && <Button variant="danger" className="w-full" onClick={del}>Delete this reading</Button>}
         {editing && <p className="text-xs text-muted text-center tnum">Recorded {fmtWhen(Date.parse(editing.at), Date.now())}</p>}
       </div>

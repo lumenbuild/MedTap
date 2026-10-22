@@ -9,7 +9,7 @@ import { personOf } from '../../db/repos/people';
 import { useToast } from '../../app/toast';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Sheet } from '../../components/ui/Sheet';
+import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { todayYmd } from '../../components/BodySheets';
 
 const fmtYmd = (ymd: string) => format(new Date(`${ymd}T12:00`), 'd MMM yyyy');
@@ -82,10 +82,12 @@ export function ProgressPhotos({ personId }: { personId: string }) {
         {viewing && (
           <div className="space-y-4">
             <img src={urls.get(viewing.id)} alt={`Progress photo, ${fmtYmd(viewing.date)}`} className="w-full rounded-btn" />
-            <Button variant="danger" className="w-full" onClick={async () => {
-              const id = viewing.id; await removePhoto(id); setViewing(null);
-              toast('Photo deleted', { onAction: () => restorePhoto(id) });
-            }}>Delete photo</Button>
+            <SheetActions>
+              <Button variant="danger" className="w-full" onClick={async () => {
+                const id = viewing.id; await removePhoto(id); setViewing(null);
+                toast('Photo deleted', { onAction: () => restorePhoto(id) });
+              }}>Delete photo</Button>
+            </SheetActions>
           </div>
         )}
       </Sheet>

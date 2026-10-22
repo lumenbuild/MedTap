@@ -9,7 +9,7 @@ import { useToast } from '../../app/toast';
 import { APP_NAME } from '../../config';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Sheet } from '../../components/ui/Sheet';
+import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { TextInput } from '../../components/ui/Field';
 import { ScheduleFields, scheduleFormFromMed, scheduleFromForm, validateSchedule, type ScheduleErrors, type ScheduleForm } from './ScheduleFields';
 
@@ -83,7 +83,9 @@ function PlanChangeSheet({ med, onClose }: { med: Medication; onClose: () => voi
         <ScheduleFields f={f} set={set} errors={errors} unit={med.unit} />
         <TextInput label="Note (optional)" placeholder="e.g. Week 2 of taper, per Dr Lee" value={note} onChange={(e) => setNote(e.target.value)} />
         <p className="text-sm text-muted">For a taper, add one change for each step. Enter what your prescriber told you.</p>
-        <Button className="w-full min-h-[56px]" onClick={save}>Save planned change</Button>
+        <SheetActions>
+          <Button className="w-full min-h-[56px]" onClick={save}>Save planned change</Button>
+        </SheetActions>
       </div>
     </Sheet>
   );

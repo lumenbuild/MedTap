@@ -15,7 +15,7 @@ import { tagBase } from '../nfc/url';
 import { canShare } from '../platform';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Sheet } from '../components/ui/Sheet';
+import { Sheet, SheetActions } from '../components/ui/Sheet';
 import { TextArea, TextInput } from '../components/ui/Field';
 import { HAS_BODY } from '../edition';
 
@@ -68,12 +68,14 @@ function SyncOff() {
         <div className="space-y-3">
           <p>On the phone that started family sync, open Settings → Family sync → <strong>Invite a phone</strong>. Scan its QR code with this phone's camera, or paste the invite here.</p>
           <TextArea label="Invite" rows={3} value={code} onChange={(e) => setCode(e.target.value)} error={code.trim() && !invite ? "That isn't a complete invite. Copy it again." : undefined} />
-          <Button className="w-full min-h-[56px]" disabled={!invite || !name.trim()} onClick={async () => {
-            if (!invite) return;
-            await join(invite, name);
-            setJoining(false);
-            toast('Joined. Records will merge when the phones sync.');
-          }}>Join</Button>
+          <SheetActions>
+            <Button className="w-full min-h-[56px]" disabled={!invite || !name.trim()} onClick={async () => {
+              if (!invite) return;
+              await join(invite, name);
+              setJoining(false);
+              toast('Joined. Records will merge when the phones sync.');
+            }}>Join</Button>
+          </SheetActions>
         </div>
       </Sheet>
     </div>
@@ -170,7 +172,9 @@ function SyncOn({ cfg }: { cfg: SyncConfig }) {
       <Sheet open={leaving} onClose={() => setLeaving(false)} title="Stop syncing on this phone?">
         <div className="space-y-3">
           <p>Everything stays on this phone, but it won't get changes from the other phones any more. To join again, you'll need a new invite.</p>
-          <Button variant="danger" className="w-full min-h-[56px]" onClick={async () => { await leaveSync(); setLeaving(false); toast('Family sync is off on this phone'); }}>Stop syncing</Button>
+          <SheetActions>
+            <Button variant="danger" className="w-full min-h-[56px]" onClick={async () => { await leaveSync(); setLeaving(false); toast('Family sync is off on this phone'); }}>Stop syncing</Button>
+          </SheetActions>
         </div>
       </Sheet>
     </div>
@@ -188,14 +192,16 @@ function InviteSheet({ open, onClose, invite }: { open: boolean; onClose: () => 
         <p className="rounded-btn bg-caution-soft p-3 text-sm">{WARNING}</p>
         <p>On the other phone, scan this with the camera. It opens {APP_NAME} and asks to join.</p>
         {qr && <img src={qr} alt="Invite QR code" className="w-64 h-64 mx-auto rounded-btn bg-white p-2" />}
-        <Button variant="secondary" className="w-full flex items-center justify-center gap-2" onClick={async () => {
-          try { await navigator.clipboard.writeText(link); toast('Invite copied. Send it privately.'); } catch { toast("Couldn't copy"); }
-        }}><Copy size={18} aria-hidden="true" /> Copy invite</Button>
-        {canShare && (
-          <Button variant="secondary" className="w-full flex items-center justify-center gap-2" onClick={() => navigator.share({ title: `${APP_NAME} family invite`, url: link }).catch(() => {})}>
-            <Share2 size={18} aria-hidden="true" /> Share invite
-          </Button>
-        )}
+        <SheetActions>
+          <Button variant="secondary" className="w-full flex items-center justify-center gap-2" onClick={async () => {
+            try { await navigator.clipboard.writeText(link); toast('Invite copied. Send it privately.'); } catch { toast("Couldn't copy"); }
+          }}><Copy size={18} aria-hidden="true" /> Copy invite</Button>
+          {canShare && (
+            <Button variant="secondary" className="w-full flex items-center justify-center gap-2" onClick={() => navigator.share({ title: `${APP_NAME} family invite`, url: link }).catch(() => {})}>
+              <Share2 size={18} aria-hidden="true" /> Share invite
+            </Button>
+          )}
+        </SheetActions>
       </div>
     </Sheet>
   );

@@ -3,7 +3,7 @@ import { Calculator, ChevronRight, Package, HardDriveDownload, HelpCircle, Lock,
 import { useSyncConfig } from '../app/sync';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Sheet } from '../components/ui/Sheet';
+import { Sheet, SheetActions } from '../components/ui/Sheet';
 import { Segmented, TextInput } from '../components/ui/Field';
 import { getTheme, setTheme, type Theme } from '../app/theme';
 import { APP_NAME, DISCLAIMER } from '../config';
@@ -275,8 +275,10 @@ export function Settings() {
           <p>This removes every medication, dose, check-in, {HAS_BODY ? 'body entry, photo' : 'blood pressure reading'} and tag link from this phone. It can't be undone.</p>
           <Button className="w-full" onClick={() => { setEraseSheet(false); go('/backup'); }}>Back up first</Button>
           <TextInput label="Type ERASE to confirm" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" autoCapitalize="characters" />
-          <Button variant="danger" className="w-full min-h-[56px]" disabled={typed.trim() !== 'ERASE'}
-            onClick={async () => { await eraseAll(); window.location.replace(window.location.pathname); }}>Erase everything</Button>
+          <SheetActions>
+            <Button variant="danger" className="w-full min-h-[56px]" disabled={typed.trim() !== 'ERASE'}
+              onClick={async () => { await eraseAll(); window.location.replace(window.location.pathname); }}>Erase everything</Button>
+          </SheetActions>
         </div>
       </Sheet>
     </div>
@@ -309,7 +311,9 @@ function PinSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
         <TextInput label="New PIN (4 to 6 digits)" {...pinProps} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} autoFocus />
         <TextInput label="Enter it again" {...pinProps} value={confirm} onChange={(e) => setConfirm(e.target.value.replace(/\D/g, ''))} error={tried ? err : undefined} />
         <p className="text-sm text-muted">If you forget it, the only way back in is to erase this phone's data and restore a backup.</p>
-        <Button className="w-full min-h-[56px]" onClick={save}>Turn on app lock</Button>
+        <SheetActions>
+          <Button className="w-full min-h-[56px]" onClick={save}>Turn on app lock</Button>
+        </SheetActions>
       </div>
     </Sheet>
   );

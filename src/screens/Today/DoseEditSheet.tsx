@@ -3,7 +3,7 @@ import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import type { Dose, Medication } from '../../db/schema';
 import { removeDose, restoreDose, updateDose } from '../../db/repos/doses';
 import { fmtAmount, fmtTime, fromLocalInput, toLocalInput } from '../../logic/format';
-import { Sheet } from '../../components/ui/Sheet';
+import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { Stepper } from '../../components/ui/Stepper';
 import { Button } from '../../components/ui/Button';
 import { useToast } from '../../app/toast';
@@ -37,11 +37,13 @@ function DoseEditForm({ dose, med, onClose }: { dose: Dose; med?: Medication; on
       <Sheet open onClose={onClose} title={med ? `${shownName(med)}: skipped` : 'Skipped dose'}>
         <div className="space-y-4">
           <p className="tnum">Marked as skipped for {fmtTime(Date.parse(dose.takenAt))}.{dose.skipReason ? ` ${dose.skipReason}.` : ''}</p>
-          <Button variant="danger" className="w-full" onClick={async () => {
-            await removeDose(dose.id);
-            toast('Skip removed', { onAction: () => restoreDose(dose.id) });
-            onClose();
-          }}>Remove this skip</Button>
+          <SheetActions>
+            <Button variant="danger" className="w-full" onClick={async () => {
+              await removeDose(dose.id);
+              toast('Skip removed', { onAction: () => restoreDose(dose.id) });
+              onClose();
+            }}>Remove this skip</Button>
+          </SheetActions>
         </div>
       </Sheet>
     );
@@ -60,7 +62,9 @@ function DoseEditForm({ dose, med, onClose }: { dose: Dose; med?: Medication; on
             className="w-full min-h-[48px] rounded-btn bg-surface-2 border border-border px-3 tnum" />
         </label>
         {error && <p className="text-sm text-danger" role="alert">{error}</p>}
-        <Button className="w-full min-h-[56px]" onClick={save} disabled={!!error}>Save changes</Button>
+        <SheetActions>
+          <Button className="w-full min-h-[56px]" onClick={save} disabled={!!error}>Save changes</Button>
+        </SheetActions>
         <Button variant="danger" className="w-full" onClick={del}>Delete this dose</Button>
       </div>
     </Sheet>

@@ -18,7 +18,7 @@ import { fmtAmount } from '../../logic/format';
 import { APP_NAME } from '../../config';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Sheet } from '../../components/ui/Sheet';
+import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { Segmented, Select, TextArea, TextInput } from '../../components/ui/Field';
 import { MedBadge, MED_ICON_COMPONENTS } from '../../components/MedBadge';
 import { describeChange } from '../../logic/plans';
@@ -394,8 +394,10 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
               <input type="date" value={change.date} max={format(Date.now(), 'yyyy-MM-dd')} onChange={(e) => setChange({ ...change, date: e.target.value })}
                 className="w-full min-h-[48px] rounded-btn bg-surface-2 border border-border px-3 tnum" />
             </label>
-            <Button className="w-full min-h-[56px]" disabled={!change.date} onClick={() => { const c = change; setChange(null); save(c); }}>Save and record change</Button>
-            <Button variant="secondary" className="w-full" onClick={() => { setChange(null); save(); }}>Just save</Button>
+            <SheetActions>
+              <Button className="w-full min-h-[56px]" disabled={!change.date} onClick={() => { const c = change; setChange(null); save(c); }}>Save and record change</Button>
+              <Button variant="secondary" className="w-full" onClick={() => { setChange(null); save(); }}>Just save</Button>
+            </SheetActions>
           </div>
         )}
       </Sheet>
@@ -405,10 +407,12 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
           <div className="space-y-4">
             <p>This deletes {existing.name}, every dose logged for it, and its tag links. It can't be undone. To keep its history, archive it instead.</p>
             <TextInput label={`Type ${existing.name} to confirm`} value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
-            <Button variant="danger" className="w-full min-h-[56px]" disabled={typed.trim() !== existing.name}
-              onClick={async () => { await deleteMedForever(existing.id); setConfirmDelete(false); toast(`Deleted ${existing.name}`); replace('/meds'); }}>
-              Delete permanently
-            </Button>
+            <SheetActions>
+              <Button variant="danger" className="w-full min-h-[56px]" disabled={typed.trim() !== existing.name}
+                onClick={async () => { await deleteMedForever(existing.id); setConfirmDelete(false); toast(`Deleted ${existing.name}`); replace('/meds'); }}>
+                Delete permanently
+              </Button>
+            </SheetActions>
           </div>
         )}
       </Sheet>

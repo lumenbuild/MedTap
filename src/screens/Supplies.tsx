@@ -7,7 +7,7 @@ import { useToast } from '../app/toast';
 import { SUPPLY_LABELS, supplyCount } from '../logic/peptide';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Sheet } from '../components/ui/Sheet';
+import { Sheet, SheetActions } from '../components/ui/Sheet';
 import { TextInput } from '../components/ui/Field';
 import { APP_NAME } from '../config';
 
@@ -83,7 +83,9 @@ function SupplySheet({ kind, sup, count, onClose }: { kind: SupplyKind; sup?: Su
         )}
         <TextInput label={sharps ? 'Remind me when it has (optional)' : 'Remind me when it is down to (optional)'} help={sharps ? 'Leave blank for 80% full.' : undefined}
           type="number" inputMode="decimal" min="0" step="any" value={warn} onChange={(e) => setWarn(e.target.value)} />
-        <Button className="w-full min-h-[56px]" disabled={!valid} onClick={save}>Save</Button>
+        <SheetActions>
+          <Button className="w-full min-h-[56px]" disabled={!valid} onClick={save}>Save</Button>
+        </SheetActions>
         {sup && <Button variant="secondary" className="w-full" onClick={async () => { await stopTracking(kind); onClose(); }}>Stop tracking</Button>}
       </div>
     </Sheet>

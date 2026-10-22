@@ -9,7 +9,7 @@ import { medOn } from '../../logic/plans';
 import { scheduleAtDose, titrationSteps } from '../../logic/peptide';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Sheet } from '../../components/ui/Sheet';
+import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { Segmented, TextInput } from '../../components/ui/Field';
 
 const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
@@ -77,7 +77,9 @@ function TitrationSheet({ med, onClose }: { med: Medication; onClose: () => void
             </ol>
           </div>
         )}
-        <Button className="w-full min-h-[56px]" disabled={!steps.length || !!dateError} onClick={save}>Add {steps.length || ''} planned change{steps.length === 1 ? '' : 's'}</Button>
+        <SheetActions>
+          <Button className="w-full min-h-[56px]" disabled={!steps.length || !!dateError} onClick={save}>Add {steps.length || ''} planned change{steps.length === 1 ? '' : 's'}</Button>
+        </SheetActions>
       </div>
     </Sheet>
   );

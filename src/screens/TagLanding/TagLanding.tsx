@@ -50,7 +50,7 @@ export function TagLanding({ id }: { id: string }) {
         <span className="font-semibold text-muted">{APP_NAME}</span>
         <button onClick={close} aria-label="Close" className="w-12 h-12 -mr-3 flex items-center justify-center"><X aria-hidden="true" /></button>
       </header>
-      <main className="flex-1 flex flex-col justify-center pb-6">{children}</main>
+      <div className="flex-1 flex flex-col justify-center pb-6">{children}</div>
       {isAndroid && !isNative && id && (
         // The Android app keeps its own data. Older tags open the browser; this hands the tap to the app instead.
         <p className="text-sm text-muted text-center pb-[max(16px,env(safe-area-inset-bottom))]">

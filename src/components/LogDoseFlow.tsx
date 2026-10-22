@@ -13,6 +13,7 @@ import { fmtAgo, fmtAmount, fmtDuration, fmtHHmm, fmtTime, fmtWhen, fromLocalInp
 import { canVibrate } from '../platform';
 import { Button } from './ui/Button';
 import { Stepper } from './ui/Stepper';
+import { SheetActions } from './ui/Sheet';
 
 export const SKIP_REASONS = ['Felt unwell', 'Planned break', 'Too late in the day', 'Ran out', 'Prescriber said to', 'Other'];
 
@@ -102,8 +103,10 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, onLogged, onC
             {' '}({fmtAgo(now - Date.parse(recent.takenAt))}). Log another dose?
           </p>
         </div>
-        <Button className="w-full min-h-[56px]" onClick={onCancel} autoFocus>Don't log</Button>
-        <Button variant="secondary" className="w-full" onClick={() => setOverride(true)}>Log another</Button>
+        <SheetActions>
+          <Button className="w-full min-h-[56px]" onClick={onCancel} autoFocus>Don't log</Button>
+          <Button variant="secondary" className="w-full" onClick={() => setOverride(true)}>Log another</Button>
+        </SheetActions>
       </div>
     );
   }
@@ -178,8 +181,10 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, onLogged, onC
           <span className="block text-sm font-medium">Note (optional)</span>
           <input value={skipNote} onChange={(e) => setSkipNote(e.target.value)} className="w-full min-h-[48px] rounded-btn bg-surface-2 border border-border px-3.5" />
         </label>
-        <Button className="w-full min-h-[56px]" onClick={skip} disabled={saving}>Mark as skipped</Button>
-        <Button variant="secondary" className="w-full" onClick={() => setSkipping(false)}>Go back</Button>
+        <SheetActions>
+          <Button className="w-full min-h-[56px]" onClick={skip} disabled={saving}>Mark as skipped</Button>
+          <Button variant="secondary" className="w-full" onClick={() => setSkipping(false)}>Go back</Button>
+        </SheetActions>
       </div>
     );
   }
@@ -251,12 +256,14 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, onLogged, onC
         </ul>
       )}
 
-      <Button className="w-full min-h-[56px] text-lg" onClick={submit} disabled={saving || !!timeError || !!amountError}>
-        Log dose
-      </Button>
-      {med.schedule.type !== 'prn' && (
-        <button type="button" onClick={() => setSkipping(true)} className="w-full min-h-[48px] text-primary font-semibold">Skip this dose</button>
-      )}
+      <SheetActions>
+        <Button className="w-full min-h-[56px] text-lg" onClick={submit} disabled={saving || !!timeError || !!amountError}>
+          Log dose
+        </Button>
+        {med.schedule.type !== 'prn' && (
+          <button type="button" onClick={() => setSkipping(true)} className="w-full min-h-[48px] text-primary font-semibold">Skip this dose</button>
+        )}
+      </SheetActions>
     </div>
   );
 }

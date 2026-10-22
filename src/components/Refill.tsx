@@ -12,7 +12,7 @@ import { setSetting, type AppSettings } from '../db/repos/settings';
 import { useToast } from '../app/toast';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
-import { Sheet } from './ui/Sheet';
+import { Sheet, SheetActions } from './ui/Sheet';
 import { TextInput } from './ui/Field';
 
 const DAY = 86_400_000;
@@ -107,7 +107,9 @@ export function RestockSheet({ med, onClose }: { med: Medication; onClose: () =>
           <TextInput label="Expiry date (optional)" type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
           <TextInput label="Where it's kept (optional)" placeholder="e.g. Kitchen" value={label} onChange={(e) => setLabel(e.target.value)} />
         </div>
-        <Button className="w-full min-h-[56px]" onClick={save} disabled={!valid}>Add to stock</Button>
+        <SheetActions>
+          <Button className="w-full min-h-[56px]" onClick={save} disabled={!valid}>Add to stock</Button>
+        </SheetActions>
       </div>
     </Sheet>
   );

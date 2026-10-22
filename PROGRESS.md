@@ -96,6 +96,19 @@ skipped doses, refill forecasting, encrypted and automatic backups. Awaiting own
   reason it failed), and the card shows the folder's name. Tests: `tests/autoBackup.test.ts`, plus browser runs of the
   web picker and of the app bundle with a fake native bridge.
 
+## Everything fits the screen (owner report: "buttons and windows have to be scrolled to")
+- Sheets: sized to the visible screen (`100dvh`, which follows Chrome's address bar, plus
+  `interactive-widget=resizes-content` so the keyboard shrinks it too); the title stays at the top, the content
+  scrolls, and the main buttons are pinned at the bottom with `<SheetActions>` (renders inline outside a sheet, e.g.
+  Log dose on the tag screen). Toasts move to the top while a sheet is open so they don't cover its buttons.
+- No sideways scrolling: inputs can shrink in rows (the weight field was 20 characters wide), long words wrap,
+  `#root` clips as a safety net, and the doctor report's wide tables scroll inside their card (full width in print).
+- Tag screen no longer nests `<main>` inside `<main>`.
+- Tested with an audit (every screen and sheet at 320×568, 360×640, 375×667, 412×915): before, Save was below the
+  fold on check-in, goal, plan a change, measurements and link tag, and the weight sheet and report scrolled
+  sideways; after, every sheet's buttons are on screen and nothing scrolls sideways. Simulated keyboard (330px
+  visible): title, field and Save all on screen.
+
 ## Two editions: MedTap and TapDose (owner request)
 - One codebase, two apps (owner chose one repo; `src/edition.ts`, `VITE_EDITION=tapdose`). TapDose ("general
   medication / ADHD support") never shows or mentions peptides, weight, measurements, goals or progress photos; it

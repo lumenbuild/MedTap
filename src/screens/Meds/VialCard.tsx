@@ -15,7 +15,7 @@ import { shownName } from '../../logic/privacy';
 import { dosesFromVial, isPen, stockVials, vialsOf, vialStatus } from '../../logic/peptide';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Sheet } from '../../components/ui/Sheet';
+import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { TextArea, TextInput } from '../../components/ui/Field';
 import { DrawGuide } from '../../components/Syringe';
 import { usePhotoUrls } from '../Body/ProgressPhotos';
@@ -161,7 +161,9 @@ function StartSheet({ med, stock, onClose, onStarted }: { med: Medication; stock
             value={water} onChange={(e) => setWater(e.target.value)} error={waterOk ? undefined : 'Enter the water you added.'} />
         )}
         <p className="text-sm text-muted">The {pen ? 'pen' : 'vial'} in use now is marked finished.</p>
-        <Button className="w-full min-h-[56px]" disabled={!waterOk} onClick={start}>{pen ? 'Start this pen' : 'Mixed'}</Button>
+        <SheetActions>
+          <Button className="w-full min-h-[56px]" disabled={!waterOk} onClick={start}>{pen ? 'Start this pen' : 'Mixed'}</Button>
+        </SheetActions>
       </div>
     </Sheet>
   );
@@ -212,7 +214,9 @@ function AddSheet({ med, onClose }: { med: Medication; onClose: () => void }) {
         <TextInput label={`How many ${pen ? 'pens' : 'vials'}`} type="number" inputMode="numeric" min="1" step="1" value={count} onChange={(e) => setCount(e.target.value)} />
         <BatchFields v={v} set={(k, x) => setV((p) => ({ ...p, [k]: x }))} unit={med.unit} />
         <p className="text-sm text-muted">Same details for all of them. Add photos of the label or certificate from each one's page.</p>
-        <Button className="w-full min-h-[56px]" disabled={!(Number.isInteger(n) && n >= 1 && n <= 50)} onClick={save}>Add to stock</Button>
+        <SheetActions>
+          <Button className="w-full min-h-[56px]" disabled={!(Number.isInteger(n) && n >= 1 && n <= 50)} onClick={save}>Add to stock</Button>
+        </SheetActions>
       </div>
     </Sheet>
   );
@@ -268,7 +272,9 @@ function DetailsSheet({ med, vial, doses, onClose }: { med: Medication; vial: Pe
           }} />
           <p className="text-xs text-muted mt-1">Kept on this phone only.</p>
         </div>
-        <Button className="w-full min-h-[56px]" onClick={save}>Save</Button>
+        <SheetActions>
+          <Button className="w-full min-h-[56px]" onClick={save}>Save</Button>
+        </SheetActions>
         <Button variant="danger" className="w-full" onClick={remove}>Remove from the list</Button>
       </div>
       {viewing && (

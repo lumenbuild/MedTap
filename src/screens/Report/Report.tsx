@@ -93,6 +93,7 @@ export function Report() {
 
           <section className="bg-surface rounded-card shadow-card p-5 report-block">
             <h2 className="text-lg font-semibold mb-2">Medications</h2>
+            <div className="table-scroll">
             <table className="w-full text-sm">
               <thead><tr className="text-left">{['Medication', 'Form', 'Usual dose', 'Schedule (as entered)', 'Doses logged', 'Days at daily number'].map((h) => <th key={h} className="py-1.5 pr-3 border-b border-border font-semibold">{h}</th>)}</tr></thead>
               <tbody>
@@ -115,6 +116,7 @@ export function Report() {
                 })}
               </tbody>
             </table>
+            </div>
             {usedMeds.some((m) => m.instructions?.trim()) && (
               <>
                 <h3 className="font-semibold mt-4 mb-1">Instructions</h3>
@@ -161,6 +163,7 @@ export function Report() {
           <section className="bg-surface rounded-card shadow-card p-5 report-block">
             <h2 className="text-lg font-semibold mb-2">Dose log</h2>
             {rangeDoses.length === 0 ? <p className="text-muted">No doses in this range.</p> : (
+              <div className="table-scroll">
               <table className="w-full text-sm tnum">
                 <thead><tr className="text-left">{['Date', 'Time', 'Medication', 'Amount', 'How logged'].map((h) => <th key={h} className="py-1 pr-3 border-b border-border font-semibold">{h}</th>)}</tr></thead>
                 <tbody>
@@ -178,6 +181,7 @@ export function Report() {
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </section>
 

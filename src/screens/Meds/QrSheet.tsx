@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import QRCode from 'qrcode';
 import { Printer } from 'lucide-react';
 import { APP_NAME } from '../../config';
-import { Sheet } from '../../components/ui/Sheet';
+import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 
 /** Printable QR sticker with the same URL as the tag: a fallback for phones or tags that won't read. */
@@ -33,9 +33,11 @@ export function QrSheet({ url, medName, onClose }: { url: string | null; medName
           <input type="checkbox" checked={showName} onChange={(e) => setShowName(e.target.checked)} className="w-5 h-5 accent-[var(--primary)]" />
           <span>Print the medication name on the sticker</span>
         </label>
-        <Button className="w-full min-h-[56px] flex items-center justify-center gap-2" onClick={() => printPage(`${APP_NAME} tag sticker`)} disabled={!src}>
-          <Printer size={20} aria-hidden="true" /> Print stickers
-        </Button>
+        <SheetActions>
+          <Button className="w-full min-h-[56px] flex items-center justify-center gap-2" onClick={() => printPage(`${APP_NAME} tag sticker`)} disabled={!src}>
+            <Printer size={20} aria-hidden="true" /> Print stickers
+          </Button>
+        </SheetActions>
       </div>
       {src && createPortal(
         <div id="print-root">

@@ -8,7 +8,7 @@ import { useFamily } from '../app/data';
 import { useToast } from '../app/toast';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Sheet } from '../components/ui/Sheet';
+import { Sheet, SheetActions } from '../components/ui/Sheet';
 import { TextInput } from '../components/ui/Field';
 import { PersonBadge } from '../components/PersonSwitcher';
 import { HAS_BODY } from '../edition';
@@ -71,7 +71,9 @@ export function FamilyCard() {
         <div className="space-y-4">
           <TextInput label="Name" value={name} onChange={(e) => setName(e.target.value)} autoFocus autoComplete="off"
             placeholder={editing === 'new' ? 'e.g. Sam' : undefined} onKeyDown={(e) => { if (e.key === 'Enter') save(); }} />
-          <Button className="w-full min-h-[56px]" onClick={save} disabled={!name.trim()}>{editing === 'new' ? 'Add' : 'Save'}</Button>
+          <SheetActions>
+            <Button className="w-full min-h-[56px]" onClick={save} disabled={!name.trim()}>{editing === 'new' ? 'Add' : 'Save'}</Button>
+          </SheetActions>
           {editing && editing !== 'new' && editing.id !== DEFAULT_PERSON && (
             <>
               <Button variant="danger" className="w-full" onClick={() => remove(editing)}>Remove {editing.name}</Button>

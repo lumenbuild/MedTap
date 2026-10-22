@@ -5,7 +5,7 @@ import type { Units } from '../db/repos/settings';
 import { removeBody, restoreBody, saveBody, undoBody, upsertBody, type BodyFields } from '../db/repos/body';
 import { cmTo, kgTo, lengthUnit, MEASUREMENTS, toCm, toKg, weightUnit, fmtWeight } from '../logic/units';
 import { useToast } from '../app/toast';
-import { Sheet } from './ui/Sheet';
+import { Sheet, SheetActions } from './ui/Sheet';
 import { Button } from './ui/Button';
 
 export const todayYmd = () => format(Date.now(), 'yyyy-MM-dd');
@@ -106,7 +106,9 @@ function BodyForm({ state, onClose, units, personId }: { state: NonNullable<Body
         {invalid && <p className="text-sm text-danger" role="alert">Check the numbers. They need to be above 0.</p>}
         {future && <p className="text-sm text-danger" role="alert">That date hasn't happened yet.</p>}
         {showWeight && state.kind === 'weight' && <p className="text-sm text-muted">Weigh at the same time of day for the most useful trends.</p>}
-        <Button className="w-full min-h-[56px]" onClick={save} disabled={invalid || future || (state.kind !== 'edit' && !any)}>Save</Button>
+        <SheetActions>
+          <Button className="w-full min-h-[56px]" onClick={save} disabled={invalid || future || (state.kind !== 'edit' && !any)}>Save</Button>
+        </SheetActions>
         {state.kind === 'edit' && <Button variant="danger" className="w-full" onClick={del}>Delete this entry</Button>}
       </div>
     </Sheet>

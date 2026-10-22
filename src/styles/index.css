@@ -12,6 +12,28 @@ body {
   line-height: 24px;
   -webkit-tap-highlight-color: transparent;
 }
+/* Never wider than the phone: long words wrap, and inputs in a row can shrink (their default width is ~20 characters). */
+body { overflow-wrap: break-word; }
+input, select, textarea { min-width: 0; max-width: 100%; }
+img, svg, canvas, video { max-width: 100%; }
+/* Safety net against any sideways scroll of the whole page; side-scrolling rows scroll inside their own box. */
+#root { overflow-x: clip; }
+
+/* Wide tables (the doctor report) scroll inside their card on a phone; printed, they show in full. */
+.table-scroll { overflow-x: auto; margin-inline: -20px; padding-inline: 20px; }
+.table-scroll th, .table-scroll td { white-space: nowrap; }
+@media print { .table-scroll { overflow: visible; margin-inline: 0; padding-inline: 0; } .table-scroll th, .table-scroll td { white-space: normal; } }
+
+/* Sheets fit the part of the screen you can actually see: 100dvh shrinks with Chrome's address bar and,
+   with interactive-widget=resizes-content (index.html), with the keyboard. vh is the fallback for old browsers. */
+.sheet-backdrop { height: 100vh; height: 100dvh; }
+.sheet-panel { max-height: calc(100vh - 12px); max-height: calc(100dvh - max(12px, env(safe-area-inset-top))); }
+.sheet-body { padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+.sheet-panel:has(.sheet-footer:not(:empty)) .sheet-body { padding-bottom: 16px; }
+.sheet-footer { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+/* With a sheet open, toasts move to the top so they never cover its buttons. */
+body[data-sheets] .toast-host { top: calc(12px + env(safe-area-inset-top)); bottom: auto !important; }
+
 .tnum { font-variant-numeric: tabular-nums; }
 :focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
