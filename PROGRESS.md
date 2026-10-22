@@ -266,6 +266,23 @@ All from the person's own data, on the phone, with how much data each estimate r
 11. Weekly summary on Today and in the report.
 Not wanted: 9 (what-if comparison of two plans).
 
+## Next: smart features for both apps (owner approved 22 Oct 2026, after the peptide list above)
+All on the phone, from the person's own data; no medical advice.
+1. Smart reminder timing: learn when each medicine is actually taken (weekday/weekend) and offer to move the reminder.
+2. Forgot or just late: one nudge after the usual time plus the person's normal spread.
+3. Likely-missed slots: spot patterns in missed doses and add an extra reminder there.
+4. Travel time zones: plan local dose times before a trip, keeping the person's own minimum gaps and limits.
+5. Refill and script planning: when a new script is needed (repeats × days each lasts); warn before the last repeat.
+6. Effect window (ADHD meds): learn onset and wear-off from check-in times; show it on Today.
+7. Sleep impact: last stimulant dose time vs that night's sleep rating; show the usual cut-off.
+8. Weekly check-in forecast (focus, mood, appetite) from doses, sleep and schedule.
+9. Notes into chips: suggest check-in chips from typed notes, on the phone.
+10. Vial label photo: read lot, expiry and amount when adding stock (extends label scanning).
+11. Duplicate and odd-entry check: double logs across synced phones, weight far off trend, future times.
+12. Lab results by photo: read values and dates from a printout into the report.
+13. One-page appointment summary: what changed since the last visit, flags, questions.
+14. "Since my last appointment": mark appointments; charts compare before and after.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 
