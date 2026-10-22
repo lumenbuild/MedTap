@@ -210,3 +210,19 @@ export async function restoreBottle(medId: string, bottle: Bottle) {
   if (!med) return;
   await db.medications.update(medId, { bottles: [...(med.bottles ?? []), bottle].sort((x, y) => x.expiry.localeCompare(y.expiry)), updatedAt: nowIso() });
 }
+
+/** Days an order takes to arrive (peptide tools), for the "order by" date. */
+export async function setLeadTime(medId: string, days: number | undefined) {
+  const med = await db.medications.get(medId);
+  if (!med?.peptide) return;
+  await db.medications.update(medId, { peptide: { ...med.peptide, leadTimeDays: days }, updatedAt: nowIso() });
+}
+
+/** Flag a batch with a note (shown when mixing another vial from it), or clear the flag with `note === null`. */
+export async function setLotFlag(medId: string, lot: string, note: string | null) {
+  const med = await db.medications.get(medId);
+  if (!med) return;
+  const rest = (med.lotFlags ?? []).filter((f) => f.lot !== lot);
+  const lotFlags = note === null ? rest : [...rest, { lot, note: note.trim() || undefined, at: nowIso() }];
+  await db.medications.update(medId, { lotFlags: lotFlags.length ? lotFlags : undefined, updatedAt: nowIso() });
+}

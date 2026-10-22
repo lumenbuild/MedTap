@@ -58,7 +58,7 @@ export function DoseLevelsCards({ meds, doses, body, checkIns, units, now }: { m
         if (!levels.length) return null;
         return (
           <Card key={m.id} className="space-y-2">
-            <h2 className="text-lg font-semibold">Dose levels: {shownName(m)}</h2>
+            <h2 className="text-sm font-medium text-muted">Dose levels: {shownName(m)}</h2>
             <p className="text-muted">Weight and check-ins while you were on each dose. What you've recorded, side by side; it doesn't show cause.</p>
             <div className="overflow-x-auto">
               <table className="w-full text-sm tnum">

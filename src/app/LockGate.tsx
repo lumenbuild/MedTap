@@ -5,7 +5,7 @@ import { verifyPin } from '../logic/pin';
 import { eraseAll } from '../db/repos/backup';
 import { APP_NAME } from '../config';
 import { Button } from '../components/ui/Button';
-import { Sheet } from '../components/ui/Sheet';
+import { Sheet, SheetActions } from '../components/ui/Sheet';
 import { TextInput } from '../components/ui/Field';
 
 /** Covers the app with a PIN pad when app lock is on: at start, after leaving the app, or after being idle. */
@@ -94,10 +94,10 @@ function LockScreen({ salt, hash, length, onUnlock }: { salt: string; hash: stri
       </p>
       <div className="grid grid-cols-3 gap-3 mt-2 w-full max-w-[300px]">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
-          <button key={d} onClick={() => press(d)} disabled={waiting} className="h-16 rounded-full bg-surface shadow-card text-2xl font-semibold tnum disabled:opacity-40">{d}</button>
+          <button key={d} onClick={() => press(d)} disabled={waiting} className="h-16 rounded-full border border-border-strong text-2xl font-semibold tnum disabled:opacity-40">{d}</button>
         ))}
         <span />
-        <button onClick={() => press('0')} disabled={waiting} className="h-16 rounded-full bg-surface shadow-card text-2xl font-semibold tnum disabled:opacity-40">0</button>
+        <button onClick={() => press('0')} disabled={waiting} className="h-16 rounded-full border border-border-strong text-2xl font-semibold tnum disabled:opacity-40">0</button>
         <button onClick={() => { setPin(pin.slice(0, -1)); setError(''); }} aria-label="Delete digit" className="h-16 rounded-full flex items-center justify-center"><Delete aria-hidden="true" /></button>
       </div>
       <button onClick={() => setForgot(true)} className="mt-6 min-h-[48px] px-3 text-primary font-semibold">Forgot PIN?</button>
@@ -106,8 +106,10 @@ function LockScreen({ salt, hash, length, onUnlock }: { salt: string; hash: stri
         <div className="space-y-4">
           <p>The PIN can't be recovered. The only way back in is to erase everything on this phone, then restore from a backup if you have one.</p>
           <TextInput label="Type ERASE to erase this phone's data" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" autoCapitalize="characters" />
-          <Button variant="danger" className="w-full min-h-[56px]" disabled={typed.trim() !== 'ERASE'}
-            onClick={async () => { await eraseAll(); window.location.replace(window.location.pathname); }}>Erase everything</Button>
+          <SheetActions>
+            <Button variant="danger" className="w-full min-h-[56px]" disabled={typed.trim() !== 'ERASE'}
+              onClick={async () => { await eraseAll(); window.location.replace(window.location.pathname); }}>Erase everything</Button>
+          </SheetActions>
         </div>
       </Sheet>
     </div>

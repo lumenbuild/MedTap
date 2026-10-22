@@ -9,7 +9,7 @@ import { medOn } from '../../logic/plans';
 import { scheduleAtDose, titrationSteps } from '../../logic/peptide';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Sheet } from '../../components/ui/Sheet';
+import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { Segmented, TextInput } from '../../components/ui/Field';
 
 const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
@@ -19,7 +19,7 @@ export function TitrationCard({ med }: { med: Medication }) {
   const [open, setOpen] = useState(false);
   return (
     <Card className="space-y-2">
-      <h2 className="text-lg font-semibold flex items-center gap-2"><TrendingUp size={20} className="text-primary" aria-hidden="true" /> Titration</h2>
+      <h2 className="text-sm font-medium text-muted flex items-center gap-2"><TrendingUp size={20} className="text-primary" aria-hidden="true" /> Titration</h2>
       <p className="text-muted">Step the dose up (or down) on a schedule your prescriber gave you. Each step becomes a planned change that switches over on its day.</p>
       <Button variant="secondary" className="w-full" onClick={() => setOpen(true)}>Plan a titration</Button>
       {open && <TitrationSheet med={med} onClose={() => setOpen(false)} />}
@@ -77,7 +77,9 @@ function TitrationSheet({ med, onClose }: { med: Medication; onClose: () => void
             </ol>
           </div>
         )}
-        <Button className="w-full min-h-[56px]" disabled={!steps.length || !!dateError} onClick={save}>Add {steps.length || ''} planned change{steps.length === 1 ? '' : 's'}</Button>
+        <SheetActions>
+          <Button className="w-full min-h-[56px]" disabled={!steps.length || !!dateError} onClick={save}>Add {steps.length || ''} planned change{steps.length === 1 ? '' : 's'}</Button>
+        </SheetActions>
       </div>
     </Sheet>
   );

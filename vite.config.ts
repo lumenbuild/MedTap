@@ -48,8 +48,8 @@ const native = !!process.env.NATIVE;
 // MedTap's, so MedTap's service worker must leave that folder alone.
 const tapdose = process.env.VITE_EDITION === 'tapdose';
 const brand = tapdose
-  ? { name: 'TapDose', icons: 'icons/tapdose/', theme: '#5B3FD1', description: 'Log doses with an NFC tap, see when the next one is due, and track how you feel. Your data stays on your phone.' }
-  : { name: 'MedTap', icons: 'icons/', theme: '#0B7A75', description: 'Log doses with an NFC tap and track how you feel. Your data stays on your phone.' };
+  ? { name: 'TapDose', icons: 'icons/tapdose/', theme: '#FFFFFF', description: 'Log doses with an NFC tap, see when the next one is due, and track how you feel. Your data stays on your phone.' }
+  : { name: 'MedTap', icons: 'icons/', theme: '#FFFFFF', description: 'Log doses with an NFC tap and track how you feel. Your data stays on your phone.' };
 
 /** index.html carries __APP_NAME__, __THEME__, __ICONS__ and __EDITION__ for the edition being built. */
 function brandHtml(): Plugin {
@@ -74,7 +74,7 @@ export default defineConfig({
         short_name: brand.name,
         description: brand.description,
         theme_color: brand.theme,
-        background_color: '#F6F7F9',
+        background_color: '#FFFFFF',
         display: 'standalone',
         start_url: base,
         scope: base,

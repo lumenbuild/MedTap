@@ -90,6 +90,13 @@ export function dosesFromVial(vial: PeptideVial, medId: string, doses: Dose[]): 
     && (d.vialId ? d.vialId === vial.id : Date.parse(d.takenAt) >= from && Date.parse(d.takenAt) < to));
 }
 
+/** The vial a vial tag is on. If that vial is finished (the tag wasn't moved to a new one), the vial in use instead. */
+export function vialForTag(med: VialMed, vialId: string | undefined): { vial?: PeptideVial; stale: boolean } {
+  const tagged = vialId ? vialsOf(med).find((v) => v.id === vialId) : undefined;
+  if (tagged?.status === 'in-use') return { vial: tagged, stale: false };
+  return { vial: currentVial(med), stale: !!vialId };
+}
+
 export interface VialStatus {
   vial: PeptideVial;
   startedAt: number;
@@ -202,6 +209,9 @@ export function doseLevels(doses: Dose[], weights: { t: number; kg: number }[], 
   }
   return levels;
 }
+
+/** Common injection side effects, offered as check-in chips (Settings) and counted in the protocol report. */
+export const SIDE_EFFECT_CHIPS = ['Nausea', 'Reflux', 'Constipation', 'Diarrhoea', 'Injection site reaction', 'Tired'];
 
 // ── Supplies ────────────────────────────────────────────────────────────────────────────────────────
 

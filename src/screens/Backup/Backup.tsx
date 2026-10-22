@@ -21,7 +21,7 @@ import { isIOS, isStandalone } from '../../platform';
 import { APP_NAME } from '../../config';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Sheet } from '../../components/ui/Sheet';
+import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { HAS_BODY } from '../../edition';
 
 const LABELS: Record<string, string> = {
@@ -128,7 +128,7 @@ export function Backup() {
     <div className="space-y-4">
       {isIOS && isStandalone && (
         <Card className="bg-caution-soft shadow-none space-y-2">
-          <h2 className="font-semibold">Move your data to Safari</h2>
+          <h2 className="text-sm font-medium text-muted">Move your data to Safari</h2>
           <ol className="list-decimal pl-5 text-sm space-y-1">
             <li>Tap <strong>Back up now</strong> below and save the file to Files.</li>
             <li>Open {APP_NAME} in Safari.</li>
@@ -138,7 +138,7 @@ export function Backup() {
       )}
 
       <Card className="space-y-3">
-        <h2 className="text-lg font-semibold">Back up</h2>
+        <h2 className="text-sm font-medium text-muted">Back up</h2>
         <p className="text-muted tnum" role="status">
           {last ? <>Last backup {fmtAgo(now - last)} · {fmtWhen(last, now)}</> : 'No backup yet.'}
         </p>
@@ -156,7 +156,7 @@ export function Backup() {
       </Card>
 
       <Card className="space-y-3">
-        <h2 className="text-lg font-semibold flex items-center gap-2"><FolderSync size={20} className="text-primary" aria-hidden="true" /> Automatic backups</h2>
+        <h2 className="text-sm font-medium text-muted flex items-center gap-2"><FolderSync size={20} className="text-primary" aria-hidden="true" /> Automatic backups</h2>
         {auto === 'unsupported' ? (
           <p className="text-sm">This browser can't save backups by itself{isIOS ? ' (iPhones don\'t allow it)' : ''}. Use <strong>Back up now</strong> and {APP_NAME} will remind you.</p>
         ) : auto === 'off' ? (
@@ -203,7 +203,7 @@ export function Backup() {
       </Card>
 
       <Card className="space-y-3">
-        <h2 className="text-lg font-semibold">Restore from a file</h2>
+        <h2 className="text-sm font-medium text-muted">Restore from a file</h2>
         <p className="text-sm">Choose a backup file. You'll see what's in it before anything changes.</p>
         <input ref={fileRef} type="file" accept="application/json,.json" className="sr-only" aria-label="Backup file"
           onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ''; }} />
@@ -214,7 +214,7 @@ export function Backup() {
       </Card>
 
       <Card className="space-y-2">
-        <h2 className="text-lg font-semibold">Spreadsheets</h2>
+        <h2 className="text-sm font-medium text-muted">Spreadsheets</h2>
         <p className="text-sm text-muted">CSV files you can open in Excel, Numbers or Google Sheets. These can't be restored.</p>
         {([['doses', 'Doses'], ['checkIns', 'Check-ins'], ...(HAS_BODY ? [['body', 'Weight and measurements'] as const] : []), ['vitals', 'Blood pressure and heart rate'], ['meds', 'Medications']] as const).map(([k, label]) => (
           <button key={k} onClick={() => exportCsv(k)} className="w-full min-h-[48px] flex items-center gap-3 px-3 rounded-btn bg-surface-2 text-left font-medium">
@@ -234,15 +234,19 @@ export function Backup() {
             </ul>
             {!confirmReplace ? (
               <>
-                <Button className="w-full min-h-[56px]" onClick={() => restore('merge')} disabled={busy}>Merge with this phone</Button>
-                <p className="text-sm text-muted">Keeps everything already here and adds what's missing. Where both have the same record, the newer edit wins.</p>
-                <Button variant="secondary" className="w-full" onClick={() => setConfirmReplace(true)} disabled={busy}>Replace this phone's data</Button>
+                <p className="text-sm text-muted"><strong className="text-text">Merge</strong> keeps everything already here and adds what's missing. Where both have the same record, the newer edit wins.</p>
+                <SheetActions>
+                  <Button className="w-full min-h-[56px]" onClick={() => restore('merge')} disabled={busy}>Merge with this phone</Button>
+                  <Button variant="secondary" className="w-full" onClick={() => setConfirmReplace(true)} disabled={busy}>Replace this phone's data</Button>
+                </SheetActions>
               </>
             ) : (
               <>
                 <p className="rounded-btn bg-caution-soft p-3">Everything currently on this phone will be removed and replaced with the backup. This can't be undone.</p>
-                <Button variant="danger" className="w-full min-h-[56px]" onClick={() => restore('replace')} disabled={busy}>Replace everything</Button>
-                <Button variant="secondary" className="w-full" onClick={() => setConfirmReplace(false)}>Go back</Button>
+                <SheetActions>
+                  <Button variant="danger" className="w-full min-h-[56px]" onClick={() => restore('replace')} disabled={busy}>Replace everything</Button>
+                  <Button variant="secondary" className="w-full" onClick={() => setConfirmReplace(false)}>Go back</Button>
+                </SheetActions>
               </>
             )}
           </div>

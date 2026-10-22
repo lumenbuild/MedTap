@@ -9,7 +9,7 @@ import { useToast } from '../../app/toast';
 import { APP_NAME } from '../../config';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Sheet } from '../../components/ui/Sheet';
+import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { TextInput } from '../../components/ui/Field';
 import { ScheduleFields, scheduleFormFromMed, scheduleFromForm, validateSchedule, type ScheduleErrors, type ScheduleForm } from './ScheduleFields';
 
@@ -29,7 +29,7 @@ export function PlannedChanges({ med }: { med: Medication }) {
 
   return (
     <Card>
-      <h2 className="text-lg font-semibold flex items-center gap-2"><CalendarClock size={20} className="text-primary" aria-hidden="true" /> Planned changes</h2>
+      <h2 className="text-sm font-medium text-muted flex items-center gap-2"><CalendarClock size={20} className="text-primary" aria-hidden="true" /> Planned changes</h2>
       {changes.length === 0 ? (
         <p className="text-muted mt-1">For a dose change or a taper your prescriber has planned. On the day, {APP_NAME} switches over and records the change.</p>
       ) : (
@@ -83,7 +83,9 @@ function PlanChangeSheet({ med, onClose }: { med: Medication; onClose: () => voi
         <ScheduleFields f={f} set={set} errors={errors} unit={med.unit} />
         <TextInput label="Note (optional)" placeholder="e.g. Week 2 of taper, per Dr Lee" value={note} onChange={(e) => setNote(e.target.value)} />
         <p className="text-sm text-muted">For a taper, add one change for each step. Enter what your prescriber told you.</p>
-        <Button className="w-full min-h-[56px]" onClick={save}>Save planned change</Button>
+        <SheetActions>
+          <Button className="w-full min-h-[56px]" onClick={save}>Save planned change</Button>
+        </SheetActions>
       </div>
     </Sheet>
   );

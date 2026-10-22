@@ -35,7 +35,7 @@ export function PeptideCalc() {
   return (
     <div className="space-y-4">
       <Card className="space-y-3">
-        <h2 className="text-lg font-semibold">Your vial</h2>
+        <h2 className="text-sm font-medium text-muted">Your vial</h2>
         <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
           <TextInput label="Amount in the vial" type="number" inputMode="decimal" min="0" step="any" value={vial} onChange={(e) => setVial(e.target.value)} />
           <Select label="Unit" value={vialUnit} onChange={(e) => setVialUnit(e.target.value as AmountUnit)}>{AMOUNT_UNITS.map((u) => <option key={u}>{u}</option>)}</Select>
@@ -49,7 +49,7 @@ export function PeptideCalc() {
       </Card>
 
       <Card className="space-y-3">
-        <h2 className="text-lg font-semibold">How much to draw</h2>
+        <h2 className="text-sm font-medium text-muted">How much to draw</h2>
         <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
           <TextInput label="Dose" type="number" inputMode="decimal" min="0" step="any" value={dose} onChange={(e) => setDose(e.target.value)} />
           <Select label="Unit" value={doseUnit} onChange={(e) => setDoseUnit(e.target.value as AmountUnit)}>{AMOUNT_UNITS.map((u) => <option key={u}>{u}</option>)}</Select>
@@ -59,13 +59,13 @@ export function PeptideCalc() {
       </Card>
 
       <Card className="space-y-3">
-        <h2 className="text-lg font-semibold">Units to dose</h2>
+        <h2 className="text-sm font-medium text-muted">Units to dose</h2>
         <TextInput label="Units on the syringe" type="number" inputMode="decimal" min="0" step="any" value={units} onChange={(e) => setUnits(e.target.value)} />
         <p className="tnum" aria-live="polite">{ok && num(units) > 0 ? <><strong>{fmt(doseForUnits(num(units), vialInDoseUnit, num(water), syringe))} {doseUnit}</strong> <span className="text-muted">({fmtMl(num(units) / unitsPerMl(syringe))})</span></> : '–'}</p>
       </Card>
 
       <Card className="space-y-3">
-        <h2 className="text-lg font-semibold">Choose the water</h2>
+        <h2 className="text-sm font-medium text-muted">Choose the water</h2>
         <p className="text-sm text-muted">How much water makes your dose a set number of units, for an easier draw.</p>
         <TextInput label="Units you'd like each dose to be" type="number" inputMode="decimal" min="0" step="any" value={target} onChange={(e) => setTarget(e.target.value)} />
         <p className="tnum" aria-live="polite">{doseOk && num(target) > 0 ? <>Add <strong>{fmt(waterForUnits(num(dose), vialInDoseUnit, num(target), syringe), 2)} mL</strong> of water</> : '–'}</p>

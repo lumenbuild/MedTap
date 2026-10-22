@@ -23,7 +23,7 @@ export const vlinesPlugin: Plugin<'line' | 'bar' | 'scatter'> = {
     ctx.lineWidth = 1.5;
     ctx.strokeStyle = opts.color ?? '#888';
     ctx.fillStyle = opts.text ?? '#333';
-    ctx.font = '600 11px "Inter Variable", system-ui, sans-serif';
+    ctx.font = '600 11px "Geist Variable", system-ui, sans-serif';
     ctx.textAlign = 'center';
     for (const l of lines) {
       const px = x.getPixelForValue(l.x);
@@ -47,7 +47,7 @@ export const barValuesPlugin: Plugin<'bar'> = {
     const { ctx } = chart;
     ctx.save();
     ctx.fillStyle = opts.color ?? '#333';
-    ctx.font = '600 12px "Inter Variable", system-ui, sans-serif';
+    ctx.font = '600 12px "Geist Variable", system-ui, sans-serif';
     ctx.textBaseline = 'middle';
     chart.getDatasetMeta(0).data.forEach((bar, i) => {
       const v = chart.data.datasets[0].data[i];
@@ -87,9 +87,9 @@ export function useChartTheme(): ChartTheme {
   return t;
 }
 
-/** Shared options: recessive hairline grid, muted ticks, Inter, tooltips on hover/tap, no motion if reduced. */
+/** Shared options: recessive hairline grid, muted ticks, Geist, tooltips on hover/tap, no motion if reduced. */
 export function baseOptions(th: ChartTheme) {
-  const font = { family: '"Inter Variable", system-ui, sans-serif', size: 12 };
+  const font = { family: '"Geist Variable", system-ui, sans-serif', size: 12 };
   return {
     responsive: true,
     maintainAspectRatio: false,

@@ -35,7 +35,7 @@ export function TagsSection({ med }: { med: Medication }) {
 
   return (
     <Card>
-      <h2 className="text-lg font-semibold">Tags</h2>
+      <h2 className="text-sm font-medium text-muted">Tags</h2>
       {tags.length === 0 ? (
         <p className="text-muted mt-1">Link a tag to log {med.name} by tapping your phone on the bottle.</p>
       ) : (

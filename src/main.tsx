@@ -1,6 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import '@fontsource-variable/inter';
+import '@fontsource-variable/geist';
 import './styles/index.css';
 import { App } from './app/App';
 import { ErrorBoundary } from './app/ErrorBoundary';

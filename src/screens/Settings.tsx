@@ -3,7 +3,7 @@ import { Calculator, ChevronRight, Package, HardDriveDownload, HelpCircle, Lock,
 import { useSyncConfig } from '../app/sync';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Sheet } from '../components/ui/Sheet';
+import { Sheet, SheetActions } from '../components/ui/Sheet';
 import { Segmented, TextInput } from '../components/ui/Field';
 import { getTheme, setTheme, type Theme } from '../app/theme';
 import { APP_NAME, DISCLAIMER } from '../config';
@@ -19,11 +19,11 @@ import { FamilyCard } from './Family';
 import { placeName } from '../components/TravelBanner';
 import { isAndroid, isIOS, isNative, isStandalone } from '../platform';
 import { HAS_BODY, HAS_PEPTIDES } from '../edition';
+import { SIDE_EFFECT_CHIPS } from '../logic/peptide';
 
 const RemindersCard = lazy(() => import('./RemindersCard'));
 
 /** Common with GLP-1s and other injections, for the dose-level table in Trends. */
-const SIDE_EFFECT_CHIPS = ['Nausea', 'Reflux', 'Constipation', 'Diarrhoea', 'Injection site reaction', 'Tired'];
 
 const selectCls = 'w-full min-h-[48px] rounded-btn bg-surface-2 border border-border px-3';
 
@@ -64,7 +64,7 @@ export function Settings() {
 
   return (
     <div className="space-y-4">
-      <a href="#/backup" className="bg-surface rounded-card shadow-card p-5 flex items-center gap-3">
+      <a href="#/backup" className="border-t border-border py-4 flex items-center gap-3">
         <HardDriveDownload className="text-primary" aria-hidden="true" />
         <span className="flex-1">
           <span className="block font-semibold">Backup and restore</span>
@@ -75,7 +75,7 @@ export function Settings() {
 
       <FamilyCard />
 
-      <a href="#/sync" className="bg-surface rounded-card shadow-card p-5 flex items-center gap-3">
+      <a href="#/sync" className="border-t border-border py-4 flex items-center gap-3">
         <RefreshCw className="text-primary" aria-hidden="true" />
         <span className="flex-1">
           <span className="block font-semibold">Family sync</span>
@@ -89,7 +89,7 @@ export function Settings() {
       {isNative && <Suspense fallback={null}><RemindersCard enabled={settings.remindersEnabled} /></Suspense>}
 
       <Card className="space-y-4">
-        <h2 className="text-lg font-semibold">Your day</h2>
+        <h2 className="text-sm font-medium text-muted">Your day</h2>
         <div className="space-y-1.5">
           <label htmlFor="day-start" className="block text-sm font-medium">Day starts at</label>
           <input id="day-start" type="time" value={settings.dayStartsAt} required
@@ -131,7 +131,7 @@ export function Settings() {
       </Card>
 
       {HAS_PEPTIDES && <Card className="space-y-3">
-        <h2 className="text-lg font-semibold flex items-center gap-2"><Syringe size={18} aria-hidden="true" /> Peptides and injections</h2>
+        <h2 className="text-sm font-medium text-muted flex items-center gap-2"><Syringe size={18} aria-hidden="true" /> Peptides and injections</h2>
         <label className="flex items-center justify-between gap-3 min-h-[48px]">
           <span>
             <span className="block font-medium">Peptide and injection tools</span>
@@ -159,7 +159,7 @@ export function Settings() {
       </Card>}
 
       <Card className="space-y-4">
-        <h2 className="text-lg font-semibold">Check-ins</h2>
+        <h2 className="text-sm font-medium text-muted">Check-ins</h2>
         <div className="space-y-1.5">
           <label htmlFor="ci-delay" className="block text-sm font-medium">Suggest a check-in after a dose</label>
           <select id="ci-delay" value={settings.checkInDelayMin} onChange={(e) => setSetting('checkInDelayMin', Number(e.target.value))} className={selectCls}>
@@ -190,7 +190,7 @@ export function Settings() {
       </Card>
 
       <Card className="space-y-3">
-        <h2 className="text-lg font-semibold flex items-center gap-2"><Lock size={18} aria-hidden="true" /> App lock</h2>
+        <h2 className="text-sm font-medium text-muted flex items-center gap-2"><Lock size={18} aria-hidden="true" /> App lock</h2>
         <p className="text-sm text-muted">This is a privacy screen. It stops casual access on an unlocked phone. It doesn't encrypt the data on the phone.</p>
         {settings.lockEnabled ? (
           <>
@@ -212,7 +212,7 @@ export function Settings() {
       </Card>
 
       <Card className="space-y-3">
-        <h2 className="text-lg font-semibold">Storage</h2>
+        <h2 className="text-sm font-medium text-muted">Storage</h2>
         <p className="text-sm">Everything is saved on this device only.</p>
         {isNative ? (
           <p className="text-sm text-success font-medium" role="status">✓ Kept by the app. It's only removed if you uninstall {APP_NAME}.</p>
@@ -242,7 +242,7 @@ export function Settings() {
       </Card>
 
       <Card>
-        <h2 className="text-lg font-semibold">Theme</h2>
+        <h2 className="text-sm font-medium text-muted">Theme</h2>
         <div role="radiogroup" aria-label="Theme" className="mt-3 grid grid-cols-3 gap-2">
           {(['system', 'light', 'dark'] as Theme[]).map((t) => (
             <button key={t} role="radio" aria-checked={theme === t} onClick={() => { setTheme(t); setT(t); }}
@@ -253,14 +253,14 @@ export function Settings() {
         </div>
       </Card>
 
-      <a href="#/help" className="bg-surface rounded-card shadow-card p-5 flex items-center gap-3">
+      <a href="#/help" className="border-t border-border py-4 flex items-center gap-3">
         <HelpCircle className="text-primary" aria-hidden="true" />
         <span className="flex-1 font-semibold">Help, privacy and tag guide</span>
         <ChevronRight className="text-muted" aria-hidden="true" />
       </a>
 
       <Card>
-        <h2 className="text-lg font-semibold">About {APP_NAME}</h2>
+        <h2 className="text-sm font-medium text-muted">About {APP_NAME}</h2>
         <p className="text-muted mt-1 text-sm">{DISCLAIMER}</p>
       </Card>
 
@@ -275,8 +275,10 @@ export function Settings() {
           <p>This removes every medication, dose, check-in, {HAS_BODY ? 'body entry, photo' : 'blood pressure reading'} and tag link from this phone. It can't be undone.</p>
           <Button className="w-full" onClick={() => { setEraseSheet(false); go('/backup'); }}>Back up first</Button>
           <TextInput label="Type ERASE to confirm" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" autoCapitalize="characters" />
-          <Button variant="danger" className="w-full min-h-[56px]" disabled={typed.trim() !== 'ERASE'}
-            onClick={async () => { await eraseAll(); window.location.replace(window.location.pathname); }}>Erase everything</Button>
+          <SheetActions>
+            <Button variant="danger" className="w-full min-h-[56px]" disabled={typed.trim() !== 'ERASE'}
+              onClick={async () => { await eraseAll(); window.location.replace(window.location.pathname); }}>Erase everything</Button>
+          </SheetActions>
         </div>
       </Sheet>
     </div>
@@ -309,7 +311,9 @@ function PinSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
         <TextInput label="New PIN (4 to 6 digits)" {...pinProps} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} autoFocus />
         <TextInput label="Enter it again" {...pinProps} value={confirm} onChange={(e) => setConfirm(e.target.value.replace(/\D/g, ''))} error={tried ? err : undefined} />
         <p className="text-sm text-muted">If you forget it, the only way back in is to erase this phone's data and restore a backup.</p>
-        <Button className="w-full min-h-[56px]" onClick={save}>Turn on app lock</Button>
+        <SheetActions>
+          <Button className="w-full min-h-[56px]" onClick={save}>Turn on app lock</Button>
+        </SheetActions>
       </div>
     </Sheet>
   );

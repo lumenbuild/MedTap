@@ -36,7 +36,7 @@ export function Timeline({ doses, checkIns, body, vitals, meds, s, units, now, o
 
   return (
     <Card>
-      <h2 className="text-lg font-semibold">Today</h2>
+      <h2 className="text-sm font-medium text-muted">Logged today</h2>
       {items.length === 0 ? (
         <p className="text-muted mt-1">Nothing logged yet today.</p>
       ) : (

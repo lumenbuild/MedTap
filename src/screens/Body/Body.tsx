@@ -41,7 +41,7 @@ export function Body() {
     <div className="space-y-4">
       <PersonSwitcher />
       <Card>
-        <div className="flex items-center gap-2 text-muted"><Scale size={18} aria-hidden="true" /><h2 className="font-semibold">Weight</h2></div>
+        <div className="flex items-center gap-2 text-muted"><Scale size={18} aria-hidden="true" /><h2 className="text-sm font-medium text-muted">Weight</h2></div>
         {latestWeight ? (
           <p className="mt-2"><span className="text-[40px] leading-[44px] font-semibold tnum">{fmtWeight(latestWeight.weightKg!, units)}</span>
             <span className="block text-muted">{fmtYmd(latestWeight.date)}</span></p>
@@ -52,7 +52,7 @@ export function Body() {
       <GoalsSection personId={fam.personId} goals={fam.people.find((p) => p.id === fam.personId)?.goals ?? []} entries={entries} units={units} now={now} />
 
       <Card>
-        <div className="flex items-center gap-2 text-muted"><Ruler size={18} aria-hidden="true" /><h2 className="font-semibold">Measurements</h2></div>
+        <div className="flex items-center gap-2 text-muted"><Ruler size={18} aria-hidden="true" /><h2 className="text-sm font-medium text-muted">Measurements</h2></div>
         {measured.length ? (
           <dl className="mt-3 grid grid-cols-2 gap-3">
             {measured.map((m) => (
@@ -72,7 +72,7 @@ export function Body() {
 
       {entries.length > 0 && (
         <Card>
-          <h2 className="text-lg font-semibold">History</h2>
+          <h2 className="text-sm font-medium text-muted">History</h2>
           <ul className="mt-2 -mx-2">
             {entries.slice(0, 60).map((e) => {
               const n = MEASUREMENTS.filter((m) => e[m.key] !== undefined).length;

@@ -8,7 +8,7 @@ import { useFamily } from '../app/data';
 import { useToast } from '../app/toast';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Sheet } from '../components/ui/Sheet';
+import { Sheet, SheetActions } from '../components/ui/Sheet';
 import { TextInput } from '../components/ui/Field';
 import { PersonBadge } from '../components/PersonSwitcher';
 import { HAS_BODY } from '../edition';
@@ -48,7 +48,7 @@ export function FamilyCard() {
 
   return (
     <Card className="space-y-3">
-      <h2 className="text-lg font-semibold flex items-center gap-2"><Users size={20} className="text-primary" aria-hidden="true" /> Family members</h2>
+      <h2 className="text-sm font-medium text-muted flex items-center gap-2"><Users size={20} className="text-primary" aria-hidden="true" /> Family members</h2>
       <p className="text-sm text-muted">
         {fam.many
           ? `Each person has their own medications, check-ins and ${HAS_BODY ? 'body tracking' : 'readings'}. Choose who to show at the top of Today, Trends, ${HAS_BODY ? 'Body' : 'Vitals'} and Meds. Tags always open the right person.`
@@ -71,7 +71,9 @@ export function FamilyCard() {
         <div className="space-y-4">
           <TextInput label="Name" value={name} onChange={(e) => setName(e.target.value)} autoFocus autoComplete="off"
             placeholder={editing === 'new' ? 'e.g. Sam' : undefined} onKeyDown={(e) => { if (e.key === 'Enter') save(); }} />
-          <Button className="w-full min-h-[56px]" onClick={save} disabled={!name.trim()}>{editing === 'new' ? 'Add' : 'Save'}</Button>
+          <SheetActions>
+            <Button className="w-full min-h-[56px]" onClick={save} disabled={!name.trim()}>{editing === 'new' ? 'Add' : 'Save'}</Button>
+          </SheetActions>
           {editing && editing !== 'new' && editing.id !== DEFAULT_PERSON && (
             <>
               <Button variant="danger" className="w-full" onClick={() => remove(editing)}>Remove {editing.name}</Button>

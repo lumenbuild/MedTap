@@ -85,7 +85,7 @@ export function Trends() {
           <DoseLevelsCards meds={peptideMeds} doses={doses} body={body} checkIns={checkIns} units={settings.units} now={now} />
         </>
       )}
-      <a href="#/report" className="bg-surface rounded-card shadow-card p-5 flex items-center gap-3 min-h-[56px]">
+      <a href="#/report" className="border-t border-border py-4 flex items-center gap-3 min-h-[56px]">
         <FileText className="text-primary" aria-hidden="true" />
         <span className="flex-1">
           <span className="block font-semibold">Report for your doctor</span>

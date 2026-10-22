@@ -64,7 +64,7 @@ export function Report() {
   return (
     <div className="space-y-4 report">
       <div className="no-print"><PersonSwitcher /></div>
-      <div className="no-print bg-surface rounded-card shadow-card p-5 space-y-3">
+      <div className="no-print border-t border-border py-4 space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <label className="block space-y-1"><span className="block text-sm font-medium">From</span>
             <input type="date" value={from} max={to} onChange={(e) => e.target.value && setFrom(e.target.value)} className="w-full min-h-[48px] rounded-btn bg-surface-2 border border-border px-3 tnum" /></label>
@@ -86,13 +86,14 @@ export function Report() {
 
       {valid && (
         <>
-          <header className="bg-surface rounded-card shadow-card p-5 report-block">
+          <header className="border-t border-border pt-5 pb-2 report-block">
             <h1 className="text-2xl font-semibold">Medication and wellbeing record{fam.many ? `: ${fam.person}` : ''}</h1>
             <p className="text-muted tnum">{format(start, 'd MMM yyyy')} – {format(end, 'd MMM yyyy')} · {days.length} days</p>
           </header>
 
-          <section className="bg-surface rounded-card shadow-card p-5 report-block">
-            <h2 className="text-lg font-semibold mb-2">Medications</h2>
+          <section className="border-t border-border pt-5 pb-2 report-block">
+            <h2 className="text-sm font-medium text-muted mb-2">Medications</h2>
+            <div className="table-scroll">
             <table className="w-full text-sm">
               <thead><tr className="text-left">{['Medication', 'Form', 'Usual dose', 'Schedule (as entered)', 'Doses logged', 'Days at daily number'].map((h) => <th key={h} className="py-1.5 pr-3 border-b border-border font-semibold">{h}</th>)}</tr></thead>
               <tbody>
@@ -115,6 +116,7 @@ export function Report() {
                 })}
               </tbody>
             </table>
+            </div>
             {usedMeds.some((m) => m.instructions?.trim()) && (
               <>
                 <h3 className="font-semibold mt-4 mb-1">Instructions</h3>
@@ -140,8 +142,8 @@ export function Report() {
             )}
           </section>
 
-          <section className="bg-surface rounded-card shadow-card p-5 report-block">
-            <h2 className="text-lg font-semibold mb-2">{HAS_BODY ? 'Check-ins and body' : 'Check-ins'}</h2>
+          <section className="border-t border-border pt-5 pb-2 report-block">
+            <h2 className="text-sm font-medium text-muted mb-2">{HAS_BODY ? 'Check-ins and body' : 'Check-ins'}</h2>
             <dl className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm tnum">
               <div><dt className="text-muted">Check-ins</dt><dd className="font-semibold">{nCheckIns}</dd></div>
               <div><dt className="text-muted">Average mood (1–5)</dt><dd className="font-semibold">{avg('mood')}</dd></div>
@@ -158,9 +160,10 @@ export function Report() {
           {HAS_BODY && <div className="report-block"><WeightChart entries={body} units={settings.units} start={start} end={end} s={s} /></div>}
           <div className="report-block"><VitalsCharts vitals={vitals} start={start} end={end} s={s} /></div>
 
-          <section className="bg-surface rounded-card shadow-card p-5 report-block">
-            <h2 className="text-lg font-semibold mb-2">Dose log</h2>
+          <section className="border-t border-border pt-5 pb-2 report-block">
+            <h2 className="text-sm font-medium text-muted mb-2">Dose log</h2>
             {rangeDoses.length === 0 ? <p className="text-muted">No doses in this range.</p> : (
+              <div className="table-scroll">
               <table className="w-full text-sm tnum">
                 <thead><tr className="text-left">{['Date', 'Time', 'Medication', 'Amount', 'How logged'].map((h) => <th key={h} className="py-1 pr-3 border-b border-border font-semibold">{h}</th>)}</tr></thead>
                 <tbody>
@@ -178,6 +181,7 @@ export function Report() {
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </section>
 

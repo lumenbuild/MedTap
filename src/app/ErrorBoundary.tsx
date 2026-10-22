@@ -9,7 +9,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
     if (!this.state.error) return this.props.children;
     return (
       <div className="mx-auto max-w-[560px] px-4 min-h-[100dvh] flex flex-col justify-center" role="alert">
-        <div className="bg-surface rounded-card shadow-card p-5 space-y-3">
+        <div className="border-t border-border py-4 space-y-3">
           <h1 className="text-2xl font-semibold">Something went wrong</h1>
           <p>This screen couldn't load. Your data is still saved on this device.</p>
           <button onClick={() => { window.location.hash = '#/today'; window.location.reload(); }}

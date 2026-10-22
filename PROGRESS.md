@@ -96,6 +96,45 @@ skipped doses, refill forecasting, encrypted and automatic backups. Awaiting own
   reason it failed), and the card shows the folder's name. Tests: `tests/autoBackup.test.ts`, plus browser runs of the
   web picker and of the app bundle with a fake native bridge.
 
+## Everything fits the screen (owner report: "buttons and windows have to be scrolled to")
+- Sheets: sized to the visible screen (`100dvh`, which follows Chrome's address bar, plus
+  `interactive-widget=resizes-content` so the keyboard shrinks it too); the title stays at the top, the content
+  scrolls, and the main buttons are pinned at the bottom with `<SheetActions>` (renders inline outside a sheet, e.g.
+  Log dose on the tag screen). Toasts move to the top while a sheet is open so they don't cover its buttons.
+- No sideways scrolling: inputs can shrink in rows (the weight field was 20 characters wide), long words wrap,
+  `#root` clips as a safety net, and the doctor report's wide tables scroll inside their card (full width in print).
+- Tag screen no longer nests `<main>` inside `<main>`.
+- Tested with an audit (every screen and sheet at 320×568, 360×640, 375×667, 412×915): before, Save was below the
+  fold on check-in, goal, plan a change, measurements and link tag, and the weight sheet and report scrolled
+  sideways; after, every sheet's buttons are on screen and nothing scrolls sideways. Simulated keyboard (330px
+  visible): title, field and Save all on screen.
+
+## B2 design and peptide-first features (owner request: "build all but 6 and update the look to B2")
+- **B2 ("modern minimalist") is the design for both apps.** White/near-black, no shadows, Geist font, hairline
+  sections instead of boxed cards, black primary buttons, outlined secondary ones, a small colour dot per medication,
+  large light headlines, text-and-dot tab bar. TapDose's violet is gone (its icons still tell the two apart); browser
+  bar, manifest and notification colours follow. Tinted notice cards become a hairline section with a coloured dot.
+- **Protocol tab** (peptide tools on): tabs are Today · Protocol · Progress (Trends + Body) · Meds. Each peptide: week
+  strip, next shot with the draw, next planned change, cycle, vial in use, stock with run-out and order-by dates
+  (per-peptide delivery lead time, default 7 days), batches, estimated level through the plan. Then supplies
+  (syringes, needles, swabs, water, sharps-full date) and the protocol report.
+- **Today**: an injection's headline gives the exact draw (or pen clicks), doses left in the vial and its use-by,
+  with a Mon–Sun strip of shot days underneath.
+- **Vial tags**: a tag can be linked to a vial; tapping it logs from that vial. When a new vial is mixed, "Move the
+  vial tag to this one" (on by default) points the same tag at the new vial: peel and re-stick, nothing is rewritten
+  because the tag only holds its ID. Undo restores both. A tag left on a finished vial logs from the one in use and
+  says so. Printable vial label (70×32 mm) with a QR to the same tag link.
+- **Batches**: per-lot doses, weight per week, appetite and side effects; flag a lot with a note; mixing from a
+  flagged lot shows the note.
+- **Protocol report**: per dose step (weeks, doses, weight and waist per week, appetite, side-effect share of
+  check-ins) and per batch; one page per peptide, print / save as PDF.
+- Not built (owner decision): notifications carrying the dose (feature 6), injection-site rotation, protocol
+  templates with doses (would be dosing advice).
+- Logic in `src/logic/protocol.ts` (pure, `now` passed in); tests `tests/protocol.test.ts`, `tests/vialtags.test.ts`.
+- Tested in the browser: flag a batch, mix a new vial (flagged-lot warning, tag moves, Undo), tap the moved tag (logs
+  from the new vial), vial label QR. Fit audit at 320×568–412×915 including the new screens and sheets; the tag
+  screen's Log dose is pinned to the bottom so it's in reach under the syringe guide. TapDose word scan clean.
+
 ## Two editions: MedTap and TapDose (owner request)
 - One codebase, two apps (owner chose one repo; `src/edition.ts`, `VITE_EDITION=tapdose`). TapDose ("general
   medication / ADHD support") never shows or mentions peptides, weight, measurements, goals or progress photos; it

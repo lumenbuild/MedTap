@@ -7,12 +7,37 @@ html, body, #root { min-height: 100%; }
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter Variable', system-ui, sans-serif;
+  font-family: 'Geist Variable', system-ui, sans-serif;
   font-size: 16px;
   line-height: 24px;
   -webkit-tap-highlight-color: transparent;
 }
+/* Never wider than the phone: long words wrap, and inputs in a row can shrink (their default width is ~20 characters). */
+body { overflow-wrap: break-word; }
+input, select, textarea { min-width: 0; max-width: 100%; }
+img, svg, canvas, video { max-width: 100%; }
+/* Safety net against any sideways scroll of the whole page; side-scrolling rows scroll inside their own box. */
+#root { overflow-x: clip; }
+
+/* Wide tables (the doctor report) scroll inside their card on a phone; printed, they show in full. */
+.table-scroll { overflow-x: auto; margin-inline: -20px; padding-inline: 20px; }
+.table-scroll th, .table-scroll td { white-space: nowrap; }
+@media print { .table-scroll { overflow: visible; margin-inline: 0; padding-inline: 0; } .table-scroll th, .table-scroll td { white-space: normal; } }
+
+/* Sheets fit the part of the screen you can actually see: 100dvh shrinks with Chrome's address bar and,
+   with interactive-widget=resizes-content (index.html), with the keyboard. vh is the fallback for old browsers. */
+.sheet-backdrop { height: 100vh; height: 100dvh; }
+.sheet-panel { max-height: calc(100vh - 12px); max-height: calc(100dvh - max(12px, env(safe-area-inset-top))); }
+.sheet-body { padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+.sheet-panel:has(.sheet-footer:not(:empty)) .sheet-body { padding-bottom: 16px; }
+.sheet-footer { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+/* With a sheet open, toasts move to the top so they never cover its buttons. */
+body[data-sheets] .toast-host { top: calc(12px + env(safe-area-inset-top)); bottom: auto !important; }
+
 .tnum { font-variant-numeric: tabular-nums; }
+/* B2: section headings are small grey labels without icons (colour and icons are kept for actions and medicines). */
+main h2 > svg.lucide, [role='dialog'] h3 > svg.lucide, main h2 > span > svg.lucide { display: none; }
+.notice > svg.lucide { display: none; }
 :focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
@@ -29,6 +54,17 @@ body {
 .animate-fade-in { animation: fade-in 200ms ease-out; }
 .animate-slide-up { animation: slide-up 220ms ease-out; }
 .check-draw { stroke-dasharray: 60; animation: draw 400ms ease-out 100ms both; }
+
+/* Vial label: name, strength once mixed, dates and lot, with the tag's QR code. On screen as a preview; printed at 70 x 32 mm. */
+.vial-label { display: flex; gap: 12px; align-items: center; font-size: 14px; line-height: 19px; }
+.vial-label-name { font-size: 18px; line-height: 22px; font-weight: 600; }
+.vial-label img { width: 84px; height: 84px; flex-shrink: 0; }
+@media print {
+  .print-vial { padding: 8mm; }
+  .print-vial .vial-label { width: 70mm; height: 32mm; box-sizing: border-box; padding: 2mm 3mm; border: 0.3mm dashed #999; font-size: 8pt; line-height: 10pt; color: #000; }
+  .print-vial .vial-label-name { font-size: 10pt; line-height: 12pt; }
+  .print-vial .vial-label img { width: 26mm; height: 26mm; }
+}
 
 /* Printable QR stickers (rendered into #print-root only while the QR sheet is open). */
 #print-root { display: none; }

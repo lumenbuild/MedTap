@@ -1,23 +1,22 @@
-import { CalendarDays, CircleCheck, Info } from 'lucide-react';
+import { format } from 'date-fns';
 import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import type { Dose, Medication } from '../../db/schema';
 import {
-  getDailyAmountTarget, getDailyTarget, getDayBounds, getDosesToday, getExpectedAmount, getLastDose, getNextDue, getProgress, getStatus,
-  nextScheduledDayStart, timeInDay, type ScheduleSettings, cycleInfo } from '../../logic/schedule';
-import { fmtAgo, fmtAmount, fmtCountdown, fmtCountdownLong, fmtDays, fmtHHmm, fmtSchedule, fmtTime, fmtWhen } from '../../logic/format';
-import { format } from 'date-fns';
+  cycleInfo, getDayBounds, getExpectedAmount, getLastDose, getNextDue, getStatus, nextScheduledDayStart, timeInDay, type ScheduleSettings,
+} from '../../logic/schedule';
+import { fmtAmount, fmtCountdownLong, fmtHHmm, fmtSchedule, fmtTime, fmtWhen } from '../../logic/format';
 import { nextPlannedChange } from '../../logic/plans';
 import { dayKey } from '../../logic/stats';
 import { stockUnitsFor } from '../../logic/stock';
-import { guideText } from '../../logic/peptide';
-import { medColour } from '../../logic/palette';
-import { Ring } from '../../components/ui/Ring';
+import { doseGuide, fmtUnits, isPen, vialStatus } from '../../logic/peptide';
 import { Button } from '../../components/ui/Button';
 import { MedBadge } from '../../components/MedBadge';
-import { PersonBadge } from '../../components/PersonSwitcher';
 
 const dayName = new Intl.DateTimeFormat('en-AU', { weekday: 'long' });
+const fmtDay = (ms: number) => format(ms, 'EEE d MMM');
 
+/** The headline on Today (B2): the next dose's time, large and light, what to take, and one Log button.
+ *  For injections it also says exactly what to draw (or dial) and how the vial in use is doing. */
 export function HeroCard({ med, doses, s, now, onLog, className = '', footer, person }: {
   med: Medication; doses: Dose[]; s: ScheduleSettings; now: number; onLog: () => void; className?: string; footer?: React.ReactNode;
   /** Whose medication this is (shown in the Everyone view). */
@@ -26,110 +25,92 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer, pe
   const status = getStatus(med, doses, now, s);
   const next = getNextDue(med, doses, now, s);
   const last = getLastDose(doses, med.id, now);
-  const today = getDosesToday(doses, med.id, now, s);
-  const count = today.length;
-  const target = getDailyTarget(med, now, s);
-  const amountTarget = getDailyAmountTarget(med, now, s);
-  const amountToday = today.filter((d) => !d.skipped).reduce((a, d) => a + d.amount, 0);
-  const skippedToday = today.filter((d) => d.skipped).length;
-  const progress = status === 'done-today' ? 1 : getProgress(med, doses, now, s);
+  const dayStart = getDayBounds(now, s.dayStartsAt, s.tz).start;
+  const nextAmount = status !== 'done-today' && status !== 'not-today' ? getExpectedAmount(med, doses, next ?? now, s) : med.defaultAmount;
   const latest = med.schedule.latestDoseTime;
-  const latestMs = latest ? timeInDay(getDayBounds(now, s.dayStartsAt, s.tz).start, latest, s) : undefined;
-  // What the plan says for the next dose (shown when it differs from dose to dose, or always for set amounts).
-  const nextAmount = status !== 'done-today' && status !== 'not-today' ? getExpectedAmount(med, doses, next ?? now, s) : null;
-  const nextUnits = nextAmount && med.strength > 0 && med.unit !== 'tablet' && !med.peptide ? stockUnitsFor(med, nextAmount) : null;
-  const nextGuide = nextAmount ? guideText(med, nextAmount) : undefined;
-  const cyc = med.schedule.cycle ? cycleInfo(med.schedule.cycle, getDayBounds(now, s.dayStartsAt, s.tz).start, s) : undefined;
-  const cycleEnd = (ymd: string) => format(new Date(`${ymd}T12:00`), 'EEE d MMM');
-  const cycle = !cyc ? null : cyc.phase === 'before' ? `Cycle starts ${cycleEnd(cyc.nextChange)}`
-    : cyc.phase === 'off' ? `Off until ${cycleEnd(cyc.nextChange)}`
-      : cyc.length % 7 === 0 && cyc.length >= 14 ? `Week ${Math.ceil(cyc.day / 7)} of ${cyc.length / 7} on` : `Day ${cyc.day} of ${cyc.length} on`;
 
-  let center;
-  let spoken: string;
-  if (status === 'done-today') {
-    center = (<><CircleCheck size={40} className="text-success" aria-hidden="true" /><span className="text-lg font-semibold mt-2">Done for today</span>
-      {next !== null && next > now && <span className="text-sm text-muted tnum mt-1">Next {fmtWhen(next, now)}</span>}</>);
-    spoken = `Done for today.${next !== null && next > now ? ` Next ${fmtWhen(next, now)}.` : ''}`;
-  } else if (status === 'not-today' && next !== null) {
-    center = (<><span className="text-[40px] leading-[44px] font-semibold tnum">{fmtCountdown(next - now)}</span>
-      <span className="text-sm text-muted">Not scheduled today</span><span className="text-sm font-medium tnum mt-1">Next {fmtWhen(next, now)}</span></>);
-    spoken = `Not scheduled today. Next dose ${fmtWhen(next, now)}, in ${fmtCountdownLong(next - now)}.`;
+  // The headline: a time, "Now", "Done" or "Not today".
+  let big: React.ReactNode;
+  let label = 'Next';
+  let sub: string;
+  if (status === 'due' && next !== null) {
+    big = 'Now'; sub = `Due since ${fmtTime(next)}`;
+  } else if (status === 'done-today') {
+    big = 'Done'; label = 'Today';
+    sub = next !== null && next > now ? `Next ${fmtWhen(next, now)}` : 'All taken';
+  } else if (status === 'past-latest-time') {
+    // Every-few-hours: past the latest dose time set. Set times: today's times have passed without a dose.
+    big = 'Missed'; label = 'Today'; sub = latest ? `Past your latest time of ${fmtHHmm(latest)}` : "Today's dose time has passed";
+  } else if (next !== null && next > now) {
+    const [hm, ap] = format(next, 'h:mm a').split(' ');
+    const sameDay = next < getDayBounds(now, s.dayStartsAt, s.tz).end;
+    if (!sameDay) label = `Next · ${fmtDay(next)}`;
+    big = <>{hm}<span className="text-[28px] tracking-normal ml-1.5">{ap.toLowerCase()}</span></>;
+    sub = `in ${fmtCountdownLong(next - now)}`;
   } else if (status === 'not-today') {
     const nd = nextScheduledDayStart(med, now, s);
-    center = (<><CalendarDays size={36} className="text-muted" aria-hidden="true" /><span className="font-semibold mt-2">Not scheduled today</span>
-      {nd !== null && <span className="text-sm text-muted">Next: {dayName.format(nd)}</span>}</>);
-    spoken = `Not scheduled today.${nd !== null ? ` Next: ${dayName.format(nd)}.` : ''}`;
-  } else if (status === 'past-latest-time') {
-    center = (<><Info size={36} className="text-muted" aria-hidden="true" /><span className="font-semibold mt-2">Past your latest dose time</span>
-      {latest && <span className="text-sm text-muted tnum">{fmtHHmm(latest)}</span>}</>);
-    spoken = 'Past your latest dose time.';
-  } else if (status === 'due' && next !== null) {
-    center = (<><span className="text-sm text-muted">Next dose</span><span className="text-[40px] leading-[44px] font-semibold text-primary">Due now</span>
-      <span className="text-sm text-muted tnum">since {fmtTime(next)}</span></>);
-    spoken = `Due now, since ${fmtTime(next)}.`;
-  } else if (next !== null) {
-    center = (<><span className="text-[40px] leading-[44px] font-semibold tnum">{fmtCountdown(next - now)}</span>
-      <span className="text-sm text-muted">until next dose</span><span className="text-sm font-medium tnum mt-1">Due {fmtWhen(next, now)}</span></>);
-    spoken = `Next dose in ${fmtCountdownLong(next - now)}, at ${fmtWhen(next, now)}.`;
+    big = 'Not today'; sub = nd !== null ? `Next: ${dayName.format(nd)}` : 'Nothing planned';
   } else {
-    center = (<span className="text-lg font-semibold">No doses yet today</span>);
-    spoken = 'No doses yet today.';
+    big = 'Any time'; sub = last ? `Last ${fmtWhen(Date.parse(last.takenAt), now)}` : 'No doses yet';
   }
-  if (nextAmount) spoken += ` Next dose: ${fmtAmount(nextAmount, med.unit)}.`;
 
-  const due = status === 'due';
-  const days = fmtDays(med.schedule);
+  // How much: tablets, or for injections the syringe draw / pen clicks from the vial or pen in use.
+  const guide = med.peptide && nextAmount > 0 ? doseGuide(med, nextAmount) : undefined;
+  const units = !med.peptide && nextAmount > 0 && med.strength > 0 && med.unit !== 'tablet' ? stockUnitsFor(med, nextAmount) : null;
+  const how = units !== null ? `${units} ${med.form === 'other' ? 'units' : `${med.form}${units === 1 ? '' : 's'}`}` : null;
+  const vial = med.peptide ? vialStatus(med, doses, now) : undefined;
+  const pen = isPen(med);
+
+  const cyc = med.schedule.cycle ? cycleInfo(med.schedule.cycle, dayStart, s) : undefined;
+  const ymd = (x: string) => format(new Date(`${x}T12:00`), 'EEE d MMM');
+  const cycle = !cyc ? null : cyc.phase === 'before' ? `Cycle starts ${ymd(cyc.nextChange)}`
+    : cyc.phase === 'off' ? `Off until ${ymd(cyc.nextChange)}`
+      : cyc.length % 7 === 0 && cyc.length >= 14 ? `Week ${Math.ceil(cyc.day / 7)} of ${cyc.length / 7} on` : `Day ${cyc.day} of ${cyc.length} on`;
   const change = nextPlannedChange(med, dayKey(now, s));
   const changeSoon = change && Date.parse(`${change.from}T12:00`) - now < 8 * 86_400_000 ? change : undefined;
+  const latestMs = latest ? timeInDay(dayStart, latest, s) : undefined;
+
   return (
-    <article
-      aria-label={person ? `${person}: ${shownName(med)}` : shownName(med)}
-      className={`bg-surface rounded-card shadow-card p-5 h-full ${className}`}
-      style={due ? { outline: '2px solid var(--primary)', outlineOffset: '-2px' } : undefined}
-    >
-      {person && <p className="flex items-center gap-2 text-sm font-semibold text-primary mb-3"><PersonBadge name={person} size={24} /> {person}</p>}
-      <div className="flex items-center gap-3">
-        <MedBadge color={shownColour(med)} icon={med.icon} />
-        <div className="min-w-0">
-          <h2 className="text-lg font-semibold leading-6">{shownMedName(med)}</h2>
-          {days && <p className="text-sm text-muted">{days}</p>}
-          {cycle && <p className="text-sm font-medium tnum">{cycle}</p>}
-          {changeSoon && <p className="text-sm text-primary font-medium tnum">Changes {format(new Date(`${changeSoon.from}T12:00`), 'EEE d MMM')}: {fmtSchedule(changeSoon.schedule, med.unit)}</p>}
-        </div>
-      </div>
-      <div className="my-5">
-        <Ring progress={status === 'not-today' && next === null ? 0 : progress} color={medColour(shownColour(med))}>{center}</Ring>
-        <p className="sr-only" aria-live="polite">{person ? `${person}, ` : ''}{shownName(med)}: {spoken}</p>
-      </div>
-      <dl className="text-center space-y-0.5 tnum">
-        {nextAmount !== null && nextAmount > 0 && (
-          <div>
-            <dt className="sr-only">Next dose amount</dt>
-            <dd className="font-semibold">Next: {fmtAmount(nextAmount, med.unit)}{nextGuide ? ` · ${nextGuide}` : nextUnits !== null ? ` · ${nextUnits} ${med.form === 'other' ? 'units' : `${med.form}${nextUnits === 1 ? '' : 's'}`}` : ''}</dd>
-          </div>
-        )}
-        <div>
-          <dt className="sr-only">Last dose</dt>
-          <dd>{last ? <>Last dose {fmtAgo(now - Date.parse(last.takenAt))} · {fmtWhen(Date.parse(last.takenAt), now)}</> : 'No doses logged yet'}</dd>
-        </div>
-        {status !== 'not-today' && (
-          <div>
-            <dt className="sr-only">Today</dt>
-            <dd className="text-muted">
-              Today: {count}{target ? ` of ${target}` : ''}
-              {amountTarget !== undefined ? ` · ${fmtAmount(amountToday, med.unit)} of ${fmtAmount(amountTarget, med.unit)}` : ''}
-              {skippedToday ? ` · ${skippedToday} skipped` : ''}
-            </dd>
-          </div>
-        )}
-      </dl>
-      {med.schedule.type === 'interval' && next !== null && latestMs !== undefined && next > latestMs && status === 'not-due' && (
-        <p className="mt-3 text-sm text-muted text-center">That's after your latest dose time of {fmtHHmm(latest!)}.</p>
+    <article aria-label={person ? `${person}: ${shownName(med)}` : shownName(med)} className={`pt-6 pb-8 ${className}`}>
+      <p className="text-sm font-medium text-muted">{person ? `${label} · ${person}` : label}</p>
+      <p className="mt-1.5 font-light text-[84px] leading-[84px] tracking-[-0.04em] tnum" aria-hidden="true">{big}</p>
+      <p className="mt-4 text-xl font-medium flex items-center gap-2.5">
+        <MedBadge color={shownColour(med)} icon={med.icon} size={34} /> <span className="min-w-0">{shownMedName(med)}</span>
+      </p>
+      <p className="ml-5 mt-0.5 text-[15px] text-muted tnum">
+        {[sub, nextAmount > 0 && !guide ? fmtAmount(nextAmount, med.unit) : null, how].filter(Boolean).join(' · ')}
+      </p>
+      {(cycle || changeSoon) && (
+        <p className="ml-5 text-[15px] tnum">{[cycle, changeSoon && `Changes ${ymd(changeSoon.from)}: ${fmtSchedule(changeSoon.schedule, med.unit)}`].filter(Boolean).join(' · ')}</p>
       )}
-      <Button className="w-full min-h-[56px] mt-5" variant={due || status === 'none-today' ? 'primary' : 'secondary'} onClick={onLog}>
-        Log dose
-      </Button>
+
+      {guide && (
+        <div className="ml-5 mt-4 border-l-2 pl-4 py-1" style={{ borderColor: 'var(--text)' }}>
+          {guide.kind === 'draw' ? (
+            <>
+              <p className="text-2xl font-medium tnum">Draw to {fmtUnits(guide.draw.units)}</p>
+              <p className="text-[15px] text-muted tnum">{fmtAmount(nextAmount, med.unit)} · {guide.syringe} syringe · {guide.waterMl} mL in the vial</p>
+            </>
+          ) : (
+            <>
+              <p className="text-2xl font-medium tnum">{guide.clicks !== undefined ? `Dial ${guide.clicks} click${guide.clicks === 1 ? '' : 's'}` : `Dial ${fmtAmount(nextAmount, med.unit)}`}</p>
+              <p className="text-[15px] text-muted tnum">{fmtAmount(nextAmount, med.unit)} from the pen</p>
+            </>
+          )}
+          {vial && (
+            <p className={`text-[15px] tnum ${vial.expired || vial.dosesLeft <= 1 ? 'text-caution font-medium' : 'text-muted'}`}>
+              {pen ? 'Pen' : 'Vial'} {pen ? 'started' : 'mixed'} {fmtDay(vial.startedAt)} · {vial.dosesLeft} dose{vial.dosesLeft === 1 ? '' : 's'} left
+              {vial.useBy ? ` · ${vial.expired ? 'past use-by' : 'use by'} ${fmtDay(vial.useBy)}` : ''}
+            </p>
+          )}
+        </div>
+      )}
+      {med.schedule.type === 'interval' && next !== null && latestMs !== undefined && next > latestMs && status === 'not-due' && (
+        <p className="ml-5 mt-2 text-sm text-muted">That's after your latest dose time of {fmtHHmm(latest!)}.</p>
+      )}
+      <p className="sr-only" aria-live="polite">{person ? `${person}, ` : ''}{shownName(med)}: {typeof big === 'string' ? big : `next at ${next ? fmtTime(next) : ''}`}. {sub}.</p>
+
+      <Button className="w-full min-h-[56px] mt-7 text-[17px]" onClick={onLog}>Log dose</Button>
       {footer}
     </article>
   );

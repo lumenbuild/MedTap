@@ -8,14 +8,16 @@ import { isTemporaryTagBase, tagUrl } from '../../nfc/url';
 import { NFC_ERROR_TEXT, NfcError, writeUrlToTag } from '../../nfc/write';
 import { canWriteNFC, isIOS } from '../../platform';
 import { useToast } from '../../app/toast';
-import { Sheet } from '../../components/ui/Sheet';
+import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { TextInput } from '../../components/ui/Field';
 import { TagTest } from './TagTest';
 
 type Step = 'intro' | 'writing' | 'manual' | 'error' | 'test';
 
-export function LinkTagSheet({ med, open, onClose, onQr }: { med: Medication; open: boolean; onClose: () => void; onQr: (url: string) => void }) {
+/** Link a new tag to a medication. With `vialId` (peptide tools) it's a vial tag: stuck on that vial, logging from it, and
+ *  moved to the next vial when one is mixed. */
+export function LinkTagSheet({ med, open, onClose, onQr, vialId }: { med: Medication; open: boolean; onClose: () => void; onQr: (url: string) => void; vialId?: string }) {
   const toast = useToast();
   const [id, setId] = useState(newTagId);
   const [label, setLabel] = useState('');
@@ -26,14 +28,14 @@ export function LinkTagSheet({ med, open, onClose, onQr }: { med: Medication; op
 
   // Fresh tag ID each time the sheet opens.
   useEffect(() => {
-    if (open) { setId(newTagId()); setLabel(''); setStep(canWriteNFC ? 'intro' : 'manual'); setCopied(false); }
+    if (open) { setId(newTagId()); setLabel(vialId ? 'Vial tag' : ''); setStep(canWriteNFC ? 'intro' : 'manual'); setCopied(false); }
     else ctrl.current?.abort();
   }, [open]);
 
   const url = tagUrl(id);
   const save = async () => {
-    await linkTag(id, med.id, label);
-    toast(`Tag linked to ${shownName(med)}`);
+    await linkTag(id, med.id, label, vialId);
+    toast(vialId ? `Tag linked to this ${shownName(med)} vial` : `Tag linked to ${shownName(med)}`);
     setStep('test');
   };
 
@@ -68,10 +70,12 @@ export function LinkTagSheet({ med, open, onClose, onQr }: { med: Medication; op
           <>
             {labelField}
             {tempNote}
-            <Button className="w-full min-h-[56px] flex items-center justify-center gap-2" onClick={write}>
-              <Nfc size={20} aria-hidden="true" /> Write to tag
-            </Button>
-            <Button variant="secondary" className="w-full" onClick={() => setStep('manual')}>Copy the link instead</Button>
+            <SheetActions>
+              <Button className="w-full min-h-[56px] flex items-center justify-center gap-2" onClick={write}>
+                <Nfc size={20} aria-hidden="true" /> Write to tag
+              </Button>
+              <Button variant="secondary" className="w-full" onClick={() => setStep('manual')}>Copy the link instead</Button>
+            </SheetActions>
             <p className="text-sm text-muted">Use a blank NTAG213, 215 or 216 tag. On foil packs or metal tins, use an on-metal tag.</p>
           </>
         )}
@@ -81,15 +85,19 @@ export function LinkTagSheet({ med, open, onClose, onQr }: { med: Medication; op
             <Nfc size={56} className="mx-auto text-primary animate-pulse" aria-hidden="true" />
             <p className="text-lg font-semibold">Hold the tag to the back of your phone</p>
             <p className="text-muted">Keep it still until this says it's done.</p>
-            <Button variant="secondary" className="w-full" onClick={() => ctrl.current?.abort()}>Cancel</Button>
+            <SheetActions>
+              <Button variant="secondary" className="w-full" onClick={() => ctrl.current?.abort()}>Cancel</Button>
+            </SheetActions>
           </div>
         )}
 
         {step === 'error' && (
           <>
             <p role="alert" className="rounded-btn bg-caution-soft p-4">{error}</p>
-            <Button className="w-full min-h-[56px]" onClick={write}>Try again</Button>
-            <Button variant="secondary" className="w-full" onClick={() => setStep('manual')}>Copy the link instead</Button>
+            <SheetActions>
+              <Button className="w-full min-h-[56px]" onClick={write}>Try again</Button>
+              <Button variant="secondary" className="w-full" onClick={() => setStep('manual')}>Copy the link instead</Button>
+            </SheetActions>
           </>
         )}
 
@@ -115,20 +123,24 @@ export function LinkTagSheet({ med, open, onClose, onQr }: { med: Medication; op
               </ol>
               <p className="text-sm text-muted mt-2">Come back here when it says the write worked.</p>
             </div>
-            <Button className="w-full min-h-[56px]" onClick={save}>I've written the tag</Button>
-            <Button variant="secondary" className="w-full flex items-center justify-center gap-2" onClick={() => onQr(url)}>
-              <QrCode size={20} aria-hidden="true" /> Print a QR sticker instead
-            </Button>
+            <SheetActions>
+              <Button className="w-full min-h-[56px]" onClick={save}>I've written the tag</Button>
+              <Button variant="secondary" className="w-full flex items-center justify-center gap-2" onClick={() => onQr(url)}>
+                <QrCode size={20} aria-hidden="true" /> Print a QR sticker instead
+              </Button>
+            </SheetActions>
           </>
         )}
 
         {step === 'test' && (
           <>
             <TagTest tagId={id} medName={shownName(med)} />
-            <Button variant="secondary" className="w-full flex items-center justify-center gap-2" onClick={() => onQr(url)}>
-              <QrCode size={20} aria-hidden="true" /> Also print a QR sticker
-            </Button>
-            <Button className="w-full min-h-[56px]" onClick={onClose}>Done</Button>
+            <SheetActions>
+              <Button variant="secondary" className="w-full flex items-center justify-center gap-2" onClick={() => onQr(url)}>
+                <QrCode size={20} aria-hidden="true" /> Also print a QR sticker
+              </Button>
+              <Button className="w-full min-h-[56px]" onClick={onClose}>Done</Button>
+            </SheetActions>
           </>
         )}
       </div>

@@ -9,7 +9,7 @@ import { forecast, forecastWeekAgo, GOAL_METRICS, isFastWeightPace, milestones, 
 import { cmTo, fmtLength, fmtWeight, kgTo, lengthUnit, toCm, toKg, weightUnit } from '../../logic/units';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Sheet } from '../../components/ui/Sheet';
+import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { Select, TextInput } from '../../components/ui/Field';
 
 const DAY = 86_400_000;
@@ -212,7 +212,9 @@ function GoalSheet({ personId, existing, metrics, units, entries, now, onClose }
           type="number" inputMode="decimal" min="0" step="any" value={start} onChange={(e) => setStart(e.target.value)} />
         <TextInput label="By (optional)" help="Leave blank to just see when you'll get there." type="date" min={todayYmd()} value={date} onChange={(e) => setDate(e.target.value)} />
         <p className="text-sm text-muted">The forecast uses your own logs: the trend over the last few weeks, ignoring day-to-day ups and downs. It updates every time you log.</p>
-        <Button className="w-full min-h-[56px]" disabled={!valid} onClick={save}>Save goal</Button>
+        <SheetActions>
+          <Button className="w-full min-h-[56px]" disabled={!valid} onClick={save}>Save goal</Button>
+        </SheetActions>
         {existing && <Button variant="danger" className="w-full" onClick={remove}>Remove goal</Button>}
       </div>
     </Sheet>
@@ -223,7 +225,7 @@ function GoalSheet({ personId, existing, metrics, units, entries, now, onClose }
 export function GoalLines({ goals, entries, units, now }: { goals: BodyGoal[]; entries: BodyEntry[]; units: Units; now: number }) {
   if (!goals.length) return null;
   return (
-    <a href="#/body" className="block bg-surface rounded-card shadow-card p-4 space-y-1">
+    <a href="#/body" className="block border-t border-border py-4 space-y-1">
       {goals.map((g) => (
         <p key={g.metric} className="flex items-center gap-2 text-sm tnum"><Flag size={16} className="text-primary shrink-0" aria-hidden="true" /> {goalLine(goalView(g, entries, now), units)}</p>
       ))}

@@ -72,7 +72,7 @@ function MedRow({ med, tags, doses, s, now }: { med: Medication; tags: Tag[]; do
   const low = med.stockCount !== undefined && med.lowStockAt !== undefined && med.stockCount <= med.lowStockAt;
   return (
     <li>
-      <a href={`#/meds/${med.id}`} className="bg-surface rounded-card shadow-card p-4 flex items-center gap-3">
+      <a href={`#/meds/${med.id}`} className="border-t border-border py-4 flex items-center gap-3">
         <MedBadge color={shownColour(med)} icon={med.icon} />
         <span className="flex-1 min-w-0">
           <span className="block font-semibold truncate">{shownMedName(med)}{isPrivate(med) && <span className="ml-2 text-xs font-medium text-muted">Nickname</span>}{med.shared && <span className="ml-2 text-xs font-medium text-primary">Shared</span>}</span>
