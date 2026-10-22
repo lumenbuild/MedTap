@@ -271,7 +271,7 @@ Not wanted: 9 (what-if comparison of two plans).
   `busyDays` setting. Day-after-shot features need shots 2.5+ days apart and 6+ check-ins; weeks before the first
   shot never count as missed.
 
-## Next: smart features for both apps (owner approved 22 Oct 2026, after the peptide list above)
+## Built: smart features for both apps (owner approved 22 Oct 2026)
 All on the phone, from the person's own data; no medical advice.
 1. Smart reminder timing: learn when each medicine is actually taken (weekday/weekend) and offer to move the reminder.
 2. Forgot or just late: one nudge after the usual time plus the person's normal spread.
@@ -287,6 +287,17 @@ All on the phone, from the person's own data; no medical advice.
 12. Lab results by photo: read values and dates from a printout into the report.
 13. One-page appointment summary: what changed since the last visit, flags, questions.
 14. "Since my last appointment": mark appointments; charts compare before and after.
+- Built: `src/logic/habits.ts` (1–3, 6–8), `src/logic/travel.ts` (4), `src/logic/records.ts` (5, 9–12),
+  `src/logic/appointments.ts` (13–14); tests `tests/habits.test.ts`, `tests/smart.test.ts`. UI: medication page
+  "Patterns" (`src/components/Smart.tsx`), Today notes (effect window, script booking, odd records, next
+  appointment), Trends (coming days, effect window, last dose and sleep, "Appt" range, appointment marks), reminders
+  (learned times via `Medication.reminderTimes`, `lateNudges` setting, extra nudges on often-missed slots),
+  `#/appointments`, `#/appointments/summary`, `#/labs`, `#/travel`, check-in note → chips, vial label photo.
+- DB v7: `labs`, `appointments`, `questions` tables (backed up and synced). `Medication.packSize` is set by each refill.
+- Day-after-shot patterns now count each day once (a chip counts if noted in any check-in that day), so several
+  check-ins a day don't dilute them.
+- OCR checked end to end in Chromium on generated photos: vial label (lot, expiry) and a lab printout (3 results and
+  the collection date; "HbAlc" is corrected to HbA1c).
 
 ## Next: more smart features (owner approved 22 Oct 2026, after the lists above)
 1. Health Connect / Apple Health import: sleep, steps, resting heart rate, weight and blood pressure from devices.

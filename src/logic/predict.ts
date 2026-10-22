@@ -44,34 +44,42 @@ function gapDays(shots: { t: number }[]): number | undefined {
 export interface OffsetStats { day: number; n: number; appetite?: number; effectPct: number; chips: { chip: string; n: number; pct: number }[] }
 export interface ShotProfile { days: OffsetStats[]; checkIns: number; shots: number; gap: number; amount?: number }
 
-/** Check-ins grouped by days since the shot before them (day 0 = shot day), optionally only after shots of `amount`. */
+/** Days after a shot (day 0 = shot day), optionally only after shots of `amount`. Each day after each shot counts once:
+ *  a side effect counts for that day if any check-in that day noted it (so several check-ins a day don't dilute it), and
+ *  appetite is the day's average. `checkIns` on the result is how many check-ins it rests on. */
 export function shotProfile(med: Medication, doses: Dose[], checkIns: CheckIn[], amount?: number): ShotProfile | null {
   const shots = shotsOf(med, doses);
   const gap = gapDays(shots);
   if (gap === undefined || gap < 2.5) return null;
   const span = Math.min(7, Math.round(gap));
-  const groups: CheckIn[][] = Array.from({ length: span }, () => []);
+  // (shot, day after) → that day's check-ins
+  const days = new Map<string, { day: number; cis: CheckIn[] }>();
   const usedShots = new Set<number>();
+  let total = 0;
   for (const c of checkIns.filter(live)) {
     const t = Date.parse(c.at);
     const before = shots.filter((s) => s.t <= t).pop();
     if (!before || (amount !== undefined && !sameDose(before.amount, amount))) continue;
     const day = Math.floor((t - before.t) / DAY);
     if (day >= span) continue;
-    groups[day].push(c);
+    const k = `${before.t}|${day}`;
+    const e = days.get(k) ?? { day, cis: [] };
+    e.cis.push(c);
+    days.set(k, e);
     usedShots.add(before.t);
+    total++;
   }
-  const total = groups.reduce((n, g) => n + g.length, 0);
   if (!total) return null;
+  const groups = Array.from({ length: span }, (_, day) => [...days.values()].filter((x) => x.day === day));
   return {
     gap: span, checkIns: total, shots: usedShots.size, amount,
     days: groups.map((g, day) => {
-      const app = g.map((c) => c.appetite).filter((x): x is number => typeof x === 'number');
+      const apps = g.map((x) => avg(x.cis.map((c) => c.appetite).filter((v): v is number => typeof v === 'number'))).filter((v): v is number => v !== undefined);
       const counts = new Map<string, number>();
-      for (const c of g) for (const chip of c.chips) if (EFFECT_CHIPS.includes(chip)) counts.set(chip, (counts.get(chip) ?? 0) + 1);
+      for (const x of g) for (const chip of new Set(x.cis.flatMap((c) => c.chips.filter((ch) => EFFECT_CHIPS.includes(ch))))) counts.set(chip, (counts.get(chip) ?? 0) + 1);
       return {
-        day, n: g.length, appetite: app.length ? r(avg(app)!, 1) : undefined,
-        effectPct: g.length ? Math.round((g.filter(hasEffect).length / g.length) * 100) : 0,
+        day, n: g.length, appetite: apps.length ? r(avg(apps)!, 1) : undefined,
+        effectPct: g.length ? Math.round((g.filter((x) => x.cis.some(hasEffect)).length / g.length) * 100) : 0,
         chips: [...counts].map(([chip, n]) => ({ chip, n, pct: Math.round((n / g.length) * 100) })).sort((a, b) => b.n - a.n),
       };
     }),

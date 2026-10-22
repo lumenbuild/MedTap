@@ -102,7 +102,7 @@ async function doSync() {
   if (!settings.remindersEnabled || (await reminderPermission()) !== 'granted') return;
   const [meds, doses, people] = await Promise.all([db.medications.toArray(), db.doses.toArray(), listPeople()]);
   const live = doses.filter((d) => !d.deletedAt);
-  const plan = planReminders(meds, live, Date.now(), scheduleSettings(settings));
+  const plan = planReminders(meds, live, Date.now(), scheduleSettings(settings), undefined, undefined, { nudges: settings.lateNudges });
   const byId = new Map(meds.map((m) => [m.id, m]));
   const many = people.length > 1;
   await LocalNotifications.schedule({
@@ -112,7 +112,7 @@ async function doSync() {
       return {
         id: r.id,
         title: `${who}${shownName(med)}`,
-        body: `${fmtAmount(r.amount, med.unit)} due at ${fmtTime(r.at)}`,
+        body: r.kind === 'nudge' ? `Still to take: ${fmtAmount(r.amount, med.unit)}, due at ${fmtTime(r.dueAt)}` : `${fmtAmount(r.amount, med.unit)} due at ${fmtTime(r.dueAt)}`,
         schedule: { at: new Date(r.at), allowWhileIdle: true },
         channelId: CHANNEL,
         actionTypeId: ACTIONS,

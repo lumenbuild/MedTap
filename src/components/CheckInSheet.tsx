@@ -1,3 +1,4 @@
+import { chipsFromNote } from '../logic/records';
 import { useEffect, useState } from 'react';
 import { shownColour, shownMedName, shownName } from '../logic/privacy';
 import { Plus } from 'lucide-react';
@@ -48,6 +49,8 @@ function CheckInForm({ seed, onClose, doses, checkIns, meds, chips, s, personId 
   const showSleep = firstToday || f.sleepHours !== undefined || f.sleepQuality !== undefined;
 
   const allChips = [...new Set([...chips, ...f.chips])];
+  // Chips the note mentions that aren't ticked yet (e.g. "bit queasy" → Nausea). Matched on the phone.
+  const suggested = f.note ? chipsFromNote(f.note, allChips, f.chips) : [];
   const toggle = (c: string) => set('chips', f.chips.includes(c) ? f.chips.filter((x) => x !== c) : [...f.chips, c]);
   const addChip = async () => {
     const c = newChip.trim();
@@ -125,6 +128,14 @@ function CheckInForm({ seed, onClose, doses, checkIns, meds, chips, s, personId 
           <textarea value={f.note ?? ''} onChange={(e) => set('note', e.target.value)} rows={2}
             className="w-full rounded-btn bg-surface-2 border border-border px-3.5 py-3" />
         </label>
+        {suggested.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2" aria-label="From your note">
+            <span className="text-sm text-muted">From your note:</span>
+            {suggested.map((c) => (
+              <button key={c} type="button" onClick={() => toggle(c)} className="min-h-[40px] px-3 rounded-chip border border-dashed border-border-strong text-sm font-medium">+ {c}</button>
+            ))}
+          </div>
+        )}
 
         <div className="space-y-1.5">
           <label htmlFor="ci-dose" className="block text-sm font-medium">Linked dose</label>

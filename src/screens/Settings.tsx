@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Calculator, ChevronRight, Package, HardDriveDownload, HelpCircle, Lock, RefreshCw, Syringe, X } from 'lucide-react';
+import { Calculator, CalendarCheck, ChevronRight, Package, HardDriveDownload, HelpCircle, Lock, Plane, RefreshCw, Syringe, X } from 'lucide-react';
 import { useSyncConfig } from '../app/sync';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -86,7 +86,24 @@ export function Settings() {
         <ChevronRight className="text-muted" aria-hidden="true" />
       </a>
 
-      {isNative && <Suspense fallback={null}><RemindersCard enabled={settings.remindersEnabled} /></Suspense>}
+      {isNative && <Suspense fallback={null}><RemindersCard enabled={settings.remindersEnabled} nudges={settings.lateNudges} /></Suspense>}
+
+      <a href="#/appointments" className="border-t border-border py-4 flex items-center gap-3">
+        <CalendarCheck className="text-primary" aria-hidden="true" />
+        <span className="flex-1">
+          <span className="block font-semibold">Appointments and lab results</span>
+          <span className="block text-sm text-muted">Questions to ask, and what's changed since the last one</span>
+        </span>
+        <ChevronRight className="text-muted" aria-hidden="true" />
+      </a>
+      <a href="#/travel" className="border-t border-border py-4 flex items-center gap-3">
+        <Plane className="text-primary" aria-hidden="true" />
+        <span className="flex-1">
+          <span className="block font-semibold">Plan a trip</span>
+          <span className="block text-sm text-muted">Dose times across time zones</span>
+        </span>
+        <ChevronRight className="text-muted" aria-hidden="true" />
+      </a>
 
       <Card className="space-y-4">
         <h2 className="text-sm font-medium text-muted">Your day</h2>

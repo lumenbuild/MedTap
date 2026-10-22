@@ -3,11 +3,12 @@ import { BellRing } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useToast } from '../app/toast';
-import { allowExactReminders, exactRemindersAllowed, reminderPermission, setRemindersEnabled, type ReminderPermission } from '../app/native';
+import { allowExactReminders, exactRemindersAllowed, reminderPermission, setRemindersEnabled, syncReminders, type ReminderPermission } from '../app/native';
+import { setSetting } from '../db/repos/settings';
 import { APP_NAME } from '../config';
 
 /** Native app only: phone notifications when doses are due. */
-export default function RemindersCard({ enabled }: { enabled: boolean }) {
+export default function RemindersCard({ enabled, nudges }: { enabled: boolean; nudges: boolean }) {
   const toast = useToast();
   const [perm, setPerm] = useState<ReminderPermission | null>(null);
   const [exact, setExact] = useState(true);
@@ -33,6 +34,15 @@ export default function RemindersCard({ enabled }: { enabled: boolean }) {
         </span>
         <input type="checkbox" role="switch" checked={enabled} onChange={toggle} className="w-6 h-6 accent-[var(--primary)] shrink-0" />
       </label>
+      {enabled && (
+        <label className="flex items-center justify-between gap-3 min-h-[48px]">
+          <span>
+            <span className="block font-medium">Nudge me if I haven't logged it</span>
+            <span className="block text-sm text-muted">A second reminder a while after your usual time, learned from when you usually take it. Days you often miss always get one.</span>
+          </span>
+          <input type="checkbox" role="switch" checked={nudges} onChange={async () => { await setSetting('lateNudges', !nudges); void syncReminders(); }} className="w-6 h-6 accent-[var(--primary)] shrink-0" />
+        </label>
+      )}
       {enabled && perm === 'denied' && <p className="text-sm rounded-btn bg-caution-soft p-3">Notifications are turned off for this app in your phone’s settings, so reminders can’t show.</p>}
       {enabled && !exact && (
         <div className="rounded-btn bg-surface-2 p-3 space-y-2">

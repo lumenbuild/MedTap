@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { BodyEntry, CheckIn, DeviceValue, Dose, MedEvent, Medication, Person, Photo, Setting, Tag, Vital, Supply } from './schema';
+import type { Appointment, BodyEntry, CheckIn, DeviceValue, Dose, LabResult, MedEvent, Medication, Person, Photo, Question, Setting, Tag, Vital, Supply } from './schema';
 import { LEGACY_COLOURS } from '../logic/palette';
 import { edition } from '../edition';
 
@@ -16,6 +16,9 @@ class MedDB extends Dexie {
   people!: Table<Person, string>;
   vitals!: Table<Vital, string>;
   supplies!: Table<Supply, string>;
+  labs!: Table<LabResult, string>;
+  appointments!: Table<Appointment, string>;
+  questions!: Table<Question, string>;
 
   constructor() {
     super(edition.dbName); // each edition keeps its own data, even on the same website
@@ -43,11 +46,13 @@ class MedDB extends Dexie {
     this.version(5).stores({ vitals: 'id, at' });
     // v6: injection supplies (peptide tools).
     this.version(6).stores({ supplies: 'id, kind' });
+    // v7: lab results, appointments and questions for them.
+    this.version(7).stores({ labs: 'id, date', appointments: 'id, date', questions: 'id' });
   }
 }
 
 export const db = new MedDB();
 
 /** Every table, in a fixed order. Used by backup, restore and erase. */
-export const TABLES = ['people', 'medications', 'tags', 'doses', 'checkIns', 'bodyEntries', 'vitals', 'medEvents', 'settings', 'photos', 'supplies'] as const;
+export const TABLES = ['people', 'medications', 'tags', 'doses', 'checkIns', 'bodyEntries', 'vitals', 'medEvents', 'settings', 'photos', 'supplies', 'labs', 'appointments', 'questions'] as const;
 export type TableName = (typeof TABLES)[number];

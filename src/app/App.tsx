@@ -17,6 +17,8 @@ import { Onboarding } from '../screens/Onboarding/Onboarding';
 import { JoinSync, Sync } from '../screens/Sync';
 import { PeptideCalc } from '../screens/PeptideCalc';
 import { Supplies } from '../screens/Supplies';
+import { Appointments, AppointmentSummary, Labs } from '../screens/Visits';
+import { Travel } from '../screens/Travel';
 import { UpdatePrompt } from './UpdatePrompt';
 import { useMaintenance } from './maintenance';
 import { ScanTagButton } from '../components/ScanTagButton';
@@ -53,6 +55,10 @@ function title(r: Route): string {
     case 'protocol': return 'Protocol';
     case 'protocolReport': return 'Protocol report';
     case 'progress': return 'Progress';
+    case 'appointments': return 'Appointments';
+    case 'appointmentSummary': return 'Since your last appointment';
+    case 'labs': return 'Lab results';
+    case 'travel': return 'Plan a trip';
     default: return '';
   }
 }
@@ -60,6 +66,8 @@ function title(r: Route): string {
 function backTo(r: Route, protocol: boolean): string | undefined {
   switch (r.name) {
     case 'protocolReport': return '#/protocol';
+    case 'appointments': case 'travel': return '#/settings';
+    case 'appointmentSummary': case 'labs': return '#/appointments';
     case 'settings': return '#/today';
     case 'medNew': case 'med': return '#/meds';
     case 'backup': case 'sync': case 'join': case 'calc': case 'supplies': return '#/settings';
@@ -88,6 +96,10 @@ function Screen({ r }: { r: Route }) {
     case 'protocol': return HAS_PEPTIDES ? <Protocol /> : <Today />;
     case 'protocolReport': return HAS_PEPTIDES ? <Suspense fallback={<ChartsLoading />}><ProtocolReport /></Suspense> : <Today />;
     case 'progress': return <Progress />;
+    case 'appointments': return <Appointments />;
+    case 'appointmentSummary': return <AppointmentSummary />;
+    case 'labs': return <Labs />;
+    case 'travel': return <Travel />;
     default: return <Today />;
   }
 }

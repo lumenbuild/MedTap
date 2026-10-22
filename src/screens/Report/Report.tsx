@@ -2,7 +2,7 @@ import { printPage } from '../../app/print';
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { Printer } from 'lucide-react';
-import { useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings, useVitals } from '../../app/data';
+import { useBodyEntries, useCheckIns, useDoses, useFamily, useLabs, useMedEvents, useMeds, useScheduleSettings, useVitals } from '../../app/data';
 import { dosesForPerson, medIsFor, personOf } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { APP_NAME } from '../../config';
@@ -27,13 +27,14 @@ export function Report() {
   const allBody = useBodyEntries();
   const allEvents = useMedEvents();
   const allVitals = useVitals();
+  const allLabs = useLabs();
   const fam = useFamily();
   const ss = useScheduleSettings();
   const [from, setFrom] = useState(ymd(Date.now() - 29 * 86_400_000));
   const [to, setTo] = useState(ymd(Date.now()));
   const [useNicknames, setUseNicknames] = useState(false);
 
-  if (!allMeds || !allDoses || !allCheckIns || !allBody || !allEvents || !allVitals || !ss || !fam) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
+  if (!allMeds || !allDoses || !allCheckIns || !allBody || !allEvents || !allVitals || !allLabs || !ss || !fam) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
   // Only the chosen family member's records.
   // Their medications plus shared ones, counting only their own doses of shared medications.
   const meds = allMeds.filter((m) => medIsFor(m, fam.personId));
@@ -159,6 +160,21 @@ export function Report() {
           <div className="report-block"><FeelingsChart checkIns={checkIns} events={events} meds={meds} start={start} end={end} s={s} prevStart={null} realNames={realNames} /></div>
           {HAS_BODY && <div className="report-block"><WeightChart entries={body} units={settings.units} start={start} end={end} s={s} /></div>}
           <div className="report-block"><VitalsCharts vitals={vitals} start={start} end={end} s={s} /></div>
+          {(() => {
+            const labs = allLabs.filter((l) => personOf(l) === fam.personId && !l.deletedAt).sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name));
+            if (!labs.length) return null;
+            return (
+              <section className="border-t border-border pt-5 pb-2 report-block">
+                <h2 className="text-sm font-medium text-muted mb-2">Lab results</h2>
+                <div className="table-scroll">
+                  <table className="w-full text-sm tnum">
+                    <thead><tr className="text-left">{['Date', 'Test', 'Result', 'Range'].map((h) => <th key={h} className="py-1 pr-3 border-b border-border font-semibold">{h}</th>)}</tr></thead>
+                    <tbody>{labs.map((l) => <tr key={l.id}><td className="py-1 pr-3 border-b border-border">{format(new Date(`${l.date}T12:00`), 'd MMM yyyy')}</td><td className="py-1 pr-3 border-b border-border">{l.name}</td><td className="py-1 pr-3 border-b border-border">{l.value}{l.unit ? ` ${l.unit}` : ''}</td><td className="py-1 pr-3 border-b border-border">{l.range ?? ''}</td></tr>)}</tbody>
+                  </table>
+                </div>
+              </section>
+            );
+          })()}
 
           <section className="border-t border-border pt-5 pb-2 report-block">
             <h2 className="text-sm font-medium text-muted mb-2">Dose log</h2>

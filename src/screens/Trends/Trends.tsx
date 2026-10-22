@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { FileText } from 'lucide-react';
-import { useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings, useVitals } from '../../app/data';
+import { useAppointments, useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings, useVitals } from '../../app/data';
+import { CheckInForecastCard, EffectWindowCards, SleepImpactCard } from '../../components/Smart';
+import { checkInForecast, sleepImpact } from '../../logic/habits';
+import { appointmentsAround } from '../../logic/appointments';
+import { dayKey } from '../../logic/stats';
 import { dosesForPerson, medIsFor, personOf } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
@@ -21,15 +25,16 @@ export function Trends() {
   const allBody = useBodyEntries();
   const allEvents = useMedEvents();
   const allVitals = useVitals();
+  const allAppts = useAppointments();
   const fam = useFamily();
   const ss = useScheduleSettings();
   const now = useNow(60_000);
-  const [range, setRange] = useState<Range>(() => {
-    try { return (localStorage.getItem('trendsRange') as Range) || '30d'; } catch { return '30d'; }
+  const [range, setRange] = useState<Range | 'appt'>(() => {
+    try { return (localStorage.getItem('trendsRange') as Range | 'appt') || '30d'; } catch { return '30d'; }
   });
-  const pick = (r: Range) => { setRange(r); try { localStorage.setItem('trendsRange', r); } catch { /* per-device preference only */ } };
+  const pick = (r: Range | 'appt') => { setRange(r); try { localStorage.setItem('trendsRange', r); } catch { /* per-device preference only */ } };
 
-  if (!allMeds || !allDoses || !allCheckIns || !allBody || !allEvents || !allVitals || !ss || !fam) {
+  if (!allMeds || !allDoses || !allCheckIns || !allBody || !allEvents || !allVitals || !allAppts || !ss || !fam) {
     return <div className="space-y-4" aria-busy="true" aria-label="Loading">{[0, 1, 2].map((i) => <div key={i} className="h-60 rounded-card bg-surface-2 animate-pulse" />)}</div>;
   }
   // Only the chosen family member's records.
@@ -47,22 +52,30 @@ export function Trends() {
   const earliest = times.length ? Math.min(...times) : null;
   // Round to the hour so charts don't redraw every minute; the range still includes everything logged so far.
   const end = Math.ceil(now / 3_600_000) * 3_600_000;
-  const start = rangeStart(range, end, earliest);
-  const days = RANGE_DAYS[range];
+  // Since the last appointment: from its date, compared with the same length of time before it.
+  const lastAppt = appointmentsAround(allAppts.filter((a) => personOf(a) === fam.personId), dayKey(now, s)).last;
+  const r = range === 'appt' && !lastAppt ? '30d' : range;
+  const start = r === 'appt' ? new Date(`${lastAppt!.date}T00:00`).getTime() : rangeStart(r, end, earliest);
+  const days = r === 'appt' ? Math.max(1, Math.round((end - start) / 86_400_000)) : RANGE_DAYS[r];
   const prevStart = days === null ? null : start - days * 86_400_000;
   const active = meds.filter((m) => !m.archived || doses.some((d) => d.medicationId === m.id && Date.parse(d.takenAt) >= start));
   const common = { start, end, s };
   // Peptide tools: dose changes of injected medications marked on the weight chart.
   const peptideMeds = settings.peptideTools ? meds.filter((m) => m.peptide) : [];
   const weightMarks = events.filter((e) => e.kind === 'changed' && peptideMeds.some((m) => m.id === e.medicationId))
-    .map((e) => ({ at: Date.parse(e.at), text: `${shownName(peptideMeds.find((m) => m.id === e.medicationId)!)}: ${e.summary}` }));
+    .map((e) => ({ at: Date.parse(e.at), text: `${shownName(peptideMeds.find((m) => m.id === e.medicationId)!)}: ${e.summary}` }))
+    .concat(allAppts.filter((a) => !a.deletedAt && personOf(a) === fam.personId).map((a) => ({ at: new Date(`${a.date}T12:00`).getTime(), text: `Appointment${a.with ? ` with ${a.with}` : ''}` })));
+  const sleep = sleepImpact(meds.filter((m) => !m.peptide && !m.archived), doses, checkIns, now, s);
+  const ciForecast = checkInForecast(meds, doses, checkIns, now, s);
 
   return (
     <div className="space-y-4">
       <PersonSwitcher />
       <div className="sticky top-0 z-10 -mx-4 px-4 py-2 bg-bg">
-        <Segmented<Range> label="Date range" value={range} onChange={pick}
-          options={[{ value: '7d', label: '7D' }, { value: '30d', label: '30D' }, { value: '90d', label: '90D' }, { value: 'all', label: 'All' }]} />
+        <Segmented<Range | 'appt'> label="Date range" value={r} onChange={pick}
+          options={[{ value: '7d', label: '7D' }, { value: '30d', label: '30D' }, { value: '90d', label: '90D' }, { value: 'all', label: 'All' },
+            ...(lastAppt ? [{ value: 'appt' as const, label: 'Appt' }] : [])]} />
+        {r === 'appt' && <p className="text-xs text-muted mt-1">Since your appointment on {new Date(`${lastAppt!.date}T12:00`).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}, compared with the {days} days before it.</p>}
       </div>
       {HAS_BODY && (
         <>
@@ -71,12 +84,15 @@ export function Trends() {
           <MeasurementCharts entries={body} units={settings.units} {...common} />
         </>
       )}
+      {ciForecast && <CheckInForecastCard f={ciForecast} />}
       <AdherenceHeatmap meds={active} doses={doses} {...common} />
       <DoseTimingCharts meds={active} doses={doses} {...common} />
       <FeelingsChart checkIns={checkIns} events={events} meds={meds} prevStart={prevStart} {...common} />
       <AppetiteWeight checkIns={checkIns} entries={body} units={settings.units} weight={HAS_BODY} {...common} />
       <VitalsCharts vitals={vitals} {...common} />
       <NoticedMost checkIns={checkIns} {...common} />
+      <EffectWindowCards meds={active} doses={doses} checkIns={checkIns} now={now} />
+      {sleep && <SleepImpactCard r={sleep} />}
       <IntervalCharts meds={active} doses={doses} {...common} />
       {peptideMeds.length > 0 && (
         <>

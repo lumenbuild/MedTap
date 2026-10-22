@@ -131,13 +131,19 @@ export interface Medication extends Stamped {
   bottles?: Bottle[];
   /** Script refills left, and when the script expires ('YYYY-MM-DD'). */
   repeatsLeft?: number; scriptExpiry?: string;
+  /** How many each refill adds (the last refill), for working out when a new script is needed. */
+  packSize?: number;
   /** Mixed from a powder vial, or a pre-filled pen: syringe units are worked out from this (peptide tools). */
   peptide?: PeptideSetup;
   /** Vials or pens: in stock, in use and finished, each with its own water, lot and expiry. */
   vials?: PeptideVial[];
   /** Batches flagged by the person (peptide tools). */
   lotFlags?: LotFlag[];
+  /** Reminder times learned from when doses are actually taken, per set time (the plan's times stay as they are). */
+  reminderTimes?: ReminderTime[];
 }
+/** For one set time ('HH:mm'): remind at these times instead, on weekdays and/or weekends. */
+export interface ReminderTime { slot: string; weekday?: string; weekend?: string }
 /** `vialId`: a tag stuck on a vial (peptide tools). Tapping it logs from that vial; mixing a new vial can move the tag to
  *  it, so the same sticker is reused. */
 export interface Tag { id: string; medicationId: string; label?: string; createdAt: string; lastScannedAt?: string; vialId?: string }
@@ -195,3 +201,21 @@ export interface Supply extends Stamped {
 }
 /** Device-only values that must never go into a backup (e.g. a folder permission handle). */
 export interface DeviceValue { key: string; value: unknown }
+
+/** A blood test or other lab result, typed in or read from a photo of the printout. */
+export interface LabResult extends Stamped {
+  date: string; // local YYYY-MM-DD the sample was taken
+  name: string; value: number; unit?: string;
+  /** Reference range as printed, e.g. "4.0–6.0". */
+  range?: string;
+  note?: string; personId?: string; deletedAt?: string;
+}
+/** A doctor's (or other) appointment, so charts and the summary can compare before and after. */
+export interface Appointment extends Stamped {
+  date: string; // local YYYY-MM-DD
+  with?: string; note?: string; personId?: string; deletedAt?: string;
+}
+/** A question to bring to the next appointment. */
+export interface Question extends Stamped {
+  text: string; done?: boolean; personId?: string; deletedAt?: string;
+}
