@@ -18,7 +18,7 @@ import { hashPin, isValidPin, newSalt } from '../logic/pin';
 import { FamilyCard } from './Family';
 import { placeName } from '../components/TravelBanner';
 import { isAndroid, isIOS, isNative, isStandalone } from '../platform';
-import { HAS_BODY, HAS_PEPTIDES } from '../edition';
+import { HAS_BODY, HAS_PEPTIDES, HAS_VISITS } from '../edition';
 import { SIDE_EFFECT_CHIPS } from '../logic/peptide';
 
 const RemindersCard = lazy(() => import('./RemindersCard'));
@@ -92,22 +92,24 @@ export function Settings() {
       {isNative && <Suspense fallback={null}><HealthCard on={settings.healthImport} last={settings.healthLastImport} personId={settings.healthImport ? settings.healthPersonId : settings.activePersonId}
         personName={fam?.many ? fam.nameOf(settings.healthImport ? settings.healthPersonId : settings.activePersonId) : undefined} now={now} /></Suspense>}
 
-      <a href="#/appointments" className="border-t border-border py-4 flex items-center gap-3">
+      <a href={HAS_VISITS ? '#/appointments' : '#/labs'} className="border-t border-border py-4 flex items-center gap-3">
         <CalendarCheck className="text-primary" aria-hidden="true" />
         <span className="flex-1">
-          <span className="block font-semibold">Appointments and lab results</span>
-          <span className="block text-sm text-muted">Questions to ask, and what's changed since the last one</span>
+          <span className="block font-semibold">{HAS_VISITS ? 'Appointments and lab results' : 'Lab results'}</span>
+          <span className="block text-sm text-muted">{HAS_VISITS ? "Questions to ask, and what's changed since the last one" : 'Blood tests and others, typed in or from a photo'}</span>
         </span>
         <ChevronRight className="text-muted" aria-hidden="true" />
       </a>
-      <a href="#/travel" className="border-t border-border py-4 flex items-center gap-3">
-        <Plane className="text-primary" aria-hidden="true" />
-        <span className="flex-1">
-          <span className="block font-semibold">Plan a trip</span>
-          <span className="block text-sm text-muted">Dose times across time zones</span>
-        </span>
-        <ChevronRight className="text-muted" aria-hidden="true" />
-      </a>
+      {HAS_VISITS && (
+        <a href="#/travel" className="border-t border-border py-4 flex items-center gap-3">
+          <Plane className="text-primary" aria-hidden="true" />
+          <span className="flex-1">
+            <span className="block font-semibold">Plan a trip</span>
+            <span className="block text-sm text-muted">Dose times across time zones</span>
+          </span>
+          <ChevronRight className="text-muted" aria-hidden="true" />
+        </a>
+      )}
 
       <Card className="space-y-4">
         <h2 className="text-sm font-medium text-muted">Your day</h2>

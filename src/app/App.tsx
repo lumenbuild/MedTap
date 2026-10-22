@@ -23,7 +23,7 @@ import { UpdatePrompt } from './UpdatePrompt';
 import { useMaintenance } from './maintenance';
 import { ScanTagButton } from '../components/ScanTagButton';
 import { isNativeIOS } from '../platform';
-import { HAS_BODY, HAS_PEPTIDES } from '../edition';
+import { HAS_BODY, HAS_PEPTIDES, HAS_VISITS } from '../edition';
 import { useNow } from './useNow';
 import { Protocol } from '../screens/Protocol/Protocol';
 import { Progress } from '../screens/Progress';
@@ -55,10 +55,10 @@ function title(r: Route): string {
     case 'protocol': return 'Protocol';
     case 'protocolReport': return 'Protocol report';
     case 'progress': return 'Progress';
-    case 'appointments': return 'Appointments';
-    case 'appointmentSummary': return 'Since your last appointment';
+    case 'appointments': return HAS_VISITS ? 'Appointments' : 'Today';
+    case 'appointmentSummary': return HAS_VISITS ? 'Since your last appointment' : 'Today';
     case 'labs': return 'Lab results';
-    case 'travel': return 'Plan a trip';
+    case 'travel': return HAS_VISITS ? 'Plan a trip' : 'Today';
     default: return '';
   }
 }
@@ -67,7 +67,8 @@ function backTo(r: Route, protocol: boolean): string | undefined {
   switch (r.name) {
     case 'protocolReport': return '#/protocol';
     case 'appointments': case 'travel': return '#/settings';
-    case 'appointmentSummary': case 'labs': return '#/appointments';
+    case 'appointmentSummary': return '#/appointments';
+    case 'labs': return HAS_VISITS ? '#/appointments' : '#/settings';
     case 'settings': return '#/today';
     case 'medNew': case 'med': return '#/meds';
     case 'backup': case 'sync': case 'join': case 'calc': case 'supplies': return '#/settings';
@@ -96,10 +97,10 @@ function Screen({ r }: { r: Route }) {
     case 'protocol': return HAS_PEPTIDES ? <Protocol /> : <Today />;
     case 'protocolReport': return HAS_PEPTIDES ? <Suspense fallback={<ChartsLoading />}><ProtocolReport /></Suspense> : <Today />;
     case 'progress': return <Progress />;
-    case 'appointments': return <Appointments />;
-    case 'appointmentSummary': return <AppointmentSummary />;
+    case 'appointments': return HAS_VISITS ? <Appointments /> : <Today />;
+    case 'appointmentSummary': return HAS_VISITS ? <AppointmentSummary /> : <Today />;
     case 'labs': return <Labs />;
-    case 'travel': return <Travel />;
+    case 'travel': return HAS_VISITS ? <Travel /> : <Today />;
     default: return <Today />;
   }
 }

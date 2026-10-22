@@ -4,7 +4,7 @@ import { isNative } from '../../platform';
 import { APP_NAME, DISCLAIMER } from '../../config';
 import { tagBase } from '../../nfc/url';
 import { Card } from '../../components/ui/Card';
-import { apkDownload, edition, HAS_BODY, HAS_PEPTIDES } from '../../edition';
+import { apkDownload, edition, HAS_BODY, HAS_PEPTIDES, HAS_VISITS } from '../../edition';
 
 const TOPICS = [
   { id: 'schedules', title: 'Setting up a schedule', Icon: CalendarClock },
@@ -77,13 +77,22 @@ const CONTENT: Record<string, ReactNode> = {
         <li><strong>New script</strong>: when the stock and repeats left run out (or the script expires), and when to book your doctor.</li>
       </ul>
       <H>Today</H>
-      <p>The effect window for today's dose, when to book a doctor for a script, records that look odd (a dose logged twice{HAS_BODY ? ', a typo in a weight' : ''}, a date in the future), and your next appointment.</p>
+      <p>The effect window for today's dose, when to book a doctor for a script, records that look odd (a dose logged twice{HAS_BODY ? ', a typo in a weight' : ''}, a date in the future){HAS_VISITS ? ', and your next appointment' : ''}.</p>
       <H>Trends</H>
-      <p><strong>The coming days</strong> (likely focus, mood and appetite), <strong>Last dose and sleep</strong> (the time after which sleep is usually worse), and <strong>Appt</strong> to compare with before your last appointment.</p>
+      <p><strong>The coming days</strong> (likely focus, mood and appetite) and <strong>Last dose and sleep</strong> (the time after which sleep is usually worse){HAS_VISITS ? <>, and <strong>Appt</strong> to compare with before your last appointment</> : null}.</p>
       <H>Reminders</H>
       <p>In the app, <strong>Nudge me if I haven't logged it</strong> sends a second reminder a while after your usual time.</p>
-      <H>Appointments, lab results and trips</H>
-      <p>Settings → <strong>Appointments and lab results</strong>: add appointments and questions, then print a one-page summary of what's changed since the last one. Lab results can be read from a photo of the printout. Settings → <strong>Plan a trip</strong> shows dose times across time zones, switching straight away or moving 2 hours a day.</p>
+      {HAS_VISITS ? (
+        <>
+          <H>Appointments, lab results and trips</H>
+          <p>Settings → <strong>Appointments and lab results</strong>: add appointments and questions, then print a one-page summary of what's changed since the last one. Lab results can be read from a photo of the printout. Settings → <strong>Plan a trip</strong> shows dose times across time zones, switching straight away or moving 2 hours a day.</p>
+        </>
+      ) : (
+        <>
+          <H>Lab results</H>
+          <p>Settings → <strong>Lab results</strong>: type them in or read them from a photo of the printout. They're in the doctor report.</p>
+        </>
+      )}
       <p>Check-in notes suggest chips (“bit queasy” → Nausea){HAS_PEPTIDES ? ', and adding vials can read the lot and expiry from a photo of the label' : ''}.</p>
       <H>More patterns in Trends</H>
       <ul className="list-disc pl-5 space-y-1">

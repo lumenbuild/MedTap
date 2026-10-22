@@ -17,7 +17,7 @@ import {
 import { GoalForecastCharts } from '../../components/charts/GoalCharts';
 import { BlendCharts, DoseLevelsCards, EstimatedLevelCharts } from '../../components/charts/PeptideCharts';
 import { shownName } from '../../logic/privacy';
-import { HAS_BODY } from '../../edition';
+import { HAS_BODY, HAS_VISITS } from '../../edition';
 
 export function Trends() {
   const allMeds = useMeds();
@@ -56,7 +56,7 @@ export function Trends() {
   // Round to the hour so charts don't redraw every minute; the range still includes everything logged so far.
   const end = Math.ceil(now / 3_600_000) * 3_600_000;
   // Since the last appointment: from its date, compared with the same length of time before it.
-  const lastAppt = appointmentsAround(allAppts.filter((a) => personOf(a) === fam.personId), dayKey(now, s)).last;
+  const lastAppt = HAS_VISITS ? appointmentsAround(allAppts.filter((a) => personOf(a) === fam.personId), dayKey(now, s)).last : undefined;
   const r = range === 'appt' && !lastAppt ? '30d' : range;
   const start = r === 'appt' ? new Date(`${lastAppt!.date}T00:00`).getTime() : rangeStart(r, end, earliest);
   const days = r === 'appt' ? Math.max(1, Math.round((end - start) / 86_400_000)) : RANGE_DAYS[r];
@@ -67,7 +67,7 @@ export function Trends() {
   const peptideMeds = settings.peptideTools ? meds.filter((m) => m.peptide) : [];
   const weightMarks = events.filter((e) => e.kind === 'changed' && peptideMeds.some((m) => m.id === e.medicationId))
     .map((e) => ({ at: Date.parse(e.at), text: `${shownName(peptideMeds.find((m) => m.id === e.medicationId)!)}: ${e.summary}` }))
-    .concat(allAppts.filter((a) => !a.deletedAt && personOf(a) === fam.personId).map((a) => ({ at: new Date(`${a.date}T12:00`).getTime(), text: `Appointment${a.with ? ` with ${a.with}` : ''}` })));
+    .concat(allAppts.filter((a) => HAS_VISITS && !a.deletedAt && personOf(a) === fam.personId).map((a) => ({ at: new Date(`${a.date}T12:00`).getTime(), text: `Appointment${a.with ? ` with ${a.with}` : ''}` })));
   const sleep = sleepImpact(meds.filter((m) => !m.peptide && !m.archived), doses, checkIns, now, s);
   const ciForecast = checkInForecast(meds, doses, checkIns, now, s);
 

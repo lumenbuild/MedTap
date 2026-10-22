@@ -16,6 +16,7 @@ const EDITIONS = {
     apk: 'MedTap.apk',
     body: true,
     peptides: true,
+    visits: false,
   },
   tapdose: {
     name: 'TapDose',
@@ -25,6 +26,7 @@ const EDITIONS = {
     apk: 'TapDose.apk',
     body: false,
     peptides: false,
+    visits: true,
   },
 } as const;
 
@@ -33,5 +35,8 @@ export const edition = EDITIONS[EDITION];
 export const HAS_BODY = edition.body;
 /** Peptide and injection tools (still switched on per person in Settings). */
 export const HAS_PEPTIDES = edition.peptides;
+/** Appointments (questions, the "since my last appointment" summary, the Trends range) and the trip planner. TapDose only
+ *  (owner decision); MedTap keeps lab results under Settings. */
+export const HAS_VISITS = edition.visits;
 export const releasePage = `https://github.com/lumenbuild/MedTap/releases/tag/${edition.release}`;
 export const apkDownload = `https://github.com/lumenbuild/MedTap/releases/download/${edition.release}/${edition.apk}`;

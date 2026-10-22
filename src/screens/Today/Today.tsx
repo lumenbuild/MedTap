@@ -44,7 +44,7 @@ import { PrnCard } from './PrnCard';
 import { Timeline } from './Timeline';
 import { DoseEditSheet } from './DoseEditSheet';
 import { AutoBackupPermission, BackupReminder, CheckInPrompt, InstallCard } from './PromptCards';
-import { HAS_BODY, HAS_PEPTIDES } from '../../edition';
+import { HAS_BODY, HAS_PEPTIDES, HAS_VISITS } from '../../edition';
 
 export function Today() {
   const meds = useMeds();
@@ -182,7 +182,7 @@ export function Today() {
       )}
 
       {!fam.everyone && (() => {
-        const visit = appointments ? appointmentsAround(appointments.filter(mine), dayKey(now, s)).next : undefined;
+        const visit = HAS_VISITS && appointments ? appointmentsAround(appointments.filter(mine), dayKey(now, s)).next : undefined;
         const lines = [
           <EffectToday key="e" meds={viewMeds} doses={viewDoses} checkIns={viewCheckIns} now={now} />,
           <ScriptToday key="s" meds={viewMeds} doses={viewDoses} s={s} now={now} />,
