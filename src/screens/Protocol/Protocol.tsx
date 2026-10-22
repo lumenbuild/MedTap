@@ -11,6 +11,11 @@ import { dayKey } from '../../logic/stats';
 import { fmtAmount, fmtSchedule, fmtWhen } from '../../logic/format';
 import { guideText, isPen, stockVials, SUPPLY_LABELS, vialStatus } from '../../logic/peptide';
 import { DEFAULT_LEAD_DAYS, lotStats, stockPlan, supplyPlans } from '../../logic/protocol';
+import { appetiteCurve, bestShotDay, changeFlags, lateShots, sideEffectForecast, vialRest, weekFindings, weekRecords, weightPath, basisText } from '../../logic/predict';
+import type { Units } from '../../db/repos/settings';
+import { HAS_BODY } from '../../edition';
+import { kgTo } from '../../logic/units';
+import { AppetiteStrip, Basis, ComingWeek, FlagList, LateShotsSheet, NeedsSheet, PatternsSheet, ShotDaySheet, vialRestText } from './Predictions';
 import { shownColour, shownName } from '../../logic/privacy';
 import { MedBadge } from '../../components/MedBadge';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
@@ -19,6 +24,7 @@ import { WeekStrip } from './WeekStrip';
 import { LeadTimeSheet, LotSheet } from './ProtocolSheets';
 
 const LevelProjection = lazy(() => import('../../components/charts/LevelProjection'));
+const WeightPathChart = lazy(() => import('../../components/charts/WeightPath'));
 const DAY = 86_400_000;
 const day = (ms: number) => format(ms, 'EEE d MMM');
 const ymdDay = (ymd: string) => format(new Date(`${ymd}T12:00`), 'EEE d MMM');
@@ -33,8 +39,10 @@ export function Protocol() {
   const ss = useScheduleSettings();
   const fam = useFamily();
   const now = useNow(60_000);
+  const [needs, setNeeds] = useState(false);
   if (!meds || !doses || !body || !checkIns || !supplies || !ss || !fam) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
-  const [, s] = ss;
+  const [settings, s] = ss;
+  const goal = fam.people.find((p) => p.id === fam.personId)?.goals?.find((g) => g.metric === 'weightKg')?.target;
   const peptides = meds.filter((m) => m.peptide && !m.archived && medIsFor(m, fam.personId));
   const mine = <T extends { personId?: string }>(r: T) => personOf(r) === fam.personId;
   const allPeptides = meds.filter((m) => m.peptide && !m.archived);
@@ -50,14 +58,18 @@ export function Protocol() {
           <Button onClick={() => go('/meds/new')}>Add a peptide</Button>
         </section>
       ) : peptides.map((m) => (
-        <PeptideSection key={m.id} med={m} doses={doses} s={s} now={now} body={body.filter(mine)} checkIns={checkIns.filter(mine)} />
+        <PeptideSection key={m.id} med={m} doses={doses} s={s} now={now} body={body.filter(mine)} checkIns={checkIns.filter(mine)}
+          units={settings.units} busy={settings.busyDays} goal={goal} />
       ))}
 
       {sup.length > 0 && (
         <section aria-labelledby="sup-h" className="border-t border-border pt-5">
           <div className="flex items-baseline justify-between">
             <h2 id="sup-h" className="text-sm font-medium text-muted">Supplies</h2>
-            <a href="#/supplies" className="text-sm font-medium underline underline-offset-4">Update counts</a>
+            <span className="flex gap-4">
+              <button type="button" onClick={() => setNeeds(true)} className="text-sm font-medium underline underline-offset-4">Enough until…</button>
+              <a href="#/supplies" className="text-sm font-medium underline underline-offset-4">Update counts</a>
+            </span>
           </div>
           <dl className="mt-1">
             {sup.map(({ supply, count, runOutAt, orderBy }) => {
@@ -79,6 +91,12 @@ export function Protocol() {
         </section>
       )}
 
+      {sup.length === 0 && peptides.length > 0 && (
+        <button type="button" onClick={() => setNeeds(true)} className="w-full border-t border-border flex items-center justify-between min-h-[64px] text-[17px] font-medium text-left">
+          Enough until…<span className="text-sm font-normal text-muted">Stock for a trip or a date</span>
+        </button>
+      )}
+      {needs && <NeedsSheet meds={meds.filter((m) => medIsFor(m, fam.personId))} supplies={supplies} doses={doses} s={s} now={now} onClose={() => setNeeds(false)} />}
       {peptides.length > 0 && (
         <a href="#/protocol/report" className="border-t border-border flex items-center justify-between min-h-[64px] text-[17px] font-medium">
           Protocol report<span className="text-sm font-normal text-muted">Each dose step, for your doctor</span>
@@ -101,11 +119,13 @@ function Row({ label, children, onClick }: { label: string; children: ReactNode;
     : <div className="flex justify-between gap-4 py-3 border-t border-border">{inner}</div>;
 }
 
-function PeptideSection({ med, doses, s, now, body, checkIns }: {
+function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal }: {
   med: Medication; doses: Dose[]; s: ScheduleSettings; now: number; body: Parameters<typeof lotStats>[2]; checkIns: Parameters<typeof lotStats>[3];
+  units: Units; busy: number[]; goal?: number;
 }) {
   const [lots, setLots] = useState(false);
   const [leadSheet, setLeadSheet] = useState(false);
+  const [sheet, setSheet] = useState<'late' | 'day' | 'patterns' | null>(null);
   const pen = isPen(med);
   const status = getStatus(med, doses, now, s);
   const next = getNextDue(med, doses, now, s);
@@ -118,6 +138,20 @@ function PeptideSection({ med, doses, s, now, body, checkIns }: {
   const sp = stockPlan(med, doses, now, s);
   const batches = lotStats(med, doses, body, checkIns, now);
   const orderSoon = sp.orderBy !== null && sp.orderBy - now < 3 * DAY;
+  // Predictions, from this person's own records.
+  const flags = changeFlags(med, doses, checkIns, HAS_BODY ? body : [], now);
+  const fc = sideEffectForecast(med, doses, checkIns, now, s);
+  const curve = appetiteCurve(med, doses, checkIns, now);
+  const rest = vialRest(med, doses, now, s);
+  const restText = rest ? vialRestText(rest, med.unit, pen) : '';
+  const path = HAS_BODY ? weightPath(med, doses, body, now, 12, goal) : null;
+  const late = lateShots(med, doses, checkIns, now, s);
+  const lateCount = late?.events.length ?? 0;
+  const weekly = med.schedule.type === 'fixed' && med.schedule.days?.length === 1;
+  const shotDay = weekly ? bestShotDay(med, doses, checkIns, busy) : null;
+  const recs = weekRecords(med, doses, checkIns, now, s);
+  const findings = weekFindings(recs);
+  const weeksWithCheckIns = recs.filter((w) => w.checkIns >= 2).length;
 
   return (
     <section aria-label={shownName(med)} className="border-t border-border pt-5 pb-3">
@@ -129,6 +163,7 @@ function PeptideSection({ med, doses, s, now, body, checkIns }: {
       <p className="ml-5 text-[15px] text-muted">{fmtSchedule(med.schedule, med.unit)}</p>
 
       <div className="my-5"><WeekStrip med={med} doses={doses} s={s} now={now} label={false} /></div>
+      <FlagList flags={flags} />
 
       <dl>
         <Row label="Next shot">
@@ -153,6 +188,7 @@ function PeptideSection({ med, doses, s, now, body, checkIns }: {
               <span className={`block text-sm tnum ${vial.expired || vial.dosesLeft <= 1 ? 'text-caution font-medium' : 'text-muted'}`}>
                 {pen ? 'Started' : 'Mixed'} {day(vial.startedAt)}{vial.useBy ? ` · ${vial.expired ? 'past use-by' : 'use by'} ${day(vial.useBy)}` : ''}
               </span>
+              {restText && <span className={`block text-sm tnum ${rest?.ends === 'use-by' && rest.leftover > 0 ? 'text-caution' : 'text-muted'}`}>{restText}</span>}
             </>
           ) : <span className="underline underline-offset-4">{pen ? 'Start a pen' : 'Mix a vial'}</span>}
         </Row>
@@ -171,7 +207,41 @@ function PeptideSection({ med, doses, s, now, body, checkIns }: {
             {batches.some((b) => b.flag) && <span className="block text-sm text-caution font-medium">{batches.filter((b) => b.flag).length} flagged</span>}
           </Row>
         )}
+        {med.schedule.type === 'fixed' && (
+          <Row label="Late or missed" onClick={() => setSheet('late')}>
+            <span className="tnum">{lateCount ? `${lateCount} in 12 weeks` : 'None in 12 weeks'}</span>
+          </Row>
+        )}
+        {weekly && (
+          <Row label="Best shot day" onClick={() => setSheet('day')}>
+            <span>{!busy.length ? 'Mark your busy days' : shotDay ? shotDay.options.filter((o) => o.score === shotDay.options[0].score).map((o) => DAY_NAMES[o.weekday]).slice(0, 2).join(' or ') : 'Needs more check-ins'}</span>
+          </Row>
+        )}
+        <Row label="Patterns" onClick={() => setSheet('patterns')}>
+          <span className="tnum">{findings.length ? `${findings.length} found` : weeksWithCheckIns < 4 ? 'Needs more weeks' : 'No clear differences'}</span>
+          <span className="block text-xs text-muted">{weeksWithCheckIns} week{weeksWithCheckIns === 1 ? '' : 's'} with check-ins</span>
+        </Row>
       </dl>
+
+      {(fc || curve) && (
+        <div className="mt-5 space-y-5">
+          {fc && <ComingWeek fc={fc} />}
+          {curve && <AppetiteStrip c={curve} />}
+        </div>
+      )}
+
+      {HAS_BODY && (
+        <div className="mt-5">
+          <p className="text-sm font-medium text-muted mb-2">Weight path</p>
+          {path ? (
+            <>
+              <Suspense fallback={<div className="h-[170px]" />}><WeightPathChart path={path} body={body} units={units} now={now} /></Suspense>
+              <p className="text-[15px] mt-2 tnum">{pathSummary(path, units, med.unit)}</p>
+              <Basis text={`${basisText(path.basis)}. If the trend continues${path.segments.length > 1 ? ', following your planned changes' : ''}; not a promise.`} />
+            </>
+          ) : <p className="text-sm text-muted">Log your weight 5 times over a week or more to see where it's heading through your plan.</p>}
+        </div>
+      )}
 
       <div className="mt-4">
         {med.peptide?.halfLifeHours
@@ -179,8 +249,27 @@ function PeptideSection({ med, doses, s, now, body, checkIns }: {
           : <p className="text-sm text-muted">Add a half-life on <a href={`#/meds/${med.id}`} className="underline underline-offset-4">its page</a> to see the estimated level through your plan.</p>}
       </div>
 
+      {sheet === 'late' && late && <LateShotsSheet med={med} report={late} onClose={() => setSheet(null)} />}
+      {sheet === 'late' && !late && <LateShotsSheet med={med} report={{ events: [], basis: { weeks: 12 } }} onClose={() => setSheet(null)} />}
+      {sheet === 'day' && <ShotDaySheet result={shotDay} busy={busy} onClose={() => setSheet(null)} />}
+      {sheet === 'patterns' && <PatternsSheet findings={findings} weeks={weeksWithCheckIns} onClose={() => setSheet(null)} />}
       {lots && <LotSheet med={med} batches={batches} onClose={() => setLots(false)} />}
       {leadSheet && <LeadTimeSheet med={med} onClose={() => setLeadSheet(false)} />}
     </section>
   );
+}
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+function pathSummary(p: NonNullable<ReturnType<typeof weightPath>>, units: Units, unit: string): string {
+  const u = units === 'imperial' ? 'lb' : 'kg';
+  const k = (kg: number) => kgTo(kg, units);
+  const end = p.points[p.points.length - 1];
+  const weeks = p.points.length - 1;
+  let out = `About ${k(end.v)} ${u} in ${weeks} weeks (likely ${k(end.low)}–${k(end.high)}), at ${k(p.perWeek)} ${u} a week now.`;
+  const later = p.segments.slice(1).filter((x) => x.basis === 'this-dose');
+  if (later.length) out += ` From ${format(later[0].from, 'd MMM')} uses your own rate on ${fmtAmount(later[0].amount, unit)}.`;
+  if (p.goal?.eta) out += ` Reaches your goal around ${format(p.goal.eta, 'd MMM')}${p.goal.early && p.goal.late ? ` (likely ${format(p.goal.early, 'd MMM')}–${format(p.goal.late, 'd MMM')})` : ''}.`;
+  else if (p.goal) out += ' Your goal is beyond these weeks.';
+  return out;
 }

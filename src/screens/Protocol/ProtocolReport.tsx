@@ -1,10 +1,12 @@
 import { format } from 'date-fns';
 import { Printer } from 'lucide-react';
-import { useBodyEntries, useCheckIns, useDoses, useFamily, useMeds, useSettings } from '../../app/data';
+import { useBodyEntries, useCheckIns, useDoses, useFamily, useMeds, useScheduleSettings } from '../../app/data';
 import { medIsFor, personOf } from '../../db/repos/people';
 import { printPage } from '../../app/print';
 import { useNow } from '../../app/useNow';
 import { lotStats, stepReport } from '../../logic/protocol';
+import { changeFlags, lateShots, weekFindings, weekRecords, weeklySummary } from '../../logic/predict';
+import { WeeklySummaryBlock } from './Predictions';
 import { fmtAmount, fmtSchedule } from '../../logic/format';
 import { kgTo, lengthUnit, weightUnit } from '../../logic/units';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
@@ -21,10 +23,11 @@ export function ProtocolReport() {
   const doses = useDoses();
   const body = useBodyEntries();
   const checkIns = useCheckIns();
-  const settings = useSettings();
+  const ss = useScheduleSettings();
   const fam = useFamily();
   const now = useNow(60_000);
-  if (!meds || !doses || !body || !checkIns || !settings || !fam) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
+  if (!meds || !doses || !body || !checkIns || !ss || !fam) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
+  const [settings, s] = ss;
   const units = settings.units;
   const peptides = meds.filter((m) => m.peptide && medIsFor(m, fam.personId) && doses.some((d) => d.medicationId === m.id && !d.deletedAt));
   const myBody = body.filter((b) => personOf(b) === fam.personId);
@@ -45,12 +48,22 @@ export function ProtocolReport() {
       {peptides.map((m) => {
         const steps = stepReport(m, doses, myBody, myCheckIns, now);
         const lots = lotStats(m, doses, myBody, myCheckIns, now);
+        const flags = changeFlags(m, doses, myCheckIns, myBody, now);
+        const findings = weekFindings(weekRecords(m, doses, myCheckIns, now, s));
+        const late = lateShots(m, doses, myCheckIns, now, s);
         return (
           <article key={m.id} className="border-t border-border pt-5 report-block space-y-4" style={{ breakAfter: 'page' }}>
             <header>
               <h2 className="text-2xl font-medium">{m.name}{fam.many ? ` · ${fam.person}` : ''}</h2>
               <p className="text-muted tnum">{fmtSchedule(m.schedule, m.unit)} · now {fmtAmount(m.defaultAmount, m.unit)} · report made {day(now)}</p>
             </header>
+            <section className="report-block"><WeeklySummaryBlock w={weeklySummary(m, doses, myCheckIns, myBody, now, s)} med={m} units={units} /></section>
+            {flags.length > 0 && (
+              <section className="report-block">
+                <h3 className="text-sm font-medium text-muted mb-1">Worth a look</h3>
+                <ul className="text-[15px] space-y-1">{flags.map((f) => <li key={f.kind}><span className="font-medium">{f.title}.</span> {f.detail}</li>)}</ul>
+              </section>
+            )}
             <section>
               <h3 className="text-sm font-medium text-muted mb-2">Dose steps</h3>
               <div className="table-scroll">
@@ -95,6 +108,22 @@ export function ProtocolReport() {
                     </tbody>
                   </table>
                 </div>
+              </section>
+            )}
+            {findings.length > 0 && (
+              <section className="report-block">
+                <h3 className="text-sm font-medium text-muted mb-1">Patterns across weeks</h3>
+                <ul className="text-[15px] space-y-1">
+                  {findings.map((f) => <li key={f.factor}><span className="font-medium">{f.title}:</span> {[f.a, f.b].map((g) => `${g.label} (${g.weeks} wk) ${[g.effectPct !== undefined ? `side effects ${g.effectPct}%` : null, g.appetite !== undefined ? `appetite ${g.appetite}` : null].filter(Boolean).join(', ')}`).join('; ')}</li>)}
+                </ul>
+              </section>
+            )}
+            {late && late.events.length > 0 && (
+              <section className="report-block">
+                <h3 className="text-sm font-medium text-muted mb-1">Late or missed shots (12 weeks)</h3>
+                <ul className="text-[15px] tnum space-y-0.5">
+                  {late.events.map((e) => <li key={e.plannedAt}>{format(e.plannedAt, 'EEE d MMM')}: {e.missed ? 'missed' : `${Math.round(e.hoursLate!)} h late`}{e.levelDropPct ? ` · level about ${e.levelDropPct}% lower until the next` : ''}</li>)}
+                </ul>
               </section>
             )}
             <p className="text-xs text-muted">What was recorded on each step and batch, side by side. It doesn't show cause. Doses and plans are the person's own, from their prescriber.</p>

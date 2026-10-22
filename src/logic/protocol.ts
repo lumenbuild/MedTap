@@ -13,7 +13,7 @@ const taken = (d: Dose) => !d.deletedAt && !d.skipped;
 export const DEFAULT_LEAD_DAYS = 7;
 
 /** Start of the user day `offset` days from the one containing `t` (DST-safe: steps by noon, then snaps). */
-function dayStartOffset(t: number, offset: number, s: ScheduleSettings): number {
+export function dayStartOffset(t: number, offset: number, s: ScheduleSettings): number {
   const start = getDayBounds(t, s.dayStartsAt, s.tz).start;
   return getDayBounds(start + offset * DAY + 12 * 3_600_000, s.dayStartsAt, s.tz).start;
 }

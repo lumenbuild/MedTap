@@ -93,6 +93,19 @@ const CONTENT: Record<string, ReactNode> = {
         <li><strong>Estimated level</strong>: enter a half-life on the medication and Trends estimates the amount in your body from your doses. It's a simple model on the figure you enter, not a measurement.</li>
         <li><strong>Dose levels</strong>: for each dose you've been on, your weight change, appetite and what you noted in check-ins. Settings can add common injection side effects to check-ins.</li>
       </ul>
+      <H>Predictions (Protocol tab)</H>
+      <ul className="list-disc pl-5 space-y-1">
+        <li><strong>The coming week</strong> and <strong>appetite through the week</strong>: from your check-ins by day after each shot, what usually shows up on each of the next 7 days, and where today sits.</li>
+        <li><strong>Weight path</strong>: where your weight is heading for 12 weeks, with a likely range, following your planned dose changes. A step you've been on before uses your own rate on it.</li>
+        <li><strong>Vial</strong>: which planned shot is the last full one from the vial in use, and what's left over or past its use-by.</li>
+        <li><strong>Enough until…</strong>: pick a date (a trip, a planned change) to see the stock and supplies you'll need, and what to order.</li>
+        <li><strong>Patterns</strong>: weeks compared by shot time, sleep, batch, water and missed shots, on side effects and appetite.</li>
+        <li><strong>Worth a look</strong>: side effects up on a new batch, the weight trend flattening, or sleep down after a step up.</li>
+        <li><strong>Late or missed</strong>: shots 12+ hours late or missed, how much lower the estimated level was, and what followed.</li>
+        <li><strong>Best shot day</strong>: mark your busy days to see which shot day keeps your usual side-effect days off them.</li>
+        <li><strong>Last 7 days</strong> on Today and in the protocol report: shots on time, level range, weight rate, side effects and stock.</li>
+      </ul>
+      <p>Each says what it's based on. They're estimates from your own records, not advice: they show links, not causes, and never suggest a dose.</p>
       <H>Calculator</H>
       <p>Settings → Peptides and injections → <strong>Peptide calculator</strong>: units for a dose, the dose for a number of units, or the water that makes your dose an easy number of units.</p>
       <H>Check your numbers</H>

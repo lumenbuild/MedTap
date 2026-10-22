@@ -249,7 +249,7 @@ skipped doses, refill forecasting, encrypted and automatic backups. Awaiting own
 - UI: Body goal cards + goal sheet (start prefilled from the trend), Today one-liner, Trends "goal forecast"
   chart (logs, trend, goal line, forecast with likely range), Help "Goals and forecasts". kg/lb and cm/in.
 
-## Next: smart peptide features (owner approved 22 Oct 2026, build when usage resets)
+## Built: smart peptide features (owner approved 22 Oct 2026)
 All from the person's own data, on the phone, with how much data each estimate rests on. No dose suggestions.
 1. Weight path through the plan: 8–12 week projection from the real rate on each step, planned changes included,
    shown as a range.
@@ -265,6 +265,11 @@ All from the person's own data, on the phone, with how much data each estimate r
 10. Best shot day finder: side-effect timing against days marked busy/important (timing only).
 11. Weekly summary on Today and in the report.
 Not wanted: 9 (what-if comparison of two plans).
+- Built in `src/logic/predict.ts` (tests `tests/predict.test.ts`) and `src/screens/Protocol/Predictions.tsx`: Protocol
+  tab (worth a look, vial line, late or missed, best shot day, patterns, the coming week, appetite through the week,
+  weight path chart, Enough until…), "Last 7 days" on Today, and all of it in the protocol report. Busy days are the
+  `busyDays` setting. Day-after-shot features need shots 2.5+ days apart and 6+ check-ins; weeks before the first
+  shot never count as missed.
 
 ## Next: smart features for both apps (owner approved 22 Oct 2026, after the peptide list above)
 All on the phone, from the person's own data; no medical advice.

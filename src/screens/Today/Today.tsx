@@ -31,6 +31,8 @@ import { BodySheet, type BodySheetState } from '../../components/BodySheets';
 import { HeroCard } from './HeroCard';
 import { TodayRow } from './TodayRow';
 import { WeekStrip } from '../Protocol/WeekStrip';
+import { WeeklySummaryBlock } from '../Protocol/Predictions';
+import { weeklySummary } from '../../logic/predict';
 import { PrnCard } from './PrnCard';
 import { Timeline } from './Timeline';
 import { DoseEditSheet } from './DoseEditSheet';
@@ -149,6 +151,11 @@ export function Today() {
       {/* B2: the most urgent dose is the headline; every scheduled medicine is then one line, tap to log. */}
       {headline && hero(headline)}
       {headline?.peptide && settings.peptideTools && <WeekStrip med={headline} doses={viewDoses} s={s} now={now} />}
+      {headline?.peptide && settings.peptideTools && !fam.everyone && (
+        <section className="border-t border-border pt-4" aria-label={`${shownName(headline)}: last 7 days`}>
+          <WeeklySummaryBlock w={weeklySummary(headline, viewDoses, viewCheckIns, HAS_BODY ? viewBody : [], now, s)} med={headline} units={settings.units} />
+        </section>
+      )}
       {scheduled.length > 1 && (
         <section aria-labelledby="today-meds" className="border-t border-border pt-4">
           <div className="flex items-baseline justify-between">
