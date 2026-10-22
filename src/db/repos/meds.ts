@@ -168,7 +168,7 @@ export async function restock(medId: string, added: number, usedRepeat: boolean)
   const now = nowIso();
   const stockCount = Math.round(((med.stockCount ?? 0) + added) * 1000) / 1000;
   await db.medications.update(medId, {
-    stockCount, stockBase: { count: stockCount, at: now },
+    stockCount, stockBase: { count: stockCount, at: now }, packSize: added > 0 ? added : med.packSize,
     repeatsLeft: usedRepeat && med.repeatsLeft !== undefined ? Math.max(0, med.repeatsLeft - 1) : med.repeatsLeft,
     updatedAt: now,
   });

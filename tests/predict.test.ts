@@ -53,6 +53,11 @@ describe('day after the shot', () => {
     expect(f.days[6].likely[0]).toMatchObject({ chip: 'Nausea', pct: 100 });
     expect(f.atThisDose).toBe(true);
   });
+  it("several check-ins a day don't dilute a side effect noted that day", () => {
+    const busy = [...checkIns, ...wednesdays.flatMap((t) => [1, 2].flatMap((k) => [3, 5, 7].map((h) => ci(t + k * DAY + h * 3_600_000, { focus: 4 }))))];
+    const f = sideEffectForecast(weekly(), shots, busy, NOW, S)!;
+    expect(f.days[0].likely[0]).toMatchObject({ chip: 'Nausea', pct: 100 });
+  });
   it('needs enough check-ins, and shots at least a few days apart', () => {
     expect(sideEffectForecast(weekly(), shots, checkIns.slice(0, 3), NOW, S)).toBeNull();
     const daily = Array.from({ length: 10 }, (_, i) => dose(syd('2026-05-20', '08:00') + i * DAY, 5));

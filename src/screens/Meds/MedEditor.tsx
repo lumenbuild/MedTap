@@ -31,6 +31,7 @@ import { BottlesSection } from './BottlesSection';
 import { ScanLabelCard } from './ScanLabel';
 import { TitrationCard } from './PeptideSections';
 import { VialCard } from './VialCard';
+import { MedPatterns } from '../../components/Smart';
 import { DrawGuide, syringeSizes } from '../../components/Syringe';
 import { SYRINGES } from '../../logic/peptide';
 import type { LabelDetails } from '../../logic/label';
@@ -271,6 +272,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
       {existing && !existing.archived && <PlannedChanges med={existing} />}
       {existing && !existing.archived && settings?.peptideTools && <TitrationCard med={existing} />}
       {existing && !existing.archived && <BottlesSection med={existing} />}
+      {existing && !existing.archived && <MedPatterns med={existing} />}
 
       <Card className="space-y-4">
         <h2 className="text-sm font-medium text-muted">Medication</h2>

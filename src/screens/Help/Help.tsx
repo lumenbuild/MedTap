@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { BellRing, CalendarClock, ChevronRight, Info, Lock, Nfc, RefreshCw, ScanText, ShieldCheck, Smartphone, Syringe, Target, Users } from 'lucide-react';
+import { BellRing, Sparkles, CalendarClock, ChevronRight, Info, Lock, Nfc, RefreshCw, ScanText, ShieldCheck, Smartphone, Syringe, Target, Users } from 'lucide-react';
 import { isNative } from '../../platform';
 import { APP_NAME, DISCLAIMER } from '../../config';
 import { tagBase } from '../../nfc/url';
@@ -16,6 +16,7 @@ const TOPICS = [
   { id: 'tags', title: 'Which tags work', Icon: Nfc },
   { id: 'phones', title: 'iPhone and Android', Icon: Smartphone },
   { id: 'reminders', title: 'Reminders', Icon: BellRing },
+  { id: 'patterns', title: 'Patterns and planning', Icon: Sparkles },
   { id: 'privacy', title: 'Privacy', Icon: ShieldCheck },
   { id: 'lock', title: 'App lock', Icon: Lock },
   { id: 'about', title: `About ${APP_NAME}`, Icon: Info },
@@ -63,6 +64,27 @@ const CONTENT: Record<string, ReactNode> = {
       <H>Getting the best forecast</H>
       <p>Weigh in every day if you can, at the same time (first thing in the morning, after the bathroom, before eating). It needs at least 5 weigh-ins over a week to start. Gaps are fine; it just gets less certain.</p>
       <p>The forecast describes your own trend. It isn't advice about how fast to go; your doctor can help with that.</p>
+    </>
+  ),
+  patterns: (
+    <>
+      <p>{APP_NAME} learns from your own logs, on this phone. Each pattern says what it's based on; they're links in your records, not advice.</p>
+      <H>On a medication's page</H>
+      <ul className="list-disc pl-5 space-y-1">
+        <li><strong>When you take it</strong>, on weekdays and weekends. If that's 20+ minutes from the reminder, <strong>Use these times</strong> moves the reminders (the plan's times stay the same).</li>
+        <li><strong>Often missed</strong>: a day and time missed 2+ times in the last 8 weeks. Reminders add an extra nudge then.</li>
+        <li><strong>Effect window</strong>: from check-ins after doses, when focus usually rises and when it wears off.</li>
+        <li><strong>New script</strong>: when the stock and repeats left run out (or the script expires), and when to book your doctor.</li>
+      </ul>
+      <H>Today</H>
+      <p>The effect window for today's dose, when to book a doctor for a script, records that look odd (a dose logged twice{HAS_BODY ? ', a typo in a weight' : ''}, a date in the future), and your next appointment.</p>
+      <H>Trends</H>
+      <p><strong>The coming days</strong> (likely focus, mood and appetite), <strong>Last dose and sleep</strong> (the time after which sleep is usually worse), and <strong>Appt</strong> to compare with before your last appointment.</p>
+      <H>Reminders</H>
+      <p>In the app, <strong>Nudge me if I haven't logged it</strong> sends a second reminder a while after your usual time.</p>
+      <H>Appointments, lab results and trips</H>
+      <p>Settings → <strong>Appointments and lab results</strong>: add appointments and questions, then print a one-page summary of what's changed since the last one. Lab results can be read from a photo of the printout. Settings → <strong>Plan a trip</strong> shows dose times across time zones, switching straight away or moving 2 hours a day.</p>
+      <p>Check-in notes suggest chips (“bit queasy” → Nausea){HAS_PEPTIDES ? ', and adding vials can read the lot and expiry from a photo of the label' : ''}.</p>
     </>
   ),
   peptides: (

@@ -52,6 +52,10 @@ export interface AppSettings {
   peptideTools: boolean;
   /** Days of the week the person marked busy (0 = Sunday), for the best shot day. */
   busyDays: number[];
+  /** A second "still to take" reminder when a set-time dose isn't logged a while after its usual time. */
+  lateNudges: boolean;
+  /** Odd records the person said are fine (ids), so they aren't raised again. */
+  oddDismissed: string[];
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -84,6 +88,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   remindersEnabled: false,
   peptideTools: false,
   busyDays: [],
+  lateNudges: true,
+  oddDismissed: [],
 };
 
 export async function getSettings(): Promise<AppSettings> {

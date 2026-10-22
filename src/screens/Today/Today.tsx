@@ -32,6 +32,11 @@ import { HeroCard } from './HeroCard';
 import { TodayRow } from './TodayRow';
 import { WeekStrip } from '../Protocol/WeekStrip';
 import { WeeklySummaryBlock } from '../Protocol/Predictions';
+import { EffectToday, OddRecordsLine, ScriptToday } from '../../components/Smart';
+import { appointmentsAround } from '../../logic/appointments';
+import { useAppointments } from '../../app/data';
+import { dayKey } from '../../logic/stats';
+import { format } from 'date-fns';
 import { weeklySummary } from '../../logic/predict';
 import { PrnCard } from './PrnCard';
 import { Timeline } from './Timeline';
@@ -46,6 +51,7 @@ export function Today() {
   const body = useBodyEntries();
   const vitals = useVitals();
   const supplies = useSupplies();
+  const appointments = useAppointments();
   const [vitalSheet, setVitalSheet] = useState<VitalsSheetState>(null);
   const ss = useScheduleSettings();
   const fam = useFamily();
@@ -167,6 +173,25 @@ export function Today() {
           </ul>
         </section>
       )}
+
+      {!fam.everyone && (() => {
+        const visit = appointments ? appointmentsAround(appointments.filter(mine), dayKey(now, s)).next : undefined;
+        const lines = [
+          <EffectToday key="e" meds={viewMeds} doses={viewDoses} checkIns={viewCheckIns} now={now} />,
+          <ScriptToday key="s" meds={viewMeds} doses={viewDoses} s={s} now={now} />,
+          <OddRecordsLine key="o" meds={viewMeds} doses={viewDoses} body={HAS_BODY ? viewBody : []} checkIns={viewCheckIns} vitals={viewVitals} dismissed={settings.oddDismissed} now={now} />,
+        ];
+        return (
+          <section className="border-t border-border pt-4 space-y-2 empty:hidden" aria-label="Notes">
+            {lines}
+            {visit && Date.parse(`${visit.date}T00:00`) - now < 14 * 86_400_000 && (
+              <a href="#/appointments" className="block text-[15px]">
+                Appointment {format(new Date(`${visit.date}T12:00`), 'EEE d MMM')}{visit.with ? ` with ${visit.with}` : ''}. <span className="underline underline-offset-4 font-medium">Summary and questions</span>
+              </a>
+            )}
+          </section>
+        );
+      })()}
 
       {promptDose && <CheckInPrompt dose={promptDose} med={medMap.get(promptDose.medicationId)} now={now} onCheckIn={() => setCheckIn({ relatedDoseId: promptDose.id })} />}
       <RefillCards alerts={refills} settings={settings} now={now} />

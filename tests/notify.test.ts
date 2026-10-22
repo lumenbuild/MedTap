@@ -28,7 +28,7 @@ describe('planReminders', () => {
   it('the next dose of an every-few-hours medication', () => {
     const m = med({ id: 'i', schedule: { type: 'interval', intervalHours: 4 } });
     const r = planReminders([m], [dose('2026-07-14T22:00:00Z', 'i')], NOW, S);
-    expect(r).toEqual([{ id: reminderId('i', Date.parse('2026-07-15T02:00:00Z')), at: Date.parse('2026-07-15T02:00:00Z'), medId: 'i', amount: 10 }]);
+    expect(r).toEqual([{ id: reminderId('i', Date.parse('2026-07-15T02:00:00Z')), at: Date.parse('2026-07-15T02:00:00Z'), medId: 'i', amount: 10, kind: 'due', dueAt: Date.parse('2026-07-15T02:00:00Z') }]);
   });
   it('stays within the phone limit', () => {
     const many = Array.from({ length: 10 }, (_, i) => med({ id: `m${i}` }));

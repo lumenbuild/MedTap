@@ -20,6 +20,9 @@ export const useMedEvents = () => useLive(() => db.medEvents.toArray());
 export const useVitals = () => useLive(() => db.vitals.toArray());
 export const useSupplies = () => useLive(() => db.supplies.toArray());
 export const usePeople = () => useLive(listPeople);
+export const useLabs = () => useLive(() => db.labs.toArray());
+export const useAppointments = () => useLive(() => db.appointments.toArray());
+export const useQuestions = () => useLive(() => db.questions.toArray());
 
 /** The family member being shown, validated against the people list, plus Today's "Everyone" mode. */
 export function useFamily() {

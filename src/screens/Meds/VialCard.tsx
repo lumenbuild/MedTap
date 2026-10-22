@@ -1,3 +1,5 @@
+import { PhotoReader } from '../../components/PhotoReader';
+import { parseVialLabel } from '../../logic/records';
 import { useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { Camera, ChevronRight, FlaskConical, Plus, Trash2 } from 'lucide-react';
@@ -242,6 +244,12 @@ function AddSheet({ med, onClose }: { med: Medication; onClose: () => void }) {
     <Sheet open onClose={onClose} title={`Add ${pen ? 'pens' : 'vials'} to stock`}>
       <div className="space-y-4">
         <TextInput label={`How many ${pen ? 'pens' : 'vials'}`} type="number" inputMode="numeric" min="1" step="1" value={count} onChange={(e) => setCount(e.target.value)} />
+        <PhotoReader what="the label" onText={(text) => {
+          const r = parseVialLabel(text);
+          setV((p) => ({ ...p, lot: r.lot ?? p.lot, expiry: r.expiry ?? p.expiry, amount: r.amount && (!r.unit || r.unit === med.unit) ? String(r.amount) : p.amount }));
+          const found = [r.lot && 'lot', r.expiry && 'expiry', r.amount && 'amount'].filter(Boolean);
+          toast(found.length ? `Filled in the ${found.join(', ')}. Check them.` : "Couldn't find a lot or expiry on it. Type them in.");
+        }} />
         <BatchFields v={v} set={(k, x) => setV((p) => ({ ...p, [k]: x }))} unit={med.unit} />
         <p className="text-sm text-muted">Same details for all of them. Add photos of the label or certificate from each one's page.</p>
         <SheetActions>
