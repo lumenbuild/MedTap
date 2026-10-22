@@ -23,6 +23,7 @@ export const usePeople = () => useLive(listPeople);
 export const useLabs = () => useLive(() => db.labs.toArray());
 export const useAppointments = () => useLive(() => db.appointments.toArray());
 export const useQuestions = () => useLive(() => db.questions.toArray());
+export const useDaily = () => useLive(() => db.daily.toArray());
 
 /** The family member being shown, validated against the people list, plus Today's "Everyone" mode. */
 export function useFamily() {

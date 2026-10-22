@@ -1,6 +1,17 @@
 package app.medtap.nativeplugin;
 
 import android.app.Activity;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.os.PowerManager;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.core.content.pm.ShortcutInfoCompat;
+import androidx.core.content.pm.ShortcutManagerCompat;
+import androidx.core.graphics.drawable.IconCompat;
+import org.json.JSONArray;
+import org.json.JSONException;
+import java.util.ArrayList;
+import java.util.List;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -85,8 +96,25 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
         if (adapter != null) adapter.disableReaderMode(getActivity());
     }
 
-    /** A tag tapped while the app was closed or in the background. */
+    /** A shortcut or the widget asking to log a medication (extra "medtap.logMed"). */
+    private static final String LOG_EXTRA = "medtap.logMed";
+
+    /** A tag tapped while the app was closed or in the background, or a shortcut/widget log request. */
     private void handleLaunchIntent(Intent intent) {
+        if (intent != null && intent.hasExtra(LOG_EXTRA)) {
+            JSObject o = new JSObject();
+            o.put("medId", intent.getStringExtra(LOG_EXTRA));
+            intent.removeExtra(LOG_EXTRA); // handled; don't repeat if the activity is recreated
+            notifyListeners("logRequest", o, true);
+            return;
+        }
+        if (intent != null && ("androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE".equals(intent.getAction()) || "android.intent.action.VIEW_PERMISSION_USAGE".equals(intent.getAction()))) {
+            JSObject o = new JSObject();
+            o.put("path", "/help/privacy");
+            intent.setAction(Intent.ACTION_MAIN);
+            notifyListeners("route", o, true);
+            return;
+        }
         if (intent == null || !NfcAdapter.ACTION_NDEF_DISCOVERED.equals(intent.getAction())) return;
         String url = intent.getDataString();
         if (url == null) {
@@ -428,5 +456,138 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
         } catch (IOException | RuntimeException e) {
             finishError(String.valueOf(e.getMessage()), "io");
         }
+    }
+
+    // ---- Health Connect (read only; see HealthBridge.kt) ----
+
+    @PluginMethod
+    public void healthStatus(PluginCall call) {
+        String status = HealthBridge.status(getContext());
+        JSObject o = new JSObject();
+        o.put("status", status);
+        if (!"available".equals(status)) { o.put("granted", new JSArray()); call.resolve(o); return; }
+        HealthBridge.granted(getContext(), (json, err) -> {
+            try { o.put("granted", json != null ? new JSArray(json) : new JSArray()); } catch (JSONException e) { o.put("granted", new JSArray()); }
+            call.resolve(o);
+        });
+    }
+
+    @PluginMethod
+    public void healthRequest(PluginCall call) {
+        if (!"available".equals(HealthBridge.status(getContext()))) { call.reject("Health Connect isn't available", "unavailable"); return; }
+        startActivityForResult(call, HealthBridge.requestIntent(getContext()), "healthAnswered");
+    }
+
+    @ActivityCallback
+    private void healthAnswered(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        healthStatus(call);
+    }
+
+    @PluginMethod
+    public void healthRead(PluginCall call) {
+        Long from = call.getLong("from");
+        Long to = call.getLong("to");
+        String zone = call.getString("zone", java.util.TimeZone.getDefault().getID());
+        if (from == null || to == null) { call.reject("Missing dates", "io"); return; }
+        HealthBridge.read(getContext(), from, to, zone, (json, err) -> {
+            if (json == null) { call.reject(err != null ? err : "Couldn't read Health Connect", "io"); return; }
+            try { call.resolve(new JSObject(json)); } catch (JSONException e) { call.reject("Bad data", "io"); }
+        });
+    }
+
+    /** Health Connect's settings, or its Play Store page when it needs installing or updating. */
+    @PluginMethod
+    public void openHealthConnect(PluginCall call) {
+        String status = HealthBridge.status(getContext());
+        Intent i;
+        if ("available".equals(status)) i = new Intent("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS");
+        else i = new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.google.android.apps.healthdata&url=healthconnect%3A%2F%2Fonboarding"));
+        try { getActivity().startActivity(i); call.resolve(); } catch (Exception e) { call.reject("Couldn't open Health Connect", "io"); }
+    }
+
+    // ---- Shortcuts: "Log <medicine>" on a long press of the app icon (can be pinned to the home screen) ----
+
+    @PluginMethod
+    public void setShortcuts(PluginCall call) {
+        JSArray items = call.getArray("items", new JSArray());
+        Context ctx = getContext();
+        List<ShortcutInfoCompat> list = new ArrayList<>();
+        try {
+            int max = Math.min(items.length(), ShortcutManagerCompat.getMaxShortcutCountPerActivity(ctx));
+            for (int k = 0; k < max; k++) {
+                org.json.JSONObject it = items.getJSONObject(k);
+                Intent launch = ctx.getPackageManager().getLaunchIntentForPackage(ctx.getPackageName());
+                if (launch == null) break;
+                launch.setAction(Intent.ACTION_MAIN);
+                launch.putExtra(LOG_EXTRA, it.getString("id"));
+                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                String label = it.getString("label");
+                list.add(new ShortcutInfoCompat.Builder(ctx, "log-" + it.getString("id"))
+                    .setShortLabel(label.length() > 24 ? label.substring(0, 24) : label)
+                    .setLongLabel(label)
+                    .setIcon(IconCompat.createWithResource(ctx, ctx.getApplicationInfo().icon))
+                    .setIntent(launch)
+                    .build());
+            }
+            ShortcutManagerCompat.setDynamicShortcuts(ctx, list);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Couldn't set shortcuts", "io");
+        }
+    }
+
+    // ---- Reminder check: things that stop or delay reminders on this phone ----
+
+    @PluginMethod
+    public void reminderHealth(PluginCall call) {
+        Context ctx = getContext();
+        JSObject o = new JSObject();
+        o.put("notificationsEnabled", NotificationManagerCompat.from(ctx).areNotificationsEnabled());
+        boolean channelOff = false;
+        if (Build.VERSION.SDK_INT >= 26) {
+            NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+            NotificationChannel ch = nm.getNotificationChannel("doses");
+            channelOff = ch != null && ch.getImportance() == NotificationManager.IMPORTANCE_NONE;
+        }
+        o.put("channelOff", channelOff);
+        PowerManager pm = (PowerManager) ctx.getSystemService(Context.POWER_SERVICE);
+        o.put("batteryUnrestricted", pm != null && pm.isIgnoringBatteryOptimizations(ctx.getPackageName()));
+        o.put("manufacturer", Build.MANUFACTURER);
+        o.put("sdk", Build.VERSION.SDK_INT);
+        call.resolve(o);
+    }
+
+    /** Ask to let reminders run without battery restrictions (or open the list if that's not possible). */
+    @PluginMethod
+    public void openBatterySettings(PluginCall call) {
+        Context ctx = getContext();
+        try {
+            Intent i = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + ctx.getPackageName()));
+            getActivity().startActivity(i);
+        } catch (Exception e) {
+            try { getActivity().startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)); } catch (Exception ignored) { /* nothing to open */ }
+        }
+        call.resolve();
+    }
+
+    /** The app's notification settings, to turn reminders back on. */
+    @PluginMethod
+    public void openNotificationSettings(PluginCall call) {
+        Context ctx = getContext();
+        Intent i = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+        i.putExtra(Settings.EXTRA_APP_PACKAGE, ctx.getPackageName());
+        try { getActivity().startActivity(i); } catch (Exception e) { /* older phones */ }
+        call.resolve();
+    }
+
+    // ---- Home-screen widget ----
+
+    /** What the widget shows (JSON, see src/app/widget.ts); the widget redraws straight away. */
+    @PluginMethod
+    public void setWidget(PluginCall call) {
+        String json = call.getString("json", "{}");
+        DoseWidget.save(getContext(), json);
+        call.resolve();
     }
 }

@@ -4,7 +4,10 @@ import { LocalNotifications, type ActionPerformed } from '@capacitor/local-notif
 import { liveQuery } from 'dexie';
 import { db } from '../db/db';
 import { getSettings, scheduleSettings, setSetting } from '../db/repos/settings';
-import { listPeople, personOf } from '../db/repos/people';
+import { dosesForPerson, listPeople, medIsFor, personOf } from '../db/repos/people';
+import { shortcutItems, widgetData } from '../logic/widget';
+import { autoImportHealth } from './health';
+import { APP_NAME } from '../config';
 import { getRecentDose } from '../logic/schedule';
 import { logDose } from '../db/repos/doses';
 import { planReminders } from '../logic/notify';
@@ -32,7 +35,11 @@ export async function initNative() {
   await MedTapNative.addListener('tag', (e) => openUrl(e.url));
   if (isNativeAndroid) MedTapNative.nfcListen().catch(() => { /* no NFC on this phone */ });
   await CapApp.addListener('appUrlOpen', (e) => openUrl(e.url));
-  await CapApp.addListener('resume', () => { void syncReminders(); });
+  await CapApp.addListener('resume', () => { void syncReminders(); void syncExtras(); void autoImportHealth(); });
+  // Shortcuts, Siri and the widget ask to log a medicine; Health Connect can open the privacy page.
+  await MedTapNative.addListener('logRequest', (e) => { go('/today'); requestLog(e.medId); });
+  await MedTapNative.addListener('route', (e) => go(e.path));
+  void autoImportHealth();
 
   await LocalNotifications.registerActionTypes({ types: [{ id: ACTIONS, actions: [{ id: 'log', title: 'Log it', foreground: true }] }] });
   if (isNativeAndroid) {
@@ -43,7 +50,20 @@ export async function initNative() {
   // Reschedule whenever medications, doses or settings change (debounced).
   let timer: ReturnType<typeof setTimeout> | undefined;
   liveQuery(() => Promise.all([db.medications.count(), db.doses.count(), db.doses.orderBy('takenAt').last(), db.settings.toArray()]))
-    .subscribe(() => { clearTimeout(timer); timer = setTimeout(() => { void syncReminders(); }, 2000); });
+    .subscribe(() => { clearTimeout(timer); timer = setTimeout(() => { void syncReminders(); void syncExtras(); }, 2000); });
+}
+
+/** The home-screen widget and the "Log <medicine>" shortcuts, for the person being shown. */
+async function syncExtras() {
+  try {
+    const settings = await getSettings();
+    const [meds, doses] = await Promise.all([db.medications.toArray(), db.doses.toArray()]);
+    const mine = meds.filter((m) => medIsFor(m, settings.activePersonId));
+    const ids = new Set(mine.map((m) => m.id));
+    const live = dosesForPerson(doses.filter((d) => !d.deletedAt && ids.has(d.medicationId)), mine, settings.activePersonId);
+    await MedTapNative.setWidget({ json: JSON.stringify(widgetData(APP_NAME, mine, live, Date.now(), scheduleSettings(settings))) });
+    await MedTapNative.setShortcuts({ items: shortcutItems(mine) });
+  } catch (e) { console.error('widget/shortcuts', e); }
 }
 
 /** "Log it" logs the planned amount straight away; tapping the notification opens Log dose. */
@@ -121,4 +141,23 @@ async function doSync() {
       };
     }),
   });
+}
+
+
+// ── Reminder check ──────────────────────────────────────────────────────────────────────────────────
+
+export const reminderHealth = () => MedTapNative.reminderHealth();
+export const openBatterySettings = () => MedTapNative.openBatterySettings();
+export const openNotificationSettings = () => MedTapNative.openNotificationSettings();
+
+const TEST_ID = 2_147_000_001;
+/** A test reminder a minute from now. Calls back with how late it arrived (ms), when it arrives with the app open or
+ *  is tapped (then it's at most that late). */
+export async function testReminder(onArrived: (lateMs: number, tapped: boolean) => void): Promise<number> {
+  const at = Date.now() + 60_000;
+  const done = (tapped: boolean) => { onArrived(Math.max(0, Date.now() - at), tapped); void h1.then((h) => h.remove()); void h2.then((h) => h.remove()); };
+  const h1 = LocalNotifications.addListener('localNotificationReceived', (n) => { if (n.id === TEST_ID) done(false); });
+  const h2 = LocalNotifications.addListener('localNotificationActionPerformed', (a) => { if (a.notification.id === TEST_ID) done(true); });
+  await LocalNotifications.schedule({ notifications: [{ id: TEST_ID, title: 'Test reminder', body: 'Reminders reach you. You can ignore this.', schedule: { at: new Date(at), allowWhileIdle: true }, channelId: CHANNEL, smallIcon: 'ic_stat_medtap' }] });
+  return at;
 }

@@ -25,7 +25,28 @@ export interface MedTapNativePlugin {
   listFiles(options: { uri: string }): Promise<{ names: string[] }>;
   deleteFile(options: { uri: string; name: string }): Promise<void>;
   addListener(event: 'tag', fn: (e: { url: string | null }) => void): Promise<PluginListenerHandle>;
+  /** A shortcut, Siri or the widget asked to log a medicine. */
+  addListener(event: 'logRequest', fn: (e: { medId: string }) => void): Promise<PluginListenerHandle>;
+  /** Android opened the app on a page (e.g. Health Connect asking why the app reads health data). */
+  addListener(event: 'route', fn: (e: { path: string }) => void): Promise<PluginListenerHandle>;
+
+  // Health Connect (Android) / Apple Health (iPhone), read only. `granted` names the record types allowed (iPhone: ['unknown']).
+  healthStatus(): Promise<{ status: 'available' | 'needs-update' | 'unsupported'; granted: string[] }>;
+  healthRequest(): Promise<{ status: string; granted: string[] }>;
+  healthRead(options: { from: number; to: number; zone: string }): Promise<HealthData>;
+  openHealthConnect(): Promise<void>;
+  /** "Log <medicine>" shortcuts (Android: long-press the app icon; iPhone: Siri and the Shortcuts app). */
+  setShortcuts(options: { items: { id: string; label: string }[] }): Promise<void>;
+  /** What can stop or delay reminders on this phone. */
+  reminderHealth(): Promise<{ notificationsEnabled: boolean; channelOff: boolean; batteryUnrestricted: boolean; manufacturer: string; sdk: number }>;
+  openBatterySettings(): Promise<void>;
+  openNotificationSettings(): Promise<void>;
+  /** What the home-screen widget shows (Android). */
+  setWidget(options: { json: string }): Promise<void>;
 }
+
+export interface HealthDay { date: string; steps?: number; sleepMin?: number; restingHr?: number; exerciseMin?: number; hrByHour?: (number | null)[] }
+export interface HealthData { days: HealthDay[]; weights: { t: number; kg: number }[]; bp: { t: number; sys: number; dia: number }[] }
 
 export const isNative = Capacitor.isNativePlatform();
 export const nativePlatform = Capacitor.getPlatform() as 'ios' | 'android' | 'web';

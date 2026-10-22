@@ -85,6 +85,22 @@ const CONTENT: Record<string, ReactNode> = {
       <H>Appointments, lab results and trips</H>
       <p>Settings → <strong>Appointments and lab results</strong>: add appointments and questions, then print a one-page summary of what's changed since the last one. Lab results can be read from a photo of the printout. Settings → <strong>Plan a trip</strong> shows dose times across time zones, switching straight away or moving 2 hours a day.</p>
       <p>Check-in notes suggest chips (“bit queasy” → Nausea){HAS_PEPTIDES ? ', and adding vials can read the lot and expiry from a photo of the label' : ''}.</p>
+      <H>More patterns in Trends</H>
+      <ul className="list-disc pl-5 space-y-1">
+        <li><strong>Days on and off</strong>: check-ins on days you took a medicine against days you didn't.</li>
+        <li><strong>Caffeine and alcohol</strong>: tap Coffee or Alcohol on Today; Trends compares the next morning's sleep (and, for alcohol, side effects the next day).</li>
+        <li><strong>Your cycle</strong> (optional, Settings → Check-ins): a Period button on Today, and check-ins by phase of the cycle.</li>
+        <li><strong>Heart rate after a dose</strong>{HAS_BODY ? <> and <strong>steps and weight</strong></> : null}: from Health Connect or Apple Health.</li>
+      </ul>
+      <H>Count what's left</H>
+      <p>On a tablet or capsule's page, <strong>Count what's left</strong>: type the count or take a photo of them spread out on a plain surface (counted on the phone). It compares with what your logs say should be left, and can log doses you took but didn't log.</p>
+      <H>In the app</H>
+      <ul className="list-disc pl-5 space-y-1">
+        <li><strong>Health Connect / Apple Health</strong> (Settings): read only; steps, sleep and heart rate{HAS_BODY ? ', weigh-ins' : ''} and blood pressure. Imports again when you open the app.</li>
+        <li><strong>Widget</strong> (Android): add {APP_NAME} from your home screen's widgets: the next dose with a countdown, and buttons for as-needed medicines.</li>
+        <li><strong>Shortcuts</strong>: on Android, long-press the app icon for “Log …” (drag one to your home screen). On iPhone, ask Siri “Log Vyvanse in {APP_NAME}”, or use the Shortcuts app.</li>
+        <li><strong>Reminder check</strong> (Settings → Reminders): what could stop or delay reminders on your phone, with a fix for each, and a test reminder.</li>
+      </ul>
     </>
   ),
   peptides: (

@@ -30,6 +30,11 @@
                 <data android:scheme="https" android:host="lumenbuild.github.io" android:path="${tagPath}" />
             </intent-filter>
 
+            <!-- Health Connect shows why the app asks to read health data: the privacy page (see MedTapNativePlugin). -->
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+
             <!-- QR stickers and links can open the app too (Android asks which app to use). -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -39,6 +44,18 @@
             </intent-filter>
 
         </activity>
+
+        <!-- Android 14+: "why this app uses health data" opens the privacy page too. -->
+        <activity-alias
+            android:name="ViewPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity=".MainActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
 
         <provider
             android:name="androidx.core.content.FileProvider"
