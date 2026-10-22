@@ -5,7 +5,7 @@ import { CalendarPlus, Lock, Nfc, Pill } from 'lucide-react';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
 import { useBodyEntries, useCheckIns, useDoses, useFamily, useMeds, useScheduleSettings, useSupplies, useVitals } from '../../app/data';
 import { VitalsSheet, type VitalsSheetState } from '../../components/VitalsSheet';
-import { dosesForPerson, medIsFor, personOf } from '../../db/repos/people';
+import { dosesForPerson, medIsFor, personOf, storedPerson } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
 import { useToast } from '../../app/toast';
@@ -34,6 +34,8 @@ import { WeekStrip } from '../Protocol/WeekStrip';
 import { WeeklySummaryBlock } from '../Protocol/Predictions';
 import { EffectToday, OddRecordsLine, ScriptToday } from '../../components/Smart';
 import { appointmentsAround } from '../../logic/appointments';
+import { ALCOHOL, CAFFEINE, PERIOD } from '../../logic/lifestyle';
+import { addCheckIn, removeCheckIn } from '../../db/repos/checkIns';
 import { useAppointments } from '../../app/data';
 import { dayKey } from '../../logic/stats';
 import { format } from 'date-fns';
@@ -71,6 +73,11 @@ export function Today() {
 
   if (!meds || !doses || !checkIns || !body || !vitals || !ss || !fam) return <TodaySkeleton />;
   const [settings, s] = ss;
+  // One tap: a check-in with just that chip, now (Undo removes it). Used in Trends' patterns.
+  const quick = async (chip: string, what: string) => {
+    const c = await addCheckIn({ at: new Date().toISOString(), chips: [chip], personId: storedPerson(fam.personId) });
+    toast(`${what} logged`, { onAction: () => removeCheckIn(c.id) });
+  };
   // Whose medications are shown: one family member, or everyone (carer view, each card labelled).
   const mine = <T extends { personId?: string }>(r: T) => fam.everyone || personOf(r) === fam.personId;
   // Shared medications (e.g. Panadol) appear for everyone; in one person's view only their doses of them count.
@@ -216,6 +223,9 @@ export function Today() {
             ['Weight', 'Log weight', () => setBodySheet({ kind: 'weight' })],
             ['Measure', 'Add measurement', () => setBodySheet({ kind: 'measure' })],
           ] as const : []),
+          ['Coffee', 'Log caffeine now', () => quick(CAFFEINE, 'Caffeine')],
+          ['Alcohol', 'Log alcohol now', () => quick(ALCOHOL, 'Alcohol')],
+          ...(settings.cycleTracking ? [['Period', 'Period started today', () => quick(PERIOD, 'Period start')]] as const : []),
         ] as const).map(([label, name, on]) => (
           <button key={label} onClick={on} aria-label={name} className="min-h-[44px] text-[15px] font-medium underline underline-offset-4 decoration-border-strong">
             {label}

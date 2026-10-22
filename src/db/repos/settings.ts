@@ -56,6 +56,13 @@ export interface AppSettings {
   lateNudges: boolean;
   /** Odd records the person said are fine (ids), so they aren't raised again. */
   oddDismissed: string[];
+  /** Optional: a "Period" button on Today, and check-ins by phase of the cycle in Trends. */
+  cycleTracking: boolean;
+  /** Health Connect / Apple Health import: on, and when it last ran (this phone). */
+  healthImport: boolean;
+  healthLastImport: string | null;
+  /** Whose records the imported data goes to (the person using this phone). */
+  healthPersonId: string;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -90,6 +97,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   busyDays: [],
   lateNudges: true,
   oddDismissed: [],
+  cycleTracking: false,
+  healthImport: false,
+  healthLastImport: null,
+  healthPersonId: 'me',
 };
 
 export async function getSettings(): Promise<AppSettings> {

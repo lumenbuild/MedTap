@@ -299,7 +299,7 @@ All on the phone, from the person's own data; no medical advice.
 - OCR checked end to end in Chromium on generated photos: vial label (lot, expiry) and a lab printout (3 results and
   the collection date; "HbAlc" is corrected to HbA1c).
 
-## Next: more smart features (owner approved 22 Oct 2026, after the lists above)
+## Built: more smart features (owner approved 22 Oct 2026)
 1. Health Connect / Apple Health import: sleep, steps, resting heart rate, weight and blood pressure from devices.
    Needs native permissions and plugin code.
 2. Heart rate after a dose: resting heart rate in the hours after a stimulant dose, and over the weeks.
@@ -315,6 +315,25 @@ All on the phone, from the person's own data; no medical advice.
 Not wanted: 11 (missed-dose alert to family).
 Suggested build order across all lists: peptide projections, then reminders and refills, then pattern finding,
 then appointment tools, then photo reading and native integrations (health import, voice, widgets).
+- Built: `src/logic/lifestyle.ts` (recount check, days on/off, caffeine/alcohol, cycle, steps vs weight, heart rate after
+  a dose), `src/logic/countTablets.ts` (on-device photo count), `src/logic/healthImport.ts`, `src/logic/widget.ts`;
+  tests `tests/lifestyle.test.ts`, `tests/native-data.test.ts`. UI: Count what's left (medication page), Coffee /
+  Alcohol / Period (optional, `cycleTracking`) on Today, Trends cards, Settings → Health Connect / Apple Health,
+  Settings → Reminders → Reminder check (with a test reminder).
+- DB v8: `daily` table (steps, sleep, resting and hourly heart rate, exercise per day; synced and backed up).
+- Native (`native/medtap-native`): Kotlin `HealthBridge.kt` (Health Connect, read only; minSdk override, calls guarded),
+  Java plugin methods (health, shortcuts, reminder check, battery settings, widget data), `DoseWidget` home-screen
+  widget (countdown chronometer, two as-needed buttons), launch extra `medtap.logMed` → `logRequest` event, Health
+  Connect rationale → privacy page. iOS: HealthKit in `MedTapExtras.swift` (same data shape), Siri/Shortcuts via
+  `ios/App/App/LogDoseIntent.swift` (App Intents, iOS 16+), HealthKit entitlement and usage text.
+- Tested: Android debug APK builds (merged manifest has the health permissions, rationale alias and widget); native
+  flows with a fake Capacitor bridge (widget data and shortcuts sent, shortcut opens Log, Health import stores days,
+  a weigh-in and a reading, reminder check flags Samsung battery saving and opens the setting, test reminder
+  scheduled); photo count of 13 including two touching. Not tested on a real phone yet: Health Connect, Apple Health,
+  Siri, the widget. iOS compiles in CI only (no Mac here).
+- Not possible / not built: an iPhone home-screen or lock-screen widget (needs a WidgetKit extension and an Apple
+  Developer account for the shared app group); Android phones have no lock-screen widgets; Google Assistant voice
+  commands (App Actions) need a Play Store listing, so Android gets launcher shortcuts instead.
 
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).

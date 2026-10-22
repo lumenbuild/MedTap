@@ -219,3 +219,13 @@ export interface Appointment extends Stamped {
 export interface Question extends Stamped {
   text: string; done?: boolean; personId?: string; deletedAt?: string;
 }
+
+/** One day of data imported from Health Connect or Apple Health (and kept up to date by later imports). */
+export interface DailyHealth extends Stamped {
+  /** One row per person per day: later imports update it. */
+  date: string; // local YYYY-MM-DD
+  steps?: number; sleepMin?: number; restingHr?: number; exerciseMin?: number;
+  /** Average heart rate in each hour of the day (local), null where there's none. */
+  hrByHour?: (number | null)[];
+  personId?: string; deletedAt?: string;
+}

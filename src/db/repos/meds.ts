@@ -226,3 +226,11 @@ export async function setLotFlag(medId: string, lot: string, note: string | null
   const lotFlags = note === null ? rest : [...rest, { lot, note: note.trim() || undefined, at: nowIso() }];
   await db.medications.update(medId, { lotFlags: lotFlags.length ? lotFlags : undefined, updatedAt: nowIso() });
 }
+
+/** A recount: the stock is now exactly `count` (counts down from here). Returns the count before, for undo. */
+export async function setStockCount(medId: string, count: number): Promise<number | undefined> {
+  const med = await db.medications.get(medId);
+  const now = nowIso();
+  await db.medications.update(medId, { stockCount: count, stockBase: { count, at: now }, updatedAt: now });
+  return med?.stockCount;
+}

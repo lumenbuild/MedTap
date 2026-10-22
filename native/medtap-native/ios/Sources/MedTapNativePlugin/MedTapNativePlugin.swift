@@ -24,8 +24,22 @@ public class MedTapNativePlugin: CAPPlugin, CAPBridgedPlugin, NFCNDEFReaderSessi
         CAPPluginMethod(name: "folderAccess", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "writeFile", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "listFiles", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "deleteFile", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "deleteFile", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "healthStatus", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "healthRequest", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "healthRead", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openHealthConnect", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setShortcuts", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "reminderHealth", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openBatterySettings", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openNotificationSettings", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setWidget", returnType: CAPPluginReturnPromise)
     ]
+
+    override public func load() {
+        NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.emitPendingLog() }
+        emitPendingLog()
+    }
 
     private var session: NFCNDEFReaderSession?
     private var pending: CAPPluginCall?

@@ -7,7 +7,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // Siri: keep "Log <medicine> in MedTap" up to date with the medicines the app passes (see LogDoseIntent.swift).
+        if #available(iOS 16.0, *) {
+            MedTapShortcuts.updateAppShortcutParameters()
+            NotificationCenter.default.addObserver(forName: Notification.Name("MedTapShortcutsChanged"), object: nil, queue: .main) { _ in
+                MedTapShortcuts.updateAppShortcutParameters()
+            }
+        }
         return true
     }
 

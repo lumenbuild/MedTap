@@ -7,7 +7,7 @@ import { Sheet, SheetActions } from '../components/ui/Sheet';
 import { Segmented, TextInput } from '../components/ui/Field';
 import { getTheme, setTheme, type Theme } from '../app/theme';
 import { APP_NAME, DISCLAIMER } from '../config';
-import { useSettings } from '../app/data';
+import { useFamily, useSettings } from '../app/data';
 import { useNow } from '../app/useNow';
 import { useToast } from '../app/toast';
 import { go } from '../app/router';
@@ -22,6 +22,7 @@ import { HAS_BODY, HAS_PEPTIDES } from '../edition';
 import { SIDE_EFFECT_CHIPS } from '../logic/peptide';
 
 const RemindersCard = lazy(() => import('./RemindersCard'));
+const HealthCard = lazy(() => import('./HealthCard'));
 
 /** Common with GLP-1s and other injections, for the dose-level table in Trends. */
 
@@ -32,6 +33,7 @@ export function Settings() {
   const settings = useSettings();
   const sync = useSyncConfig();
   const now = useNow(60_000);
+  const fam = useFamily();
   const toast = useToast();
   const [persisted, setPersisted] = useState<boolean | null>(null);
   /** The browser was asked on this screen and said no (browsers decide silently; there's no prompt). */
@@ -87,6 +89,8 @@ export function Settings() {
       </a>
 
       {isNative && <Suspense fallback={null}><RemindersCard enabled={settings.remindersEnabled} nudges={settings.lateNudges} /></Suspense>}
+      {isNative && <Suspense fallback={null}><HealthCard on={settings.healthImport} last={settings.healthLastImport} personId={settings.healthImport ? settings.healthPersonId : settings.activePersonId}
+        personName={fam?.many ? fam.nameOf(settings.healthImport ? settings.healthPersonId : settings.activePersonId) : undefined} now={now} /></Suspense>}
 
       <a href="#/appointments" className="border-t border-border py-4 flex items-center gap-3">
         <CalendarCheck className="text-primary" aria-hidden="true" />
@@ -204,6 +208,13 @@ export function Settings() {
           </div>
           <button onClick={() => setSetting('chips', DEFAULT_CHIPS)} className="mt-2 min-h-[44px] text-sm text-primary font-semibold">Reset to the defaults</button>
         </div>
+        <label className="flex items-center justify-between gap-3 min-h-[48px]">
+          <span>
+            <span className="block font-medium">Track my cycle (optional)</span>
+            <span className="block text-sm text-muted">Adds a Period button to Today. Trends then shows check-ins by phase of the cycle. Kept on this phone like everything else.</span>
+          </span>
+          <input type="checkbox" role="switch" checked={settings.cycleTracking} onChange={() => setSetting('cycleTracking', !settings.cycleTracking)} className="w-6 h-6 accent-[var(--primary)] shrink-0" />
+        </label>
       </Card>
 
       <Card className="space-y-3">

@@ -22,6 +22,10 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>To show your steps, sleep and heart rate next to your doses and check-ins. Read only, and kept on this iPhone.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>The app doesn't write to Apple Health.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

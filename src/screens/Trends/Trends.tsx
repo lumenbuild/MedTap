@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { FileText } from 'lucide-react';
-import { useAppointments, useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings, useVitals } from '../../app/data';
+import { useAppointments, useDaily, useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings, useVitals } from '../../app/data';
 import { CheckInForecastCard, EffectWindowCards, SleepImpactCard } from '../../components/Smart';
+import { CycleCard, HeartAfterCards, OnOffCards, StepsWeightCard, SubstanceCard } from '../../components/Lifestyle';
 import { checkInForecast, sleepImpact } from '../../logic/habits';
 import { appointmentsAround } from '../../logic/appointments';
 import { dayKey } from '../../logic/stats';
@@ -26,6 +27,7 @@ export function Trends() {
   const allEvents = useMedEvents();
   const allVitals = useVitals();
   const allAppts = useAppointments();
+  const allDaily = useDaily();
   const fam = useFamily();
   const ss = useScheduleSettings();
   const now = useNow(60_000);
@@ -34,7 +36,7 @@ export function Trends() {
   });
   const pick = (r: Range | 'appt') => { setRange(r); try { localStorage.setItem('trendsRange', r); } catch { /* per-device preference only */ } };
 
-  if (!allMeds || !allDoses || !allCheckIns || !allBody || !allEvents || !allVitals || !allAppts || !ss || !fam) {
+  if (!allMeds || !allDoses || !allCheckIns || !allBody || !allEvents || !allVitals || !allAppts || !allDaily || !ss || !fam) {
     return <div className="space-y-4" aria-busy="true" aria-label="Loading">{[0, 1, 2].map((i) => <div key={i} className="h-60 rounded-card bg-surface-2 animate-pulse" />)}</div>;
   }
   // Only the chosen family member's records.
@@ -46,6 +48,7 @@ export function Trends() {
   const body = allBody.filter((b) => personOf(b) === fam.personId);
   const events = allEvents.filter((e) => medIds.has(e.medicationId));
   const vitals = allVitals.filter((v) => personOf(v) === fam.personId);
+  const daily = allDaily.filter((d) => personOf(d) === fam.personId);
 
   const [settings, s] = ss;
   const times = [...doses.map((d) => Date.parse(d.takenAt)), ...checkIns.map((c) => Date.parse(c.at)), ...body.map((b) => Date.parse(`${b.date}T00:00`))];
@@ -93,6 +96,11 @@ export function Trends() {
       <NoticedMost checkIns={checkIns} {...common} />
       <EffectWindowCards meds={active} doses={doses} checkIns={checkIns} now={now} />
       {sleep && <SleepImpactCard r={sleep} />}
+      <OnOffCards meds={active} doses={doses} checkIns={checkIns} now={now} s={s} />
+      <SubstanceCard checkIns={checkIns} now={now} s={s} />
+      {settings.cycleTracking && <CycleCard checkIns={checkIns} now={now} />}
+      <HeartAfterCards meds={active} doses={doses} daily={daily} vitals={vitals} now={now} s={s} />
+      {HAS_BODY && <StepsWeightCard daily={daily} body={body} units={settings.units} now={now} />}
       <IntervalCharts meds={active} doses={doses} {...common} />
       {peptideMeds.length > 0 && (
         <>
