@@ -48,7 +48,7 @@ export function FamilyCard() {
 
   return (
     <Card className="space-y-3">
-      <h2 className="text-lg font-semibold flex items-center gap-2"><Users size={20} className="text-primary" aria-hidden="true" /> Family members</h2>
+      <h2 className="text-sm font-medium text-muted flex items-center gap-2"><Users size={20} className="text-primary" aria-hidden="true" /> Family members</h2>
       <p className="text-sm text-muted">
         {fam.many
           ? `Each person has their own medications, check-ins and ${HAS_BODY ? 'body tracking' : 'readings'}. Choose who to show at the top of Today, Trends, ${HAS_BODY ? 'Body' : 'Vitals'} and Meds. Tags always open the right person.`

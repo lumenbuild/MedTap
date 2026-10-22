@@ -273,7 +273,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
       {existing && !existing.archived && <BottlesSection med={existing} />}
 
       <Card className="space-y-4">
-        <h2 className="text-lg font-semibold">Medication</h2>
+        <h2 className="text-sm font-medium text-muted">Medication</h2>
         <TextInput label="Name" value={f.name} onChange={(e) => set('name', e.target.value)} error={errors.name} autoComplete="off" autoFocus={!id} />
         <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
           <TextInput label={f.mixed ? (f.kind === 'pen' ? 'Amount in each pen' : 'Amount in each vial') : 'Strength'} type="number" inputMode="decimal" min="0" step="any" value={f.strength} onChange={(e) => set('strength', e.target.value)} error={errors.strength} />
@@ -295,7 +295,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
       </Card>
 
       <Card className="space-y-3">
-        <h2 className="text-lg font-semibold flex items-center gap-2"><EyeOff size={20} className="text-primary" aria-hidden="true" /> Privacy</h2>
+        <h2 className="text-sm font-medium text-muted flex items-center gap-2"><EyeOff size={20} className="text-primary" aria-hidden="true" /> Privacy</h2>
         <TextInput label="Nickname (optional)" value={f.nickname} onChange={(e) => set('nickname', e.target.value)} autoComplete="off"
           placeholder="e.g. Morning tablet"
           help={`Shown instead of the real name on Today, when the tag is tapped, in calendar reminders and on Trends, with a plain grey icon. The real name only shows on this page, in the doctor report and in exports.`} />
@@ -310,7 +310,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
 
       <Card className="space-y-4">
         <div>
-          <h2 className="text-lg font-semibold">From your prescription</h2>
+          <h2 className="text-sm font-medium text-muted">From your prescription</h2>
           <p className="text-sm text-muted mt-1">Enter what your prescriber told you. {APP_NAME} only reminds you of your own settings.</p>
         </div>
         <ScheduleFields f={f} set={set as ScheduleSetter} errors={errors} unit={f.unit} cycles={!!settings?.peptideTools} />
@@ -318,7 +318,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
 
       <Card className="space-y-4">
         <div>
-          <h2 className="text-lg font-semibold flex items-center gap-2"><ClipboardList size={20} className="text-primary" aria-hidden="true" /> Instructions</h2>
+          <h2 className="text-sm font-medium text-muted flex items-center gap-2"><ClipboardList size={20} className="text-primary" aria-hidden="true" /> Instructions</h2>
           <p className="text-sm text-muted mt-1">Shown every time this medication is tapped or logged. You, a carer, pharmacist or doctor can write them.</p>
         </div>
         <TextArea label="Instructions (optional)" value={f.instructions} onChange={(e) => set('instructions', e.target.value)} rows={4}
@@ -330,7 +330,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
       </Card>
 
       <Card className="space-y-4">
-        <h2 className="text-lg font-semibold">Look</h2>
+        <h2 className="text-sm font-medium text-muted">Look</h2>
         <div role="radiogroup" aria-label="Colour" className="grid grid-cols-8 gap-1">
           {MED_COLOURS.map((c) => (
             <button key={c.value} type="button" role="radio" aria-checked={f.color === c.value} aria-label={c.name} onClick={() => set('color', c.value)}
@@ -355,7 +355,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
       </Card>
 
       <Card className="space-y-4">
-        <h2 className="text-lg font-semibold">Stock and refills</h2>
+        <h2 className="text-sm font-medium text-muted">Stock and refills</h2>
         <TextInput label={f.mixed ? `How many ${f.kind === 'pen' ? 'pens' : 'vials'} you have (optional)` : `How many ${f.unit === 'tablet' || !Number(f.strength) ? `${f.form}s` : `${f.form}s (${f.strength} ${f.unit} each)`} you have (optional)`}
           type="number" inputMode="decimal" min="0" step="any" value={f.stockCount} onChange={(e) => set('stockCount', e.target.value)} error={errors.stockCount}
           help={perDose !== undefined ? `Goes down by ${perDose} each time you log ${fmtAmount(draftAmount, f.unit)}. Undo puts it back.` : undefined} />

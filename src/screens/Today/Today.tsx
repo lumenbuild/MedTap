@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { clearLogRequest, onLogRequest } from '../../app/pendingLog';
 import { shownColour, shownMedName, shownName } from '../../logic/privacy';
-import { CalendarPlus, HeartPulse, Lock, Nfc, Pill, Ruler, Scale, Smile } from 'lucide-react';
+import { CalendarPlus, Lock, Nfc, Pill } from 'lucide-react';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
 import { useBodyEntries, useCheckIns, useDoses, useFamily, useMeds, useScheduleSettings, useSupplies, useVitals } from '../../app/data';
 import { VitalsSheet, type VitalsSheetState } from '../../components/VitalsSheet';
@@ -29,6 +29,8 @@ import { TravelBanner } from '../../components/TravelBanner';
 import { CheckInSheet, type CheckInSeed } from '../../components/CheckInSheet';
 import { BodySheet, type BodySheetState } from '../../components/BodySheets';
 import { HeroCard } from './HeroCard';
+import { TodayRow } from './TodayRow';
+import { WeekStrip } from '../Protocol/WeekStrip';
 import { PrnCard } from './PrnCard';
 import { Timeline } from './Timeline';
 import { DoseEditSheet } from './DoseEditSheet';
@@ -82,6 +84,11 @@ export function Today() {
   // Order is fixed per minute so cards don't reshuffle under the user's thumb every second.
   const scheduled = byUrgency(active.filter((m) => m.schedule.type !== 'prn'), doses, Math.floor(now / 60_000) * 60_000, s);
   const prn = active.filter((m) => m.schedule.type === 'prn');
+  // The headline: whatever is due now; otherwise, with peptide tools on, the next injection; otherwise the most urgent.
+  const dueNow = scheduled.find((m) => getStatus(m, doses, now, s) === 'due');
+  const nextShot = settings.peptideTools ? scheduled.filter((m) => m.peptide && getNextDue(m, doses, now, s) !== null)
+    .sort((a, b) => getNextDue(a, doses, now, s)! - getNextDue(b, doses, now, s)!)[0] : undefined;
+  const headline = dueNow ?? nextShot ?? scheduled[0];
 
   const firstRecord = [...doses, ...checkIns, ...body].filter((r) => !r.deletedAt).reduce<number | null>((min, r) => {
     const t = Date.parse(r.createdAt);
@@ -139,11 +146,19 @@ export function Today() {
         </Card>
       )}
 
-      {scheduled.length === 1 && hero(scheduled[0])}
+      {/* B2: the most urgent dose is the headline; every scheduled medicine is then one line, tap to log. */}
+      {headline && hero(headline)}
+      {headline?.peptide && settings.peptideTools && <WeekStrip med={headline} doses={viewDoses} s={s} now={now} />}
       {scheduled.length > 1 && (
-        <div className="-mx-4 px-4 flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-px-4 no-scrollbar" aria-label="Scheduled medications">
-          {scheduled.map((m) => hero(m, 'snap-start shrink-0 w-[calc(100%-28px)]'))}
-        </div>
+        <section aria-labelledby="today-meds" className="border-t border-border pt-4">
+          <div className="flex items-baseline justify-between">
+            <h2 id="today-meds" className="text-sm font-medium text-muted">Today</h2>
+            <p className="text-sm text-muted tnum">{scheduled.filter((m) => getStatus(m, doses, now, s) === 'done-today').length} of {scheduled.length} done</p>
+          </div>
+          <ul className="mt-1">
+            {scheduled.map((m) => <TodayRow key={m.id} med={m} doses={viewDoses} s={s} now={now} person={whose(m)} onLog={() => setLogFor(m)} />)}
+          </ul>
+        </section>
       )}
 
       {promptDose && <CheckInPrompt dose={promptDose} med={medMap.get(promptDose.medicationId)} now={now} onCheckIn={() => setCheckIn({ relatedDoseId: promptDose.id })} />}
@@ -152,8 +167,8 @@ export function Today() {
       {settings.peptideTools && supplies && <SupplyAlerts alerts={supplyAlerts(supplies, meds, doses)} />}
 
       {prn.length > 0 && (
-        <section className="space-y-2" aria-label="As needed">
-          <h2 className="text-sm font-semibold text-muted px-1">As needed</h2>
+        <section className="border-t border-border pt-4" aria-label="As needed">
+          <h2 className="text-sm font-medium text-muted">As needed</h2>
           {prn.map((m) => <PrnCard key={m.id} med={m} doses={viewDoses} s={s} now={now} onLog={() => setLogFor(m)} person={whose(m)} limits={!(fam.everyone && m.shared)} />)}
         </section>
       )}
@@ -161,17 +176,17 @@ export function Today() {
       {fam.everyone ? (
         <p className="text-sm text-muted text-center px-4">Choose a person above to check in or log {HAS_BODY ? 'weight or ' : ''}blood pressure for them.</p>
       ) : (
-      <div className={`grid ${HAS_BODY ? 'grid-cols-4' : 'grid-cols-2'} gap-2`} aria-label={fam.many ? `Quick actions for ${fam.person}` : 'Quick actions'}>
+      <div role="group" className="border-t border-border pt-2 flex flex-wrap gap-x-6" aria-label={fam.many ? `Log for ${fam.person}` : 'Log something else'}>
         {([
-          ['Check in', 'Check in', Smile, () => setCheckIn({})],
+          ['Check in', 'Check in', () => setCheckIn({})],
+          ['Blood pressure', 'Log blood pressure and pulse', () => setVitalSheet({})],
           ...(HAS_BODY ? [
-            ['Weight', 'Log weight', Scale, () => setBodySheet({ kind: 'weight' })],
-            ['Measure', 'Add measurement', Ruler, () => setBodySheet({ kind: 'measure' })],
+            ['Weight', 'Log weight', () => setBodySheet({ kind: 'weight' })],
+            ['Measure', 'Add measurement', () => setBodySheet({ kind: 'measure' })],
           ] as const : []),
-          ['BP and pulse', 'Log blood pressure and pulse', HeartPulse, () => setVitalSheet({})],
-        ] as const).map(([label, name, Icon, on]) => (
-          <button key={label} onClick={on} aria-label={name} className="bg-surface rounded-card shadow-card min-h-[80px] flex flex-col items-center justify-center gap-1.5 px-1 text-sm font-medium text-center leading-tight">
-            <Icon className="text-primary" aria-hidden="true" /> {label}
+        ] as const).map(([label, name, on]) => (
+          <button key={label} onClick={on} aria-label={name} className="min-h-[44px] text-[15px] font-medium underline underline-offset-4 decoration-border-strong">
+            {label}
           </button>
         ))}
       </div>

@@ -6,7 +6,7 @@ import { PersonBadge } from './PersonSwitcher';
 import { logDose } from '../db/repos/doses';
 import { FIXED_MATCH_MS, getContextNotes, getExpectedAmount, getFixedSlots, getLastDose, getRecentDose, type ContextNote, type ScheduleSettings } from '../logic/schedule';
 import { stockUnitsFor } from '../logic/stock';
-import { currentVial, doseForUnits, drawFor } from '../logic/peptide';
+import { currentVial, doseForUnits, drawFor, vialForTag } from '../logic/peptide';
 import { DrawGuide } from './Syringe';
 import { MedInstructions } from './MedInstructions';
 import { fmtAgo, fmtAmount, fmtDuration, fmtHHmm, fmtTime, fmtWhen, fromLocalInput, toLocalInput } from '../logic/format';
@@ -39,8 +39,10 @@ function noteText(n: ContextNote, isNow: boolean, unit: string): string {
 }
 
 /** Amount, time and context notes, then Log dose. Shows the double-tap guard first when this med was just logged. */
-export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, onLogged, onCancel, people, defaultPersonId = null }: {
+export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, vialId, onLogged, onCancel, people, defaultPersonId = null }: {
   med: Medication; doses: Dose[]; s: ScheduleSettings; now: number; tagId?: string;
+  /** A vial tag was tapped: log from that vial (or the one in use, if the tag's vial is finished). */
+  vialId?: string;
   onLogged: (d: Dose) => void; onCancel: () => void;
   /** Family members to choose from when the medication is shared (2+ people). */
   people?: Pick<Person, 'id' | 'name'>[];
@@ -55,7 +57,7 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, onLogged, onC
   const [amountEdit, setAmountEdit] = useState<number | null>(null);
   // Peptide tools: syringe units for mixed vials.
   // Units come from the vial in use (its own amount and water); pens are dialled, not drawn.
-  const inUse = med.peptide ? currentVial(med) : undefined;
+  const inUse = med.peptide ? vialForTag(med, vialId).vial ?? currentVial(med) : undefined;
   const vialAmount = inUse?.amount ?? med.strength;
   const vialWater = inUse?.waterMl ?? med.peptide?.waterMl ?? 0;
   const vial = med.peptide && med.peptide.kind !== 'pen' && vialAmount > 0 && vialWater > 0 ? { ...med.peptide, waterMl: vialWater } : undefined;

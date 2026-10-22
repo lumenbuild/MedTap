@@ -32,7 +32,7 @@ export function ToastProvider({ children, raised }: { children: ReactNode; raise
             {toast.onAction && (
               <button
                 onClick={() => { toast.onAction?.(); setToast(null); }}
-                className="min-h-[44px] min-w-[48px] px-3 rounded-btn font-semibold text-primary-soft underline-offset-2 hover:underline"
+                className="shrink-0 whitespace-nowrap min-h-[44px] min-w-[48px] px-3 rounded-btn font-semibold text-bg underline underline-offset-4"
               >
                 {toast.actionLabel ?? 'Undo'}
               </button>

@@ -19,7 +19,7 @@ export function TitrationCard({ med }: { med: Medication }) {
   const [open, setOpen] = useState(false);
   return (
     <Card className="space-y-2">
-      <h2 className="text-lg font-semibold flex items-center gap-2"><TrendingUp size={20} className="text-primary" aria-hidden="true" /> Titration</h2>
+      <h2 className="text-sm font-medium text-muted flex items-center gap-2"><TrendingUp size={20} className="text-primary" aria-hidden="true" /> Titration</h2>
       <p className="text-muted">Step the dose up (or down) on a schedule your prescriber gave you. Each step becomes a planned change that switches over on its day.</p>
       <Button variant="secondary" className="w-full" onClick={() => setOpen(true)}>Plan a titration</Button>
       {open && <TitrationSheet med={med} onClose={() => setOpen(false)} />}

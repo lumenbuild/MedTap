@@ -64,7 +64,8 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
  *  Outside a sheet (e.g. a flow also used on a full screen) they render where they are. */
 export function SheetActions({ children }: { children: ReactNode }) {
   const slot = useContext(FooterSlot);
-  if (slot === undefined) return <div className="space-y-2">{children}</div>;
+  // Outside a sheet (the tag screen): stick to the bottom of the screen so Log dose is always in reach.
+  if (slot === undefined) return <div className="sticky bottom-0 z-10 bg-bg pt-3 pb-[max(12px,env(safe-area-inset-bottom))] space-y-2">{children}</div>;
   return slot ? createPortal(children, slot) : null;
 }
 

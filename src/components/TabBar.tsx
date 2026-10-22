@@ -1,33 +1,36 @@
-import { CalendarCheck, HeartPulse, LineChart, Pill, Scale } from 'lucide-react';
 import { HAS_BODY } from '../edition';
 
-const tabs = [
-  { path: '/today', label: 'Today', Icon: CalendarCheck },
-  { path: '/trends', label: 'Trends', Icon: LineChart },
-  // TapDose has no weight or measurements; the tab holds blood pressure and heart rate only.
-  HAS_BODY ? { path: '/body', label: 'Body', Icon: Scale } : { path: '/body', label: 'Vitals', Icon: HeartPulse },
-  { path: '/meds', label: 'Meds', Icon: Pill },
-];
+type Tab = { path: string; label: string; match?: string[] };
 
-export function TabBar({ route }: { route: string }) {
+/** The main tabs. With peptide tools on (MedTap), the protocol comes first and Trends and Body share Progress. */
+export function tabsFor(protocol: boolean): Tab[] {
+  if (protocol) return [
+    { path: '/today', label: 'Today' },
+    { path: '/protocol', label: 'Protocol' },
+    { path: '/progress', label: 'Progress', match: ['/trends', '/body'] },
+    { path: '/meds', label: 'Meds' },
+  ];
+  return [
+    { path: '/today', label: 'Today' },
+    { path: '/trends', label: 'Trends' },
+    // TapDose has no weight or measurements; the tab holds blood pressure and heart rate only.
+    { path: '/body', label: HAS_BODY ? 'Body' : 'Vitals' },
+    { path: '/meds', label: 'Meds' },
+  ];
+}
+
+export function TabBar({ route, protocol }: { route: string; protocol: boolean }) {
   return (
-    <nav
-      aria-label="Main"
-      className="fixed bottom-0 inset-x-0 bg-surface border-t border-border"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-    >
+    <nav aria-label="Main" className="fixed bottom-0 inset-x-0 bg-bg border-t border-border" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <ul className="mx-auto max-w-[560px] grid grid-cols-4">
-        {tabs.map(({ path, label, Icon }) => {
-          const active = route.startsWith(path);
+        {tabsFor(protocol).map(({ path, label, match }) => {
+          const active = [path, ...(match ?? [])].some((p) => route.startsWith(p));
           return (
             <li key={path}>
-              <a
-                href={`#${path}`}
-                aria-current={active ? 'page' : undefined}
-                className={`flex flex-col items-center justify-center gap-0.5 min-h-[56px] text-xs font-medium ${active ? 'text-primary' : 'text-muted'}`}
-              >
-                <Icon size={22} aria-hidden="true" />
+              <a href={`#${path}`} aria-current={active ? 'page' : undefined}
+                className={`flex flex-col items-center justify-center gap-1.5 min-h-[64px] text-[13px] ${active ? 'text-text font-semibold' : 'text-muted font-medium'}`}>
                 {label}
+                <span aria-hidden="true" className={`w-1 h-1 rounded-full ${active ? 'bg-text' : ''}`} />
               </a>
             </li>
           );

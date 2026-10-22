@@ -225,7 +225,7 @@ function GoalSheet({ personId, existing, metrics, units, entries, now, onClose }
 export function GoalLines({ goals, entries, units, now }: { goals: BodyGoal[]; entries: BodyEntry[]; units: Units; now: number }) {
   if (!goals.length) return null;
   return (
-    <a href="#/body" className="block bg-surface rounded-card shadow-card p-4 space-y-1">
+    <a href="#/body" className="block border-t border-border py-4 space-y-1">
       {goals.map((g) => (
         <p key={g.metric} className="flex items-center gap-2 text-sm tnum"><Flag size={16} className="text-primary shrink-0" aria-hidden="true" /> {goalLine(goalView(g, entries, now), units)}</p>
       ))}

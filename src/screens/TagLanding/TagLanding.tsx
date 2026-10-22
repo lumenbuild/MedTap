@@ -8,9 +8,7 @@ import { markScanned } from '../../db/repos/tags';
 import { removeDose } from '../../db/repos/doses';
 import { useDoses, useFamily, useMeds, useScheduleSettings } from '../../app/data';
 import { doseOwner, personOf } from '../../db/repos/people';
-import { Users } from 'lucide-react';
 import { setSetting } from '../../db/repos/settings';
-import { PersonBadge } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
 import { useToast } from '../../app/toast';
 import { replace } from '../../app/router';
@@ -20,6 +18,8 @@ import { isAndroid, isNative } from '../../platform';
 import { appIntentUrl } from '../../nfc/url';
 import { LogDoseFlow } from '../../components/LogDoseFlow';
 import { MedBadge } from '../../components/MedBadge';
+import { isPen, vialForTag, vialStatus } from '../../logic/peptide';
+import { format } from 'date-fns';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Success } from './Success';
@@ -101,28 +101,33 @@ export function TagLanding({ id }: { id: string }) {
     return shell(<Success dose={logged.dose} loggedAt={logged.at} med={med} doses={successDoses} s={s} now={now} onUndo={undo} onDone={done} person={fam.many ? fam.nameOf(doseOwner(logged.dose, med)) : undefined} />);
   }
 
+  // A vial tag (peptide tools): which vial it's on, and a note if it was left on a finished vial.
+  const vt = tag?.vialId && med.peptide ? vialForTag(med, tag.vialId) : undefined;
+  const vs = vt?.vial ? vialStatus(med, doses, now, vt.vial) : undefined;
   return shell(
-    <Card>
-      {fam.many && med.shared && (
-        <p className="flex items-center gap-2 mb-4 text-lg font-semibold text-primary"><Users size={24} aria-hidden="true" /> Shared</p>
-      )}
-      {fam.many && !med.shared && (
-        <p className="flex items-center gap-2 mb-4 text-lg font-semibold text-primary" aria-label={`For ${fam.nameOf(personOf(med))}`}>
-          <PersonBadge name={fam.nameOf(personOf(med))} size={32} /> For {fam.nameOf(personOf(med))}
-        </p>
-      )}
-      <div className="flex items-center gap-3 mb-5">
-        <MedBadge color={shownColour(med)} icon={med.icon} size={48} />
-        <div>
-          <h1 className="text-2xl font-semibold leading-[30px]">{shownName(med)}</h1>
-          {med.strength > 0 && !isPrivate(med) && <p className="text-muted">{fmtAmount(med.strength, med.unit)} {med.form}</p>}
-        </div>
+    <section className="pt-2">
+      <p className="flex items-center gap-2 text-sm font-medium text-muted">
+        <MedBadge color={shownColour(med)} icon={med.icon} size={44} />
+        {fam.many ? (med.shared ? 'Shared' : `For ${fam.nameOf(personOf(med))}`) : 'Log'}
+      </p>
+      <div className="mt-3 mb-5 [@media(max-height:600px)]:mb-3">
+        <h1 className="font-light text-[48px] leading-[52px] [@media(max-height:600px)]:text-[38px] [@media(max-height:600px)]:leading-[42px] tracking-[-0.04em] break-words">{shownName(med)}</h1>
+        {med.strength > 0 && !isPrivate(med) && <p className="mt-2 text-[17px]">{fmtAmount(med.strength, med.unit)} {med.form}</p>}
+        {vs && (
+          <p className={`mt-1 text-[15px] tnum ${vs.expired ? 'text-caution font-medium' : 'text-muted'}`}>
+            {isPen(med) ? 'Pen' : 'Vial'} {isPen(med) ? 'started' : 'mixed'} {format(vs.startedAt, 'EEE d MMM')} · {vs.dosesLeft} dose{vs.dosesLeft === 1 ? '' : 's'} left
+            {vs.useBy ? ` · ${vs.expired ? 'past use-by' : 'use by'} ${format(vs.useBy, 'EEE d MMM')}` : ''}
+          </p>
+        )}
+        {vt?.stale && (
+          <p className="mt-3 text-sm rounded-btn bg-caution-soft p-3">This tag was on a vial that's now finished, so this logs from the one in use. Move the tag to it from the medication's page.</p>
+        )}
       </div>
-      <LogDoseFlow med={med} doses={doses} s={s} now={now} tagId={id} people={fam.people} defaultPersonId={null} onLogged={(d) => {
+      <LogDoseFlow med={med} doses={doses} s={s} now={now} tagId={id} vialId={tag?.vialId} people={fam.people} defaultPersonId={null} onLogged={(d) => {
         if (!d.skipped) { setLogged({ dose: d, at: Date.now() }); return; }
         toast(`Marked ${shownName(med)} as skipped`, { onAction: () => removeDose(d.id) });
         close();
       }} onCancel={close} />
-    </Card>,
+    </section>,
   );
 }

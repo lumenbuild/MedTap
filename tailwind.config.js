@@ -5,7 +5,7 @@ export default {
     extend: {
       colors: {
         bg: 'var(--bg)', surface: 'var(--surface)', 'surface-2': 'var(--surface-2)',
-        text: 'var(--text)', muted: 'var(--text-muted)', border: 'var(--border)',
+        text: 'var(--text)', muted: 'var(--text-muted)', border: 'var(--border)', 'border-strong': 'var(--border-strong)',
         primary: 'var(--primary)', 'primary-hover': 'var(--primary-hover)',
         'on-primary': 'var(--on-primary)', 'primary-soft': 'var(--primary-soft)',
         success: 'var(--success)', 'success-soft': 'var(--success-soft)',
@@ -14,7 +14,7 @@ export default {
       },
       borderRadius: { card: 'var(--radius-card)', btn: 'var(--radius-btn)', chip: 'var(--radius-chip)' },
       boxShadow: { card: 'var(--shadow-card)' },
-      fontFamily: { sans: ['"Inter Variable"', 'system-ui', 'sans-serif'] },
+      fontFamily: { sans: ['"Geist Variable"', 'system-ui', 'sans-serif'] },
     },
   },
   plugins: [],

@@ -43,7 +43,7 @@ export function ProgressPhotos({ personId }: { personId: string }) {
 
   return (
     <Card>
-      <h2 className="text-lg font-semibold">Progress photos</h2>
+      <h2 className="text-sm font-medium text-muted">Progress photos</h2>
       <p className="text-sm text-muted flex items-center gap-1.5 mt-1"><Lock size={14} aria-hidden="true" /> Stored only on this phone. Never uploaded.</p>
 
       {photos.length > 0 && (

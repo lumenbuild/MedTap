@@ -10,7 +10,7 @@ const config: CapacitorConfig = {
   android: { allowMixedContent: false },
   ios: { contentInset: 'never' },
   plugins: {
-    LocalNotifications: { smallIcon: 'ic_stat_medtap', iconColor: tapdose ? '#5B3FD1' : '#0B7A75' },
+    LocalNotifications: { smallIcon: 'ic_stat_medtap', iconColor: '#0A0A0A' },
   },
 };
 

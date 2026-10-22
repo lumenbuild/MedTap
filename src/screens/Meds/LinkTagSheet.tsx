@@ -15,7 +15,9 @@ import { TagTest } from './TagTest';
 
 type Step = 'intro' | 'writing' | 'manual' | 'error' | 'test';
 
-export function LinkTagSheet({ med, open, onClose, onQr }: { med: Medication; open: boolean; onClose: () => void; onQr: (url: string) => void }) {
+/** Link a new tag to a medication. With `vialId` (peptide tools) it's a vial tag: stuck on that vial, logging from it, and
+ *  moved to the next vial when one is mixed. */
+export function LinkTagSheet({ med, open, onClose, onQr, vialId }: { med: Medication; open: boolean; onClose: () => void; onQr: (url: string) => void; vialId?: string }) {
   const toast = useToast();
   const [id, setId] = useState(newTagId);
   const [label, setLabel] = useState('');
@@ -26,14 +28,14 @@ export function LinkTagSheet({ med, open, onClose, onQr }: { med: Medication; op
 
   // Fresh tag ID each time the sheet opens.
   useEffect(() => {
-    if (open) { setId(newTagId()); setLabel(''); setStep(canWriteNFC ? 'intro' : 'manual'); setCopied(false); }
+    if (open) { setId(newTagId()); setLabel(vialId ? 'Vial tag' : ''); setStep(canWriteNFC ? 'intro' : 'manual'); setCopied(false); }
     else ctrl.current?.abort();
   }, [open]);
 
   const url = tagUrl(id);
   const save = async () => {
-    await linkTag(id, med.id, label);
-    toast(`Tag linked to ${shownName(med)}`);
+    await linkTag(id, med.id, label, vialId);
+    toast(vialId ? `Tag linked to this ${shownName(med)} vial` : `Tag linked to ${shownName(med)}`);
     setStep('test');
   };
 

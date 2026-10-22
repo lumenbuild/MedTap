@@ -19,7 +19,7 @@ export function PrnCard({ med, doses, s, now, onLog, person, limits = true }: {
   const u = hasLimits ? getRollingUsage(med, doses, now) : null;
   const atLimit = !!u && ((!!sc.maxPer24h && u.count >= sc.maxPer24h) || (!!sc.maxAmountPer24h && u.amount >= sc.maxAmountPer24h));
   return (
-    <article aria-label={shownName(med)} className="bg-surface rounded-card shadow-card p-4 flex items-center gap-3">
+    <article aria-label={shownName(med)} className="border-t border-border py-4 flex items-center gap-3">
       <MedBadge color={shownColour(med)} icon={med.icon} />
       <div className="flex-1 min-w-0">
         {person && <p className="text-xs font-semibold text-primary">{person}</p>}

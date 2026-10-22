@@ -94,10 +94,10 @@ function LockScreen({ salt, hash, length, onUnlock }: { salt: string; hash: stri
       </p>
       <div className="grid grid-cols-3 gap-3 mt-2 w-full max-w-[300px]">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
-          <button key={d} onClick={() => press(d)} disabled={waiting} className="h-16 rounded-full bg-surface shadow-card text-2xl font-semibold tnum disabled:opacity-40">{d}</button>
+          <button key={d} onClick={() => press(d)} disabled={waiting} className="h-16 rounded-full border border-border-strong text-2xl font-semibold tnum disabled:opacity-40">{d}</button>
         ))}
         <span />
-        <button onClick={() => press('0')} disabled={waiting} className="h-16 rounded-full bg-surface shadow-card text-2xl font-semibold tnum disabled:opacity-40">0</button>
+        <button onClick={() => press('0')} disabled={waiting} className="h-16 rounded-full border border-border-strong text-2xl font-semibold tnum disabled:opacity-40">0</button>
         <button onClick={() => { setPin(pin.slice(0, -1)); setError(''); }} aria-label="Delete digit" className="h-16 rounded-full flex items-center justify-center"><Delete aria-hidden="true" /></button>
       </div>
       <button onClick={() => setForgot(true)} className="mt-6 min-h-[48px] px-3 text-primary font-semibold">Forgot PIN?</button>

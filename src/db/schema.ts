@@ -87,7 +87,12 @@ export interface PeptideSetup {
   blend?: BlendPart[];
   /** Half-life in hours, entered by the person, for the estimated level chart (optional). */
   halfLifeHours?: number;
+  /** Days an order takes to arrive, for the "order by" date (optional; 7 if not set). */
+  leadTimeDays?: number;
 }
+
+/** A batch the person has flagged (e.g. "seemed weak"): mixing another vial from it shows the note. */
+export interface LotFlag { lot: string; note?: string; at: string }
 
 /** One vial or pen: in stock (unmixed/unused), in use, or finished. */
 export interface PeptideVial {
@@ -130,8 +135,12 @@ export interface Medication extends Stamped {
   peptide?: PeptideSetup;
   /** Vials or pens: in stock, in use and finished, each with its own water, lot and expiry. */
   vials?: PeptideVial[];
+  /** Batches flagged by the person (peptide tools). */
+  lotFlags?: LotFlag[];
 }
-export interface Tag { id: string; medicationId: string; label?: string; createdAt: string; lastScannedAt?: string }
+/** `vialId`: a tag stuck on a vial (peptide tools). Tapping it logs from that vial; mixing a new vial can move the tag to
+ *  it, so the same sticker is reused. */
+export interface Tag { id: string; medicationId: string; label?: string; createdAt: string; lastScannedAt?: string; vialId?: string }
 export interface Dose extends Stamped {
   medicationId: string; takenAt: string; amount: number;
   source: 'tag' | 'manual' | 'backdated' | 'reminder'; tagId?: string; note?: string; deletedAt?: string;

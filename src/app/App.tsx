@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Settings as SettingsIcon, ArrowLeft } from 'lucide-react';
+import { SlidersHorizontal, ArrowLeft } from 'lucide-react';
 import { parseRoute, useHashRoute, type Route } from './router';
 import { ToastProvider } from './toast';
 import { LockGate } from './LockGate';
@@ -22,11 +22,17 @@ import { useMaintenance } from './maintenance';
 import { ScanTagButton } from '../components/ScanTagButton';
 import { isNativeIOS } from '../platform';
 import { HAS_BODY, HAS_PEPTIDES } from '../edition';
+import { useNow } from './useNow';
+import { Protocol } from '../screens/Protocol/Protocol';
+import { Progress } from '../screens/Progress';
 
 // Charts are the heaviest code; load them only when Trends or the report is opened, so tag taps stay fast.
 const Trends = lazy(() => import('../screens/Trends/Trends').then((m) => ({ default: m.Trends })));
 const Report = lazy(() => import('../screens/Report/Report').then((m) => ({ default: m.Report })));
+const ProtocolReport = lazy(() => import('../screens/Protocol/ProtocolReport').then((m) => ({ default: m.ProtocolReport })));
 const ChartsLoading = () => <div className="space-y-4" aria-busy="true" aria-label="Loading">{[0, 1].map((i) => <div key={i} className="h-60 rounded-card bg-surface-2 animate-pulse" />)}</div>;
+
+const DATE_LINE = new Intl.DateTimeFormat('en-AU', { weekday: 'long', day: 'numeric', month: 'long' });
 
 function title(r: Route): string {
   switch (r.name) {
@@ -44,16 +50,20 @@ function title(r: Route): string {
     case 'join': return 'Join family sync';
     case 'calc': return HAS_PEPTIDES ? 'Peptide calculator' : 'Today';
     case 'supplies': return HAS_PEPTIDES ? 'Supplies' : 'Today';
+    case 'protocol': return 'Protocol';
+    case 'protocolReport': return 'Protocol report';
+    case 'progress': return 'Progress';
     default: return '';
   }
 }
 
-function backTo(r: Route): string | undefined {
+function backTo(r: Route, protocol: boolean): string | undefined {
   switch (r.name) {
+    case 'protocolReport': return '#/protocol';
     case 'settings': return '#/today';
     case 'medNew': case 'med': return '#/meds';
     case 'backup': case 'sync': case 'join': case 'calc': case 'supplies': return '#/settings';
-    case 'report': return '#/trends';
+    case 'report': return protocol ? '#/progress' : '#/trends';
     case 'help': return r.topic ? '#/help' : '#/settings';
     default: return undefined;
   }
@@ -75,6 +85,9 @@ function Screen({ r }: { r: Route }) {
     case 'join': return <JoinSync code={r.code} />;
     case 'calc': return HAS_PEPTIDES ? <PeptideCalc /> : <Today />;
     case 'supplies': return HAS_PEPTIDES ? <Supplies /> : <Today />;
+    case 'protocol': return HAS_PEPTIDES ? <Protocol /> : <Today />;
+    case 'protocolReport': return HAS_PEPTIDES ? <Suspense fallback={<ChartsLoading />}><ProtocolReport /></Suspense> : <Today />;
+    case 'progress': return <Progress />;
     default: return <Today />;
   }
 }
@@ -84,7 +97,10 @@ export function App() {
   useMaintenance();
   const settings = useSettings();
   const meds = useMeds();
-  const back = backTo(r);
+  // Peptide tools on (MedTap): the tabs are Today, Protocol, Progress (Trends and Body together) and Meds.
+  const protocol = HAS_PEPTIDES && !!settings?.peptideTools;
+  const back = backTo(r, protocol);
+  const now = useNow(60_000);
   const showTabs = !back && r.name !== 'tag';
   // First run only: no medications yet and never onboarded. Tag taps and help skip it.
   const onboarding = settings && meds && !settings.onboarded && meds.length === 0 && !['tag', 'help', 'medNew', 'backup', 'join'].includes(r.name);
@@ -92,22 +108,32 @@ export function App() {
   return (
     <ToastProvider raised={showTabs && !onboarding}>
       <LockGate>
-        <div className={`mx-auto max-w-[560px] px-4 ${showTabs && !onboarding ? 'pb-28' : 'pb-6'}`} style={{ paddingTop: onboarding ? undefined : 'env(safe-area-inset-top)' }}>
+        <div className={`mx-auto max-w-[560px] px-6 ${showTabs && !onboarding ? 'pb-28' : 'pb-6'}`} style={{ paddingTop: onboarding ? undefined : 'env(safe-area-inset-top)' }}>
           {onboarding ? <Onboarding /> : (
             <>
-              {r.name !== 'tag' && (
-                <header className="app-header flex items-center justify-between h-14">
-                  {back ? (
-                    <a href={back} aria-label="Back" className="w-12 h-12 -ml-3 flex items-center justify-center"><ArrowLeft aria-hidden="true" /></a>
-                  ) : r.name === 'today' && isNativeIOS ? <ScanTagButton /> : <span className="w-12" />}
-                  <h1 className="text-2xl font-semibold truncate">{title(r)}</h1>
-                  {r.name === 'today' ? (
-                    <a href="#/settings" aria-label="Settings" className="w-12 h-12 -mr-3 flex items-center justify-center"><SettingsIcon aria-hidden="true" /></a>
-                  ) : <span className="w-12" />}
+              {r.name !== 'tag' && (back ? (
+                <header className="app-header flex items-center gap-1 h-14">
+                  <a href={back} aria-label="Back" className="w-11 h-11 -ml-3 flex items-center justify-center"><ArrowLeft size={22} strokeWidth={1.5} aria-hidden="true" /></a>
+                  <h1 className="text-xl font-medium truncate">{title(r)}</h1>
                 </header>
-              )}
+              ) : (
+                // B2: the date (Today) or nothing in a slim top row, then a large light title. On Today the next dose is the
+                // headline, so its title is for screen readers only.
+                <header className="app-header">
+                  <div className="flex items-center justify-between h-14">
+                    <p className="text-sm text-muted">{r.name === 'today' ? DATE_LINE.format(now) : ''}</p>
+                    <div className="flex items-center -mr-3">
+                      {r.name === 'today' && isNativeIOS && <ScanTagButton />}
+                      {r.name === 'today' && (
+                        <a href="#/settings" aria-label="Settings" className="w-11 h-11 flex items-center justify-center"><SlidersHorizontal size={20} strokeWidth={1.5} aria-hidden="true" /></a>
+                      )}
+                    </div>
+                  </div>
+                  <h1 className={r.name === 'today' ? 'sr-only' : 'text-[44px] leading-[48px] font-light tracking-[-0.04em] mt-4 mb-6'}>{title(r)}</h1>
+                </header>
+              ))}
               <main><Screen r={r} /></main>
-              {showTabs && <TabBar route={'/' + r.name} />}
+              {showTabs && <TabBar route={'/' + r.name} protocol={protocol} />}
             </>
           )}
           <UpdatePrompt />

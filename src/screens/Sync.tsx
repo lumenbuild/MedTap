@@ -38,7 +38,7 @@ export function Sync() {
 function About() {
   return (
     <Card className="space-y-2">
-      <h2 className="text-lg font-semibold">Share records between phones</h2>
+      <h2 className="text-sm font-medium text-muted">Share records between phones</h2>
       <p>Family sync keeps {APP_NAME} the same on your phones and your family's: medications, doses, check-ins, {HAS_BODY ? 'weight, ' : ''}blood pressure and tags. A dose logged on one phone shows on the others, and stock counts stay right.</p>
       <p className="text-sm text-muted">Everything is encrypted on the phone before it leaves. Only phones you invite have the key. {HAS_BODY ? 'Photos and settings stay' : 'Settings stay'} on each phone.</p>
     </Card>
@@ -112,7 +112,7 @@ function SyncOn({ cfg }: { cfg: SyncConfig }) {
   return (
     <div className="space-y-4">
       <Card className="space-y-3">
-        <h2 className="text-lg font-semibold flex items-center gap-2"><Smartphone size={20} className="text-primary" aria-hidden="true" /> Family sync is on</h2>
+        <h2 className="text-sm font-medium text-muted flex items-center gap-2"><Smartphone size={20} className="text-primary" aria-hidden="true" /> Family sync is on</h2>
         <p className="text-sm text-muted tnum">
           {cfg.relay
             ? cfg.lastSyncAt ? `Last synced ${fmtAgo(now - Date.parse(cfg.lastSyncAt))}.` : 'Not synced yet.'
@@ -141,7 +141,7 @@ function SyncOn({ cfg }: { cfg: SyncConfig }) {
       </Card>
 
       <Card className="space-y-3">
-        <h2 className="text-lg font-semibold">Update files</h2>
+        <h2 className="text-sm font-medium text-muted">Update files</h2>
         <p className="text-sm text-muted">Without a sync server, send this phone's records to another phone as a file (Messages, email, AirDrop), and open theirs here. Each file can only be opened by your family's phones.</p>
         <input ref={fileRef} type="file" className="hidden" onChange={(e) => { void open(e.target.files?.[0]); e.target.value = ''; }} />
         <div className="grid grid-cols-2 gap-2">
@@ -151,7 +151,7 @@ function SyncOn({ cfg }: { cfg: SyncConfig }) {
       </Card>
 
       <Card className="space-y-3">
-        <h2 className="text-lg font-semibold">Sync server (optional)</h2>
+        <h2 className="text-sm font-medium text-muted">Sync server (optional)</h2>
         <p className="text-sm text-muted">With a sync server, phones sync by themselves every few minutes. It only ever stores encrypted data. You can set up your own for free: see <strong>sync-relay</strong> in {APP_NAME}'s code.</p>
         <TextInput label="Server address" placeholder="https://medtap-sync.example.workers.dev" inputMode="url" autoComplete="off" value={relay}
           onChange={(e) => setRelayText(e.target.value)} error={relayValid ? undefined : 'The address should start with https://'} />
@@ -230,7 +230,7 @@ export function JoinSync({ code }: { code: string }) {
     <div className="space-y-4">
       <About />
       <Card className="space-y-3">
-        <h2 className="text-lg font-semibold">Join this family?</h2>
+        <h2 className="text-sm font-medium text-muted">Join this family?</h2>
         <p className="text-sm">From then on, changes on any phone show on all of them.{own ? " What's already on this phone is kept and shared, under your name." : ''}</p>
         <TextInput label="Your name" help="Who uses this phone." value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name" />
         <Button className="w-full min-h-[56px]" disabled={!name.trim()} onClick={async () => {

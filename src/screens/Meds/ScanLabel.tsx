@@ -65,7 +65,7 @@ export function ScanLabelCard({ onApply }: { onApply: (d: LabelDetails) => void 
 
   return (
     <Card className="space-y-3">
-      <h2 className="text-lg font-semibold flex items-center gap-2"><ScanText size={20} className="text-primary" aria-hidden="true" /> Scan the pharmacy label</h2>
+      <h2 className="text-sm font-medium text-muted flex items-center gap-2"><ScanText size={20} className="text-primary" aria-hidden="true" /> Scan the pharmacy label</h2>
       <p className="text-sm text-muted">Take a photo of the label and {isNative ? 'the app' : 'this page'} fills in the details for you to check. The photo is read on this phone and isn't kept or sent anywhere.</p>
       {pick}
       <div className="grid grid-cols-2 gap-2">

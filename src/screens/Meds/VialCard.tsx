@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { Camera, ChevronRight, FlaskConical, Plus, Trash2 } from 'lucide-react';
-import type { Dose, Medication, PeptideVial } from '../../db/schema';
+import type { Dose, Medication, PeptideVial, Tag } from '../../db/schema';
 import { addVials, setVials, startVial, unrestock, updateVial, type VialDetails } from '../../db/repos/meds';
 import { addVialPhoto, removePhoto, restorePhoto } from '../../db/repos/photos';
 import { personOf } from '../../db/repos/people';
@@ -12,7 +12,11 @@ import { useNow } from '../../app/useNow';
 import { useToast } from '../../app/toast';
 import { fmtAmount } from '../../logic/format';
 import { shownName } from '../../logic/privacy';
-import { dosesFromVial, isPen, stockVials, vialsOf, vialStatus } from '../../logic/peptide';
+import { currentVial, dosesFromVial, isPen, stockVials, vialsOf, vialStatus } from '../../logic/peptide';
+import { useTags } from '../../app/data';
+import { moveVialTags, restoreTag } from '../../db/repos/tags';
+import { LinkTagSheet } from './LinkTagSheet';
+import { VialLabelSheet } from './VialLabel';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Sheet, SheetActions } from '../../components/ui/Sheet';
@@ -39,6 +43,8 @@ export function VialCard({ med }: { med: Medication }) {
   const [adding, setAdding] = useState(false);
   const [details, setDetails] = useState<PeptideVial | null>(null);
   const [history, setHistory] = useState(false);
+  const [linking, setLinking] = useState(false);
+  const [label, setLabel] = useState(false);
   if (!med.peptide || !doses) return null;
   const pen = isPen(med);
   const word = pen ? 'pen' : 'vial';
@@ -48,7 +54,7 @@ export function VialCard({ med }: { med: Medication }) {
 
   return (
     <Card className="space-y-3">
-      <h2 className="text-lg font-semibold flex items-center gap-2"><FlaskConical size={20} className="text-primary" aria-hidden="true" /> {pen ? 'Pen' : 'Vial'} in use</h2>
+      <h2 className="text-sm font-medium text-muted flex items-center gap-2"><FlaskConical size={20} className="text-primary" aria-hidden="true" /> {pen ? 'Pen' : 'Vial'} in use</h2>
       {v ? (
         <button onClick={() => setDetails(v.vial)} className="w-full text-left rounded-btn bg-surface-2 p-3 flex items-start gap-2">
           <ul className="flex-1 space-y-0.5 tnum">
@@ -63,6 +69,7 @@ export function VialCard({ med }: { med: Medication }) {
         <p className="text-muted">Tap below when you {pen ? 'start a pen' : 'mix a vial'}, and {APP_NAME} keeps count of what's left in it.</p>
       )}
       <DrawGuide med={med} amount={med.defaultAmount} />
+      {v && <VialTagRow med={med} vialId={v.vial.id} onLink={() => setLinking(true)} onLabel={() => setLabel(true)} />}
       <Button className="w-full" onClick={() => setStarting(true)}>{pen ? "I've started a new pen" : "I've mixed a new vial"}</Button>
 
       <div className="pt-1">
@@ -112,9 +119,13 @@ export function VialCard({ med }: { med: Medication }) {
       <a href="#/supplies" className="block text-center min-h-[44px] leading-[44px] text-primary font-semibold">Supplies</a>
       {!pen && <a href="#/calc" className="block text-center min-h-[44px] leading-[44px] text-primary font-semibold">Peptide calculator</a>}
 
-      {starting && <StartSheet med={med} stock={stock} onClose={() => setStarting(false)} onStarted={(before) => {
-        toast(pen ? 'New pen: counting from now' : 'New vial: counting from now', { onAction: () => setVials(med.id, before) });
+      {starting && <StartSheet med={med} stock={stock} onClose={() => setStarting(false)} onStarted={(before, tagsBefore) => {
+        toast(pen ? 'New pen: counting from now' : tagsBefore.length ? 'New vial: counting from now. Tag moved to it.' : 'New vial: counting from now', {
+          onAction: async () => { await setVials(med.id, before); for (const t of tagsBefore) await restoreTag(t); },
+        });
       }} />}
+      {v && <LinkTagSheet med={med} vialId={v.vial.id} open={linking} onClose={() => setLinking(false)} onQr={() => { setLinking(false); setLabel(true); }} />}
+      {label && v && <VialLabelSheet med={med} vial={v.vial} useBy={v.useBy} onClose={() => setLabel(false)} />}
       {adding && <AddSheet med={med} onClose={() => setAdding(false)} />}
       {details && <DetailsSheet med={med} vial={vialsOf(med).find((x) => x.id === details.id) ?? details} doses={doses} onClose={() => setDetails(null)} />}
     </Card>
@@ -122,9 +133,14 @@ export function VialCard({ med }: { med: Medication }) {
 }
 
 /** Start the next vial/pen: pick from stock (soonest expiry first) or one that isn't listed; vials ask for the water. */
-function StartSheet({ med, stock, onClose, onStarted }: { med: Medication; stock: PeptideVial[]; onClose: () => void; onStarted: (before: PeptideVial[] | undefined) => void }) {
+function StartSheet({ med, stock, onClose, onStarted }: { med: Medication; stock: PeptideVial[]; onClose: () => void; onStarted: (before: PeptideVial[] | undefined, tagsBefore: Tag[]) => void }) {
   const pen = isPen(med);
   const [pick, setPick] = useState<string>(stock[0]?.id ?? 'other');
+  // A vial tag can be peeled off the old vial and stuck on the new one: the same tag, pointed at the new vial.
+  const vialTags = useTags()?.filter((t) => t.medicationId === med.id && t.vialId) ?? [];
+  const [moveTag, setMoveTag] = useState(true);
+  const picked = stock.find((x) => x.id === pick);
+  const flagged = picked?.lot ? med.lotFlags?.find((f) => f.lot === picked.lot) : undefined;
   const [water, setWater] = useState(String(med.peptide?.waterMl || ''));
   const [amount, setAmount] = useState(String(med.strength || ''));
   const waterOk = pen || Number(water) > 0;
@@ -133,7 +149,11 @@ function StartSheet({ med, stock, onClose, onStarted }: { med: Medication; stock
     const before = await startVial(med.id, pick === 'other'
       ? { details: { amount: Number(amount) || med.strength }, waterMl: pen ? undefined : Number(water) }
       : { vialId: pick, waterMl: pen ? undefined : Number(water) });
-    onStarted(before);
+    let tagsBefore: Tag[] = [];
+    const now = await db.medications.get(med.id);
+    const started = now ? currentVial(now) : undefined;
+    if (moveTag && vialTags.length && started) tagsBefore = await moveVialTags(med.id, started.id);
+    onStarted(before, tagsBefore);
     onClose();
   };
   return (
@@ -159,6 +179,16 @@ function StartSheet({ med, stock, onClose, onStarted }: { med: Medication; stock
         {!pen && (
           <TextInput label="Water added (mL)" help="Units for this vial are worked out from this." type="number" inputMode="decimal" min="0" step="any"
             value={water} onChange={(e) => setWater(e.target.value)} error={waterOk ? undefined : 'Enter the water you added.'} />
+        )}
+        {flagged && (
+          <p role="alert" className="text-sm rounded-btn bg-caution-soft p-3">You flagged batch {flagged.lot}{flagged.note ? `: “${flagged.note}”` : '.'}</p>
+        )}
+        {vialTags.length > 0 && (
+          <label className="flex items-start gap-3 min-h-[48px]">
+            <input type="checkbox" checked={moveTag} onChange={(e) => setMoveTag(e.target.checked)} className="w-5 h-5 mt-0.5 accent-[var(--primary)]" />
+            <span><span className="block font-medium">Move the {pen ? 'pen' : 'vial'} tag to this one</span>
+              <span className="block text-sm text-muted">Peel it off the old {pen ? 'pen' : 'vial'} and stick it on this one. Nothing needs rewriting.</span></span>
+          </label>
         )}
         <p className="text-sm text-muted">The {pen ? 'pen' : 'vial'} in use now is marked finished.</p>
         <SheetActions>
@@ -312,4 +342,30 @@ export function VialAlerts({ meds, doses, now }: { meds: Medication[]; doses: Do
   );
 }
 
+
+
+/** The tag on the vial in use (peptide tools): tap it to log from this vial. A tag still pointing at a finished vial can be
+ *  moved here; with none, one can be added. And a printable label for the vial either way. */
+function VialTagRow({ med, vialId, onLink, onLabel }: { med: Medication; vialId: string; onLink: () => void; onLabel: () => void }) {
+  const toast = useToast();
+  const tags = useTags()?.filter((t) => t.medicationId === med.id && t.vialId) ?? [];
+  const word = isPen(med) ? 'pen' : 'vial';
+  const here = tags.filter((t) => t.vialId === vialId);
+  const left = tags.filter((t) => t.vialId !== vialId);
+  return (
+    <div className="border-t border-border pt-3 space-y-2">
+      <p className="text-sm font-medium text-muted">{word === 'pen' ? 'Pen' : 'Vial'} tag</p>
+      {here.length > 0 && <p>On this {word}. Tap it to log from this {word}{here[0].lastScannedAt ? ` · last tapped ${format(Date.parse(here[0].lastScannedAt), 'EEE d MMM')}` : ''}.</p>}
+      {here.length === 0 && left.length > 0 && <p>Your {word} tag is still set to a finished {word}.</p>}
+      {here.length === 0 && left.length === 0 && <p className="text-muted">Stick a tag on the {word}: tapping it logs from this {word} and shows what to draw.</p>}
+      <div className="flex flex-wrap gap-2">
+        {here.length === 0 && left.length > 0 && (
+          <Button onClick={async () => { const before = await moveVialTags(med.id, vialId, left[0].id); toast(`Tag moved to this ${word}`, { onAction: () => before.forEach((t) => restoreTag(t)) }); }}>Move it to this {word}</Button>
+        )}
+        {here.length === 0 && left.length === 0 && <Button variant="secondary" onClick={onLink}>Tag this {word}</Button>}
+        <Button variant="secondary" onClick={onLabel}>Print {word} label</Button>
+      </div>
+    </div>
+  );
+}
 

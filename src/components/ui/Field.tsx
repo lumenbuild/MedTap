@@ -1,6 +1,6 @@
 import { useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 
-const inputCls = 'w-full min-h-[48px] rounded-btn bg-surface-2 border border-border px-3.5 text-base outline-none focus:border-primary';
+const inputCls = 'w-full min-h-[48px] rounded-btn bg-transparent border border-border-strong px-3.5 text-base outline-none focus:border-text';
 
 /** Label above, optional helper text, inline error. Never placeholder-only. */
 export function Field({ label, help, error, children, id }: { label: ReactNode; help?: ReactNode; error?: string; children: ReactNode; id: string }) {
@@ -49,10 +49,10 @@ export function Segmented<T extends string>({ label, value, options, onChange }:
   label: string; value: T; options: { value: T; label: string }[]; onChange: (v: T) => void;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="grid gap-1 p-1 rounded-btn bg-surface-2" style={{ gridTemplateColumns: `repeat(${options.length}, 1fr)` }}>
+    <div role="radiogroup" aria-label={label} className="grid gap-1 p-1 rounded-btn border border-border-strong" style={{ gridTemplateColumns: `repeat(${options.length}, 1fr)` }}>
       {options.map((o) => (
         <button key={o.value} type="button" role="radio" aria-checked={value === o.value} onClick={() => onChange(o.value)}
-          className={`min-h-[44px] rounded-[10px] text-sm font-semibold transition-colors ${value === o.value ? 'bg-surface shadow-card text-text' : 'text-muted'}`}>
+          className={`min-h-[44px] rounded-[10px] text-sm font-medium transition-colors ${value === o.value ? 'bg-primary text-on-primary' : 'text-muted'}`}>
           {o.label}
         </button>
       ))}

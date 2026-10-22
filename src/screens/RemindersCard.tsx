@@ -25,7 +25,7 @@ export default function RemindersCard({ enabled }: { enabled: boolean }) {
 
   return (
     <Card className="space-y-3">
-      <h2 className="text-lg font-semibold flex items-center gap-2"><BellRing size={18} aria-hidden="true" /> Reminders</h2>
+      <h2 className="text-sm font-medium text-muted flex items-center gap-2"><BellRing size={18} aria-hidden="true" /> Reminders</h2>
       <label className="flex items-center justify-between gap-3 min-h-[48px]">
         <span>
           <span className="block font-medium">Remind me when doses are due</span>

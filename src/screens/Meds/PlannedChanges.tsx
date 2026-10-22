@@ -29,7 +29,7 @@ export function PlannedChanges({ med }: { med: Medication }) {
 
   return (
     <Card>
-      <h2 className="text-lg font-semibold flex items-center gap-2"><CalendarClock size={20} className="text-primary" aria-hidden="true" /> Planned changes</h2>
+      <h2 className="text-sm font-medium text-muted flex items-center gap-2"><CalendarClock size={20} className="text-primary" aria-hidden="true" /> Planned changes</h2>
       {changes.length === 0 ? (
         <p className="text-muted mt-1">For a dose change or a taper your prescriber has planned. On the day, {APP_NAME} switches over and records the change.</p>
       ) : (

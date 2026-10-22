@@ -6,8 +6,8 @@ export function ChartCard({ title, summary, empty, children, table, height = 220
   table?: { head: string[]; rows: (string | number)[][] };
 }) {
   return (
-    <section className="bg-surface rounded-card shadow-card p-5 chart-card" aria-label={title}>
-      <h2 className="text-lg font-semibold">{title}</h2>
+    <section className="border-t border-border pt-5 pb-2 chart-card" aria-label={title}>
+      <h2 className="text-sm font-medium text-muted">{title}</h2>
       {empty ? (
         <p className="text-muted mt-1">{empty}</p>
       ) : (

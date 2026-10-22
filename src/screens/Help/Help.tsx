@@ -29,7 +29,7 @@ export function Help({ topic }: { topic?: string }) {
       <ul className="space-y-2">
         {TOPICS.map(({ id, title, Icon }) => (
           <li key={id}>
-            <a href={`#/help/${id}`} className="bg-surface rounded-card shadow-card p-4 min-h-[56px] flex items-center gap-3">
+            <a href={`#/help/${id}`} className="border-t border-border py-4 min-h-[56px] flex items-center gap-3">
               <Icon className="text-primary" aria-hidden="true" />
               <span className="flex-1 font-medium">{title}</span>
               <ChevronRight className="text-muted" aria-hidden="true" />
@@ -43,7 +43,7 @@ export function Help({ topic }: { topic?: string }) {
   return <Card className="space-y-4 help-prose">{page ?? <p>That help page doesn't exist.</p>}</Card>;
 }
 
-const H = ({ children }: { children: ReactNode }) => <h2 className="text-lg font-semibold">{children}</h2>;
+const H = ({ children }: { children: ReactNode }) => <h2 className="text-sm font-medium text-muted">{children}</h2>;
 
 const CONTENT: Record<string, ReactNode> = {
   goals: (

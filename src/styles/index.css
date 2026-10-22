@@ -7,7 +7,7 @@ html, body, #root { min-height: 100%; }
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter Variable', system-ui, sans-serif;
+  font-family: 'Geist Variable', system-ui, sans-serif;
   font-size: 16px;
   line-height: 24px;
   -webkit-tap-highlight-color: transparent;
@@ -35,6 +35,9 @@ img, svg, canvas, video { max-width: 100%; }
 body[data-sheets] .toast-host { top: calc(12px + env(safe-area-inset-top)); bottom: auto !important; }
 
 .tnum { font-variant-numeric: tabular-nums; }
+/* B2: section headings are small grey labels without icons (colour and icons are kept for actions and medicines). */
+main h2 > svg.lucide, [role='dialog'] h3 > svg.lucide, main h2 > span > svg.lucide { display: none; }
+.notice > svg.lucide { display: none; }
 :focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
@@ -51,6 +54,17 @@ body[data-sheets] .toast-host { top: calc(12px + env(safe-area-inset-top)); bott
 .animate-fade-in { animation: fade-in 200ms ease-out; }
 .animate-slide-up { animation: slide-up 220ms ease-out; }
 .check-draw { stroke-dasharray: 60; animation: draw 400ms ease-out 100ms both; }
+
+/* Vial label: name, strength once mixed, dates and lot, with the tag's QR code. On screen as a preview; printed at 70 x 32 mm. */
+.vial-label { display: flex; gap: 12px; align-items: center; font-size: 14px; line-height: 19px; }
+.vial-label-name { font-size: 18px; line-height: 22px; font-weight: 600; }
+.vial-label img { width: 84px; height: 84px; flex-shrink: 0; }
+@media print {
+  .print-vial { padding: 8mm; }
+  .print-vial .vial-label { width: 70mm; height: 32mm; box-sizing: border-box; padding: 2mm 3mm; border: 0.3mm dashed #999; font-size: 8pt; line-height: 10pt; color: #000; }
+  .print-vial .vial-label-name { font-size: 10pt; line-height: 12pt; }
+  .print-vial .vial-label img { width: 26mm; height: 26mm; }
+}
 
 /* Printable QR stickers (rendered into #print-root only while the QR sheet is open). */
 #print-root { display: none; }

@@ -17,7 +17,7 @@ export function VitalsCard({ personId }: { personId: string }) {
   const latest = readings[0];
   return (
     <Card>
-      <div className="flex items-center gap-2 text-muted"><HeartPulse size={18} aria-hidden="true" /><h2 className="font-semibold">Blood pressure and heart rate</h2></div>
+      <div className="flex items-center gap-2 text-muted"><HeartPulse size={18} aria-hidden="true" /><h2 className="text-sm font-medium text-muted">Blood pressure and heart rate</h2></div>
       {latest ? (
         <p className="mt-2"><span className="text-[28px] leading-[36px] font-semibold tnum">{fmtVital(latest)}</span>
           <span className="block text-muted tnum">{fmtWhen(Date.parse(latest.at), now)}</span></p>
