@@ -249,6 +249,23 @@ skipped doses, refill forecasting, encrypted and automatic backups. Awaiting own
 - UI: Body goal cards + goal sheet (start prefilled from the trend), Today one-liner, Trends "goal forecast"
   chart (logs, trend, goal line, forecast with likely range), Help "Goals and forecasts". kg/lb and cm/in.
 
+## Next: smart peptide features (owner approved 22 Oct 2026, build when usage resets)
+All from the person's own data, on the phone, with how much data each estimate rests on. No dose suggestions.
+1. Weight path through the plan: 8–12 week projection from the real rate on each step, planned changes included,
+   shown as a range.
+2. Side-effect forecast for the week, from check-ins by day after the shot (per step).
+3. Appetite curve per step: where today sits on the person's usual weekly curve.
+4. Rest of the vial: which shot finishes it and how much will be past use-by.
+5. Supplies by a chosen date (trip, planned change): stock and supplies needed, what to order.
+6. What goes with your good weeks: shot time, sleep, supplier/lot, water amount, missed shots vs appetite and side
+   effects; number of weeks shown; a link, not a cause.
+7. Change detection: side effects up on a new lot, weight trend flattening, sleep down after a step-up; shown on
+   Protocol and in the report.
+8. Late/missed shot impact on the estimated level and the check-ins that followed.
+10. Best shot day finder: side-effect timing against days marked busy/important (timing only).
+11. Weekly summary on Today and in the report.
+Not wanted: 9 (what-if comparison of two plans).
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 
