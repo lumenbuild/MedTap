@@ -283,6 +283,23 @@ All on the phone, from the person's own data; no medical advice.
 13. One-page appointment summary: what changed since the last visit, flags, questions.
 14. "Since my last appointment": mark appointments; charts compare before and after.
 
+## Next: more smart features (owner approved 22 Oct 2026, after the lists above)
+1. Health Connect / Apple Health import: sleep, steps, resting heart rate, weight and blood pressure from devices.
+   Needs native permissions and plugin code.
+2. Heart rate after a dose: resting heart rate in the hours after a stimulant dose, and over the weeks.
+3. Count tablets from a photo, on the phone, for stock recounts.
+4. Voice and shortcuts: "Hey Google, log my Vyvanse", Siri Shortcuts. Native work.
+5. Pill count check: recount vs what the logs say should be left; show the likely missed or unlogged days.
+6. Reminder check: notice delayed or blocked reminders (battery saving) and walk through the fix for the phone.
+7. Breaks from medication: days or weekends off vs on, across focus, mood, appetite and sleep.
+8. Quick caffeine and alcohol chips, included in the pattern finding.
+9. Period cycle overlay (optional) against check-ins.
+10. Exercise vs weight rate: steps or workouts against weight change per week on each step.
+12. Home-screen and lock-screen widgets: next dose with countdown, today's draw, one-tap as-needed log.
+Not wanted: 11 (missed-dose alert to family).
+Suggested build order across all lists: peptide projections, then reminders and refills, then pattern finding,
+then appointment tools, then photo reading and native integrations (health import, voice, widgets).
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 
