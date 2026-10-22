@@ -249,6 +249,62 @@ skipped doses, refill forecasting, encrypted and automatic backups. Awaiting own
 - UI: Body goal cards + goal sheet (start prefilled from the trend), Today one-liner, Trends "goal forecast"
   chart (logs, trend, goal line, forecast with likely range), Help "Goals and forecasts". kg/lb and cm/in.
 
+## Built: smart peptide features (owner approved 22 Oct 2026)
+All from the person's own data, on the phone, with how much data each estimate rests on. No dose suggestions.
+1. Weight path through the plan: 8–12 week projection from the real rate on each step, planned changes included,
+   shown as a range.
+2. Side-effect forecast for the week, from check-ins by day after the shot (per step).
+3. Appetite curve per step: where today sits on the person's usual weekly curve.
+4. Rest of the vial: which shot finishes it and how much will be past use-by.
+5. Supplies by a chosen date (trip, planned change): stock and supplies needed, what to order.
+6. What goes with your good weeks: shot time, sleep, supplier/lot, water amount, missed shots vs appetite and side
+   effects; number of weeks shown; a link, not a cause.
+7. Change detection: side effects up on a new lot, weight trend flattening, sleep down after a step-up; shown on
+   Protocol and in the report.
+8. Late/missed shot impact on the estimated level and the check-ins that followed.
+10. Best shot day finder: side-effect timing against days marked busy/important (timing only).
+11. Weekly summary on Today and in the report.
+Not wanted: 9 (what-if comparison of two plans).
+- Built in `src/logic/predict.ts` (tests `tests/predict.test.ts`) and `src/screens/Protocol/Predictions.tsx`: Protocol
+  tab (worth a look, vial line, late or missed, best shot day, patterns, the coming week, appetite through the week,
+  weight path chart, Enough until…), "Last 7 days" on Today, and all of it in the protocol report. Busy days are the
+  `busyDays` setting. Day-after-shot features need shots 2.5+ days apart and 6+ check-ins; weeks before the first
+  shot never count as missed.
+
+## Next: smart features for both apps (owner approved 22 Oct 2026, after the peptide list above)
+All on the phone, from the person's own data; no medical advice.
+1. Smart reminder timing: learn when each medicine is actually taken (weekday/weekend) and offer to move the reminder.
+2. Forgot or just late: one nudge after the usual time plus the person's normal spread.
+3. Likely-missed slots: spot patterns in missed doses and add an extra reminder there.
+4. Travel time zones: plan local dose times before a trip, keeping the person's own minimum gaps and limits.
+5. Refill and script planning: when a new script is needed (repeats × days each lasts); warn before the last repeat.
+6. Effect window (ADHD meds): learn onset and wear-off from check-in times; show it on Today.
+7. Sleep impact: last stimulant dose time vs that night's sleep rating; show the usual cut-off.
+8. Weekly check-in forecast (focus, mood, appetite) from doses, sleep and schedule.
+9. Notes into chips: suggest check-in chips from typed notes, on the phone.
+10. Vial label photo: read lot, expiry and amount when adding stock (extends label scanning).
+11. Duplicate and odd-entry check: double logs across synced phones, weight far off trend, future times.
+12. Lab results by photo: read values and dates from a printout into the report.
+13. One-page appointment summary: what changed since the last visit, flags, questions.
+14. "Since my last appointment": mark appointments; charts compare before and after.
+
+## Next: more smart features (owner approved 22 Oct 2026, after the lists above)
+1. Health Connect / Apple Health import: sleep, steps, resting heart rate, weight and blood pressure from devices.
+   Needs native permissions and plugin code.
+2. Heart rate after a dose: resting heart rate in the hours after a stimulant dose, and over the weeks.
+3. Count tablets from a photo, on the phone, for stock recounts.
+4. Voice and shortcuts: "Hey Google, log my Vyvanse", Siri Shortcuts. Native work.
+5. Pill count check: recount vs what the logs say should be left; show the likely missed or unlogged days.
+6. Reminder check: notice delayed or blocked reminders (battery saving) and walk through the fix for the phone.
+7. Breaks from medication: days or weekends off vs on, across focus, mood, appetite and sleep.
+8. Quick caffeine and alcohol chips, included in the pattern finding.
+9. Period cycle overlay (optional) against check-ins.
+10. Exercise vs weight rate: steps or workouts against weight change per week on each step.
+12. Home-screen and lock-screen widgets: next dose with countdown, today's draw, one-tap as-needed log.
+Not wanted: 11 (missed-dose alert to family).
+Suggested build order across all lists: peptide projections, then reminders and refills, then pattern finding,
+then appointment tools, then photo reading and native integrations (health import, voice, widgets).
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 

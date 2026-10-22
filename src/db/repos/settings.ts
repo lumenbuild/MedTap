@@ -50,6 +50,8 @@ export interface AppSettings {
   remindersEnabled: boolean;
   /** Peptides and injections: mixed vials, syringe units, titration plans, injection sites. */
   peptideTools: boolean;
+  /** Days of the week the person marked busy (0 = Sunday), for the best shot day. */
+  busyDays: number[];
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -81,6 +83,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   timeMode: 'device',
   remindersEnabled: false,
   peptideTools: false,
+  busyDays: [],
 };
 
 export async function getSettings(): Promise<AppSettings> {
