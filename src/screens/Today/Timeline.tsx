@@ -78,7 +78,7 @@ export function Timeline({ doses, checkIns, body, vitals, meds, s, units, now, o
             return (
               <li key={`${it.kind}-${'dose' in it ? it.dose.id : 'checkIn' in it ? it.checkIn.id : 'vital' in it ? it.vital.id : it.entry.id}`}>
                 <button onClick={onClick} className="w-full min-h-[56px] flex items-center gap-3 px-2 rounded-btn text-left hover:bg-surface-2">
-                  <span className="w-[5.25rem] whitespace-nowrap tnum text-muted shrink-0">{fmtTime(it.at)}</span>
+                  <span className="w-[4.5rem] whitespace-nowrap tnum text-muted shrink-0">{fmtTime(it.at)}</span>
                   {icon}
                   <span className="flex-1 min-w-0">{title}{sub && <span className="block text-xs text-muted truncate">{sub}</span>}</span>
                   {extra}

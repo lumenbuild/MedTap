@@ -194,7 +194,7 @@ const CONTENT: Record<string, ReactNode> = {
         <li><strong>Heart rate after a dose</strong>{HAS_BODY ? <> and <strong>steps and weight</strong></> : null}: from Health Connect or Apple Health.</li>
       </ul>
       <H>Count what's left</H>
-      <p>On a tablet or capsule's page, <strong>Count what's left</strong>: type the count or take a photo of them spread out on a plain surface (counted on the phone). It compares with what your logs say should be left, and can log doses you took but didn't log.</p>
+      <p>Meds → <strong>Count</strong> (also on a medication's page, and on the Today card when stock is low): type the count, or for tablets and capsules take a photo of them spread out on a plain surface, not touching (counted on the phone; the photo isn't kept). It compares with what your logs say should be left, and can log doses you took but didn't log.</p>
       <H>In the app</H>
       <ul className="list-disc pl-5 space-y-1">
         <li><strong>Health Connect / Apple Health</strong> (Settings): read only; steps, sleep and heart rate{HAS_BODY ? ', weigh-ins' : ''} and blood pressure. Imports again when you open the app.</li>

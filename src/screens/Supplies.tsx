@@ -30,7 +30,7 @@ export function Supplies() {
   const byKind = new Map(supplies.filter((x) => !x.deletedAt).map((x) => [x.kind, x]));
   return (
     <div className="space-y-4">
-      <p className="text-muted px-1">Enter what you have once; {APP_NAME} counts down as you log injections and mix vials.</p>
+      <p className="text-muted">Enter what you have once; {APP_NAME} counts down as you log injections and mix vials.</p>
       {KINDS.map((k) => {
         const sup = byKind.get(k);
         const count = sup ? supplyCount(sup, meds, doses) : null;

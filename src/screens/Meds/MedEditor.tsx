@@ -35,7 +35,7 @@ import { ScanLabelCard } from './ScanLabel';
 import { TitrationCard } from './PeptideSections';
 import { VialCard } from './VialCard';
 import { MedPatterns } from '../../components/Smart';
-import { CountButton } from '../../components/CountSheet';
+import { CountButton, countsFromPhoto } from '../../components/CountSheet';
 import { DrawGuide, syringeSizes } from '../../components/Syringe';
 import { SYRINGES } from '../../logic/peptide';
 import type { LabelDetails } from '../../logic/label';
@@ -427,7 +427,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
         <TextInput label={f.mixed ? `How many ${f.kind === 'pen' ? 'pens' : 'vials'} you have (optional)` : `How many ${f.unit === 'tablet' || !Number(f.strength) ? `${f.form}s` : `${f.form}s (${f.strength} ${f.unit} each)`} you have (optional)`}
           type="number" inputMode="decimal" min="0" step="any" value={f.stockCount} onChange={(e) => set('stockCount', e.target.value)} error={errors.stockCount}
           help={perDose !== undefined ? `−${perDose} per dose` : undefined} />
-        {existing && !existing.peptide && existing.stockCount !== undefined && <CountButton med={existing} onCounted={(n) => set('stockCount', String(n))} />}
+        {existing && !existing.peptide && <CountButton med={existing} label={countsFromPhoto(existing) ? "Count what's left (photo or typed)" : "Count what's left"} onCounted={(n) => set('stockCount', String(n))} />}
         <TextInput label="Let me know when it's down to (optional)" type="number" inputMode="decimal" min="0" step="any" value={f.lowStockAt}
           onChange={(e) => set('lowStockAt', e.target.value)} error={errors.lowStockAt} />
         <div className="grid grid-cols-2 gap-3 items-start">

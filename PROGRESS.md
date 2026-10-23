@@ -725,3 +725,17 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
   Web NFC error mapping (read-only vs unsupported tag) is best-effort from Chrome's error names; confirm on a real tag.
 - Verified in headless Chromium (Pixel 7 viewport, Sydney time zone): add med, unknown tag → assign → log, guard, notes,
   undo, stock, timeline edit/delete/undo, manual link + QR, change event, set-times + as-needed cards, dark mode. No console errors.
+
+## Settings that open the phone's screens, photo count, spacing
+
+- Health Connect settings: on Android 14+ Health Connect is part of the phone and the old settings action opens
+  nothing. The button now tries this app's own access page, then Health Connect's data screen, then its settings,
+  then the Play Store, and says so if none opens. It shows before connecting too (after two "Don't allow"s Android
+  stops asking, so it's the only way back), and the card checks again when you come back to the app.
+- Notification and NFC settings fall back to the app info page / wireless settings on phones without them.
+- Reminders: the exact-timing and notifications-off warnings showed twice; now once, in the reminder check.
+- Count what's left (photo count for tablets and capsules) was only on a medicine's page once a stock count was
+  saved. Now: Meds → Count (pick a medicine), Count on Today's refill card, and on every medicine's page.
+- Spacing: switches line up with their labels (On/Off beside the switch), the gap under Today's next dose, the
+  readiness list, Logged today names no longer wrap early, the goal button, Supplies' intro, and the About page
+  (was empty on the web) now says what the app keeps where, with Help and the welcome.

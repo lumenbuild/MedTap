@@ -273,13 +273,18 @@ export function Settings({ section }: { section?: string }) {
     about: () => (
       <>
         <Card className="space-y-3">
-          {BUILD > 0 && <p className="tnum">Build {BUILD}</p>}
+          <p className="text-[15px]">{APP_NAME} keeps everything on this {isNative ? 'phone' : 'device'}. There's no account, and nothing is sent anywhere unless you turn on sync or make a backup.</p>
+          <p className="text-sm text-muted tnum">{BUILD > 0 ? `Build ${BUILD}` : 'Web version'}</p>
           {isNativeAndroid && BUILD > 0 && (
             <>
               <Switch label="Check for updates" checked={settings.updateCheck} onChange={(v) => setSetting('updateCheck', v)}>Once a day</Switch>
               <Button variant="secondary" onClick={async () => { const u = await checkForUpdate(true); toast(u ? `Build ${u.build} is ready on Today` : 'Up to date'); if (u) await setSetting('updateDismissed', 0); }}>Check now</Button>
             </>
           )}
+        </Card>
+        <Card className="space-y-1">
+          <a href="#/help" className="min-h-[48px] flex items-center justify-between font-medium">Help and guides<ChevronRight size={18} className="text-muted" aria-hidden="true" /></a>
+          {!priv && <a href="#/welcome" className="min-h-[48px] flex items-center justify-between font-medium border-t border-border">Show the welcome again<ChevronRight size={18} className="text-muted" aria-hidden="true" /></a>}
         </Card>
         <Card>
           <Button variant="danger" className="w-full" onClick={() => { setTyped(''); setEraseSheet(true); }}>Erase all data</Button>

@@ -1,5 +1,5 @@
-import { CalendarClock, CalendarX, ChevronRight, FileText, Link2, Nfc, Package, Plus, Wallet, X, type LucideIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { Camera, CalendarClock, CalendarX, ChevronRight, FileText, Link2, Nfc, Package, Plus, Wallet, X, type LucideIcon } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
 import { isPrivate, shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { format } from 'date-fns';
 import type { Medication, Tag } from '../../db/schema';
@@ -21,6 +21,7 @@ import { setSetting } from '../../db/repos/settings';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { MedBadge } from '../../components/MedBadge';
+import { CountPicker } from '../../components/CountSheet';
 
 export function MedsList() {
   const meds = useMeds();
@@ -30,6 +31,7 @@ export function MedsList() {
   const ss = useScheduleSettings();
   const now = useNow(60_000);
   const fam = useFamily();
+  const [counting, setCounting] = useState(false);
   if (!meds || !tags || !settings || !doses || !ss || !fam) return <div className="h-40 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
 
   const theirs = meds.filter((m) => medIsFor(m, fam.personId));
@@ -39,8 +41,9 @@ export function MedsList() {
   return (
     <div className="space-y-4">
       <PersonSwitcher />
-      <div className="grid grid-cols-3 gap-2" role="group" aria-label="Medication tools">
+      <div className="grid grid-cols-4 gap-2" role="group" aria-label="Medication tools">
         <Tile Icon={Plus} label="Add" name={`Add medication${fam.many ? ` for ${fam.person}` : ''}`} href="#/meds/new" />
+        <Tile Icon={Camera} label="Count" name="Count what's left, from a photo or typed" onClick={() => setCounting(true)} />
         <Tile Icon={Nfc} label="Tags" href="#/tags" />
         <Tile Icon={FileText} label="Report" name="Doctor report" href="#/report" />
       </div>
@@ -71,6 +74,8 @@ export function MedsList() {
         <ul className="space-y-2">{active.map((m) => <MedRow key={m.id} med={m} tags={tags} doses={doses} s={ss[1]} now={now} />)}</ul>
       )}
 
+
+      {counting && <CountPicker meds={active.filter((m) => !m.peptide)} onClose={() => setCounting(false)} />}
 
       {archived.length > 0 && (
         <details className="pt-2">

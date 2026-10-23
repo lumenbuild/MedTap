@@ -71,7 +71,7 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer, pe
   const latestMs = latest ? timeInDay(dayStart, latest, s) : undefined;
 
   return (
-    <article aria-label={person ? `${person}: ${shownName(med)}` : shownName(med)} className={`pt-6 pb-8 ${className}`}>
+    <article aria-label={person ? `${person}: ${shownName(med)}` : shownName(med)} className={`pt-6 ${footer ? 'pb-2' : 'pb-6'} ${className}`}>
       <p className="text-sm font-medium text-muted">{person ? `${label} · ${person}` : label}</p>
       <p className="mt-1.5 font-light text-[84px] leading-[84px] tracking-[-0.04em] tnum" aria-hidden="true">{big}</p>
       <p className="mt-4 text-xl font-medium flex items-center gap-2.5">

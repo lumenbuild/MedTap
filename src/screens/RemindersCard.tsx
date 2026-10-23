@@ -4,25 +4,17 @@ import { Card } from '../components/ui/Card';
 import { Switch } from '../components/ui/Switch';
 import { Button } from '../components/ui/Button';
 import { useToast } from '../app/toast';
-import { allowExactReminders, exactRemindersAllowed, openBatterySettings, openNotificationSettings, reminderHealth, reminderPermission, setRemindersEnabled, syncReminders, testReminder, type ReminderPermission } from '../app/native';
+import { allowExactReminders, exactRemindersAllowed, openBatterySettings, openNotificationSettings, reminderHealth, setRemindersEnabled, syncReminders, testReminder } from '../app/native';
 import { setSetting } from '../db/repos/settings';
 import { APP_NAME } from '../config';
 
 /** Native app only: phone notifications when doses are due. */
 export default function RemindersCard({ enabled, nudges }: { enabled: boolean; nudges: boolean }) {
   const toast = useToast();
-  const [perm, setPerm] = useState<ReminderPermission | null>(null);
-  const [exact, setExact] = useState(true);
-  const refresh = () => {
-    reminderPermission().then(setPerm).catch(() => setPerm('denied'));
-    exactRemindersAllowed().then(setExact).catch(() => setExact(true));
-  };
-  useEffect(refresh, [enabled]);
 
   const toggle = async () => {
     const on = await setRemindersEnabled(!enabled);
     if (!enabled && !on) toast(`Notifications are turned off for ${APP_NAME}. Turn them on in your phone’s settings.`);
-    refresh();
   };
 
   return (
@@ -32,13 +24,6 @@ export default function RemindersCard({ enabled, nudges }: { enabled: boolean; n
       {enabled && (
         <Switch label="Again if not logged" checked={nudges} onChange={async () => { await setSetting('lateNudges', !nudges); void syncReminders(); }} />
       )}
-      {enabled && perm === 'denied' && <p className="text-sm">Notifications are off for this app.</p>}
-      {enabled && !exact && (
-        <div className="rounded-btn bg-surface-2 p-3 space-y-2">
-          <p className="text-sm">Reminders may be a few minutes late.</p>
-          <Button variant="secondary" onClick={async () => { await allowExactReminders(); refresh(); }}>Allow exact timing</Button>
-        </div>
-      )}
       {enabled && <ReminderCheck />}
     </Card>
   );
@@ -46,6 +31,7 @@ export default function RemindersCard({ enabled, nudges }: { enabled: boolean; n
 
 /** What can stop or delay reminders on this phone, with a fix for each, and a test reminder. */
 function ReminderCheck() {
+  const toast = useToast();
   const [h, setH] = useState<Awaited<ReturnType<typeof reminderHealth>> | null>(null);
   const [exact, setExact] = useState(true);
   const [test, setTest] = useState<{ waiting: boolean; lateMs?: number; tapped?: boolean } | null>(null);
@@ -79,7 +65,8 @@ function ReminderCheck() {
       {!test || !test.waiting ? (
         <Button variant="secondary" onClick={async () => {
           setTest({ waiting: true });
-          await testReminder((lateMs, tapped) => setTest({ waiting: false, lateMs, tapped }));
+          try { await testReminder((lateMs, tapped) => setTest({ waiting: false, lateMs, tapped })); }
+          catch { setTest(null); toast('Couldn’t send a test reminder. Check notifications are on for this app.'); }
         }}>Send a test reminder in 1 minute</Button>
       ) : <p className="text-sm" aria-live="polite">Test reminder coming in a minute. Lock the phone to test it like a real one, then tap it when it arrives.</p>}
       {test && !test.waiting && test.lateMs !== undefined && (
