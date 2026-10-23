@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { Calculator, CalendarCheck, ChevronRight, Package, HardDriveDownload, HelpCircle, Lock, Plane, RefreshCw, Nfc, X } from 'lucide-react';
 import { useSyncConfig } from '../app/sync';
-import { setTrainingReminders } from '../app/native';
+import { setDigestNotify, setTrainingReminders } from '../app/native';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Sheet, SheetActions } from '../components/ui/Sheet';
@@ -20,8 +20,9 @@ import { fmtAgo, fmtHHmm } from '../logic/format';
 import { hashPin, isValidPin, newSalt } from '../logic/pin';
 import { FamilyCard } from './Family';
 import { placeName } from '../components/TravelBanner';
-import { isAndroid, isIOS, isNative, isStandalone } from '../platform';
-import { HAS_BODY, HAS_PEPTIDES, HAS_VISITS } from '../edition';
+import { isAndroid, isIOS, isNative, isNativeAndroid, isStandalone } from '../platform';
+import { BUILD, checkForUpdate } from '../app/updates';
+import { HAS_BODY, HAS_PEPTIDES, HAS_VISITS, edition, watchDownload } from '../edition';
 import { SIDE_EFFECT_CHIPS } from '../logic/peptide';
 
 const RemindersCard = lazy(() => import('./RemindersCard'));
@@ -108,6 +109,11 @@ export function Settings() {
           <Suspense fallback={null}><RemindersCard enabled={settings.remindersEnabled} nudges={settings.lateNudges} /></Suspense>
           <Suspense fallback={null}><HealthCard on={settings.healthImport} last={settings.healthLastImport} personId={settings.healthImport ? settings.healthPersonId : settings.activePersonId}
             personName={fam?.many ? fam.nameOf(settings.healthImport ? settings.healthPersonId : settings.activePersonId) : undefined} now={now} /></Suspense>
+          <Card>
+            <Switch label="Your week, each Monday" checked={settings.digestNotify} onChange={async (v) => { const on = await setDigestNotify(v); if (v && !on) toast('Notifications are off for this app. Turn them on in your phone’s settings.'); }}>
+              A notification at 8:30 am on Mondays. Today shows last week against the week before (doses, {HAS_BODY ? 'weight, training, ' : ''}sleep and mood) from Monday to Wednesday either way.
+            </Switch>
+          </Card>
         </Group>
       )}
 
@@ -143,6 +149,13 @@ export function Settings() {
               {[3, 5, 7, 10, 14, 21].map((d) => <option key={d} value={d}>{d} days ahead</option>)}
             </select>
             <p className="text-sm text-muted">A card on Today, worked out from the stock count and schedule on each medication, including planned changes.</p>
+          </div>
+          <div className="space-y-1.5">
+            <div className="grid grid-cols-2 gap-3">
+              <SettingText id="ph-name" label="Your pharmacy (optional)" value={settings.pharmacyName} placeholder="e.g. Main St Pharmacy" onSave={(v) => setSetting('pharmacyName', v)} />
+              <SettingText id="ph-contact" label="Its mobile or email" value={settings.pharmacyContact} placeholder="0400 000 000" onSave={(v) => setSetting('pharmacyContact', v)} />
+            </div>
+            <p className="text-sm text-muted">Then “Ask the pharmacy” on a refill card writes a repeat request ready to send. Nothing is sent until you press send.</p>
           </div>
         </Card>
       </Group>
@@ -329,9 +342,39 @@ export function Settings() {
         <ToolLink href="#/help" Icon={HelpCircle} title="Help, privacy and tag guide" sub="How each part works" />
       </Group>
 
-      <Card>
+      {isNativeAndroid && (
+        <Card className="space-y-3">
+          <h2 className="text-sm font-medium text-muted">Watch</h2>
+          <p className="text-sm">On a Wear OS watch, {APP_NAME} shows your next dose (as an app and a tile) and logs it, or an as-needed medicine, with one tap. The log is made on this phone, so it needs the phone nearby with {APP_NAME} installed.</p>
+          <details className="text-sm">
+            <summary className="cursor-pointer min-h-[44px] flex items-center font-medium">How to install it on the watch</summary>
+            <ol className="list-decimal pl-5 space-y-1 text-muted">
+              <li>On the watch: Settings, System, About, then tap Build number 7 times to turn on developer options.</li>
+              <li>In developer options, turn on ADB debugging and Wireless debugging.</li>
+              <li>Download <a className="underline" href={watchDownload}>{edition.watchApk}</a>, then install it with <code>adb install {edition.watchApk}</code> from a computer on the same Wi-Fi (or a phone app that installs onto watches).</li>
+              <li>Open {APP_NAME} on this phone once so it sends the watch your next dose.</li>
+            </ol>
+          </details>
+        </Card>
+      )}
+      {isIOS && isNative && (
+        <Card className="space-y-2">
+          <h2 className="text-sm font-medium text-muted">Watch</h2>
+          <p className="text-sm text-muted">An Apple Watch app isn’t available yet. Reminders still show on your watch as iPhone notifications.</p>
+        </Card>
+      )}
+
+      <Card className="space-y-3">
         <h2 className="text-sm font-medium text-muted">About {APP_NAME}</h2>
-        <p className="text-muted mt-1 text-sm">{DISCLAIMER}</p>
+        {isNativeAndroid && BUILD > 0 && (
+          <>
+            <Switch label="Check for app updates" checked={settings.updateCheck} onChange={(v) => setSetting('updateCheck', v)}>
+              Once a day, asks GitHub for the latest {APP_NAME} build (nothing about you is sent) and shows a card on Today when a newer one is out. You have build {BUILD}.
+            </Switch>
+            <Button variant="secondary" onClick={async () => { const u = await checkForUpdate(true); toast(u ? `Build ${u.build} is ready: see Today` : 'You have the latest build'); if (u) await setSetting('updateDismissed', 0); }}>Check now</Button>
+          </>
+        )}
+        <p className="text-muted text-sm">{DISCLAIMER}</p>
       </Card>
 
       <Card className="space-y-2">
@@ -375,6 +418,16 @@ function ToolLink({ href, Icon, title, sub }: { href: string; Icon: typeof Plane
       </span>
       <ChevronRight className="text-muted" aria-hidden="true" />
     </a>
+  );
+}
+
+function SettingText({ id, label, value, placeholder, onSave }: { id: string; label: string; value: string; placeholder?: string; onSave: (v: string) => void }) {
+  const [text, setText] = useState(value);
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor={id} className="block text-sm font-medium">{label}</label>
+      <input id={id} value={text} placeholder={placeholder} onChange={(e) => setText(e.target.value)} onBlur={() => text.trim() !== value && onSave(text.trim())} className={selectCls} autoComplete="off" />
+    </div>
   );
 }
 

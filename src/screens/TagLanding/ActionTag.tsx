@@ -70,7 +70,7 @@ export function ActionTag({ tag, personName }: { tag: Tag; personName?: string }
       if (!def) return <Missing what="exercise" close={close} />;
       const open = openWorkout(ws, now);
       const inIt = open?.sets.some((x) => x.exerciseId === def.id);
-      const t = smartTarget(def, ws, { units: settings.units, readiness: today?.readiness, weakDay: today?.weakDay, now });
+      const t = smartTarget(def, ws, { units: settings.units, readiness: today?.readiness, weakDay: today?.weakDay, lighter: today?.lighter, now });
       const aim = t.why === 'start' ? t.reason : `${t.reason} Aim: ${t.sets} × ${t.reps}${def.timed ? ' s' : ''}${t.weightKg ? ` at ${fmtLoad(t.weightKg, settings.units)}${def.perHand ? ' each' : ''}` : ''}`;
       const label = !open ? 'Start a workout with it' : inIt ? 'Open the workout' : 'Add to my workout';
       return (

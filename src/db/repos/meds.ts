@@ -111,7 +111,7 @@ export async function removePlannedChanges(medId: string, ids: string[]) {
 
 // ── Vials and pens (peptide tools) ───────────────────────────────────────────────────────────────────
 
-export type VialDetails = Pick<PeptideVial, 'amount' | 'lot' | 'supplier' | 'purity' | 'expiry' | 'note'>;
+export type VialDetails = Pick<PeptideVial, 'amount' | 'lot' | 'supplier' | 'purity' | 'expiry' | 'note' | 'cost'>;
 
 /** Add unopened vials or pens to stock (and to the stock count). Returns their ids, for undo. */
 export async function addVials(medId: string, count: number, details: VialDetails): Promise<string[]> {

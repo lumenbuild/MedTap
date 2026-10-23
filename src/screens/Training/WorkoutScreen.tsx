@@ -11,6 +11,7 @@ import { allExercises, swapsFor, type ExerciseDef } from '../../logic/exercises'
 import { newPBs, nextTarget, personalBests, restFor, working } from '../../logic/training';
 import { adjustAfterSet, smartTarget, type SmartTarget } from '../../logic/progression';
 import { useTrainingContext } from './useTrainingContext';
+import { pbWithinReach, warmupSets } from '../../logic/trainingExtras';
 import { plannedSets } from '../../logic/tagActions';
 import { fmtLoad, fromLoad, loadUnit, showLoad } from '../../logic/load';
 import type { Units } from '../../db/repos/settings';
@@ -73,7 +74,7 @@ export function WorkoutScreen({ id }: { id: string }) {
   const pbs = newPBs(w, [...others, w], defs, units);
   const routineItem = (exId: string) => routines?.find((r) => r.id === w.routineId)?.items.find((i) => i.exerciseId === exId);
   // Today's aim for each exercise: the smart target, judged as at the start of this workout.
-  const aimFor = (def: ExerciseDef): SmartTarget => smartTarget(def, others, { item: routineItem(def.id), units, readiness: today?.readiness, weakDay: today?.weakDay, now: Date.parse(w.startedAt) });
+  const aimFor = (def: ExerciseDef): SmartTarget => smartTarget(def, others, { item: routineItem(def.id), units, readiness: today?.readiness, weakDay: today?.weakDay, lighter: today?.lighter, now: Date.parse(w.startedAt) });
 
   /** Clearly too easy or too hard: change the weight of this exercise's remaining sets at that weight (with Undo). */
   const adjustFrom = (cur: Workout, s: WorkoutSet, def: ExerciseDef): Workout => {
@@ -94,7 +95,7 @@ export function WorkoutScreen({ id }: { id: string }) {
     update(next);
     if (!nowDone || finished || settings.restSeconds <= 0) return;
     const partner = s.group ? next.sets.find((x) => x.group === s.group && x.exerciseId !== s.exerciseId && !x.done) : undefined;
-    const r = settings.smartRest ? restFor(def, s, settings.restSeconds, !!partner) : { seconds: settings.restSeconds, why: '' };
+    const r = s.warmup ? { seconds: Math.min(60, settings.restSeconds), why: 'warm-up' } : settings.smartRest ? restFor(def, s, settings.restSeconds, !!partner) : { seconds: settings.restSeconds, why: '' };
     const upcoming = partner ?? next.sets.find((x) => !x.done && (x.exerciseId === s.exerciseId || (s.group && x.group === s.group))) ?? next.sets.find((x) => !x.done);
     const nd = upcoming ? defOf(upcoming.exerciseId) : undefined;
     const nextText = upcoming && nd ? `Next: ${nd.name}${upcoming.weightKg ? `, ${fmtLoad(upcoming.weightKg, units)}${nd.perHand ? ' each' : ''}` : ''} × ${upcoming.reps}${nd.timed ? ' s' : ''}` : undefined;
@@ -148,6 +149,11 @@ export function WorkoutScreen({ id }: { id: string }) {
             </div>
             {!finished && t.why !== 'start' && <p className={`text-sm tnum ${t.why === 'push' ? 'font-medium' : 'text-muted'}`}>{t.why === 'push' ? 'Push: ' : t.why === 'hold' ? 'Hold: ' : 'Aim: '}{t.sets} × {t.reps}{def.timed ? ' s' : ''}{aimLoad}</p>}
             {!finished && <p className="text-sm text-muted">{t.reason}{t.plain && t.plain.weightKg !== t.weightKg ? ` (Usual step: ${fmtLoad(t.plain.weightKg, units)}.)` : ''}</p>}
+            {!finished && (() => {
+              const nextSet = sets.find((x) => !x.done && !x.warmup);
+              const pbText = nextSet && !def.timed ? pbWithinReach(exId, others, nextSet.weightKg, nextSet.reps, units) : null;
+              return pbText ? <p className="text-sm font-medium">Personal best in reach: {pbText}</p> : null;
+            })()}
             {cues === exId && def.cues && <ul className="text-sm list-disc pl-5 mt-1">{def.cues.map((c) => <li key={c}>{c}</li>)}</ul>}
             <div className="grid grid-cols-[2rem_1fr_1fr_4.5rem_3rem] gap-2 items-center mt-2 text-xs text-muted">
               <span>Set</span><span>{def.bodyweight ? `+${u}` : def.perHand ? `${u} each` : u}</span><span>{repsLabel}</span><span>RPE</span><span className="sr-only">Done</span>
@@ -167,6 +173,15 @@ export function WorkoutScreen({ id }: { id: string }) {
                 update({ ...w, sets: [...w.sets, { id: newSetId(), exerciseId: exId, weightKg: last?.weightKg ?? t.weightKg, reps: last?.reps ?? t.reps, done: false, group: g }] });
               }}>Add set</button>
               {!def.bodyweight && !def.perHand && def.equipment !== 'machine' && def.equipment !== 'cable' && <button type="button" className="min-h-[44px] text-sm text-muted underline underline-offset-4" onClick={() => setPlates(sets.find((x) => !x.done)?.weightKg ?? sets[0]?.weightKg ?? 0)}>Plates</button>}
+              {!finished && !sets.some((x) => x.warmup) && (() => {
+                const first = sets.find((x) => !x.done);
+                const ups = first ? warmupSets(def, first.weightKg, settings.barKg, units, newSetId) : [];
+                return ups.length ? <button type="button" className="min-h-[44px] text-sm text-muted underline underline-offset-4" onClick={() => {
+                  const at = w.sets.findIndex((x) => x.id === first!.id);
+                  update({ ...w, sets: [...w.sets.slice(0, at), ...ups.map((x) => ({ ...x, group: first!.group })), ...w.sets.slice(at)] });
+                  toast(`${ups.length} warm-up sets added: ${ups.map((x) => `${showLoad(x.weightKg, units)}×${x.reps}`).join(', ')}`);
+                }}>Warm-ups</button> : null;
+              })()}
               {def.cues && <button type="button" className="min-h-[44px] text-sm text-muted underline underline-offset-4" aria-expanded={cues === exId} onClick={() => setCues(cues === exId ? null : exId)}>How to</button>}
               {!finished && <button type="button" className="min-h-[44px] text-sm text-muted underline underline-offset-4" onClick={() => setSwapping(exId)}>Swap</button>}
               {!finished && !g && order.indexOf(exId) < order.length - 1 && <button type="button" className="min-h-[44px] text-sm text-muted underline underline-offset-4" onClick={() => superset(exId)}>Superset with next</button>}

@@ -2,6 +2,7 @@
 // the peptide, and one timeline for every goal.
 import { format } from 'date-fns';
 import type { BodyEntry, BodyGoal, CheckIn, DailyHealth, Dose, FitnessGoal, Medication, Workout } from '../db/schema';
+import type { Digest } from '../logic/digest';
 import { intakeTrend, proteinVsLean, readinessTrend, readinessVsPerformance } from '../logic/fitnessInsights';
 import { addIntake } from '../db/repos/training';
 import { useToast } from '../app/toast';
@@ -9,6 +10,7 @@ import type { Units } from '../db/repos/settings';
 import type { ScheduleSettings } from '../logic/schedule';
 import { muscleWatch, trainingVsPeptide, fitnessGoalStatus, type Readiness, type TrainingSummary } from '../logic/training';
 import { fmtLoad } from '../logic/load';
+import { strongestWeekday } from '../logic/trainingExtras';
 import type { ExerciseDef } from '../logic/exercises';
 import { goalView, valueFmt } from '../screens/Body/Goals';
 import { kgTo, weightUnit } from '../logic/units';
@@ -56,9 +58,11 @@ export function MuscleWatchCard({ body, units, med, doses, now }: { body: BodyEn
 }
 
 /** Strength by days since the shot and by dose. */
-export function PeptideTrainingCard({ med, doses, workouts }: { med: Medication; doses: Dose[]; workouts: Workout[] }) {
+export function PeptideTrainingCard({ med, doses, workouts, tz }: { med: Medication; doses: Dose[]; workouts: Workout[]; tz?: string }) {
   const r = trainingVsPeptide(med, doses, workouts);
   if (!r) return null;
+  const shots = doses.filter((d) => d.medicationId === med.id && !d.deletedAt && !d.skipped).map((d) => Date.parse(d.takenAt)).sort((a, b) => a - b).slice(-6);
+  const plan = tz ? strongestWeekday(shots, r.bestDays, tz) : null;
   const known = r.byDay.filter((d) => d.pct !== undefined);
   return (
     <section className="border-t border-border pt-5 pb-1" aria-labelledby="pt-h">
@@ -71,6 +75,7 @@ export function PeptideTrainingCard({ med, doses, workouts }: { med: Medication;
           </div>
         ))}
       </div>
+      {plan && <p className="text-[15px] mt-2 font-medium">Plan your heaviest session for {plan.weekday}s ({plan.day === 0 ? 'shot day' : `day ${plan.day} after your shot`}), usually your strongest.</p>}
       {r.bestDays.length > 0 && <p className="text-[15px] mt-2">Your strongest {r.bestDays.length === 1 ? 'day' : 'days'}: {andList(r.bestDays.map((d) => d === 0 ? 'shot day' : `${LONG[d]} after it`))}.</p>}
       {r.byDose.filter((d) => d.pct !== undefined).length > 1 && <p className="text-[15px] tnum">By dose: {r.byDose.filter((d) => d.pct !== undefined).map((d) => `${fmtAmount(d.dose, med.unit)} ${d.pct! > 0 ? '+' : ''}${d.pct}%`).join(' · ')}</p>}
       <p className="text-xs text-muted mt-1">Each session's lifts against your own recent level for those lifts. Based on {r.sessions} sessions.</p>
@@ -234,3 +239,22 @@ export function TrainingTrends({ daily, body, checkIns, workouts, start, end, s,
     </>
   );
 }
+
+/** Today, Monday to Wednesday: last week in a few lines against the week before. */
+export function DigestCard({ d, seen, onClose, onNotify, notify }: { d: Digest; seen: number; onClose: () => void; onNotify?: () => void; notify: boolean }) {
+  if (seen >= d.weekStart) return null;
+  return (
+    <section className="border-t border-border pt-4 pb-1" aria-labelledby="dg-h">
+      <h2 id="dg-h" className="text-sm font-medium text-muted">Your week · {format(d.weekStart, 'd MMM')} – {format(d.weekEnd - 1, 'd MMM')}</h2>
+      <p className="text-[17px] mt-1">{d.headline}</p>
+      <ul className="text-[15px] tnum mt-2 space-y-0.5">
+        {d.lines.map((l) => <li key={l.key} className={l.tone === 'watch' ? 'text-caution' : ''}><span className="text-muted">{l.label}:</span> {l.text}</li>)}
+      </ul>
+      <div className="flex flex-wrap gap-x-5 mt-1">
+        <button type="button" className="min-h-[44px] text-sm font-medium underline underline-offset-4" onClick={onClose}>Done</button>
+        {onNotify && !notify && <button type="button" className="min-h-[44px] text-sm text-muted underline underline-offset-4" onClick={onNotify}>Remind me each Monday</button>}
+      </div>
+    </section>
+  );
+}
+

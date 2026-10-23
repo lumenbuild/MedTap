@@ -32,7 +32,7 @@ export function Routines() {
           <li key={r.id} className="border-t border-border flex items-center gap-2">
             <button type="button" className="flex-1 text-left py-3 min-h-[56px]" onClick={() => setEditing(r)}>
               <span className="block font-medium">{r.name}</span>
-              <span className="block text-sm text-muted">{r.items.map((i) => `${defs.find((d) => d.id === i.exerciseId)?.name ?? '?'} ${i.sets}×${i.reps}`).join(', ')}</span>
+              <span className="block text-sm text-muted">{r.items.map((i) => `${defs.find((d) => d.id === i.exerciseId)?.name ?? '?'} ${i.sets}×${i.reps}${i.repsMax ? `–${i.repsMax}` : ""}`).join(', ')}</span>
             </button>
             <button type="button" aria-label={`Delete ${r.name}`} className="w-11 h-11 flex items-center justify-center text-muted" onClick={async () => { await removeRoutine(r.id); toast(`Deleted ${r.name}`, { onAction: () => restoreRoutine(r.id) }); }}><Trash2 size={18} aria-hidden="true" /></button>
           </li>
@@ -62,14 +62,16 @@ function RoutineSheet({ routine, personId, onClose }: { routine?: Routine; perso
             <legend className="font-medium">{defs.find((d) => d.id === it.exerciseId)?.name ?? 'Exercise'}</legend>
             <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end">
               <TextInput label="Sets" type="number" inputMode="numeric" min="1" step="1" value={it.sets} onChange={(e) => set(i, { sets: Number(e.target.value) || 1 })} />
-              <TextInput label={defs.find((d) => d.id === it.exerciseId)?.timed ? 'Seconds' : 'Reps'} type="number" inputMode="numeric" min="1" step="1" value={it.reps} onChange={(e) => set(i, { reps: Number(e.target.value) || 1 })} />
+              {defs.find((d) => d.id === it.exerciseId)?.timed
+                ? <TextInput label="Seconds" type="number" inputMode="numeric" min="1" step="1" value={it.reps} onChange={(e) => set(i, { reps: Number(e.target.value) || 1 })} />
+                : <RepsInput item={it} onChange={(patch) => set(i, patch)} />}
               <TextInput label={`Start ${loadUnit(units)}`} type="number" inputMode="decimal" min="0" step="any" value={it.weightKg !== undefined ? showLoad(it.weightKg, units) : ''} onChange={(e) => set(i, { weightKg: e.target.value ? fromLoad(Number(e.target.value), units) : undefined })} />
               <button type="button" aria-label="Remove" className="w-11 h-11 flex items-center justify-center text-muted" onClick={() => setItems((p) => p.filter((_, j) => j !== i))}><Trash2 size={18} aria-hidden="true" /></button>
             </div>
           </fieldset>
         ))}
         <Button variant="secondary" onClick={() => setPicking(true)}>Add exercise</Button>
-        <p className="text-xs text-muted">After the first time, each session aims from what you did last: up when every set hits its reps.</p>
+        <p className="text-xs text-muted">After the first time, each session aims from what you did last: up when every set hits its reps. A range like 8-12 adds a rep each time until every set reaches 12, then adds weight and starts again from 8.</p>
         {routine && <ActionTagsCard action={{ kind: 'routine', routineId: routine.id }} name={routine.name} hint="A tag on your gym bag or locker starts this routine with one tap." />}
         <SheetActions>
           <Button className="w-full min-h-[56px]" disabled={!name.trim() || !items.length} onClick={async () => { await saveRoutine(personId, { id: routine?.id, name, items }); toast(`Saved ${name.trim()}`); onClose(); }}>Save routine</Button>
@@ -79,3 +81,18 @@ function RoutineSheet({ routine, personId, onClose }: { routine?: Routine; perso
     </Sheet>
   );
 }
+
+/** Reps, or a range like "8-12" (double progression). Typed text is kept while editing. */
+function RepsInput({ item, onChange }: { item: RoutineItem; onChange: (p: Partial<RoutineItem>) => void }) {
+  const [text, setText] = useState(item.repsMax ? `${item.reps}-${item.repsMax}` : String(item.reps));
+  return (
+    <TextInput label="Reps or range" inputMode="text" value={text} placeholder="8 or 8-12" onChange={(e) => {
+      setText(e.target.value);
+      const m = e.target.value.match(/^\s*(\d+)\s*(?:[-–to]+\s*(\d+))?\s*$/);
+      if (!m) return;
+      const lo = Number(m[1]), hi = m[2] ? Number(m[2]) : undefined;
+      if (lo >= 1) onChange({ reps: lo, repsMax: hi && hi > lo ? hi : undefined });
+    }} />
+  );
+}
+

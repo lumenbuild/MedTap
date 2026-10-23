@@ -5,7 +5,7 @@ import { medIsFor, personOf } from '../../db/repos/people';
 import { readiness, trainingVsPeptide } from '../../logic/training';
 import { weakDayToday } from '../../logic/progression';
 
-export interface TrainingContext { readiness: number | null; weakDay: boolean }
+export interface TrainingContext { readiness: number | null; weakDay: boolean; lighter: boolean }
 
 export function useTrainingContext(personId: string | undefined, now: number): TrainingContext | null {
   const daily = useDaily(); const checkIns = useCheckIns(); const ss = useScheduleSettings(); const meds = useMeds(); const doses = useDoses(); const workouts = useWorkouts();
@@ -20,5 +20,5 @@ export function useTrainingContext(personId: string | undefined, now: number): T
     const last = doses.filter((d) => d.medicationId === pep.id && !d.deletedAt && !d.skipped && Date.parse(d.takenAt) <= now).map((d) => Date.parse(d.takenAt)).sort((a, b) => b - a)[0];
     weakDay = weakDayToday(pv?.byDay, last, now);
   }
-  return { readiness: r?.score ?? null, weakDay };
+  return { readiness: r?.score ?? null, weakDay, lighter: settings.lighterUntil > now };
 }

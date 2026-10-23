@@ -24,6 +24,12 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application>
+        <service android:name="app.medtap.nativeplugin.MedTapWearListener" android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/medtap" />
+            </intent-filter>
+        </service>
         <receiver android:name="app.medtap.nativeplugin.DoseWidget" android:exported="true" android:label="@string/medtap_widget_label">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />

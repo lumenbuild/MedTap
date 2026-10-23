@@ -120,6 +120,8 @@ export interface PeptideVial {
   expiry?: string;
   addedAt: string; startedAt?: string; finishedAt?: string;
   note?: string;
+  /** What was paid for it ($), for cost per mg. */
+  cost?: number;
 }
 
 export interface Medication extends Stamped {
@@ -154,6 +156,10 @@ export interface Medication extends Stamped {
   lotFlags?: LotFlag[];
   /** Reminder times learned from when doses are actually taken, per set time (the plan's times stay as they are). */
   reminderTimes?: ReminderTime[];
+  /** Active ingredients as the person entered them (mg per tablet / unit). Otherwise worked out from the name. */
+  ingredients?: { name: string; mg?: number }[];
+  /** Price paid per vial or pen (peptide tools) or per pack, for cost tracking. */
+  costPerUnit?: number;
 }
 /** For one set time ('HH:mm'): remind at these times instead, on weekdays and/or weekends. */
 export interface ReminderTime { slot: string; weekday?: string; weekend?: string }
@@ -174,7 +180,7 @@ export interface Tag {
 }
 export interface Dose extends Stamped {
   medicationId: string; takenAt: string; amount: number;
-  source: 'tag' | 'manual' | 'backdated' | 'reminder'; tagId?: string; note?: string; deletedAt?: string;
+  source: 'tag' | 'manual' | 'backdated' | 'reminder' | 'watch'; tagId?: string; note?: string; deletedAt?: string;
   /** Recorded as skipped on purpose: covers its place in the plan but wasn't taken (no stock change). */
   skipped?: boolean; skipReason?: string;
   /** Who took it, for shared medications (otherwise the medication's person). */
@@ -305,5 +311,6 @@ export interface Workout extends Stamped {
   personId?: string; deletedAt?: string;
 }
 
-export interface RoutineItem { exerciseId: string; sets: number; reps: number; weightKg?: number }
+/** `repsMax` makes it a rep range (e.g. 8–12): add reps up to the top, then add weight and start from the bottom. */
+export interface RoutineItem { exerciseId: string; sets: number; reps: number; repsMax?: number; weightKg?: number }
 export interface Routine extends Stamped { name: string; items: RoutineItem[]; personId?: string; deletedAt?: string }

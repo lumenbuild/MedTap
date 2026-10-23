@@ -15,9 +15,9 @@ export const openWorkout = (workouts: Workout[], now: number): Workout | undefin
 /** An exercise's sets laid out at the weight and reps to aim for (from last time, the routine's numbers, and with
  *  `today`, how hard recent sets felt and how ready the person is). */
 export function plannedSets(def: ExerciseDef, workouts: Workout[], item?: RoutineItem, newId: () => string = () => crypto.randomUUID(), units: Units = 'metric',
-  today?: { readiness: number | null; weakDay: boolean; now: number }): WorkoutSet[] {
+  today?: { readiness: number | null; weakDay: boolean; now: number; lighter?: boolean }): WorkoutSet[] {
   // With today's context, the smart target (pushes when there's room, holds on a low day); otherwise the simple rule.
-  const t = today ? smartTarget(def, workouts, { item, units, readiness: today.readiness, weakDay: today.weakDay, now: today.now }) : nextTarget(def, workouts, item, units);
+  const t = today ? smartTarget(def, workouts, { item, units, readiness: today.readiness, weakDay: today.weakDay, now: today.now, lighter: today.lighter }) : nextTarget(def, workouts, item, units);
   return Array.from({ length: t.sets }, () => ({ id: newId(), exerciseId: def.id, weightKg: t.weightKg || item?.weightKg || 0, reps: t.reps, done: false }));
 }
 

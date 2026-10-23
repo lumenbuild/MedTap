@@ -4,11 +4,11 @@ import { LocalNotifications, type ActionPerformed } from '@capacitor/local-notif
 import { liveQuery } from 'dexie';
 import { db } from '../db/db';
 import { getSettings, scheduleSettings, setSetting } from '../db/repos/settings';
-import { dosesForPerson, listPeople, medIsFor, personOf } from '../db/repos/people';
+import { dosesForPerson, listPeople, medIsFor, personOf, storedPerson } from '../db/repos/people';
 import { shortcutItems, widgetData } from '../logic/widget';
 import { autoImportHealth } from './health';
 import { APP_NAME } from '../config';
-import { getRecentDose } from '../logic/schedule';
+import { getExpectedAmount, getRecentDose } from '../logic/schedule';
 import { logDose } from '../db/repos/doses';
 import { planReminders } from '../logic/notify';
 import { planTrainingReminders } from '../logic/trainingPlan';
@@ -41,10 +41,11 @@ export async function initNative() {
   await MedTapNative.addListener('tag', (e) => openUrl(e.url));
   if (isNativeAndroid) MedTapNative.nfcListen().catch(() => { /* no NFC on this phone */ });
   await CapApp.addListener('appUrlOpen', (e) => openUrl(e.url));
-  await CapApp.addListener('resume', () => { void syncReminders(); void syncExtras(); void autoImportHealth(); });
+  await CapApp.addListener('resume', () => { void syncReminders(); void syncExtras(); void autoImportHealth(); if (isNativeAndroid) void logWatchTaps(); });
   // Shortcuts, Siri and the widget ask to log a medicine; Health Connect can open the privacy page.
   await MedTapNative.addListener('logRequest', (e) => { go('/today'); requestLog(e.medId); });
   await MedTapNative.addListener('route', (e) => go(e.path));
+  if (isNativeAndroid) { await MedTapNative.addListener('watchLog', () => { void logWatchTaps(); }); void logWatchTaps(); }
   void autoImportHealth();
 
   await LocalNotifications.registerActionTypes({ types: [{ id: ACTIONS, actions: [{ id: 'log', title: 'Log it', foreground: true }] }] });
@@ -58,6 +59,25 @@ export async function initNative() {
   let timer: ReturnType<typeof setTimeout> | undefined;
   liveQuery(() => Promise.all([db.medications.count(), db.doses.count(), db.doses.orderBy('takenAt').last(), db.settings.toArray(), db.workouts.count()]))
     .subscribe(() => { clearTimeout(timer); timer = setTimeout(() => { void syncReminders(); void syncExtras(); }, 2000); });
+}
+
+/** Taps on the watch: log each at the time it was tapped, at the planned amount, unless one was logged just before
+ *  (the same guard as a tag tap). */
+async function logWatchTaps() {
+  try {
+    const { items } = await MedTapNative.takeWatchLogs();
+    if (!items.length) return;
+    const settings = await getSettings();
+    const s = scheduleSettings(settings);
+    for (const it of items) {
+      const med = await db.medications.get(it.medId);
+      if (!med || med.archived) continue;
+      const doses = (await db.doses.where('medicationId').equals(med.id).toArray()).filter((d) => !d.deletedAt);
+      const at = Number(it.at) || Date.now();
+      if (getRecentDose(doses, med.id, at, settings.guardMinutes)) continue;
+      await logDose({ medicationId: med.id, takenAt: new Date(at).toISOString(), amount: getExpectedAmount(med, doses, at, s), source: 'watch', ...(med.shared ? { personId: storedPerson(settings.activePersonId) } : {}) });
+    }
+  } catch (e) { console.error('watch', e); }
 }
 
 /** The home-screen widget and the "Log <medicine>" shortcuts, for the person being shown. */
@@ -143,6 +163,7 @@ async function doSync() {
   const settings = await getSettings();
   if ((await reminderPermission()) !== 'granted') return;
   if (settings.trainingTools && settings.trainingReminders) await scheduleTraining(settings);
+  if (settings.digestNotify) await scheduleDigest();
   if (!settings.remindersEnabled) return;
   const [meds, doses, people] = await Promise.all([db.medications.toArray(), db.doses.toArray(), listPeople()]);
   const live = doses.filter((d) => !d.deletedAt);
@@ -185,6 +206,21 @@ async function scheduleTraining(settings: Awaited<ReturnType<typeof getSettings>
   await LocalNotifications.schedule({
     notifications: plan.map((r) => ({ id: r.id, title: r.title, body: r.body, schedule: { at: new Date(r.at), allowWhileIdle: true }, channelId: TRAINING_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/training' } })),
   });
+}
+
+/** Next Monday 8:30 am: "Your week" (the digest is on Today until Wednesday). */
+async function scheduleDigest() {
+  const d = new Date(); d.setHours(8, 30, 0, 0);
+  d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || (Date.now() < d.getTime() && d.getDay() === 1 ? 0 : 7)));
+  await LocalNotifications.schedule({ notifications: [{ id: 900_300_000, title: 'Your week', body: 'Doses, weight, training and sleep against the week before. Tap to see.', schedule: { at: d, allowWhileIdle: true }, channelId: TRAINING_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/today' } }] });
+}
+
+/** The Monday digest notification on (asking for permission) or off. */
+export async function setDigestNotify(on: boolean): Promise<boolean> {
+  if (on) { const p = await LocalNotifications.requestPermissions(); if (p.display !== 'granted') return false; }
+  await setSetting('digestNotify', on);
+  await syncReminders();
+  return on;
 }
 
 /** The rest timer, for when the phone is locked or the app is in the background. */

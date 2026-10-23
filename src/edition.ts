@@ -14,6 +14,8 @@ const EDITIONS = {
     /** GitHub release the Android app is published to (see .github/workflows/native.yml). */
     release: 'android',
     apk: 'MedTap.apk',
+    /** The Wear OS watch app, in the same release. */
+    watchApk: 'MedTap-watch.apk',
     body: true,
     peptides: true,
     visits: false,
@@ -24,6 +26,7 @@ const EDITIONS = {
     dbName: 'tapdose',
     release: 'tapdose-android',
     apk: 'TapDose.apk',
+    watchApk: 'TapDose-watch.apk',
     body: false,
     peptides: false,
     visits: true,
@@ -40,3 +43,4 @@ export const HAS_PEPTIDES = edition.peptides;
 export const HAS_VISITS = edition.visits;
 export const releasePage = `https://github.com/lumenbuild/MedTap/releases/tag/${edition.release}`;
 export const apkDownload = `https://github.com/lumenbuild/MedTap/releases/download/${edition.release}/${edition.apk}`;
+export const watchDownload = `https://github.com/lumenbuild/MedTap/releases/download/${edition.release}/${edition.watchApk}`;

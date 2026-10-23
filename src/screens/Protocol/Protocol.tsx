@@ -1,3 +1,4 @@
+import { costSummary, money } from '../../logic/cost';
 import { lazy, Suspense, useState, type ReactNode } from 'react';
 import { format } from 'date-fns';
 import type { Dose, Medication } from '../../db/schema';
@@ -204,6 +205,21 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal 
           ) : <span className="block text-sm text-muted">{sp.forecast ? 'Enough for over a year' : 'Add a stock count to forecast'}</span>}
           <span className="block text-xs text-muted">Delivery takes {sp.leadDays} day{sp.leadDays === 1 ? '' : 's'}</span>
         </Row>
+        {(() => {
+          const c = costSummary(med, doses, now, s);
+          if (!c) return (
+            <Row label="Cost" onClick={() => go(`/meds/${med.id}`)}><span className="text-muted underline underline-offset-4">Add a price</span></Row>
+          );
+          return (
+            <Row label="Cost" onClick={() => go(`/meds/${med.id}`)}>
+              <span className="tnum">{c.perWeek !== undefined ? `${money(c.perWeek)} a week` : c.perUnit !== undefined ? `${money(c.perUnit)} per ${med.unit}` : `${money(c.spent)} so far`}</span>
+              <span className="block text-sm text-muted tnum">
+                {[c.perMonth !== undefined ? `${money(c.perMonth)} a month` : '', c.perUnit !== undefined ? `${money(c.perUnit)} per ${med.unit}` : '', c.next12Weeks !== undefined ? `next 12 weeks ${money(c.next12Weeks)} with your plan` : ''].filter(Boolean).join(' · ')}
+              </span>
+              {c.cheapest && <span className="block text-xs text-muted tnum">Cheapest per {med.unit}: {c.cheapest[0].supplier} ({money(c.cheapest[0].perUnit)}) vs {c.cheapest[c.cheapest.length - 1].supplier} ({money(c.cheapest[c.cheapest.length - 1].perUnit)})</span>}
+            </Row>
+          );
+        })()}
         {batches.length > 0 && (
           <Row label="Batches" onClick={() => setLots(true)}>
             <span className="tnum">{batches.length} used</span>

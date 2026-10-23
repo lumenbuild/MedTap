@@ -18,6 +18,9 @@ jobs:
       HAS_KEY: ${{ secrets.MEDTAP_KEYSTORE_BASE64 != '' }}
       MEDTAP_VERSION_CODE: ${{ github.run_number }}
       MEDTAP_VERSION_NAME: 1.0.${{ github.run_number }}
+      # The app compares its build with the latest release's to offer updates (src/app/updates.ts).
+      VITE_BUILD: ${{ github.run_number }}
+      VITE_APP_VERSION: build ${{ github.run_number }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,6 +30,7 @@ jobs:
       - run: npm ci
       - run: npm test
       # Two apps (see src/edition.ts): MedTap, then TapDose. Each needs its own web build in the app's assets first.
+      # Each assemble also builds its Wear OS watch app (android/wear), published beside the phone app.
       - name: Build signed releases
         if: env.HAS_KEY == 'true'
         env:
@@ -37,18 +41,22 @@ jobs:
           npm run build:native
           (cd android && ./gradlew --no-daemon assembleMedtapRelease)
           cp android/app/build/outputs/apk/medtap/release/app-medtap-release.apk "$RUNNER_TEMP/MedTap.apk"
+          cp android/wear/build/outputs/apk/medtap/release/wear-medtap-release.apk "$RUNNER_TEMP/MedTap-watch.apk"
           npm run build:native:tapdose
           (cd android && ./gradlew --no-daemon assembleTapdoseRelease)
           cp android/app/build/outputs/apk/tapdose/release/app-tapdose-release.apk "$RUNNER_TEMP/TapDose.apk"
+          cp android/wear/build/outputs/apk/tapdose/release/wear-tapdose-release.apk "$RUNNER_TEMP/TapDose-watch.apk"
       - name: Build debug (no signing key set)
         if: env.HAS_KEY != 'true'
         run: |
           npm run build:native
           (cd android && ./gradlew --no-daemon assembleMedtapDebug)
           cp android/app/build/outputs/apk/medtap/debug/app-medtap-debug.apk "$RUNNER_TEMP/MedTap-debug.apk"
+          cp android/wear/build/outputs/apk/medtap/debug/wear-medtap-debug.apk "$RUNNER_TEMP/MedTap-watch-debug.apk"
           npm run build:native:tapdose
           (cd android && ./gradlew --no-daemon assembleTapdoseDebug)
           cp android/app/build/outputs/apk/tapdose/debug/app-tapdose-debug.apk "$RUNNER_TEMP/TapDose-debug.apk"
+          cp android/wear/build/outputs/apk/tapdose/debug/wear-tapdose-debug.apk "$RUNNER_TEMP/TapDose-watch-debug.apk"
       - uses: actions/upload-artifact@v4
         with:
           name: android-apps
@@ -59,15 +67,18 @@ jobs:
         if: env.HAS_KEY == 'true' && github.ref_name == github.event.repository.default_branch
         env:
           GH_TOKEN: ${{ github.token }}
+          HEAD_MSG: ${{ github.event.head_commit.message }}
         run: |
+          # "What's new": a merged PR's title (the commit message's third line), else its first line. Shown in the app.
+          NEW="$(printf '%s\n' "$HEAD_MSG" | sed -n '3p')"; [ -n "$NEW" ] || NEW="$(printf '%s\n' "$HEAD_MSG" | sed -n '1p')"
           gh release delete android --yes --cleanup-tag || true
-          gh release create android "$RUNNER_TEMP/MedTap.apk" --target "$GITHUB_SHA" --latest \
+          gh release create android "$RUNNER_TEMP/MedTap.apk" "$RUNNER_TEMP/MedTap-watch.apk" --target "$GITHUB_SHA" --latest \
             --title "MedTap for Android (build ${{ github.run_number }})" \
-            --notes "Download MedTap.apk on your Android phone and open it to install. Updates install over the top and keep your data."
+            --notes "What's new: $NEW"$'\n\n'"Download MedTap.apk on your Android phone and open it to install. Updates install over the top and keep your data. For a Wear OS watch, MedTap-watch.apk goes on the watch (Settings, Watch in the app says how)."
           gh release delete tapdose-android --yes --cleanup-tag || true
-          gh release create tapdose-android "$RUNNER_TEMP/TapDose.apk" --target "$GITHUB_SHA" --latest=false \
+          gh release create tapdose-android "$RUNNER_TEMP/TapDose.apk" "$RUNNER_TEMP/TapDose-watch.apk" --target "$GITHUB_SHA" --latest=false \
             --title "TapDose for Android (build ${{ github.run_number }})" \
-            --notes "Download TapDose.apk on your Android phone and open it to install. Updates install over the top and keep your data."
+            --notes "What's new: $NEW"$'\n\n'"Download TapDose.apk on your Android phone and open it to install. Updates install over the top and keep your data. For a Wear OS watch, TapDose-watch.apk goes on the watch (Settings, Watch in the app says how)."
 
   ios:
     runs-on: macos-latest

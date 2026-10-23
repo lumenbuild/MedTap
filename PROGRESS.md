@@ -440,6 +440,37 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
 - Emulator: without hardware acceleration the Android system itself crashed (DeadSystemException) shortly after
   install, so there's still no on-device result; a real phone is needed.
 
+## High-value extras (owner picked 1, 4, 5, 7, 8, 10, 11, 12 from the "what's missing" list)
+- **Update check** (Android app): once a day asks GitHub for the edition's release (`src/app/updates.ts`; nothing about
+  the person is sent); a card on Today when a newer build is out, with "What's new" from the release notes. Settings →
+  About: switch and "Check now". CI stamps the build number (`VITE_BUILD`) and writes the merged PR's title as notes.
+- **Same ingredient** (`src/logic/ingredients.ts`): common Australian brands → active ingredients (or typed in the
+  medicine's editor). Meds list flags two medicines with an ingredient or class in common (NSAIDs, GLP-1s); logging
+  warns when the 24-hour total across all of them passes the lowest limit the person set. Label facts only, "check
+  with your pharmacist".
+- **Scripts and repeats**: scripts due within 6 weeks are grouped into one doctor visit with a "book by" date; the
+  refill card has "Ask the pharmacy" (email/SMS to the pharmacy set in Settings, else share).
+- **Weekly digest** (`src/logic/digest.ts`): Monday to Wednesday on Today, last week against the week before (doses,
+  weight, training with one best per lift, protein, sleep, mood); optional Monday 8:30 notification.
+- **Costs** (`src/logic/cost.ts`): price per pack (meds) or per vial (peptides); $/week, $/month, next 12 weeks from the
+  plan, cheapest supplier on the Protocol tab; "About $x a month" in the meds list.
+- **Readings worth mentioning** (`src/logic/readings.ts`): a week's average BP at 140/90 or above, BP or resting heart
+  rate clearly up on the person's own baseline: one line on Today, worth raising at the next appointment.
+- **Training extras** (`src/logic/trainingExtras.ts`): warm-up sets worked out to the working weight (button in a
+  workout); "Personal best in reach" before a set; strength for body weight on the exercise page (now vs 8 weeks ago);
+  a planned lighter week when 3+ lifts stall or after 6+ hard weeks (about 10% less, one set fewer, for 7 days);
+  rep ranges in routines ("8-12": reps first, then weight); weekly shot users see which weekday suits their heaviest
+  session. Tests `tests/training-extras.test.ts`.
+- **Watch** (Wear OS, `android/wear`): an app and a tile with the next dose and as-needed medicines; a tap sends a
+  message to the phone (`WearBridge.kt`), which queues it and the app logs it at the tap time with source "watch"
+  (same double-log guard as tags). Same application id and signing key as the phone app, so they pair. Built by CI
+  beside the phone app and attached to the release as `MedTap-watch.apk` / `TapDose-watch.apk`; installed with ADB
+  (steps in Settings → Watch) until there's a Play Store listing. Compiles; not yet tried on a real watch.
+  Apple Watch: not built. It needs a Mac, Xcode and a paid Apple developer account to sign and install; iPhone
+  reminders already show on the watch as notifications.
+- Browser checks: watch tap logged once at tap time, Settings → Watch, warm-ups, PB in reach, strength for body weight;
+  fit audit and axe clean; TapDose scan clean.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 
