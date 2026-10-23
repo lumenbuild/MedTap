@@ -1,0 +1,57 @@
+// MedTap / TapDose for Wear OS: the next dose and as-needed buttons on the watch (app and tile), sending "log" taps to
+// the phone app, which logs them. Same application ids and signing key as the phone apps, so they pair.
+buildscript {
+    repositories { google(); mavenCentral() }
+    dependencies { classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.21' }
+}
+apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
+
+android {
+    namespace = "app.medtap.wear"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        minSdkVersion 30
+        targetSdkVersion 34
+        versionCode Integer.parseInt(System.getenv('MEDTAP_VERSION_CODE') ?: '1')
+        versionName System.getenv('MEDTAP_VERSION_NAME') ?: "1.0"
+    }
+    flavorDimensions = ["edition"]
+    productFlavors {
+        medtap { dimension "edition"; applicationId "app.medtap.tracker"; resValue "string", "app_name", "MedTap" }
+        tapdose { dimension "edition"; applicationId "app.tapdose.tracker"; resValue "string", "app_name", "TapDose" }
+    }
+    signingConfigs {
+        release {
+            def ks = System.getenv('MEDTAP_KEYSTORE')
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv('MEDTAP_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('MEDTAP_KEY_ALIAS') ?: 'medtap'
+                keyPassword System.getenv('MEDTAP_KEYSTORE_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (System.getenv('MEDTAP_KEYSTORE')) signingConfig signingConfigs.release
+            minifyEnabled false
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+    kotlinOptions { jvmTarget = '21' }
+    lint { abortOnError false }
+}
+
+dependencies {
+    implementation "com.google.android.gms:play-services-wearable:19.0.0"
+    implementation "androidx.wear.tiles:tiles:1.4.1"
+    implementation "androidx.wear.protolayout:protolayout:1.2.1"
+    implementation "androidx.wear.protolayout:protolayout-material:1.2.1"
+    implementation "com.google.guava:guava:33.3.1-android"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0"
+}

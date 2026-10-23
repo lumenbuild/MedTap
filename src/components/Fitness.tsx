@@ -10,6 +10,7 @@ import type { Units } from '../db/repos/settings';
 import type { ScheduleSettings } from '../logic/schedule';
 import { muscleWatch, trainingVsPeptide, fitnessGoalStatus, type Readiness, type TrainingSummary } from '../logic/training';
 import { fmtLoad } from '../logic/load';
+import { strongestWeekday } from '../logic/trainingExtras';
 import type { ExerciseDef } from '../logic/exercises';
 import { goalView, valueFmt } from '../screens/Body/Goals';
 import { kgTo, weightUnit } from '../logic/units';
@@ -57,9 +58,11 @@ export function MuscleWatchCard({ body, units, med, doses, now }: { body: BodyEn
 }
 
 /** Strength by days since the shot and by dose. */
-export function PeptideTrainingCard({ med, doses, workouts }: { med: Medication; doses: Dose[]; workouts: Workout[] }) {
+export function PeptideTrainingCard({ med, doses, workouts, tz }: { med: Medication; doses: Dose[]; workouts: Workout[]; tz?: string }) {
   const r = trainingVsPeptide(med, doses, workouts);
   if (!r) return null;
+  const shots = doses.filter((d) => d.medicationId === med.id && !d.deletedAt && !d.skipped).map((d) => Date.parse(d.takenAt)).sort((a, b) => a - b).slice(-6);
+  const plan = tz ? strongestWeekday(shots, r.bestDays, tz) : null;
   const known = r.byDay.filter((d) => d.pct !== undefined);
   return (
     <section className="border-t border-border pt-5 pb-1" aria-labelledby="pt-h">
@@ -72,6 +75,7 @@ export function PeptideTrainingCard({ med, doses, workouts }: { med: Medication;
           </div>
         ))}
       </div>
+      {plan && <p className="text-[15px] mt-2 font-medium">Plan your heaviest session for {plan.weekday}s ({plan.day === 0 ? 'shot day' : `day ${plan.day} after your shot`}), usually your strongest.</p>}
       {r.bestDays.length > 0 && <p className="text-[15px] mt-2">Your strongest {r.bestDays.length === 1 ? 'day' : 'days'}: {andList(r.bestDays.map((d) => d === 0 ? 'shot day' : `${LONG[d]} after it`))}.</p>}
       {r.byDose.filter((d) => d.pct !== undefined).length > 1 && <p className="text-[15px] tnum">By dose: {r.byDose.filter((d) => d.pct !== undefined).map((d) => `${fmtAmount(d.dose, med.unit)} ${d.pct! > 0 ? '+' : ''}${d.pct}%`).join(' · ')}</p>}
       <p className="text-xs text-muted mt-1">Each session's lifts against your own recent level for those lifts. Based on {r.sessions} sessions.</p>

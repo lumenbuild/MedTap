@@ -180,7 +180,7 @@ export interface Tag {
 }
 export interface Dose extends Stamped {
   medicationId: string; takenAt: string; amount: number;
-  source: 'tag' | 'manual' | 'backdated' | 'reminder'; tagId?: string; note?: string; deletedAt?: string;
+  source: 'tag' | 'manual' | 'backdated' | 'reminder' | 'watch'; tagId?: string; note?: string; deletedAt?: string;
   /** Recorded as skipped on purpose: covers its place in the plan but wasn't taken (no stock change). */
   skipped?: boolean; skipReason?: string;
   /** Who took it, for shared medications (otherwise the medication's person). */
@@ -311,5 +311,6 @@ export interface Workout extends Stamped {
   personId?: string; deletedAt?: string;
 }
 
-export interface RoutineItem { exerciseId: string; sets: number; reps: number; weightKg?: number }
+/** `repsMax` makes it a rep range (e.g. 8–12): add reps up to the top, then add weight and start from the bottom. */
+export interface RoutineItem { exerciseId: string; sets: number; reps: number; repsMax?: number; weightKg?: number }
 export interface Routine extends Stamped { name: string; items: RoutineItem[]; personId?: string; deletedAt?: string }

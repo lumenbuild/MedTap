@@ -114,6 +114,15 @@ export function nextTarget(def: ExerciseDef, workouts: Workout[], item?: Routine
   }
   const hit = atTop.length >= sets && atTop.every((s) => s.reps >= reps);
   const hard = atTop.some((s) => (s.rpe ?? 0) >= 9);
+  // A rep range (double progression): a rep more each time every set gets there, up to the top of the range; then a
+  // step up in weight, back to the bottom of the range.
+  if (item?.repsMax && item.repsMax > item.reps && !def.timed && top > 0 && stepIn(def, units) > 0) {
+    const low = Math.min(...atTop.map((s) => s.reps));
+    const full = atTop.length >= sets && !hard;
+    if (full && low >= item.repsMax) return { sets, reps: item.reps, weightKg: roundLoad(fromLoad(showLoad(top, units) + stepIn(def, units), units), def, units), why: 'up' };
+    if (full && low >= item.reps) return { sets, reps: Math.min(item.repsMax, low + 1), weightKg: top, why: 'reps' };
+    return { sets, reps: Math.max(item.reps, low), weightKg: top, why: 'same' };
+  }
   if (hit && !hard) {
     // Held for time: 5 seconds more. Weighted: one step up, in the unit the person loads, onto a loadable weight (so
     // history logged in kg still lands on whole lb steps after switching). Otherwise a rep more.

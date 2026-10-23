@@ -20,6 +20,7 @@ import { finishCardio } from '../../db/repos/training';
 import { fmtLoad } from '../../logic/load';
 import { habitText, trainingHabit } from '../../logic/trainingPlan';
 import { effortCheck } from '../../logic/progression';
+import { lighterWeekDue } from '../../logic/trainingExtras';
 import { setTrainingReminders } from '../../app/native';
 import { setSetting } from '../../db/repos/settings';
 import { useToast } from '../../app/toast';
@@ -52,6 +53,7 @@ export function Training() {
   const peptide = settings.peptideTools ? meds.find((m) => m.peptide && !m.archived && medIsFor(m, fam.personId)) : undefined;
   const cardio = ws.filter((w) => w.cardio);
   const habit = trainingHabit(ws, now, s);
+  const lighter = lighterWeekDue(ws, defs, now, settings.lighterLast || undefined);
   const pushable = lifted.map((id) => effortCheck(id, ws, now)).filter((e) => e.status === 'room');
   const maxCal = Math.max(1, ...cal.weeks.map((x) => x.sessions), sessionsGoal?.perWeek ?? 0);
 
@@ -131,6 +133,23 @@ export function Training() {
         </section>
       )}
 
+      {settings.lighterUntil > now && (
+        <section className="border-t border-border pt-4 pb-1" aria-label="Lighter week">
+          <p className="text-[15px]"><span className="font-medium">Lighter week</span> until {format(settings.lighterUntil - 1, 'EEE d MMM')}: targets are about 10% lighter with a set fewer.</p>
+          <button type="button" className="min-h-[44px] text-sm underline underline-offset-4" onClick={() => setSetting('lighterUntil', 0)}>End it now</button>
+        </section>
+      )}
+      {settings.lighterUntil <= now && lighter && (
+        <section className="border-t border-border pt-4 pb-1" aria-label="A lighter week is due">
+          <p className="text-[15px] font-medium">Time for a lighter week?</p>
+          <p className="text-[15px]">{lighter.reason}{lighter.lifts.length ? ` (${lighter.lifts.join(', ')})` : ''} A week at about 90% with a set fewer usually brings progress back.</p>
+          <div className="flex gap-5">
+            <button type="button" className="min-h-[44px] font-medium underline underline-offset-4" onClick={async () => { await setSetting('lighterUntil', now + 7 * 86_400_000); await setSetting('lighterLast', now); toast('Lighter week planned: targets adjusted for 7 days'); }}>Plan it for this week</button>
+            <button type="button" className="min-h-[44px] text-muted underline underline-offset-4" onClick={() => setSetting('lighterLast', now - 21 * 86_400_000)}>Not now</button>
+          </div>
+        </section>
+      )}
+
       {pushable.length > 0 && (
         <section className="border-t border-border pt-5 pb-1" aria-labelledby="push-h">
           <h2 id="push-h" className="text-sm font-medium text-muted mb-1">Room to push</h2>
@@ -146,7 +165,7 @@ export function Training() {
         </section>
       )}
 
-      {peptide && <PeptideTrainingCard med={peptide} doses={doses} workouts={ws} />}
+      {peptide && <PeptideTrainingCard med={peptide} doses={doses} workouts={ws} tz={s.tz} />}
       <MuscleWatchCard body={body.filter(mine)} units={settings.units} med={peptide} doses={doses} now={now} />
 
       {bal.sessions > 0 && (

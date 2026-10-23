@@ -8,6 +8,7 @@ import type { Units } from '../db/repos/settings';
 import type { ExerciseDef } from './exercises';
 import { e1rm, nextTarget, sessionsOf, type Session, type Target } from './training';
 import { fromLoad, roundLoad, showLoad, stepIn } from './load';
+import { lighten } from './trainingExtras';
 
 const DAY = 86_400_000;
 const WEEK = 7 * DAY;
@@ -59,11 +60,16 @@ export interface SmartTarget extends Omit<Target, 'why'> {
   plain?: Pick<Target, 'weightKg' | 'reps'>;
 }
 
-export interface Context { units?: Units; item?: RoutineItem; readiness?: number | null; weakDay?: boolean; now: number }
+export interface Context { units?: Units; item?: RoutineItem; readiness?: number | null; weakDay?: boolean; now: number; lighter?: boolean }
 
 /** Today's target for an exercise. Starts from the simple rule; pushes when sets have felt easy or the trend says
  *  there's room; holds on a low-readiness or usual weaker day; asks for a calibrating last set when no effort's logged. */
 export function smartTarget(def: ExerciseDef, workouts: Workout[], ctx: Context): SmartTarget {
+  if (ctx.lighter) {
+    const t = smartTarget(def, workouts, { ...ctx, lighter: false });
+    if (t.why === 'start') return t;
+    return { ...t, ...lighten(t, def, ctx.units ?? 'metric'), why: 'hold', plain: { weightKg: t.weightKg, reps: t.reps }, lastSetMax: false, reason: 'Lighter week: about 10% less and a set fewer, so you come back stronger.' };
+  }
   const u = ctx.units ?? 'metric';
   const base = nextTarget(def, workouts, ctx.item, u);
   const out: SmartTarget = { ...base, reason: '' };

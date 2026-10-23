@@ -3,7 +3,8 @@
 import { lazy, Suspense, useState } from 'react';
 import { ActionTagsCard } from '../Tags/ActionTagsCard';
 import { format } from 'date-fns';
-import { useExercises, useFamily, useSettings, useWorkouts } from '../../app/data';
+import { useBodyEntries, useExercises, useFamily, useSettings, useWorkouts } from '../../app/data';
+import { relativeStrength } from '../../logic/trainingExtras';
 import { fmtLoad, showLoad } from '../../logic/load';
 import { swapsFor } from '../../logic/exercises';
 import { personOf } from '../../db/repos/people';
@@ -12,6 +13,7 @@ import { e1rm, e1rmSeries, personalBests, plateau, sessionsOf, strengthForecast 
 import { effortCheck, progressionPlan, smartTarget } from '../../logic/progression';
 import { useTrainingContext } from './useTrainingContext';
 import { useNow } from '../../app/useNow';
+import { HAS_BODY } from '../../edition';
 import { Button } from '../../components/ui/Button';
 import { GoalSheet } from './TrainingSheets';
 
@@ -23,6 +25,7 @@ export function ExerciseScreen({ id }: { id: string }) {
   const own = useExercises();
   const fam = useFamily();
   const settings = useSettings();
+  const body = useBodyEntries();
   const now = useNow(60_000);
   const today = useTrainingContext(fam?.personId, now);
   const [goal, setGoal] = useState(false);
@@ -35,7 +38,7 @@ export function ExerciseScreen({ id }: { id: string }) {
   const units = settings.units;
   const L = (kg: number) => fmtLoad(kg, units);
   const each = def.perHand ? ' each' : '';
-  const t = smartTarget(def, mine, { units, readiness: today?.readiness, weakDay: today?.weakDay, now });
+  const t = smartTarget(def, mine, { units, readiness: today?.readiness, weakDay: today?.weakDay, lighter: today?.lighter, now });
   const plan = progressionPlan(def, mine, now, units, 4, t.why === 'start' ? undefined : t);
   const effort = effortCheck(id, mine, now);
   // No weight used (a plank, plain push-ups): progress is reps or seconds, not an estimated max.
@@ -63,6 +66,10 @@ export function ExerciseScreen({ id }: { id: string }) {
           <dl className="grid grid-cols-2 gap-y-2 tnum">
             <dt className="text-muted">Heaviest</dt><dd>{def.timed ? `${pb.heaviest.reps} s${pb.heaviest.kg ? ` at ${L(pb.heaviest.kg)}` : ''}` : pb.heaviest.kg ? `${L(pb.heaviest.kg)}${each} × ${pb.heaviest.reps}` : `${pb.heaviest.reps} reps`} <span className="text-xs text-muted">{d(pb.heaviest.t)}</span></dd>
             {pb.e1rm && !def.timed && <><dt className="text-muted">Estimated max</dt><dd>{L(pb.e1rm.v)} <span className="text-xs text-muted">({showLoad(pb.e1rm.kg, units)} × {pb.e1rm.reps})</span></dd></>}
+            {(() => {
+              const rs = HAS_BODY && body ? relativeStrength(id, mine, body.filter((b) => personOf(b) === fam.personId), now) : null;
+              return rs && !noLoad ? <><dt className="text-muted">For your body weight</dt><dd>{rs.now}× <span className="text-xs text-muted">{rs.then !== undefined ? `(${rs.then}× 8 weeks ago)` : 'estimated max ÷ weight'}</span></dd></> : null;
+            })()}
             {pb.mostReps && !def.timed && <><dt className="text-muted">Most reps</dt><dd>{pb.mostReps.reps}{pb.mostReps.kg ? ` at ${L(pb.mostReps.kg)}` : ''}</dd></>}
             {pb.volume && !def.timed && <><dt className="text-muted">Most volume</dt><dd>{Math.round(showLoad(pb.volume.kg * (def.perHand ? 2 : 1), units)).toLocaleString('en-AU')} {units === 'imperial' ? 'lb' : 'kg'} <span className="text-xs text-muted">{d(pb.volume.t)}</span></dd></>}
           </dl>

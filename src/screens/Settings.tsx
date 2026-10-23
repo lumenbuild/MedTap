@@ -22,7 +22,7 @@ import { FamilyCard } from './Family';
 import { placeName } from '../components/TravelBanner';
 import { isAndroid, isIOS, isNative, isNativeAndroid, isStandalone } from '../platform';
 import { BUILD, checkForUpdate } from '../app/updates';
-import { HAS_BODY, HAS_PEPTIDES, HAS_VISITS } from '../edition';
+import { HAS_BODY, HAS_PEPTIDES, HAS_VISITS, edition, watchDownload } from '../edition';
 import { SIDE_EFFECT_CHIPS } from '../logic/peptide';
 
 const RemindersCard = lazy(() => import('./RemindersCard'));
@@ -341,6 +341,28 @@ export function Settings() {
         {HAS_PEPTIDES && settings.peptideTools && <ToolLink href="#/supplies" Icon={Package} title="Supplies" sub="Syringes, needles, swabs, water and the sharps container" />}
         <ToolLink href="#/help" Icon={HelpCircle} title="Help, privacy and tag guide" sub="How each part works" />
       </Group>
+
+      {isNativeAndroid && (
+        <Card className="space-y-3">
+          <h2 className="text-sm font-medium text-muted">Watch</h2>
+          <p className="text-sm">On a Wear OS watch, {APP_NAME} shows your next dose (as an app and a tile) and logs it, or an as-needed medicine, with one tap. The log is made on this phone, so it needs the phone nearby with {APP_NAME} installed.</p>
+          <details className="text-sm">
+            <summary className="cursor-pointer min-h-[44px] flex items-center font-medium">How to install it on the watch</summary>
+            <ol className="list-decimal pl-5 space-y-1 text-muted">
+              <li>On the watch: Settings, System, About, then tap Build number 7 times to turn on developer options.</li>
+              <li>In developer options, turn on ADB debugging and Wireless debugging.</li>
+              <li>Download <a className="underline" href={watchDownload}>{edition.watchApk}</a>, then install it with <code>adb install {edition.watchApk}</code> from a computer on the same Wi-Fi (or a phone app that installs onto watches).</li>
+              <li>Open {APP_NAME} on this phone once so it sends the watch your next dose.</li>
+            </ol>
+          </details>
+        </Card>
+      )}
+      {isIOS && isNative && (
+        <Card className="space-y-2">
+          <h2 className="text-sm font-medium text-muted">Watch</h2>
+          <p className="text-sm text-muted">An Apple Watch app isn’t available yet. Reminders still show on your watch as iPhone notifications.</p>
+        </Card>
+      )}
 
       <Card className="space-y-3">
         <h2 className="text-sm font-medium text-muted">About {APP_NAME}</h2>

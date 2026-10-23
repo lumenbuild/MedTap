@@ -91,6 +91,9 @@ export interface AppSettings {
   digestSeen: number;
   /** Readings-worth-mentioning notes closed this week. */
   mentionsDismissed: string[];
+  /** A planned lighter week: until when, and when the last one was (or the suggestion was put off). */
+  lighterUntil: number;
+  lighterLast: number;
   digestNotify: boolean;
   pharmacyContact: string;
 }
@@ -148,6 +151,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pharmacyName: '',
   digestSeen: 0,
   mentionsDismissed: [],
+  lighterUntil: 0,
+  lighterLast: 0,
   digestNotify: false,
   pharmacyContact: '',
 };
