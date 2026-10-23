@@ -2,7 +2,10 @@ import { printPage } from '../../app/print';
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { Printer } from 'lucide-react';
-import { useBodyEntries, useCheckIns, useDoses, useFamily, useLabs, useMedEvents, useMeds, useScheduleSettings, useVitals } from '../../app/data';
+import { useBodyEntries, useCheckIns, useDaily, useDoses, useExercises, useFamily, useLabs, useMedEvents, useMeds, useScheduleSettings, useVitals, useWorkouts } from '../../app/data';
+import { MuscleWatchCard, TrainingReport } from '../../components/Fitness';
+import { trainingSummary } from '../../logic/training';
+import { allExercises } from '../../logic/exercises';
 import { dosesForPerson, medIsFor, personOf } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { APP_NAME } from '../../config';
@@ -28,13 +31,16 @@ export function Report() {
   const allEvents = useMedEvents();
   const allVitals = useVitals();
   const allLabs = useLabs();
+  const allWorkouts = useWorkouts();
+  const own = useExercises();
+  const allDaily = useDaily();
   const fam = useFamily();
   const ss = useScheduleSettings();
   const [from, setFrom] = useState(ymd(Date.now() - 29 * 86_400_000));
   const [to, setTo] = useState(ymd(Date.now()));
   const [useNicknames, setUseNicknames] = useState(false);
 
-  if (!allMeds || !allDoses || !allCheckIns || !allBody || !allEvents || !allVitals || !allLabs || !ss || !fam) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
+  if (!allMeds || !allDoses || !allCheckIns || !allBody || !allEvents || !allVitals || !allLabs || !ss || !fam || !allWorkouts || !own || !allDaily) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
   // Only the chosen family member's records.
   // Their medications plus shared ones, counting only their own doses of shared medications.
   const meds = allMeds.filter((m) => medIsFor(m, fam.personId));
@@ -94,7 +100,7 @@ export function Report() {
 
           <section className="border-t border-border pt-5 pb-2 report-block">
             <h2 className="text-sm font-medium text-muted mb-2">Medications</h2>
-            <div className="table-scroll">
+            <div className="table-scroll" tabIndex={0}>
             <table className="w-full text-sm">
               <thead><tr className="text-left">{['Medication', 'Form', 'Usual dose', 'Schedule (as entered)', 'Doses logged', 'Days at daily number'].map((h) => <th key={h} className="py-1.5 pr-3 border-b border-border font-semibold">{h}</th>)}</tr></thead>
               <tbody>
@@ -159,6 +165,18 @@ export function Report() {
           <div className="report-block"><DoseTimingCharts meds={usedMeds} doses={doses} start={start} end={end} s={s} realNames={realNames} /></div>
           <div className="report-block"><FeelingsChart checkIns={checkIns} events={events} meds={meds} start={start} end={end} s={s} prevStart={null} realNames={realNames} /></div>
           {HAS_BODY && <div className="report-block"><WeightChart entries={body} units={settings.units} start={start} end={end} s={s} /></div>}
+          {HAS_BODY && (() => {
+            const mine = <T extends { personId?: string }>(r: T) => personOf(r) === fam.personId;
+            const sum = trainingSummary(allWorkouts.filter(mine), allExercises(own), start, end, allDaily.filter(mine), body);
+            const peptide = settings.peptideTools ? meds.find((m) => m.peptide && !m.archived) : undefined;
+            const hasComp = body.some((b) => !b.deletedAt && (b.bodyFatPct !== undefined || b.leanKg !== undefined) && b.date >= from && b.date <= to);
+            return (
+              <>
+                {sum && <TrainingReport sum={sum} units={settings.units} />}
+                {hasComp && <div className="report-block"><MuscleWatchCard body={body.filter((b) => b.date >= from && b.date <= to)} units={settings.units} med={peptide} doses={doses} now={end} /></div>}
+              </>
+            );
+          })()}
           <div className="report-block"><VitalsCharts vitals={vitals} start={start} end={end} s={s} /></div>
           {(() => {
             const labs = allLabs.filter((l) => personOf(l) === fam.personId && !l.deletedAt).sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name));
@@ -166,7 +184,7 @@ export function Report() {
             return (
               <section className="border-t border-border pt-5 pb-2 report-block">
                 <h2 className="text-sm font-medium text-muted mb-2">Lab results</h2>
-                <div className="table-scroll">
+                <div className="table-scroll" tabIndex={0}>
                   <table className="w-full text-sm tnum">
                     <thead><tr className="text-left">{['Date', 'Test', 'Result', 'Range'].map((h) => <th key={h} className="py-1 pr-3 border-b border-border font-semibold">{h}</th>)}</tr></thead>
                     <tbody>{labs.map((l) => <tr key={l.id}><td className="py-1 pr-3 border-b border-border">{format(new Date(`${l.date}T12:00`), 'd MMM yyyy')}</td><td className="py-1 pr-3 border-b border-border">{l.name}</td><td className="py-1 pr-3 border-b border-border">{l.value}{l.unit ? ` ${l.unit}` : ''}</td><td className="py-1 pr-3 border-b border-border">{l.range ?? ''}</td></tr>)}</tbody>
@@ -179,7 +197,7 @@ export function Report() {
           <section className="border-t border-border pt-5 pb-2 report-block">
             <h2 className="text-sm font-medium text-muted mb-2">Dose log</h2>
             {rangeDoses.length === 0 ? <p className="text-muted">No doses in this range.</p> : (
-              <div className="table-scroll">
+              <div className="table-scroll" tabIndex={0}>
               <table className="w-full text-sm tnum">
                 <thead><tr className="text-left">{['Date', 'Time', 'Medication', 'Amount', 'How logged'].map((h) => <th key={h} className="py-1 pr-3 border-b border-border font-semibold">{h}</th>)}</tr></thead>
                 <tbody>

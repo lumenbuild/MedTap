@@ -3,7 +3,7 @@ import { clearLogRequest, onLogRequest } from '../../app/pendingLog';
 import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { CalendarPlus, Lock, Nfc, Pill } from 'lucide-react';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
-import { useBodyEntries, useCheckIns, useDoses, useFamily, useMeds, useScheduleSettings, useSupplies, useVitals } from '../../app/data';
+import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useMeds, useScheduleSettings, useSupplies, useVitals } from '../../app/data';
 import { VitalsSheet, type VitalsSheetState } from '../../components/VitalsSheet';
 import { dosesForPerson, medIsFor, personOf, storedPerson } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
@@ -44,7 +44,9 @@ import { PrnCard } from './PrnCard';
 import { Timeline } from './Timeline';
 import { DoseEditSheet } from './DoseEditSheet';
 import { AutoBackupPermission, BackupReminder, CheckInPrompt, InstallCard } from './PromptCards';
-import { HAS_BODY, HAS_PEPTIDES } from '../../edition';
+import { HAS_BODY, HAS_PEPTIDES, HAS_VISITS } from '../../edition';
+import { IntakeCard } from '../../components/Fitness';
+import { readiness } from '../../logic/training';
 
 export function Today() {
   const meds = useMeds();
@@ -53,6 +55,7 @@ export function Today() {
   const body = useBodyEntries();
   const vitals = useVitals();
   const supplies = useSupplies();
+  const daily = useDaily();
   const appointments = useAppointments();
   const [vitalSheet, setVitalSheet] = useState<VitalsSheetState>(null);
   const ss = useScheduleSettings();
@@ -182,7 +185,7 @@ export function Today() {
       )}
 
       {!fam.everyone && (() => {
-        const visit = appointments ? appointmentsAround(appointments.filter(mine), dayKey(now, s)).next : undefined;
+        const visit = HAS_VISITS && appointments ? appointmentsAround(appointments.filter(mine), dayKey(now, s)).next : undefined;
         const lines = [
           <EffectToday key="e" meds={viewMeds} doses={viewDoses} checkIns={viewCheckIns} now={now} />,
           <ScriptToday key="s" meds={viewMeds} doses={viewDoses} s={s} now={now} />,
@@ -234,6 +237,13 @@ export function Today() {
       </div>
       )}
 
+      {HAS_BODY && settings.trainingTools && !fam.everyone && daily && (() => {
+        const mineDaily = daily.filter((d) => !d.deletedAt && personOf(d) === fam.personId);
+        const today = format(now, 'yyyy-MM-dd');
+        return <IntakeCard personId={fam.personId} today={today} day={mineDaily.find((d) => d.date === today)} proteinTarget={settings.proteinTargetG} waterTarget={settings.waterTargetMl}
+          ready={readiness(mineDaily, viewCheckIns, now, s)} />;
+      })()}
+
       {HAS_BODY && !fam.everyone && <GoalLines goals={fam.people.find((p) => p.id === fam.personId)?.goals ?? []} entries={viewBody} units={settings.units} now={now} />}
 
       {needsBackup(settings.lastBackupAt, firstRecord, now, settings.backupReminderDays) && <BackupReminder days={settings.backupReminderDays} />}
@@ -255,7 +265,7 @@ export function Today() {
       </Sheet>
       <DoseEditSheet dose={editing} med={editing ? medMap.get(editing.medicationId) : undefined} onClose={() => setEditing(null)} />
       <CheckInSheet seed={checkIn} onClose={() => setCheckIn(null)} doses={viewDoses} checkIns={viewCheckIns} meds={viewMeds} chips={settings.chips} s={s}
-        personId={checkIn?.editing ? personOf(checkIn.editing) : fam.personId} />
+        soreness={HAS_BODY && settings.trainingTools} personId={checkIn?.editing ? personOf(checkIn.editing) : fam.personId} />
       <VitalsSheet state={vitalSheet} onClose={() => setVitalSheet(null)} personId={fam.personId} />
       <BodySheet state={bodySheet} onClose={() => setBodySheet(null)} units={settings.units} personId={bodySheet?.entry ? personOf(bodySheet.entry) : fam.personId} />
     </div>

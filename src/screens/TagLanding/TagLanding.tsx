@@ -25,6 +25,7 @@ import { Button } from '../../components/ui/Button';
 import { Success } from './Success';
 import { UnknownTag } from './UnknownTag';
 import { ArchivedTag } from './ArchivedTag';
+import { ActionTag } from './ActionTag';
 
 /** Opened by tapping a tag (https://APP_DOMAIN/?t=ID is rewritten to #/tag/ID on boot). */
 export function TagLanding({ id }: { id: string }) {
@@ -74,6 +75,7 @@ export function TagLanding({ id }: { id: string }) {
   }
 
   const [, s] = ss;
+  if (tag?.action && !reassign) return shell(<ActionTag tag={tag} personName={fam.many ? fam.nameOf(personOf(tag)) : undefined} />);
   const med = tag ? meds.find((m) => m.id === tag.medicationId) : undefined;
 
   if (!med || reassign) return shell(<UnknownTag id={id} meds={meds.filter((m) => !m.archived)} relinking={!!med} onLinked={() => setReassign(false)}

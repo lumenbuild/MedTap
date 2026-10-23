@@ -11,8 +11,10 @@ extension MedTapNativePlugin {
 
     private var readTypes: Set<HKObjectType> {
         var s: Set<HKObjectType> = []
-        let q: [HKQuantityTypeIdentifier] = [.stepCount, .heartRate, .restingHeartRate, .bodyMass, .bloodPressureSystolic, .bloodPressureDiastolic, .appleExerciseTime]
+        let q: [HKQuantityTypeIdentifier] = [.stepCount, .heartRate, .restingHeartRate, .bodyMass, .bloodPressureSystolic, .bloodPressureDiastolic, .appleExerciseTime,
+                                             .bodyFatPercentage, .leanBodyMass, .heartRateVariabilitySDNN]
         for id in q { if let t = HKObjectType.quantityType(forIdentifier: id) { s.insert(t) } }
+        s.insert(HKObjectType.workoutType())
         if let sleep = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) { s.insert(sleep) }
         if let bp = HKObjectType.correlationType(forIdentifier: .bloodPressure) { s.insert(bp) }
         return s
@@ -51,7 +53,7 @@ extension MedTapNativePlugin {
         let group = DispatchGroup()
         let lock = NSLock()
         var days: [String: [String: Any]] = [:]
-        var weights: [[String: Any]] = [], bp: [[String: Any]] = []
+        var weights: [[String: Any]] = [], bp: [[String: Any]] = [], workouts: [[String: Any]] = [], bodyFat: [[String: Any]] = [], lean: [[String: Any]] = []
         func setDay(_ d: Date, _ key: String, _ value: Any, add: Bool = false) {
             lock.lock(); defer { lock.unlock() }
             let k = fmt.string(from: d)
@@ -130,9 +132,52 @@ extension MedTapNativePlugin {
                 }
             }
         }
+        if let t = HKObjectType.quantityType(forIdentifier: .bodyFatPercentage) {
+            samples(t) { list in
+                lock.lock(); defer { lock.unlock() }
+                for case let s as HKQuantitySample in list { bodyFat.append(["t": s.startDate.timeIntervalSince1970 * 1000, "pct": s.quantity.doubleValue(for: .percent()) * 100]) }
+            }
+        }
+        if let t = HKObjectType.quantityType(forIdentifier: .leanBodyMass) {
+            samples(t) { list in
+                lock.lock(); defer { lock.unlock() }
+                for case let s as HKQuantitySample in list { lean.append(["t": s.startDate.timeIntervalSince1970 * 1000, "kg": s.quantity.doubleValue(for: .gramUnit(with: .kilo))]) }
+            }
+        }
+        if let t = HKObjectType.quantityType(forIdentifier: .heartRateVariabilitySDNN) {
+            samples(t) { list in
+                var sums: [String: (Double, Int)] = [:]
+                for case let s as HKQuantitySample in list {
+                    let k = fmt.string(from: s.startDate)
+                    let v = s.quantity.doubleValue(for: .secondUnit(with: .milli))
+                    sums[k] = ((sums[k]?.0 ?? 0) + v, (sums[k]?.1 ?? 0) + 1)
+                }
+                lock.lock()
+                for (k, a) in sums { var row = days[k] ?? ["date": k]; row["hrvMs"] = Int((a.0 / Double(a.1)).rounded()); days[k] = row }
+                lock.unlock()
+            }
+        }
+        samples(HKObjectType.workoutType()) { list in
+            lock.lock(); defer { lock.unlock() }
+            for case let w as HKWorkout in list {
+                let type: String
+                switch w.workoutActivityType {
+                case .running: type = "run"
+                case .walking, .hiking: type = "walk"
+                case .cycling: type = "ride"
+                case .swimming: type = "swim"
+                case .rowing: type = "row"
+                case .traditionalStrengthTraining, .functionalStrengthTraining: type = "strength"
+                default: type = "other"
+                }
+                var row: [String: Any] = ["t": w.startDate.timeIntervalSince1970 * 1000, "end": w.endDate.timeIntervalSince1970 * 1000, "type": type]
+                if let km = w.totalDistance?.doubleValue(for: .meterUnit(with: .kilo)), km > 0 { row["km"] = km }
+                workouts.append(row)
+            }
+        }
         group.notify(queue: .main) {
             let sorted = days.keys.sorted().map { days[$0]! }
-            call.resolve(["days": sorted, "weights": weights, "bp": bp])
+            call.resolve(["days": sorted, "weights": weights, "bp": bp, "workouts": workouts, "bodyFat": bodyFat, "lean": lean])
         }
     }
 

@@ -18,7 +18,7 @@ export function ChartCard({ title, summary, empty, children, table, height = 220
           {table && table.rows.length > 0 && (
             <details className="mt-3 chart-table">
               <summary className="min-h-[44px] flex items-center text-sm font-semibold text-primary cursor-pointer no-print">Show as table</summary>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto" tabIndex={0}>
                 <table className="w-full text-sm tnum mt-2">
                   <thead><tr>{table.head.map((h) => <th key={h} className="text-left font-semibold py-1.5 pr-3 border-b border-border">{h}</th>)}</tr></thead>
                   <tbody>{table.rows.map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j} className="py-1.5 pr-3 border-b border-border">{c}</td>)}</tr>)}</tbody>

@@ -7,13 +7,18 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.BloodPressureRecord
+import androidx.health.connect.client.records.BodyFatRecord
+import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
+import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
+import androidx.health.connect.client.records.LeanBodyMassRecord
 import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
+import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import kotlinx.coroutines.CoroutineScope
@@ -28,8 +33,8 @@ import java.time.ZoneId
 import kotlin.math.roundToInt
 
 /**
- * Health Connect, read only: daily steps, sleep, resting heart rate, exercise minutes and hourly heart rate, plus
- * weigh-ins and blood pressure readings. Called from MedTapNativePlugin (Java), results as JSON strings.
+ * Health Connect, read only: daily steps, sleep, resting heart rate, heart rate variability, exercise minutes and hourly
+ * heart rate, plus weigh-ins, body fat, lean mass, blood pressure readings and exercise sessions (with distance). Called from MedTapNativePlugin (Java), results as JSON strings.
  */
 object HealthBridge {
     val PERMISSIONS: Set<String> = setOf(
@@ -40,7 +45,22 @@ object HealthBridge {
         HealthPermission.getReadPermission(WeightRecord::class),
         HealthPermission.getReadPermission(BloodPressureRecord::class),
         HealthPermission.getReadPermission(ExerciseSessionRecord::class),
+        HealthPermission.getReadPermission(DistanceRecord::class),
+        HealthPermission.getReadPermission(BodyFatRecord::class),
+        HealthPermission.getReadPermission(LeanBodyMassRecord::class),
+        HealthPermission.getReadPermission(HeartRateVariabilityRmssdRecord::class),
     )
+
+    /** Health Connect's exercise types, as the app's cardio activities. */
+    private fun activity(type: Int): String = when (type) {
+        ExerciseSessionRecord.EXERCISE_TYPE_RUNNING, ExerciseSessionRecord.EXERCISE_TYPE_RUNNING_TREADMILL -> "run"
+        ExerciseSessionRecord.EXERCISE_TYPE_WALKING, ExerciseSessionRecord.EXERCISE_TYPE_HIKING -> "walk"
+        ExerciseSessionRecord.EXERCISE_TYPE_BIKING, ExerciseSessionRecord.EXERCISE_TYPE_BIKING_STATIONARY -> "ride"
+        ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_POOL, ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_OPEN_WATER -> "swim"
+        ExerciseSessionRecord.EXERCISE_TYPE_ROWING, ExerciseSessionRecord.EXERCISE_TYPE_ROWING_MACHINE -> "row"
+        ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING, ExerciseSessionRecord.EXERCISE_TYPE_WEIGHTLIFTING -> "strength"
+        else -> "other"
+    }
 
     /** "available", "needs-update" (install or update the Health Connect app) or "unsupported". */
     @JvmStatic
@@ -104,11 +124,27 @@ object HealthBridge {
                 if (has(RestingHeartRateRecord::class)) {
                     for (r in readAll(client, RestingHeartRateRecord::class, range)) day(r.time.atZone(z).toLocalDate()).put("restingHr", r.beatsPerMinute)
                 }
+                val workouts = JSONArray()
                 if (has(ExerciseSessionRecord::class)) {
+                    val distance = has(DistanceRecord::class)
                     for (r in readAll(client, ExerciseSessionRecord::class, range)) {
                         val d = r.startTime.atZone(z).toLocalDate()
                         day(d).put("exerciseMin", day(d).optInt("exerciseMin", 0) + ((r.endTime.toEpochMilli() - r.startTime.toEpochMilli()) / 60000).toInt())
+                        val w = JSONObject().put("t", r.startTime.toEpochMilli()).put("end", r.endTime.toEpochMilli()).put("type", activity(r.exerciseType))
+                        if (distance) {
+                            val km = client.aggregate(AggregateRequest(setOf(DistanceRecord.DISTANCE_TOTAL), TimeRangeFilter.between(r.startTime, r.endTime)))[DistanceRecord.DISTANCE_TOTAL]?.inKilometers
+                            if (km != null && km > 0) w.put("km", km)
+                        }
+                        workouts.put(w)
                     }
+                }
+                if (has(HeartRateVariabilityRmssdRecord::class)) {
+                    val sums = HashMap<LocalDate, DoubleArray>()
+                    for (r in readAll(client, HeartRateVariabilityRmssdRecord::class, range)) {
+                        val a = sums.getOrPut(r.time.atZone(z).toLocalDate()) { DoubleArray(2) }
+                        a[0] += r.heartRateVariabilityMillis; a[1] += 1.0
+                    }
+                    for ((d, a) in sums) day(d).put("hrvMs", (a[0] / a[1]).roundToInt())
                 }
                 if (has(HeartRateRecord::class)) {
                     val sums = HashMap<String, DoubleArray>()
@@ -130,7 +166,12 @@ object HealthBridge {
                 if (has(WeightRecord::class)) for (r in readAll(client, WeightRecord::class, range)) weights.put(JSONObject().put("t", r.time.toEpochMilli()).put("kg", r.weight.inKilograms))
                 val bp = JSONArray()
                 if (has(BloodPressureRecord::class)) for (r in readAll(client, BloodPressureRecord::class, range)) bp.put(JSONObject().put("t", r.time.toEpochMilli()).put("sys", r.systolic.inMillimetersOfMercury.roundToInt()).put("dia", r.diastolic.inMillimetersOfMercury.roundToInt()))
+                val bodyFat = JSONArray()
+                if (has(BodyFatRecord::class)) for (r in readAll(client, BodyFatRecord::class, range)) bodyFat.put(JSONObject().put("t", r.time.toEpochMilli()).put("pct", r.percentage.value))
+                val lean = JSONArray()
+                if (has(LeanBodyMassRecord::class)) for (r in readAll(client, LeanBodyMassRecord::class, range)) lean.put(JSONObject().put("t", r.time.toEpochMilli()).put("kg", r.mass.inKilograms))
                 val out = JSONObject().put("days", JSONArray(days.values.toList())).put("weights", weights).put("bp", bp)
+                    .put("workouts", workouts).put("bodyFat", bodyFat).put("lean", lean)
                 cb.done(out.toString(), null)
             } catch (e: Exception) { cb.done(null, e.message ?: "error") }
         }

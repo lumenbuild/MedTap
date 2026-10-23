@@ -83,15 +83,17 @@ export const hasOwnRecords = async () => (await personRecordCount(DEFAULT_PERSON
 async function moveOwnRecords(name: string) {
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
-  await db.transaction('rw', [db.people, db.medications, db.doses, db.checkIns, db.bodyEntries, db.vitals, db.photos, db.labs, db.appointments, db.questions, db.daily], async () => {
+  await db.transaction('rw', [db.people, db.medications, db.doses, db.checkIns, db.bodyEntries, db.vitals, db.photos, db.labs, db.appointments, db.questions, db.daily, db.exercises, db.workouts, db.routines, db.tags], async () => {
     await db.people.put({ id, name: name.trim() || 'Me', createdAt: now, updatedAt: now });
     await db.people.delete(DEFAULT_PERSON);
     const sharedMeds = new Set((await db.medications.toArray()).filter((m) => m.shared).map((m) => m.id));
     await db.medications.filter((m) => !m.shared && !m.personId).modify({ personId: id, updatedAt: now });
     await db.doses.filter((d) => sharedMeds.has(d.medicationId) && !d.personId).modify({ personId: id, updatedAt: now });
-    for (const t of [db.checkIns, db.bodyEntries, db.vitals, db.photos, db.labs, db.appointments, db.questions, db.daily] as const) {
+    for (const t of [db.checkIns, db.bodyEntries, db.vitals, db.photos, db.labs, db.appointments, db.questions, db.daily, db.exercises, db.workouts, db.routines] as const) {
       await (t as typeof db.checkIns).filter((r) => !r.personId).modify({ personId: id, updatedAt: now });
     }
+    // Tags for an exercise, water bottle and so on log to whoever they belong to.
+    await db.tags.filter((t) => !!t.action && !t.personId).modify({ personId: id });
   });
   await setSetting('activePersonId', id);
 }
@@ -207,7 +209,7 @@ async function doSync() {
   }
 }
 
-const SYNCED_TABLES = ['people', 'medications', 'tags', 'doses', 'checkIns', 'bodyEntries', 'vitals', 'medEvents', 'supplies', 'labs', 'appointments', 'questions', 'daily'];
+const SYNCED_TABLES = ['people', 'medications', 'tags', 'doses', 'checkIns', 'bodyEntries', 'vitals', 'medEvents', 'supplies', 'labs', 'appointments', 'questions', 'daily', 'exercises', 'workouts', 'routines'];
 
 /** Sync with the relay on start, every 5 minutes while open, when the app comes back, and soon after changes. */
 let started = false;

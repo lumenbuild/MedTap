@@ -1,7 +1,7 @@
 import { db } from '../db';
 import { deviceTimeZone } from '../../logic/tz';
 import type { ScheduleSettings } from '../../logic/schedule';
-import { HAS_PEPTIDES } from '../../edition';
+import { HAS_BODY, HAS_PEPTIDES } from '../../edition';
 
 export type Units = 'metric' | 'imperial';
 
@@ -63,6 +63,21 @@ export interface AppSettings {
   healthLastImport: string | null;
   /** Whose records the imported data goes to (the person using this phone). */
   healthPersonId: string;
+  /** MedTap: the Training tab (workouts, personal bests, body composition goals). */
+  trainingTools: boolean;
+  /** Training: rest timer after each set (seconds; 0 = off), the bar's weight, and daily targets the person sets. */
+  restSeconds: number;
+  barKg: number;
+  proteinTargetG: number | null;
+  waterTargetMl: number | null;
+  /** Rest time worked out per set (heavy sets longer, small muscles shorter) from `restSeconds`. */
+  smartRest: boolean;
+  /** After a set that was clearly too easy or too hard, change the weight of that exercise's remaining sets. */
+  autoAdjust: boolean;
+  /** Reminders on the person's usual training days, and when the week's goal needs a session (app only). */
+  trainingReminders: boolean;
+  /** The "remind me on my usual days?" card on Training was answered. */
+  trainingReminderAsked: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -101,6 +116,15 @@ export const DEFAULT_SETTINGS: AppSettings = {
   healthImport: false,
   healthLastImport: null,
   healthPersonId: 'me',
+  trainingTools: true,
+  restSeconds: 120,
+  barKg: 20,
+  proteinTargetG: null,
+  waterTargetMl: null,
+  smartRest: true,
+  autoAdjust: true,
+  trainingReminders: false,
+  trainingReminderAsked: false,
 };
 
 export async function getSettings(): Promise<AppSettings> {
@@ -108,6 +132,7 @@ export async function getSettings(): Promise<AppSettings> {
   const out = { ...DEFAULT_SETTINGS } as Record<string, unknown>;
   for (const r of rows) if (r.key in DEFAULT_SETTINGS) out[r.key] = r.value;
   if (!HAS_PEPTIDES) out.peptideTools = false; // e.g. after restoring a MedTap backup into TapDose
+  if (!HAS_BODY) out.trainingTools = false;
   return out as unknown as AppSettings;
 }
 

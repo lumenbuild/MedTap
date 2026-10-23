@@ -8,12 +8,17 @@ import { useToast } from '../../app/toast';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { MedBadge } from '../../components/MedBadge';
+import { linkActionTag } from '../../db/repos/tags';
+import { DEFAULT_PERSON } from '../../db/schema';
+import { useFamily } from '../../app/data';
+import { ActionPicker } from '../Tags/ActionPicker';
 
 /** "New tag found": assign to an existing medication (one tap), create one, or leave it for later. */
 export function UnknownTag({ id, meds, relinking, onLinked, personName }: {
   id: string; meds: Medication[]; relinking: boolean; onLinked: () => void; personName?: (m: Medication) => string;
 }) {
   const toast = useToast();
+  const fam = useFamily();
   const assign = async (m: Medication) => {
     await linkTag(id, m.id);
     toast(`Tag linked to ${shownName(m)}`);
@@ -28,7 +33,7 @@ export function UnknownTag({ id, meds, relinking, onLinked, personName }: {
     <Card>
       <Nfc className="text-primary" size={32} aria-hidden="true" />
       <h1 className="text-2xl font-semibold mt-3">{relinking ? 'Link this tag to…' : 'New tag found'}</h1>
-      {!relinking && <p className="text-muted mt-1">This tag isn't linked to a medication on this phone yet.</p>}
+      {!relinking && <p className="text-muted mt-1">This tag isn't linked to anything on this phone yet.</p>}
 
       {meds.length > 0 && (
         <>
@@ -46,10 +51,20 @@ export function UnknownTag({ id, meds, relinking, onLinked, personName }: {
         </>
       )}
 
-      <div className="mt-5 space-y-3">
+      <div className="mt-3">
         <Button variant={meds.length ? 'secondary' : 'primary'} className="w-full flex items-center justify-center gap-2" onClick={() => go(`/meds/new/tag/${id}`)}>
           <Plus size={20} aria-hidden="true" /> Create a new medication
         </Button>
+      </div>
+
+      <h2 className="text-sm font-semibold text-muted mt-5 mb-2">Or use it for something else</h2>
+      <ActionPicker onPicked={async (action, label) => {
+        await linkActionTag(id, action, fam?.personId ?? DEFAULT_PERSON, label);
+        toast(`Tag linked: ${label}`);
+        onLinked();
+      }} />
+
+      <div className="mt-5 space-y-3">
         <Button variant="secondary" className="w-full" onClick={notNow}>Not now</Button>
       </div>
       <p className="text-sm text-muted mt-4">If this tag belongs to someone else's medication, choose Not now. Nothing is saved about it except the tag's code.</p>

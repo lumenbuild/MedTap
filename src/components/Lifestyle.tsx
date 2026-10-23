@@ -20,7 +20,7 @@ function CompareTable({ cols, rows }: { cols: [string, string]; rows: [string, s
   const shown = rows.filter((r) => r[1] !== '–' || r[2] !== '–');
   return (
     <table className="w-full text-[15px] tnum">
-      <thead><tr className="text-left text-sm text-muted"><th className="font-medium py-1" /><th className="font-medium py-1">{cols[0]}</th><th className="font-medium py-1">{cols[1]}</th></tr></thead>
+      <thead><tr className="text-left text-sm text-muted"><th className="font-medium py-1"><span className="sr-only">Measure</span></th><th className="font-medium py-1">{cols[0]}</th><th className="font-medium py-1">{cols[1]}</th></tr></thead>
       <tbody>{shown.map(([k, a, b]) => <tr key={k} className="border-t border-border"><td className="py-1.5 pr-3 text-muted">{k}</td><td className="py-1.5 pr-3">{a}</td><td className="py-1.5">{b}</td></tr>)}</tbody>
     </table>
   );
@@ -75,7 +75,7 @@ export function CycleCard({ checkIns, now }: { checkIns: CheckIn[]; now: number 
   return (
     <Section id="cycle-h" title="Your cycle">
       <p className="text-[15px] mb-2 tnum">{v.today ? `Day ${v.today} today` : ''}{v.averageLength ? ` · usually ${v.averageLength} days` : ''} · {v.starts.length} cycles logged</p>
-      <div className="table-scroll">
+      <div className="table-scroll" tabIndex={0}>
         <table className="w-full text-sm tnum">
           <thead><tr className="text-left text-muted"><th className="font-medium py-1 pr-3">Phase</th><th className="font-medium py-1 pr-2">Mood</th><th className="font-medium py-1 pr-2">Focus</th><th className="font-medium py-1 pr-2">Appetite</th><th className="font-medium py-1 pr-2">Side effects</th></tr></thead>
           <tbody>{v.phases.map((p) => <tr key={p.name} className="border-t border-border"><td className="py-1.5 pr-3">{p.name}</td><td className="py-1.5 pr-2">{cell(p.mood)}</td><td className="py-1.5 pr-2">{cell(p.focus)}</td><td className="py-1.5 pr-2">{cell(p.appetite)}</td><td className="py-1.5 pr-2">{cell(p.effectPct, '%')}</td></tr>)}</tbody>

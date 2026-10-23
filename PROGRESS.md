@@ -335,6 +335,111 @@ then appointment tools, then photo reading and native integrations (health impor
   Developer account for the shared app group); Android phones have no lock-screen widgets; Google Assistant voice
   commands (App Actions) need a Play Store listing, so Android gets launcher shortcuts instead.
 
+## Built: strength training and fitness (MedTap only; owner approved 22 Oct 2026)
+All 16 suggested: workout log with routines and a rest timer, personal bests, body composition, more goals (lean mass,
+body fat, strength, cardio, sessions a week), cardio log, protein and water, plate calculator, training calendar and
+streak, lean mass while losing weight, strength forecast, next-session targets, plateau / lighter-week spotting,
+strength against the peptide, readiness, muscle balance, and one timeline for every goal.
+- Where: a Training tab (Settings → Training, on by default in MedTap; TapDose has none, as it never shows weight).
+  Today gets protein / water buttons and a readiness line; check-ins get a soreness rating; Body → "Add measurements
+  or body fat" takes body fat %, lean mass and muscle mass, and Body shows the lean-mass card.
+- Logic: `src/logic/training.ts` (Epley estimated max to 12 reps, next target, plateau, Theil–Sen strength forecast via
+  `forecast()`, readiness against the person's own last 4 weeks, weekly balance, cardio bests, lean share of weight
+  lost by dose step), `src/logic/exercises.ts` (26 built-in exercises). Tests `tests/training.test.ts`.
+- DB v9: `exercises`, `workouts`, `routines` (synced and backed up); `Person.fitnessGoals`; `BodyEntry` body
+  composition; `DailyHealth` hrvMs / proteinG / waterMl; `CheckIn.soreness`.
+- Health import now also reads runs, walks (10+ min), rides, swims and rows with distance, body fat, lean mass and
+  heart rate variability (Health Connect RMSSD, Apple Health SDNN). A cardio session deleted in the app isn't
+  re-imported.
+- Tested: unit tests; browser flow with 8 weeks of seeded training (readiness, plateau, PBs, peptide card, lean mass,
+  repeat a session, rest timer, finish with PBs, routine, plates, cardio, protein target, soreness, body comp, help);
+  fit audit at 4 phone sizes; TapDose scan; Android debug build. Health import of the new types not tested on a phone.
+
+## Settings and wording review (owner request: "explained clearer, predictable")
+- Settings regrouped: Backup at the top, then People and phones, Reminders and health data (app), Doses and
+  schedules, Optional features, Check-ins, Display, Privacy and storage, Tools, About, Erase. One line at the top says
+  changes save straight away and turning a feature off only hides it.
+- Real on/off switches that say On or Off (`src/components/ui/Switch.tsx`) for peptides, training, cycle, reminders
+  and nudges; they were bare checkboxes.
+- Tools (lab results, trip planner, peptide calculator, supplies) moved out of the settings lists into a Tools group.
+- Wording made exact: double-log check names "the same medication" and says you can still log it; travel time has a
+  worked example for the chosen option; refill warning says where it shows; the check-in suggestion says what it does
+  in a browser; rest timer in min/s; units say they're for weight and measurements and that training is in kg.
+- Corrected statements that were wrong: "everything is saved on this device only" (not with Family sync on); cycle
+  data "kept on this phone" (period starts are check-ins, so they sync and back up); backups "encrypted" (they're
+  scrambled, but any copy of the app restores them without a password, so keep them private); Health import "again
+  when you open the app" (at most every 6 hours).
+- "Reset to the defaults" for check-in options can now be undone. "Add injection side effects" is a proper button.
+- Elsewhere: Trends "Median gap 4m" → "Usually 4 min between doses"; "(median)" dropped; the estimated level on Trends
+  now shows the value now with sensible rounding, matching the Protocol tab (it showed the end-of-day value to 3 dp);
+  the goal button names all four goal types; Help → Reminders covers nudges and the reminder check.
+- Follow-up worth doing: training weights in lb for people who use lb.
+
+## Tags for training and everyday logging (owner request: "add nfc to the exercises etc")
+- A tag can now be for an exercise or machine (adds it to the workout in progress with what to aim for, or starts one),
+  a routine (starts it), cardio (tap to start, tap again to finish: the time fills in), a water bottle or protein
+  shaker (adds that amount, with Undo), scales (Log weight), a blood pressure cuff (Log blood pressure) or a check-in.
+  Training kinds need the Training tab; TapDose gets blood pressure and check-in only.
+- Like medication tags, a tap shows what it will do with one button; nothing is logged by the tap alone.
+- Linked from: Settings → Tags (every tag in one place, rename / test / QR / change / unlink), an exercise's page, a
+  routine, or a new tag's "Or use it for something else". `Tag.action` + `Tag.personId` (`medicationId` is '');
+  relinking to a medication clears the action. Removing a person unlinks their action tags; joining sync moves them
+  with "Me".
+- Tests `tests/tagActions.test.ts`; browser flow links each kind from the Tags screen and an exercise page and taps
+  them (start workout, add to it, water, cardio start/finish, scales, unknown → protein).
+
+## Smarter training, exports, reminders, onboarding, accessibility (owner: "add all but I want it to be smarter")
+- Units: training weights in kg or lb (Settings → Display). Steps up and rounding are done in the unit the person
+  loads, so 135 lb goes to 140 lb and history logged in kg lands on loadable weights after switching; lb plates
+  (45/35/25/10/5/2.5) and bars (45/35/25/15 lb). `src/logic/load.ts`.
+- Exercises: 50 built in, each with equipment, short form cues ("How to"), per-hand weights for dumbbells, timed holds
+  (plank, side plank, dead hang, carries: seconds, +5 s when hit). Bodyweight / timed progress uses best reps or
+  seconds. Own exercises take equipment and "held for time".
+- Workout screen: supersets (rest after each round, 15 s between the pair, "Next: …"); Swap for a busy machine (same
+  main muscle, ones done before first, with what to aim for); smart rest (Settings: at least 3 min after heavy sets of
+  big lifts, up to 1½ min for small muscles, +30 s after RPE 9+), shown with the reason; a notification when rest
+  ends with the phone locked (app), cancelled on Skip / Finish.
+- Training reminders (app, Settings or a card on Training): learns usual days and start times (sessions in at least
+  half of the last 8 weeks), reminds 30 min before, skips days already trained, notes "Day 2 after your shot is
+  usually one of your stronger days", and a morning note when the sessions-a-week goal needs a session every day left.
+  `src/logic/trainingPlan.ts`; notifications in their own Android channel, kept out of the dose reminders' clear-out.
+- Exports: Workouts and cardio (every set, in the person's units), Daily (steps, sleep, heart rate, HRV, protein,
+  water), body CSV with body fat / lean / muscle, check-ins with soreness. Doctor report: training and body composition
+  (sessions a week, main lifts first → last with %, cardio, protein / water, body fat, lean mass) and the lean-mass
+  card; protocol report adds lean mass by dose step and strength by day after the shot.
+- Trends: protein (average, g per kg, days on target) and water; readiness by day; links in the person's records —
+  share of weight lost as lean mass at higher vs lower protein, and lifts on better vs lower readiness days (split at
+  the person's own median). `src/logic/fitnessInsights.ts`.
+- Onboarding: a "What would you like to track?" step (peptides, training, cycle).
+- Accessibility: axe-core (WCAG 2.1 AA + best practice) on every screen and the main sheets, light and dark: 0
+  violations after fixes (chart canvases hidden from screen readers since their numbers are given in words; protocol
+  rows valid definition lists; empty table headers named; scrolling tables focusable).
+- Tests: `tests/training-smart.test.ts`, `tests/fitness-insights.test.ts`; browser flow for lb, cues, superset rest,
+  swap, plates, Trends, reports, CSVs, onboarding; native flow (fake bridge) for training reminders and the rest
+  notification.
+
+## Smart progression (owner: "smart predict increases in exercises to ensure we are pushing ourselves")
+- `src/logic/progression.ts`. Today's target starts from the simple rule (up a step when every set hit its reps) and
+  then uses the person's evidence: an RPE-aware estimated max per session (RPE 8 at 5 reps counts as 7 reps to
+  failure), its robust trend (capped at +1.5%/week for planning, never below the last two sessions), and the load that
+  leaves about 2 reps in reserve at the target reps (rounded to the nearest loadable step).
+  - Push: more than one step (at most 2 steps or 5%) when sets felt easy (RPE ≤ 7), target reps were beaten by 2+, or
+    the trend says there's room. Timed / bodyweight: +5 s or +1 rep extra.
+  - Hold: on a low-readiness day (< 55), or a usual weaker day after the shot (4%+ below their level), match last time.
+  - Same with a note when every set got there at RPE 9+.
+  - No effort logged in the last two sessions: "Last set: as many good reps as you can, stopping 1 short" to tune.
+- In a workout (Settings → "Adjust the next sets as I go", on): after a set at RPE ≤ 7 that hit its reps, the
+  exercise's remaining sets go up a step; RPE 9.5+ or 2+ reps short, down a step; toast with Undo. Works when RPE is
+  chosen after ticking too.
+- Exercise page: Push / Hold / Aim with the reason and the usual step when it differs; "If each session goes to plan"
+  (next 4 sessions, dated by how often the lift is done, starting from today's target) and the weekly trend %.
+- Effort check: "Room to push" on Training (60%+ of sets in 3 weeks at RPE ≤ 7) and "progress has slowed from x% to
+  y% a week" on the exercise page.
+- Start a workout, repeat a session, routines and machine tags lay sets out at the smart target.
+- Tests `tests/progression.test.ts` (10); browser flow: room to push, push weight, laid-out sets, auto-adjust + Undo.
+- Emulator: without hardware acceleration the Android system itself crashed (DeadSystemException) shortly after
+  install, so there's still no on-device result; a real phone is needed.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 

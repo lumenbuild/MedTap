@@ -19,6 +19,20 @@ type Step = 'intro' | 'writing' | 'manual' | 'error' | 'test';
  *  moved to the next vial when one is mixed. */
 export function LinkTagSheet({ med, open, onClose, onQr, vialId }: { med: Medication; open: boolean; onClose: () => void; onQr: (url: string) => void; vialId?: string }) {
   const toast = useToast();
+  return (
+    <WriteTagSheet open={open} onClose={onClose} onQr={onQr} name={shownName(med)} title={`Link a tag to ${med.name}`} defaultLabel={vialId ? 'Vial tag' : ''}
+      placeholder="e.g. Bottle at home" onSave={async (id, label) => {
+        await linkTag(id, med.id, label, vialId);
+        toast(vialId ? `Tag linked to this ${shownName(med)} vial` : `Tag linked to ${shownName(med)}`);
+      }} />
+  );
+}
+
+/** Write a fresh tag (or copy its link, or print a QR sticker), then `onSave` links it; then test it. */
+export function WriteTagSheet({ open, onClose, onQr, name, title, defaultLabel = '', placeholder, onSave }: {
+  open: boolean; onClose: () => void; onQr: (url: string) => void; name: string; title: string; defaultLabel?: string; placeholder: string;
+  onSave: (id: string, label: string) => Promise<void>;
+}) {
   const [id, setId] = useState(newTagId);
   const [label, setLabel] = useState('');
   const [step, setStep] = useState<Step>(canWriteNFC ? 'intro' : 'manual');
@@ -28,14 +42,13 @@ export function LinkTagSheet({ med, open, onClose, onQr, vialId }: { med: Medica
 
   // Fresh tag ID each time the sheet opens.
   useEffect(() => {
-    if (open) { setId(newTagId()); setLabel(vialId ? 'Vial tag' : ''); setStep(canWriteNFC ? 'intro' : 'manual'); setCopied(false); }
+    if (open) { setId(newTagId()); setLabel(defaultLabel); setStep(canWriteNFC ? 'intro' : 'manual'); setCopied(false); }
     else ctrl.current?.abort();
   }, [open]);
 
   const url = tagUrl(id);
   const save = async () => {
-    await linkTag(id, med.id, label, vialId);
-    toast(vialId ? `Tag linked to this ${shownName(med)} vial` : `Tag linked to ${shownName(med)}`);
+    await onSave(id, label);
     setStep('test');
   };
 
@@ -57,14 +70,14 @@ export function LinkTagSheet({ med, open, onClose, onQr, vialId }: { med: Medica
   };
 
   const labelField = (
-    <TextInput label="Where is this tag? (optional)" placeholder="e.g. Bottle at home" value={label} onChange={(e) => setLabel(e.target.value)} autoComplete="off" />
+    <TextInput label="Where is this tag? (optional)" placeholder={placeholder} value={label} onChange={(e) => setLabel(e.target.value)} autoComplete="off" />
   );
   const tempNote = isTemporaryTagBase() && (
     <p className="text-sm rounded-btn bg-caution-soft p-3">This is a test address. Tags written now will need rewriting once the app moves to its permanent address.</p>
   );
 
   return (
-    <Sheet open={open} onClose={onClose} title={step === 'test' ? 'Tag linked' : `Link a tag to ${med.name}`}>
+    <Sheet open={open} onClose={onClose} title={step === 'test' ? 'Tag linked' : title}>
       <div className="space-y-4">
         {step === 'intro' && (
           <>
@@ -134,7 +147,7 @@ export function LinkTagSheet({ med, open, onClose, onQr, vialId }: { med: Medica
 
         {step === 'test' && (
           <>
-            <TagTest tagId={id} medName={shownName(med)} />
+            <TagTest tagId={id} medName={name} />
             <SheetActions>
               <Button variant="secondary" className="w-full flex items-center justify-center gap-2" onClick={() => onQr(url)}>
                 <QrCode size={20} aria-hidden="true" /> Also print a QR sticker

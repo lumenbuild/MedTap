@@ -11,6 +11,8 @@ import { APP_NAME } from '../config';
 import { getRecentDose } from '../logic/schedule';
 import { logDose } from '../db/repos/doses';
 import { planReminders } from '../logic/notify';
+import { planTrainingReminders } from '../logic/trainingPlan';
+import { trainingVsPeptide } from '../logic/training';
 import { fmtAmount, fmtTime } from '../logic/format';
 import { shownName } from '../logic/privacy';
 import { tagIdFromUrl } from '../nfc/url';
@@ -20,6 +22,10 @@ import { go } from './router';
 import { requestLog } from './pendingLog';
 
 const CHANNEL = 'doses';
+const TRAINING_CHANNEL = 'training';
+/** The rest timer's notification, and the range used by training reminders: kept out of the dose reminders' clear-out. */
+const REST_ID = 900_000_001;
+const isTrainingId = (id: number) => id >= 900_000_000 && id < 901_000_000;
 const ACTIONS = 'dose';
 
 /** A tag or link opened the app: go to that tag's screen. */
@@ -44,12 +50,13 @@ export async function initNative() {
   await LocalNotifications.registerActionTypes({ types: [{ id: ACTIONS, actions: [{ id: 'log', title: 'Log it', foreground: true }] }] });
   if (isNativeAndroid) {
     await LocalNotifications.createChannel({ id: CHANNEL, name: 'Dose reminders', description: 'When a dose is due', importance: 4, vibration: true, visibility: 0 });
+    await LocalNotifications.createChannel({ id: TRAINING_CHANNEL, name: 'Training', description: 'Rest timer and training-day reminders', importance: 4, vibration: true, visibility: 1 });
   }
   await LocalNotifications.addListener('localNotificationActionPerformed', (a) => { void onAction(a); });
 
   // Reschedule whenever medications, doses or settings change (debounced).
   let timer: ReturnType<typeof setTimeout> | undefined;
-  liveQuery(() => Promise.all([db.medications.count(), db.doses.count(), db.doses.orderBy('takenAt').last(), db.settings.toArray()]))
+  liveQuery(() => Promise.all([db.medications.count(), db.doses.count(), db.doses.orderBy('takenAt').last(), db.settings.toArray(), db.workouts.count()]))
     .subscribe(() => { clearTimeout(timer); timer = setTimeout(() => { void syncReminders(); void syncExtras(); }, 2000); });
 }
 
@@ -68,7 +75,9 @@ async function syncExtras() {
 
 /** "Log it" logs the planned amount straight away; tapping the notification opens Log dose. */
 async function onAction({ actionId, notification }: ActionPerformed) {
-  const { medId, amount } = (notification.extra ?? {}) as { medId?: string; amount?: number };
+  const { medId, amount, route } = (notification.extra ?? {}) as { medId?: string; amount?: number; route?: string };
+  // Training reminders open Training; the rest timer just brings the app (and the workout) back.
+  if (route) { if (route !== 'back') go(route); return; }
   if (!medId) return;
   const med = await db.medications.get(medId);
   if (!med) return;
@@ -99,6 +108,18 @@ export async function setRemindersEnabled(on: boolean): Promise<boolean> {
   return on;
 }
 
+/** Training-day reminders on (asking for permission) or off. Returns whether they're on. */
+export async function setTrainingReminders(on: boolean): Promise<boolean> {
+  if (on) {
+    const p = await LocalNotifications.requestPermissions();
+    if (p.display !== 'granted') return false;
+  }
+  await setSetting('trainingReminders', on);
+  await setSetting('trainingReminderAsked', true);
+  await syncReminders();
+  return on;
+}
+
 /** Android 12+: whether reminders can go off at the exact minute (otherwise the phone may delay them a little). */
 export async function exactRemindersAllowed(): Promise<boolean> {
   if (!isNativeAndroid) return true;
@@ -117,9 +138,12 @@ export function syncReminders(): Promise<void> {
 
 async function doSync() {
   const pending = await LocalNotifications.getPending();
-  if (pending.notifications.length) await LocalNotifications.cancel({ notifications: pending.notifications.map((n) => ({ id: n.id })) });
+  const stale = pending.notifications.filter((n) => n.id !== REST_ID);
+  if (stale.length) await LocalNotifications.cancel({ notifications: stale.map((n) => ({ id: n.id })) });
   const settings = await getSettings();
-  if (!settings.remindersEnabled || (await reminderPermission()) !== 'granted') return;
+  if ((await reminderPermission()) !== 'granted') return;
+  if (settings.trainingTools && settings.trainingReminders) await scheduleTraining(settings);
+  if (!settings.remindersEnabled) return;
   const [meds, doses, people] = await Promise.all([db.medications.toArray(), db.doses.toArray(), listPeople()]);
   const live = doses.filter((d) => !d.deletedAt);
   const plan = planReminders(meds, live, Date.now(), scheduleSettings(settings), undefined, undefined, { nudges: settings.lateNudges });
@@ -143,6 +167,38 @@ async function doSync() {
   });
 }
 
+
+/** Usual-day training reminders and the week's goal note, for the person this phone's Health import belongs to (the
+ *  phone's own person). */
+async function scheduleTraining(settings: Awaited<ReturnType<typeof getSettings>>) {
+  const s = scheduleSettings(settings);
+  const me = settings.healthPersonId;
+  const [workouts, people, meds, doses] = await Promise.all([db.workouts.toArray(), listPeople(), db.medications.toArray(), db.doses.toArray()]);
+  const mine = workouts.filter((w) => personOf(w) === me);
+  const goal = people.find((p) => p.id === me)?.fitnessGoals?.find((g) => g.kind === 'sessions');
+  const peptide = settings.peptideTools ? meds.find((m) => m.peptide && !m.archived && medIsFor(m, me)) : undefined;
+  const pv = peptide ? trainingVsPeptide(peptide, doses, mine) : null;
+  const shots = peptide ? doses.filter((d) => d.medicationId === peptide.id && !d.deletedAt && !d.skipped).map((d) => Date.parse(d.takenAt)).sort((a, b) => a - b) : [];
+  const gap = shots.length >= 2 ? Math.round((shots[shots.length - 1] - shots[shots.length - 2]) / 86_400_000) : undefined;
+  const plan = planTrainingReminders(mine, Date.now(), s, { perWeek: goal?.perWeek, strongDays: pv?.bestDays, lastShot: shots[shots.length - 1], shotEveryDays: gap && gap >= 3 ? gap : undefined });
+  if (!plan.length) return;
+  await LocalNotifications.schedule({
+    notifications: plan.map((r) => ({ id: r.id, title: r.title, body: r.body, schedule: { at: new Date(r.at), allowWhileIdle: true }, channelId: TRAINING_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/training' } })),
+  });
+}
+
+/** The rest timer, for when the phone is locked or the app is in the background. */
+export async function scheduleRestEnd(at: number, body: string) {
+  if (!isNative) return;
+  try {
+    if ((await reminderPermission()) !== 'granted') return;
+    await LocalNotifications.schedule({ notifications: [{ id: REST_ID, title: 'Rest over', body, schedule: { at: new Date(at), allowWhileIdle: true }, channelId: TRAINING_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: 'back' } }] });
+  } catch (e) { console.error('rest timer', e); }
+}
+export async function cancelRestEnd() {
+  if (!isNative) return;
+  try { await LocalNotifications.cancel({ notifications: [{ id: REST_ID }] }); } catch { /* none pending */ }
+}
 
 // ── Reminder check ──────────────────────────────────────────────────────────────────────────────────
 

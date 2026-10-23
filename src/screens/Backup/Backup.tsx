@@ -15,7 +15,9 @@ import { isSealed, unsealBackup } from '../../logic/crypto';
 import { autoBackupState, BackupError, backupText, chooseFolder, folderName, regainPermission, runAutoBackup, stopAutoBackup } from '../../app/autoBackup';
 import { isNative, nativePlatform } from '../../nfc/native';
 import { backupFilename, validateBackup, type BackupFile, type Counts } from '../../logic/backup';
-import { bodyCsv, checkInsCsv, dosesCsv, medicationsCsv, vitalsCsv } from '../../logic/csv';
+import { bodyCsv, checkInsCsv, dailyCsv, dosesCsv, medicationsCsv, vitalsCsv, workoutsCsv } from '../../logic/csv';
+import { allExercises } from '../../logic/exercises';
+import { getSettings } from '../../db/repos/settings';
 import { fmtAgo, fmtWhen } from '../../logic/format';
 import { isIOS, isStandalone } from '../../platform';
 import { APP_NAME } from '../../config';
@@ -80,7 +82,7 @@ export function Backup() {
     refresh();
   };
 
-  const exportCsv = async (kind: 'doses' | 'checkIns' | 'body' | 'vitals' | 'meds') => {
+  const exportCsv = async (kind: 'doses' | 'checkIns' | 'body' | 'vitals' | 'meds' | 'workouts' | 'daily') => {
     const meds = await db.medications.toArray();
     const people = await listPeople();
     const person = (id?: string) => people.find((p) => p.id === (id ?? DEFAULT_PERSON))?.name ?? 'Me';
@@ -88,8 +90,10 @@ export function Backup() {
       : kind === 'checkIns' ? checkInsCsv(await db.checkIns.toArray(), person)
       : kind === 'body' ? bodyCsv(await db.bodyEntries.toArray(), person)
       : kind === 'vitals' ? vitalsCsv(await db.vitals.toArray(), person)
+      : kind === 'workouts' ? workoutsCsv(await db.workouts.toArray(), allExercises(await db.exercises.toArray()), (await getSettings()).units, person)
+      : kind === 'daily' ? dailyCsv(await db.daily.toArray(), person)
       : medicationsCsv(meds, person);
-    const name = { doses: 'doses', checkIns: 'check-ins', body: 'body', vitals: 'blood-pressure', meds: 'medications' }[kind];
+    const name = { doses: 'doses', checkIns: 'check-ins', body: 'body', vitals: 'blood-pressure', meds: 'medications', workouts: 'workouts', daily: 'daily' }[kind];
     await shareOrDownload(`${APP_NAME}-${name}.csv`, new Blob([csv], { type: 'text/csv' }), `${APP_NAME} ${name}`);
   };
 
@@ -152,7 +156,7 @@ export function Backup() {
         <Button className="w-full min-h-[56px] flex items-center justify-center gap-2" onClick={doExport} disabled={busy}>
           <Download size={20} aria-hidden="true" /> Back up now
         </Button>
-        <p className="text-sm text-muted">Backup files are encrypted, so they can't be read by opening them. Any copy of {APP_NAME} can restore them, no password needed.</p>
+        <p className="text-sm text-muted">Backup files are scrambled, so opening one shows nothing readable. But any copy of {APP_NAME} can restore them without a password, so keep them somewhere private, like your own cloud drive.</p>
       </Card>
 
       <Card className="space-y-3">
@@ -216,7 +220,7 @@ export function Backup() {
       <Card className="space-y-2">
         <h2 className="text-sm font-medium text-muted">Spreadsheets</h2>
         <p className="text-sm text-muted">CSV files you can open in Excel, Numbers or Google Sheets. These can't be restored.</p>
-        {([['doses', 'Doses'], ['checkIns', 'Check-ins'], ...(HAS_BODY ? [['body', 'Weight and measurements'] as const] : []), ['vitals', 'Blood pressure and heart rate'], ['meds', 'Medications']] as const).map(([k, label]) => (
+        {([['doses', 'Doses'], ['checkIns', 'Check-ins'], ...(HAS_BODY ? [['body', 'Weight, measurements and body fat'] as const, ['workouts', 'Workouts and cardio'] as const] : []), ['vitals', 'Blood pressure and heart rate'], ['daily', HAS_BODY ? 'Daily: steps, sleep, protein, water' : 'Daily: steps, sleep, heart rate'] as const, ['meds', 'Medications']] as const).map(([k, label]) => (
           <button key={k} onClick={() => exportCsv(k)} className="w-full min-h-[48px] flex items-center gap-3 px-3 rounded-btn bg-surface-2 text-left font-medium">
             <FileSpreadsheet size={20} className="text-primary" aria-hidden="true" /> {label}
           </button>

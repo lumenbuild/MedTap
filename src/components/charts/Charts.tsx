@@ -167,7 +167,7 @@ export function DoseTimingCharts({ meds, doses, start, end, s, realNames }: Rang
           return (
             <div key={med.id}>
               <p className="font-medium">{nameOf(med)}</p>
-              {med1 !== null && <p className="text-sm text-muted">First dose usually around {hourLabel(med1)} (median)</p>}
+              {med1 !== null && <p className="text-sm text-muted">First dose usually around {hourLabel(med1)}</p>}
               <div style={{ height: 170 }} className="mt-2">
                 <Scatter data={{ datasets: [{ label: nameOf(med), data: pts.map((p) => ({ x: p.t, y: p.hour })), ...point(th, color) }] }}
                   options={{ ...baseOptions(th), interaction: { mode: 'nearest', intersect: true },
@@ -296,7 +296,7 @@ export function IntervalCharts({ meds, doses, start, end, s, realNames }: RangeP
           return (
             <div key={med.id}>
               <p className="font-medium">{realNames ? fmtMedName(med) : shownMedName(med)}</p>
-              <p className="text-sm text-muted tnum">Median gap {fmtDuration(med1 * 3_600_000)} across {gaps.length} gap{gaps.length === 1 ? '' : 's'}.{sched}</p>
+              <p className="text-sm text-muted tnum">Usually {fmtDuration(med1 * 3_600_000).replace(/(\d)([dhm])\b/g, (_, n, u) => `${n} ${u === 'd' ? 'd' : u === 'h' ? 'h' : 'min'}`)} between doses ({gaps.length} gap{gaps.length === 1 ? '' : 's'}).{sched}</p>
               <div style={{ height: 150 }} className="mt-2">
                 <Bar data={{ labels: bins.map((b) => `${b.from}–${b.to}h`), datasets: [{ label: nameOf(med), data: bins.map((b) => b.count), backgroundColor: color, borderRadius: 4, borderSkipped: 'start', maxBarThickness: 24 }] }}
                   options={{ ...baseOptions(th), interaction: { mode: 'nearest', intersect: true },

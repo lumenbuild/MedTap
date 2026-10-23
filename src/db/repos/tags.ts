@@ -1,5 +1,6 @@
 import { db } from '../db';
-import type { Tag } from '../schema';
+import type { Tag, TagAction } from '../schema';
+import { storedPerson } from './people';
 import { removePendingTag } from './settings';
 
 const nowIso = () => new Date().toISOString();
@@ -7,7 +8,16 @@ const nowIso = () => new Date().toISOString();
 /** Link a tag ID to a medication (and, for a tag stuck on a vial, that vial). Re-linking an existing tag moves it. */
 export async function linkTag(id: string, medicationId: string, label?: string, vialId?: string): Promise<Tag> {
   const existing = await db.tags.get(id);
-  const tag: Tag = { ...existing, id, medicationId, label: label?.trim() || existing?.label, createdAt: existing?.createdAt ?? nowIso(), vialId };
+  const tag: Tag = { ...existing, action: undefined, personId: undefined, id, medicationId, label: label?.trim() || existing?.label, createdAt: existing?.createdAt ?? nowIso(), vialId };
+  await db.tags.put(tag);
+  await removePendingTag(id);
+  return tag;
+}
+
+/** Link a tag to something other than a medication: an exercise, routine, water bottle and so on. */
+export async function linkActionTag(id: string, action: TagAction, personId: string, label?: string): Promise<Tag> {
+  const existing = await db.tags.get(id);
+  const tag: Tag = { id, medicationId: '', action, personId: storedPerson(personId), label: label?.trim() || existing?.label, createdAt: existing?.createdAt ?? nowIso(), lastScannedAt: existing?.lastScannedAt };
   await db.tags.put(tag);
   await removePendingTag(id);
   return tag;

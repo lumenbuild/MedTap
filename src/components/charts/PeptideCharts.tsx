@@ -26,13 +26,15 @@ export function EstimatedLevelCharts({ meds, doses, start, end }: RangeProps & {
       {withHalfLife.map((m) => {
         const h = m.peptide!.halfLifeHours!;
         const pts = estimatedLevel(doses.filter((d) => d.medicationId === m.id), h, start, end);
-        const nowV = pts[pts.length - 1]?.v ?? 0;
+        const r3 = (v: number) => (v >= 10 ? Math.round(v * 10) / 10 : v >= 1 ? Math.round(v * 100) / 100 : Math.round(v * 1000) / 1000);
+        // The value now (the range can run to the end of today), as on the Protocol tab.
+        const nowV = [...pts].reverse().find((p) => p.t <= Date.now())?.v ?? pts[pts.length - 1]?.v ?? 0;
         const peak = Math.max(0, ...pts.map((p) => p.v));
         const daily = pts.filter((_, i) => i % Math.max(1, Math.round(pts.length / ((end - start) / DAY))) === 0);
         return (
           <ChartCard key={`${m.id}-${th.key}`} title={`Estimated level: ${shownName(m)}`}
             empty={peak > 0 ? null : 'No doses in this range.'}
-            summary={`About ${fmtAmount(Math.round(nowV * 1000) / 1000, m.unit)} now, from your half-life figure of ${fmtHalfLife(h)}. An estimate, not a measurement.`}
+            summary={`About ${fmtAmount(r3(nowV), m.unit)} now, from your half-life figure of ${fmtHalfLife(h)}. An estimate, not a measurement.`}
             table={{ head: ['Date', `Estimated (${m.unit})`], rows: daily.map((p) => [fmtDay(p.t), Math.round(p.v * 1000) / 1000]).reverse() }}>
             <Line
               data={{ datasets: [{ label: 'Estimated level', data: pts.map((p) => ({ x: p.t, y: p.v })), borderColor: th.series[0], backgroundColor: th.series[0], borderWidth: 2, pointRadius: 0, pointHitRadius: 8, tension: 0.2, fill: false }] }}
@@ -60,7 +62,7 @@ export function DoseLevelsCards({ meds, doses, body, checkIns, units, now }: { m
           <Card key={m.id} className="space-y-2">
             <h2 className="text-sm font-medium text-muted">Dose levels: {shownName(m)}</h2>
             <p className="text-muted">Weight and check-ins while you were on each dose. What you've recorded, side by side; it doesn't show cause.</p>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0}>
               <table className="w-full text-sm tnum">
                 <thead><tr>{['Dose', 'From', 'Doses', 'Weight', `${u}/week`, 'Appetite', 'Noticed'].map((h) => <th key={h} className="text-left font-semibold py-1.5 pr-3 border-b border-border">{h}</th>)}</tr></thead>
                 <tbody>

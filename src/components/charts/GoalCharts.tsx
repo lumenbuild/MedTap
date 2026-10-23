@@ -35,7 +35,7 @@ export function GoalForecastCharts({ goals, entries, units, now }: { goals: Body
           ] : []),
         ];
         return (
-          <ChartCard key={`${g.metric}-${th.key}`} title={`${u.name === 'weight' ? 'Weight' : 'Waist'} goal forecast`}
+          <ChartCard key={`${g.metric}-${th.key}`} title={`${u.name[0].toUpperCase()}${u.name.slice(1)} goal forecast`}
             empty={pts.length ? null : `No ${u.name} logged since the goal was set.`}
             summary={goalLine(v, units)}
             table={{ head: ['Date', `Logged (${u.unit})`, `Trend (${u.unit})`], rows: [...pts].reverse().map((p) => [format(p.t, 'EEE d MMM'), u.show(p.v), u.show(trend.find((x) => x.t === p.t)?.v ?? p.v)]) }}>

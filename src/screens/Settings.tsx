@@ -1,10 +1,13 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
-import { Calculator, CalendarCheck, ChevronRight, Package, HardDriveDownload, HelpCircle, Lock, Plane, RefreshCw, Syringe, X } from 'lucide-react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
+import { Calculator, CalendarCheck, ChevronRight, Package, HardDriveDownload, HelpCircle, Lock, Plane, RefreshCw, Nfc, X } from 'lucide-react';
 import { useSyncConfig } from '../app/sync';
+import { setTrainingReminders } from '../app/native';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Sheet, SheetActions } from '../components/ui/Sheet';
 import { Segmented, TextInput } from '../components/ui/Field';
+import { Switch } from '../components/ui/Switch';
+import { BARS, fromLoad, loadUnit } from '../logic/load';
 import { getTheme, setTheme, type Theme } from '../app/theme';
 import { APP_NAME, DISCLAIMER } from '../config';
 import { useFamily, useSettings } from '../app/data';
@@ -18,7 +21,7 @@ import { hashPin, isValidPin, newSalt } from '../logic/pin';
 import { FamilyCard } from './Family';
 import { placeName } from '../components/TravelBanner';
 import { isAndroid, isIOS, isNative, isStandalone } from '../platform';
-import { HAS_BODY, HAS_PEPTIDES } from '../edition';
+import { HAS_BODY, HAS_PEPTIDES, HAS_VISITS } from '../edition';
 import { SIDE_EFFECT_CHIPS } from '../logic/peptide';
 
 const RemindersCard = lazy(() => import('./RemindersCard'));
@@ -64,8 +67,19 @@ export function Settings() {
     setNewChip('');
   };
 
+  const resetChips = async () => {
+    const before = settings.chips;
+    await setSetting('chips', DEFAULT_CHIPS);
+    toast('Options reset to the defaults', { onAction: () => setSetting('chips', before) });
+  };
+  const travelHint = settings.timeMode === 'home'
+    ? `An 8:00 am dose stays at 8:00 am ${settings.homeTimeZone ? placeName(settings.homeTimeZone) : 'home'} time, whatever the local time is.`
+    : 'An 8:00 am dose stays at 8:00 am wherever you are.';
+
   return (
     <div className="space-y-4">
+      <p className="text-sm text-muted">Changes save as you make them. Turning a feature off only hides it; nothing is deleted.</p>
+
       <a href="#/backup" className="border-t border-border py-4 flex items-center gap-3">
         <HardDriveDownload className="text-primary" aria-hidden="true" />
         <span className="flex-1">
@@ -75,217 +89,245 @@ export function Settings() {
         <ChevronRight className="text-muted" aria-hidden="true" />
       </a>
 
-      <FamilyCard />
-
-      <a href="#/sync" className="border-t border-border py-4 flex items-center gap-3">
-        <RefreshCw className="text-primary" aria-hidden="true" />
-        <span className="flex-1">
-          <span className="block font-semibold">Family sync</span>
-          <span className="block text-sm text-muted tnum">
-            {!sync ? 'Share records between phones' : sync.lastSyncAt ? `On · synced ${fmtAgo(now - Date.parse(sync.lastSyncAt))}` : 'On'}
+      <Group title="People and phones">
+        <FamilyCard />
+        <a href="#/sync" className="border-t border-border py-4 flex items-center gap-3">
+          <RefreshCw className="text-primary" aria-hidden="true" />
+          <span className="flex-1">
+            <span className="block font-semibold">Family sync</span>
+            <span className="block text-sm text-muted tnum">
+              {!sync ? 'Off · keep records the same on your family’s phones' : sync.lastSyncAt ? `On · synced ${fmtAgo(now - Date.parse(sync.lastSyncAt))}` : 'On'}
+            </span>
           </span>
-        </span>
-        <ChevronRight className="text-muted" aria-hidden="true" />
-      </a>
+          <ChevronRight className="text-muted" aria-hidden="true" />
+        </a>
+      </Group>
 
-      {isNative && <Suspense fallback={null}><RemindersCard enabled={settings.remindersEnabled} nudges={settings.lateNudges} /></Suspense>}
-      {isNative && <Suspense fallback={null}><HealthCard on={settings.healthImport} last={settings.healthLastImport} personId={settings.healthImport ? settings.healthPersonId : settings.activePersonId}
-        personName={fam?.many ? fam.nameOf(settings.healthImport ? settings.healthPersonId : settings.activePersonId) : undefined} now={now} /></Suspense>}
+      {isNative && (
+        <Group title="Reminders and health data">
+          <Suspense fallback={null}><RemindersCard enabled={settings.remindersEnabled} nudges={settings.lateNudges} /></Suspense>
+          <Suspense fallback={null}><HealthCard on={settings.healthImport} last={settings.healthLastImport} personId={settings.healthImport ? settings.healthPersonId : settings.activePersonId}
+            personName={fam?.many ? fam.nameOf(settings.healthImport ? settings.healthPersonId : settings.activePersonId) : undefined} now={now} /></Suspense>
+        </Group>
+      )}
 
-      <a href="#/appointments" className="border-t border-border py-4 flex items-center gap-3">
-        <CalendarCheck className="text-primary" aria-hidden="true" />
-        <span className="flex-1">
-          <span className="block font-semibold">Appointments and lab results</span>
-          <span className="block text-sm text-muted">Questions to ask, and what's changed since the last one</span>
-        </span>
-        <ChevronRight className="text-muted" aria-hidden="true" />
-      </a>
-      <a href="#/travel" className="border-t border-border py-4 flex items-center gap-3">
-        <Plane className="text-primary" aria-hidden="true" />
-        <span className="flex-1">
-          <span className="block font-semibold">Plan a trip</span>
-          <span className="block text-sm text-muted">Dose times across time zones</span>
-        </span>
-        <ChevronRight className="text-muted" aria-hidden="true" />
-      </a>
-
-      <Card className="space-y-4">
-        <h2 className="text-sm font-medium text-muted">Your day</h2>
-        <div className="space-y-1.5">
-          <label htmlFor="day-start" className="block text-sm font-medium">Day starts at</label>
-          <input id="day-start" type="time" value={settings.dayStartsAt} required
-            onChange={(e) => e.target.value && setSetting('dayStartsAt', e.target.value)}
-            className={`${selectCls} tnum`} />
-          <p className="text-sm text-muted">
-            Doses before {fmtHHmm(settings.dayStartsAt)} count towards the day before, so a late-night dose stays with the right day.
-          </p>
-        </div>
-        <div className="space-y-1.5">
-          <label htmlFor="guard" className="block text-sm font-medium">Ask before logging twice within</label>
-          <select id="guard" value={settings.guardMinutes} onChange={(e) => setSetting('guardMinutes', Number(e.target.value))} className={selectCls}>
-            {[2, 5, 10, 15, 30, 60].map((m) => <option key={m} value={m}>{m} minutes</option>)}
-          </select>
-          <p className="text-sm text-muted">Catches a tag that fires twice, or a dose you already logged.</p>
-        </div>
-        <div className="space-y-1.5">
-          <label htmlFor="time-mode" className="block text-sm font-medium">When travelling, set times follow</label>
-          <select id="time-mode" value={settings.timeMode} onChange={(e) => setSetting('timeMode', e.target.value as 'device' | 'home')} className={selectCls}>
-            <option value="device">This phone's time zone</option>
-            <option value="home">Home time{settings.homeTimeZone ? ` (${placeName(settings.homeTimeZone)})` : ''}</option>
-          </select>
-          <p className="text-sm text-muted">Every-few-hours countdowns always use real time passed, so they're unaffected.</p>
-        </div>
-        <div className="space-y-1.5">
-          <label htmlFor="refill-warn" className="block text-sm font-medium">Warn me before a medication runs out</label>
-          <select id="refill-warn" value={settings.refillWarnDays} onChange={(e) => setSetting('refillWarnDays', Number(e.target.value))} className={selectCls}>
-            {[3, 5, 7, 10, 14, 21].map((d) => <option key={d} value={d}>{d} days ahead</option>)}
-          </select>
-          <p className="text-sm text-muted">Worked out from your stock count and your schedule, including planned changes.</p>
-        </div>
-        {HAS_BODY && (
+      <Group title="Doses and schedules">
+        <Card className="space-y-5">
           <div className="space-y-1.5">
-            <span className="block text-sm font-medium">Units</span>
-            <Segmented<Units> label="Units" value={settings.units} onChange={(v) => setSetting('units', v)}
-              options={[{ value: 'metric', label: 'kg and cm' }, { value: 'imperial', label: 'lb and in' }]} />
-          </div>
-        )}
-      </Card>
-
-      {HAS_PEPTIDES && <Card className="space-y-3">
-        <h2 className="text-sm font-medium text-muted flex items-center gap-2"><Syringe size={18} aria-hidden="true" /> Peptides and injections</h2>
-        <label className="flex items-center justify-between gap-3 min-h-[48px]">
-          <span>
-            <span className="block font-medium">Peptide and injection tools</span>
-            <span className="block text-sm text-muted">Vials you mix with water, syringe units for each dose, a calculator, titration plans, on/off cycles, supplies and level estimates.</span>
-          </span>
-          <input type="checkbox" role="switch" checked={settings.peptideTools} onChange={(e) => setSetting('peptideTools', e.target.checked)}
-            className="w-6 h-6 accent-[var(--primary)] shrink-0" aria-label="Peptide and injection tools" />
-        </label>
-        {settings.peptideTools && (
-          <a href="#/calc" className="min-h-[48px] flex items-center gap-3 px-3 rounded-btn bg-surface-2 font-medium">
-            <Calculator size={20} className="text-primary" aria-hidden="true" /> <span className="flex-1">Peptide calculator</span> <ChevronRight className="text-muted" aria-hidden="true" />
-          </a>
-        )}
-        {settings.peptideTools && SIDE_EFFECT_CHIPS.some((c) => !settings.chips.includes(c)) && (
-          <button onClick={() => { setSetting('chips', [...settings.chips, ...SIDE_EFFECT_CHIPS.filter((c) => !settings.chips.includes(c))]); toast('Added to check-ins'); }}
-            className="w-full min-h-[48px] px-3 rounded-btn bg-surface-2 font-medium text-left">
-            Add injection side effects to check-ins <span className="block text-sm text-muted font-normal">{SIDE_EFFECT_CHIPS.join(', ')}</span>
-          </button>
-        )}
-        {settings.peptideTools && (
-          <a href="#/supplies" className="min-h-[48px] flex items-center gap-3 px-3 rounded-btn bg-surface-2 font-medium">
-            <Package size={20} className="text-primary" aria-hidden="true" /> <span className="flex-1">Supplies</span> <ChevronRight className="text-muted" aria-hidden="true" />
-          </a>
-        )}
-      </Card>}
-
-      <Card className="space-y-4">
-        <h2 className="text-sm font-medium text-muted">Check-ins</h2>
-        <div className="space-y-1.5">
-          <label htmlFor="ci-delay" className="block text-sm font-medium">Suggest a check-in after a dose</label>
-          <select id="ci-delay" value={settings.checkInDelayMin} onChange={(e) => setSetting('checkInDelayMin', Number(e.target.value))} className={selectCls}>
-            <option value={0}>Off</option>
-            {[30, 60, 90, 120, 180].map((m) => <option key={m} value={m}>{m < 60 ? `${m} minutes` : `${m / 60} hour${m === 60 ? '' : 's'}`} later</option>)}
-          </select>
-          <p className="text-sm text-muted">Shows a card on Today.{isNative ? '' : ` ${APP_NAME} can't send notifications.`}</p>
-        </div>
-        <div>
-          <span className="block text-sm font-medium mb-2">“What are you noticing?” options</span>
-          <ul className="flex flex-wrap gap-2">
-            {settings.chips.map((c) => (
-              <li key={c} className="flex items-center gap-1 pl-4 pr-1 min-h-[44px] rounded-chip bg-surface-2 text-sm">
-                {c}
-                <button onClick={() => setSetting('chips', settings.chips.filter((x) => x !== c))} aria-label={`Remove ${c}`}
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-muted"><X size={16} aria-hidden="true" /></button>
-              </li>
-            ))}
-          </ul>
-          <div className="flex gap-2 mt-3">
-            <label className="flex-1"><span className="sr-only">New option</span>
-              <input value={newChip} onChange={(e) => setNewChip(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addChip()}
-                placeholder="Add an option" className={selectCls} /></label>
-            <Button variant="secondary" onClick={addChip} disabled={!newChip.trim()}>Add</Button>
-          </div>
-          <button onClick={() => setSetting('chips', DEFAULT_CHIPS)} className="mt-2 min-h-[44px] text-sm text-primary font-semibold">Reset to the defaults</button>
-        </div>
-        <label className="flex items-center justify-between gap-3 min-h-[48px]">
-          <span>
-            <span className="block font-medium">Track my cycle (optional)</span>
-            <span className="block text-sm text-muted">Adds a Period button to Today. Trends then shows check-ins by phase of the cycle. Kept on this phone like everything else.</span>
-          </span>
-          <input type="checkbox" role="switch" checked={settings.cycleTracking} onChange={() => setSetting('cycleTracking', !settings.cycleTracking)} className="w-6 h-6 accent-[var(--primary)] shrink-0" />
-        </label>
-      </Card>
-
-      <Card className="space-y-3">
-        <h2 className="text-sm font-medium text-muted flex items-center gap-2"><Lock size={18} aria-hidden="true" /> App lock</h2>
-        <p className="text-sm text-muted">This is a privacy screen. It stops casual access on an unlocked phone. It doesn't encrypt the data on the phone.</p>
-        {settings.lockEnabled ? (
-          <>
-            <div className="space-y-1.5">
-              <label htmlFor="lock-after" className="block text-sm font-medium">Lock</label>
-              <select id="lock-after" value={settings.lockAfterMin} onChange={(e) => setSetting('lockAfterMin', Number(e.target.value))} className={selectCls}>
-                <option value={0}>As soon as I leave the app</option>
-                {[1, 5, 15, 60].map((m) => <option key={m} value={m}>After {m === 60 ? '1 hour' : `${m} minute${m === 1 ? '' : 's'}`} away or idle</option>)}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="secondary" onClick={() => setPinSheet(true)}>Change PIN</Button>
-              <Button variant="secondary" onClick={async () => { await setSetting('lockEnabled', false); toast('App lock is off'); }}>Turn off</Button>
-            </div>
-          </>
-        ) : (
-          <Button className="w-full" onClick={() => setPinSheet(true)}>Set a PIN</Button>
-        )}
-      </Card>
-
-      <Card className="space-y-3">
-        <h2 className="text-sm font-medium text-muted">Storage</h2>
-        <p className="text-sm">Everything is saved on this device only.</p>
-        {isNative ? (
-          <p className="text-sm text-success font-medium" role="status">✓ Kept by the app. It's only removed if you uninstall {APP_NAME}.</p>
-        ) : persisted ? (
-          <p className="text-sm text-success font-medium" role="status">✓ Protected from automatic clean-up.</p>
-        ) : (
-          <>
-            <p className="text-sm text-muted" role="status">
-              {persisted === false ? 'Your browser may clear this data if the phone runs low on space. Regular use and backups keep it safe.' : 'Checking…'}
+            <label htmlFor="day-start" className="block text-sm font-medium">My day starts at</label>
+            <input id="day-start" type="time" value={settings.dayStartsAt} required
+              onChange={(e) => e.target.value && setSetting('dayStartsAt', e.target.value)}
+              className={`${selectCls} tnum`} />
+            <p className="text-sm text-muted">
+              Doses before {fmtHHmm(settings.dayStartsAt)} count as the day before, so a dose after midnight stays with that day. Today, streaks and charts all use this.
             </p>
-            {refused && (
-              <div className="text-sm rounded-btn bg-surface-2 p-3 space-y-2" role="status">
-                <p className="font-medium">The browser decides this by itself; there's no prompt to accept.</p>
-                {isIOS ? (
-                  <p>Safari doesn't let websites keep data for sure. It can remove a website's data if you go 7 days of using Safari without opening it, so open {APP_NAME} at least every few days and keep a recent backup. The {APP_NAME} app doesn't have this limit.</p>
-                ) : isAndroid ? (
-                  <p>Chrome usually agrees once {APP_NAME} is installed{isStandalone ? '' : ' (Chrome menu → Install app)'} and used for a while. Try again in a few days.</p>
-                ) : (
-                  <p>Browsers usually agree once a site is bookmarked or installed and used regularly. Try again later.</p>
-                )}
-                <p>Either way, backups keep your data safe: <a href="#/backup" className="text-primary font-semibold">Backup and restore</a>.</p>
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="guard" className="block text-sm font-medium">Check with me if the same medication is logged twice within</label>
+            <select id="guard" value={settings.guardMinutes} onChange={(e) => setSetting('guardMinutes', Number(e.target.value))} className={selectCls}>
+              {[2, 5, 10, 15, 30, 60].map((m) => <option key={m} value={m}>{m} minutes</option>)}
+            </select>
+            <p className="text-sm text-muted">Catches a tag that reads twice, or a dose someone already logged. You can still log it.</p>
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="time-mode" className="block text-sm font-medium">When I change time zone, dose times follow</label>
+            <select id="time-mode" value={settings.timeMode} onChange={(e) => setSetting('timeMode', e.target.value as 'device' | 'home')} className={selectCls}>
+              <option value="device">Local time where I am</option>
+              <option value="home">Home time{settings.homeTimeZone ? ` (${placeName(settings.homeTimeZone)})` : ''}</option>
+            </select>
+            <p className="text-sm text-muted">{travelHint} Every-few-hours medications count real hours, so they aren’t affected.</p>
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="refill-warn" className="block text-sm font-medium">Warn me before a medication runs out</label>
+            <select id="refill-warn" value={settings.refillWarnDays} onChange={(e) => setSetting('refillWarnDays', Number(e.target.value))} className={selectCls}>
+              {[3, 5, 7, 10, 14, 21].map((d) => <option key={d} value={d}>{d} days ahead</option>)}
+            </select>
+            <p className="text-sm text-muted">A card on Today, worked out from the stock count and schedule on each medication, including planned changes.</p>
+          </div>
+        </Card>
+      </Group>
+
+      <Group title="Optional features">
+        <Card className="space-y-4">
+          {HAS_PEPTIDES && (
+            <Switch label="Peptides and injections" checked={settings.peptideTools} onChange={(v) => setSetting('peptideTools', v)}>
+              Adds the Protocol tab: vials you mix, pens, syringe units for each dose, titration plans, on/off cycles, supplies, predictions and level estimates.
+            </Switch>
+          )}
+          {HAS_BODY && (
+            <Switch label="Training" checked={settings.trainingTools} onChange={(v) => setSetting('trainingTools', v)}>
+              Adds the Training tab: workouts, cardio, personal bests, what to aim for next time and readiness. Also protein and water on Today, and soreness in check-ins.
+            </Switch>
+          )}
+          {HAS_BODY && settings.trainingTools && (
+            <div className="rounded-btn bg-surface-2 p-3 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label htmlFor="rest" className="block text-sm font-medium">Rest timer</label>
+                  <select id="rest" value={settings.restSeconds} onChange={(e) => setSetting('restSeconds', Number(e.target.value))} className={`${selectCls} bg-surface`}>
+                    <option value={0}>Off</option>
+                    {[60, 90, 120, 150, 180, 240, 300].map((x) => <option key={x} value={x}>{x % 60 ? `${Math.floor(x / 60) ? `${Math.floor(x / 60)} min ` : ''}${x % 60} s` : `${x / 60} min`}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="bar" className="block text-sm font-medium">My barbell weighs</label>
+                  <select id="bar" value={String(BARS[settings.units].reduce((b, x) => (Math.abs(fromLoad(x, settings.units) - settings.barKg) < Math.abs(fromLoad(b, settings.units) - settings.barKg) ? x : b)))}
+                    onChange={(e) => setSetting('barKg', fromLoad(Number(e.target.value), settings.units))} className={`${selectCls} bg-surface`}>
+                    {BARS[settings.units].map((x) => <option key={x} value={x}>{x} {loadUnit(settings.units)}</option>)}
+                  </select>
+                </div>
               </div>
+              <p className="text-sm text-muted">The rest timer starts when you tick a set. The plate calculator takes off the bar’s weight.</p>
+              <Switch label="Work out rest for each set" checked={settings.smartRest} onChange={(v) => setSetting('smartRest', v)}>
+                Starting from your rest timer: at least 3 min after heavy sets (5 reps or fewer) of big lifts, up to 1½ min for smaller muscles, 30 s more after a very hard set, and 15 s between supersets.
+              </Switch>
+              <Switch label="Adjust the next sets as I go" checked={settings.autoAdjust} onChange={(v) => setSetting('autoAdjust', v)}>
+                After a set at RPE 7 or easier that hit its reps, the rest of that exercise goes up a step; after RPE 9.5+ or 2 reps short, down a step. Undo is on the message.
+              </Switch>
+              {isNative && (
+                <Switch label="Remind me on my usual training days" checked={settings.trainingReminders} onChange={async (v) => { const on = await setTrainingReminders(v); if (v && !on) toast('Notifications are off for this app. Turn them on in your phone’s settings.'); }}>
+                  Learned from when you train: 30 minutes before your usual time, skipped if you’ve already trained that day. Also a morning note when your sessions-a-week goal needs a session every day left.
+                </Switch>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <TargetInput id="protein" label="Protein a day (g)" value={settings.proteinTargetG} onChange={(v) => setSetting('proteinTargetG', v)} />
+                <TargetInput id="water" label="Water a day (mL)" value={settings.waterTargetMl} onChange={(v) => setSetting('waterTargetMl', v)} />
+              </div>
+              <p className="text-sm text-muted">Your own targets, from your dietitian or prescriber if you have one. Leave blank to just count.</p>
+            </div>
+          )}
+          <Switch label="Track my cycle" checked={settings.cycleTracking} onChange={(v) => setSetting('cycleTracking', v)}>
+            Adds a Period button to Today, and check-ins by phase of the cycle to Trends. Period starts are saved as check-ins, so they’re in backups and Family sync like other check-ins.
+          </Switch>
+        </Card>
+      </Group>
+
+      <Group title="Check-ins">
+        <Card className="space-y-5">
+          <div className="space-y-1.5">
+            <label htmlFor="ci-delay" className="block text-sm font-medium">Suggest a check-in after a dose</label>
+            <select id="ci-delay" value={settings.checkInDelayMin} onChange={(e) => setSetting('checkInDelayMin', Number(e.target.value))} className={selectCls}>
+              <option value={0}>Off</option>
+              {[30, 60, 90, 120, 180].map((m) => <option key={m} value={m}>{m < 60 ? `${m} minutes` : m === 90 ? '1½ hours' : `${m / 60} hour${m === 60 ? '' : 's'}`} later</option>)}
+            </select>
+            <p className="text-sm text-muted">Shows a “How are you feeling?” card on Today that long after a dose.{isNative ? '' : ` It can’t notify you: ${APP_NAME} in a browser can’t send notifications.`}</p>
+          </div>
+          <div>
+            <span className="block text-sm font-medium mb-1">Options under “What are you noticing?”</span>
+            <p className="text-sm text-muted mb-2">Removing one doesn’t change check-ins already saved.</p>
+            <ul className="flex flex-wrap gap-2">
+              {settings.chips.map((c) => (
+                <li key={c} className="flex items-center gap-1 pl-4 pr-1 min-h-[44px] rounded-chip bg-surface-2 text-sm">
+                  {c}
+                  <button onClick={() => setSetting('chips', settings.chips.filter((x) => x !== c))} aria-label={`Remove ${c}`}
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-muted"><X size={16} aria-hidden="true" /></button>
+                </li>
+              ))}
+            </ul>
+            <div className="flex gap-2 mt-3">
+              <label className="flex-1"><span className="sr-only">New option</span>
+                <input value={newChip} onChange={(e) => setNewChip(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addChip()}
+                  placeholder="Add an option" className={selectCls} /></label>
+              <Button variant="secondary" onClick={addChip} disabled={!newChip.trim()}>Add</Button>
+            </div>
+            {HAS_PEPTIDES && settings.peptideTools && SIDE_EFFECT_CHIPS.some((c) => !settings.chips.includes(c)) && (
+              <Button variant="secondary" className="w-full mt-3" onClick={() => { setSetting('chips', [...settings.chips, ...SIDE_EFFECT_CHIPS.filter((c) => !settings.chips.includes(c))]); toast('Added to check-ins'); }}>
+                Add common injection side effects
+              </Button>
             )}
-            <Button variant="secondary" className="w-full" onClick={requestPersist}>{refused ? 'Ask again' : 'Ask to keep my data'}</Button>
-          </>
-        )}
-      </Card>
+            {HAS_PEPTIDES && settings.peptideTools && SIDE_EFFECT_CHIPS.some((c) => !settings.chips.includes(c)) && <p className="text-sm text-muted mt-1">{SIDE_EFFECT_CHIPS.join(', ')}</p>}
+            <button onClick={resetChips} className="mt-2 min-h-[44px] text-sm text-primary font-semibold">Reset to the defaults</button>
+          </div>
+        </Card>
+      </Group>
 
-      <Card>
-        <h2 className="text-sm font-medium text-muted">Theme</h2>
-        <div role="radiogroup" aria-label="Theme" className="mt-3 grid grid-cols-3 gap-2">
-          {(['system', 'light', 'dark'] as Theme[]).map((t) => (
-            <button key={t} role="radio" aria-checked={theme === t} onClick={() => { setTheme(t); setT(t); }}
-              className={`min-h-[48px] rounded-btn font-medium capitalize ${theme === t ? 'bg-primary text-on-primary' : 'bg-surface-2'}`}>
-              {t}
-            </button>
-          ))}
-        </div>
-      </Card>
+      <Group title="Display">
+        <Card className="space-y-5">
+          {HAS_BODY && (
+            <div className="space-y-1.5">
+              <span className="block text-sm font-medium">Units for weight, measurements and training</span>
+              <Segmented<Units> label="Units" value={settings.units} onChange={(v) => setSetting('units', v)}
+                options={[{ value: 'metric', label: 'kg and cm' }, { value: 'imperial', label: 'lb and in' }]} />
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <span className="block text-sm font-medium">Theme</span>
+            <div role="radiogroup" aria-label="Theme" className="grid grid-cols-3 gap-2">
+              {([['system', 'Match phone'], ['light', 'Light'], ['dark', 'Dark']] as [Theme, string][]).map(([t, label]) => (
+                <button key={t} role="radio" aria-checked={theme === t} onClick={() => { setTheme(t); setT(t); }}
+                  className={`min-h-[48px] rounded-btn font-medium ${theme === t ? 'bg-primary text-on-primary' : 'bg-surface-2'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="text-sm text-muted">The theme is kept on this phone only.</p>
+          </div>
+        </Card>
+      </Group>
 
-      <a href="#/help" className="border-t border-border py-4 flex items-center gap-3">
-        <HelpCircle className="text-primary" aria-hidden="true" />
-        <span className="flex-1 font-semibold">Help, privacy and tag guide</span>
-        <ChevronRight className="text-muted" aria-hidden="true" />
-      </a>
+      <Group title="Privacy and storage">
+        <Card className="space-y-3">
+          <h3 className="font-medium flex items-center gap-2"><Lock size={18} aria-hidden="true" /> App lock</h3>
+          <p className="text-sm text-muted">A PIN screen that stops casual access on an unlocked phone. It doesn’t encrypt the data on the phone.</p>
+          {settings.lockEnabled ? (
+            <>
+              <div className="space-y-1.5">
+                <label htmlFor="lock-after" className="block text-sm font-medium">Lock</label>
+                <select id="lock-after" value={settings.lockAfterMin} onChange={(e) => setSetting('lockAfterMin', Number(e.target.value))} className={selectCls}>
+                  <option value={0}>As soon as I leave the app</option>
+                  {[1, 5, 15, 60].map((m) => <option key={m} value={m}>After {m === 60 ? '1 hour' : `${m} minute${m === 1 ? '' : 's'}`} away or idle</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="secondary" onClick={() => setPinSheet(true)}>Change PIN</Button>
+                <Button variant="secondary" onClick={async () => { await setSetting('lockEnabled', false); toast('App lock is off'); }}>Turn off</Button>
+              </div>
+            </>
+          ) : (
+            <Button className="w-full" onClick={() => setPinSheet(true)}>Set a PIN</Button>
+          )}
+        </Card>
+
+        <Card className="space-y-3">
+          <h3 className="font-medium">Where your data is kept</h3>
+          <p className="text-sm">{sync ? 'On this phone, with an encrypted copy sent to the phones in your Family sync.' : 'On this phone only. Nothing is sent anywhere unless you turn on Family sync.'}</p>
+          {isNative ? (
+            <p className="text-sm text-success font-medium" role="status">✓ Kept by the app. It’s only removed if you uninstall {APP_NAME}.</p>
+          ) : persisted ? (
+            <p className="text-sm text-success font-medium" role="status">✓ Protected from automatic clean-up.</p>
+          ) : (
+            <>
+              <p className="text-sm text-muted" role="status">
+                {persisted === false ? 'Your browser may clear this data if the phone runs low on space. Regular use and backups keep it safe.' : 'Checking…'}
+              </p>
+              {refused && (
+                <div className="text-sm rounded-btn bg-surface-2 p-3 space-y-2" role="status">
+                  <p className="font-medium">The browser decides this by itself; there’s no prompt to accept.</p>
+                  {isIOS ? (
+                    <p>Safari doesn’t let websites keep data for sure. It can remove a website’s data if you go 7 days of using Safari without opening it, so open {APP_NAME} at least every few days and keep a recent backup. The {APP_NAME} app doesn’t have this limit.</p>
+                  ) : isAndroid ? (
+                    <p>Chrome usually agrees once {APP_NAME} is installed{isStandalone ? '' : ' (Chrome menu → Install app)'} and used for a while. Try again in a few days.</p>
+                  ) : (
+                    <p>Browsers usually agree once a site is bookmarked or installed and used regularly. Try again later.</p>
+                  )}
+                  <p>Either way, backups keep your data safe: <a href="#/backup" className="text-primary font-semibold">Backup and restore</a>.</p>
+                </div>
+              )}
+              <Button variant="secondary" className="w-full" onClick={requestPersist}>{refused ? 'Ask again' : 'Ask the browser to keep my data'}</Button>
+            </>
+          )}
+        </Card>
+      </Group>
+
+      <Group title="Tools">
+        <ToolLink href="#/tags" Icon={Nfc} title="Tags" sub={HAS_BODY ? 'Every tag: medications, gym machines, water bottle, scales' : 'Every tag: medications, blood pressure cuff, check-in'} />
+        <ToolLink href={HAS_VISITS ? '#/appointments' : '#/labs'} Icon={CalendarCheck} title={HAS_VISITS ? 'Appointments and lab results' : 'Lab results'}
+          sub={HAS_VISITS ? 'Questions to ask, and what’s changed since the last one' : 'Blood tests and others, typed in or from a photo'} />
+        {HAS_VISITS && <ToolLink href="#/travel" Icon={Plane} title="Plan a trip" sub="Dose times across time zones" />}
+        {HAS_PEPTIDES && settings.peptideTools && <ToolLink href="#/calc" Icon={Calculator} title="Peptide calculator" sub="Units for a dose, or the water for an easy number of units" />}
+        {HAS_PEPTIDES && settings.peptideTools && <ToolLink href="#/supplies" Icon={Package} title="Supplies" sub="Syringes, needles, swabs, water and the sharps container" />}
+        <ToolLink href="#/help" Icon={HelpCircle} title="Help, privacy and tag guide" sub="How each part works" />
+      </Group>
 
       <Card>
         <h2 className="text-sm font-medium text-muted">About {APP_NAME}</h2>
@@ -294,6 +336,7 @@ export function Settings() {
 
       <Card className="space-y-2">
         <Button variant="danger" className="w-full" onClick={() => { setTyped(''); setEraseSheet(true); }}>Erase all data</Button>
+        <p className="text-sm text-muted">Removes everything from this phone. You’ll be asked to confirm, and offered a backup first.</p>
       </Card>
 
       <PinSheet open={pinSheet} onClose={() => setPinSheet(false)} />
@@ -309,6 +352,40 @@ export function Settings() {
           </SheetActions>
         </div>
       </Sheet>
+    </div>
+  );
+}
+
+function Group({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="space-y-3 pt-2" aria-label={title}>
+      <h2 className="text-lg font-semibold">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function ToolLink({ href, Icon, title, sub }: { href: string; Icon: typeof Plane; title: string; sub: string }) {
+  return (
+    <a href={href} className="border-t border-border py-4 flex items-center gap-3">
+      <Icon className="text-primary" aria-hidden="true" />
+      <span className="flex-1">
+        <span className="block font-semibold">{title}</span>
+        <span className="block text-sm text-muted">{sub}</span>
+      </span>
+      <ChevronRight className="text-muted" aria-hidden="true" />
+    </a>
+  );
+}
+
+function TargetInput({ id, label, value, onChange }: { id: string; label: string; value: number | null; onChange: (v: number | null) => void }) {
+  const [text, setText] = useState(value === null ? '' : String(value));
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor={id} className="block text-sm font-medium">{label}</label>
+      <input id={id} type="number" inputMode="numeric" min="0" step="1" value={text} placeholder="None"
+        onChange={(e) => setText(e.target.value)} onBlur={() => { const n = Number(text); onChange(text.trim() && n > 0 ? Math.round(n) : null); }}
+        className={`${selectCls} tnum`} />
     </div>
   );
 }

@@ -1,15 +1,16 @@
 import type { ReactNode } from 'react';
-import { BellRing, Sparkles, CalendarClock, ChevronRight, Info, Lock, Nfc, RefreshCw, ScanText, ShieldCheck, Smartphone, Syringe, Target, Users } from 'lucide-react';
+import { BellRing, Sparkles, CalendarClock, ChevronRight, Info, Lock, Nfc, RefreshCw, ScanText, ShieldCheck, Smartphone, Syringe, Target, Users, Dumbbell } from 'lucide-react';
 import { isNative } from '../../platform';
 import { APP_NAME, DISCLAIMER } from '../../config';
 import { tagBase } from '../../nfc/url';
 import { Card } from '../../components/ui/Card';
-import { apkDownload, edition, HAS_BODY, HAS_PEPTIDES } from '../../edition';
+import { apkDownload, edition, HAS_BODY, HAS_PEPTIDES, HAS_VISITS } from '../../edition';
 
 const TOPICS = [
   { id: 'schedules', title: 'Setting up a schedule', Icon: CalendarClock },
   { id: 'scan', title: 'Scanning a pharmacy label', Icon: ScanText },
   ...(HAS_BODY ? [{ id: 'goals', title: 'Goals and forecasts', Icon: Target }] as const : []),
+  ...(HAS_BODY ? [{ id: 'training', title: 'Training and fitness', Icon: Dumbbell }] as const : []),
   ...(HAS_PEPTIDES ? [{ id: 'peptides', title: 'Peptides and injections', Icon: Syringe }] as const : []),
   { id: 'family', title: 'Family members', Icon: Users },
   { id: 'sync', title: 'Family sync', Icon: RefreshCw },
@@ -47,10 +48,35 @@ export function Help({ topic }: { topic?: string }) {
 const H = ({ children }: { children: ReactNode }) => <h2 className="text-sm font-medium text-muted">{children}</h2>;
 
 const CONTENT: Record<string, ReactNode> = {
+  training: (
+    <>
+      <H>Turning it on</H>
+      <p>Settings → <strong>Training</strong>. This adds a Training tab, protein and water on Today, and a soreness rating in check-ins. Turning it off hides them; nothing is deleted.</p>
+      <H>Logging a workout</H>
+      <ol className="list-decimal pl-5 space-y-1">
+        <li>On Training, tap <strong>Start a workout</strong>: empty, from a routine, or a repeat of a past session.</li>
+        <li>Each set has weight, reps and, if you like, how hard it felt (RPE: 10 is nothing left, 8 is two reps left). Tap the set number to mark a warm-up; warm-ups don't count towards bests.</li>
+        <li>Tick a set when it's done. The rest timer starts (change it in Settings → Training).</li>
+        <li><strong>Finish</strong> shows any new personal bests and offers to save the session as a routine.</li>
+      </ol>
+      <H>What it works out</H>
+      <ul className="list-disc pl-5 space-y-1">
+        <li><strong>Personal bests</strong>: heaviest weight, most reps at a weight, and an estimated one-rep max (from your best set of up to 12 reps).</li>
+        <li><strong>Aim for next time</strong>: up a step when every set hit its reps, the same weight to add reps, or about 10% lighter after a stall.</li>
+        <li><strong>Worth a lighter week</strong>: a lift that hasn't improved for about 3 weeks, or feels harder at the same weight.</li>
+        <li><strong>Strength goals</strong>: a date with a range, from the trend in your estimated max, like weight goals.</li>
+        <li><strong>Ready to train</strong>: today's sleep, resting heart rate and heart rate variability against your own last 4 weeks (from Health Connect or Apple Health), and soreness from a check-in.</li>
+        <li><strong>Sets per muscle</strong>: the last 7 days, and push against pull, upper against lower.</li>
+        <li><strong>Lean mass while losing weight</strong>: log body fat % or lean mass (Body → Add measurements or body fat) and it shows how much of the weight you've lost was lean mass, by dose with peptide tools on.</li>
+        <li><strong>Strength and your peptide</strong>: each session against your recent level, by days since the shot and by dose.</li>
+      </ul>
+      <p>These are worked out from your own records. They're not a training programme or medical advice.</p>
+    </>
+  ),
   goals: (
     <>
       <H>Setting a goal</H>
-      <p>On Body, tap <strong>Set a weight or waist goal</strong>. Enter the goal and, if you like, a date. {APP_NAME} starts from where your trend is now.</p>
+      <p>On Body, tap <strong>Set a goal</strong> and choose weight, waist, body fat or lean mass (body fat and lean mass need entries from a smart scale or scan). Enter the goal and, if you like, a date. {APP_NAME} starts from where your trend is now.</p>
       <H>How the forecast works</H>
       <ul className="list-disc pl-5 space-y-1">
         <li><strong>Trend, not the scale.</strong> Weight swings by a kilo or more day to day with water and food. The forecast uses the trend over the last 4 weeks, worked out so one odd day barely moves it.</li>
@@ -77,13 +103,22 @@ const CONTENT: Record<string, ReactNode> = {
         <li><strong>New script</strong>: when the stock and repeats left run out (or the script expires), and when to book your doctor.</li>
       </ul>
       <H>Today</H>
-      <p>The effect window for today's dose, when to book a doctor for a script, records that look odd (a dose logged twice{HAS_BODY ? ', a typo in a weight' : ''}, a date in the future), and your next appointment.</p>
+      <p>The effect window for today's dose, when to book a doctor for a script, records that look odd (a dose logged twice{HAS_BODY ? ', a typo in a weight' : ''}, a date in the future){HAS_VISITS ? ', and your next appointment' : ''}.</p>
       <H>Trends</H>
-      <p><strong>The coming days</strong> (likely focus, mood and appetite), <strong>Last dose and sleep</strong> (the time after which sleep is usually worse), and <strong>Appt</strong> to compare with before your last appointment.</p>
+      <p><strong>The coming days</strong> (likely focus, mood and appetite) and <strong>Last dose and sleep</strong> (the time after which sleep is usually worse){HAS_VISITS ? <>, and <strong>Appt</strong> to compare with before your last appointment</> : null}.</p>
       <H>Reminders</H>
       <p>In the app, <strong>Nudge me if I haven't logged it</strong> sends a second reminder a while after your usual time.</p>
-      <H>Appointments, lab results and trips</H>
-      <p>Settings → <strong>Appointments and lab results</strong>: add appointments and questions, then print a one-page summary of what's changed since the last one. Lab results can be read from a photo of the printout. Settings → <strong>Plan a trip</strong> shows dose times across time zones, switching straight away or moving 2 hours a day.</p>
+      {HAS_VISITS ? (
+        <>
+          <H>Appointments, lab results and trips</H>
+          <p>Settings → <strong>Appointments and lab results</strong>: add appointments and questions, then print a one-page summary of what's changed since the last one. Lab results can be read from a photo of the printout. Settings → <strong>Plan a trip</strong> shows dose times across time zones, switching straight away or moving 2 hours a day.</p>
+        </>
+      ) : (
+        <>
+          <H>Lab results</H>
+          <p>Settings → <strong>Lab results</strong>: type them in or read them from a photo of the printout. They're in the doctor report.</p>
+        </>
+      )}
       <p>Check-in notes suggest chips (“bit queasy” → Nausea){HAS_PEPTIDES ? ', and adding vials can read the lot and expiry from a photo of the label' : ''}.</p>
       <H>More patterns in Trends</H>
       <ul className="list-disc pl-5 space-y-1">
@@ -253,6 +288,8 @@ const CONTENT: Record<string, ReactNode> = {
         <li>⚠️ <strong>Foil blister packs and metal tins</strong> block the signal. Use tags sold as <em>anti-metal</em> or <em>on-metal</em> there.</li>
         <li>⚠️ Tags must be <strong>blank or rewritable</strong>. Locked or pre-programmed tags can't be used. Only lock a tag (in NFC Tools) after you've written and tested it, if at all.</li>
       </ul>
+      <H>Not just medications</H>
+      <p>A tag can also {HAS_BODY ? <>add an exercise to your workout (stick it on the machine), start a routine, time cardio (tap at the start and again at the end), add water or protein, open Log weight, </> : null}open Log blood pressure or open a check-in. Link one from Settings → <strong>Tags</strong>{HAS_BODY ? <>, an exercise’s page, or a routine</> : null}; or tap a new tag and choose under <strong>Or use it for something else</strong>. Each tap shows what it will do with one button, so nothing is logged by accident.</p>
       <H>Writing a tag on Android</H>
       <p>Open a medication in Meds, tap <strong>Link a tag</strong>, then <strong>Write to tag</strong>, and hold the tag flat against the back of your phone until it says it's done.</p>
       <H>Writing a tag on iPhone</H>
@@ -299,6 +336,10 @@ const CONTENT: Record<string, ReactNode> = {
       <p>Turn on <strong>Remind me when doses are due</strong> in Settings. {APP_NAME} schedules a notification for each set time over the next week, and for the next dose of every-few-hours medications, from your own schedule. Logging a dose clears its reminder.</p>
       <p><strong>Log it</strong> on a reminder logs the planned amount without opening the app. Tap the reminder itself to check the amount first.</p>
       <p>Reminders show nicknames for medications that have one, so the lock screen doesn't reveal them.</p>
+      <H>Nudges</H>
+      <p>With <strong>Nudge me if I haven't logged it</strong> on, a second reminder comes when a dose still isn't logged a while after the time you usually take it. Days you often miss always get one.</p>
+      <H>Reminders not arriving?</H>
+      <p>Settings → Reminders → <strong>Reminder check</strong> shows what could stop or delay reminders on this phone (notifications off, battery saving), with a fix for each, and sends a test reminder.</p>
     </>
   ) : (
     <>

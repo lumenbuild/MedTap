@@ -107,16 +107,19 @@ export function Protocol() {
   );
 }
 
+/** A label and its value. Inside a <dl> as a <div> group; a tappable row keeps the button around the text only. */
 function Row({ label, children, onClick }: { label: string; children: ReactNode; onClick?: () => void }) {
-  const inner = (
-    <>
+  return onClick ? (
+    <div className="border-t border-border">
+      <dt className="sr-only">{label}</dt>
+      <dd><button onClick={onClick} className="w-full flex justify-between gap-4 py-3 text-left"><span className="text-muted shrink-0" aria-hidden="true">{label}</span><span className="text-right min-w-0">{children}</span></button></dd>
+    </div>
+  ) : (
+    <div className="flex justify-between gap-4 py-3 border-t border-border">
       <dt className="text-muted shrink-0">{label}</dt>
       <dd className="text-right min-w-0">{children}</dd>
-    </>
+    </div>
   );
-  return onClick
-    ? <div className="border-t border-border"><button onClick={onClick} className="w-full flex justify-between gap-4 py-3 text-left">{inner}</button></div>
-    : <div className="flex justify-between gap-4 py-3 border-t border-border">{inner}</div>;
 }
 
 function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal }: {

@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { Lock, Nfc, Pill, Smartphone } from 'lucide-react';
+import { ListChecks, Lock, Nfc, Pill, Smartphone } from 'lucide-react';
+import { useSettings } from '../../app/data';
+import { Switch } from '../../components/ui/Switch';
+import { HAS_BODY, HAS_PEPTIDES } from '../../edition';
 import { APP_NAME, DISCLAIMER } from '../../config';
 import { isAndroid, isIOS, isNative, isNativeIOS, isStandalone } from '../../platform';
 import { setSetting } from '../../db/repos/settings';
@@ -7,10 +10,11 @@ import { go } from '../../app/router';
 import { useInstallPrompt } from '../../app/install';
 import { Button } from '../../components/ui/Button';
 
-/** First run, at most 3 short screens, always skippable. The 4th step (link a tag) happens on the medication's page. */
+/** First run, at most 4 short screens, always skippable. The 4th step (link a tag) happens on the medication's page. */
 export function Onboarding() {
   const [step, setStep] = useState(0);
   const install = useInstallPrompt();
+  const settings = useSettings();
   const finish = async (to = '/today') => { await setSetting('onboarded', true); navigator.storage?.persist?.(); go(to); };
 
   const later = <p className="text-sm text-muted text-center">You can change this later in Settings.</p>;
@@ -56,6 +60,23 @@ export function Onboarding() {
           <Button variant={isAndroid && install.available && !isStandalone ? 'secondary' : 'primary'} className="w-full min-h-[56px]" onClick={() => setStep(2)}>Next</Button>
         </>
       ),
+    },
+    {
+      Icon: ListChecks,
+      title: 'What would you like to track?',
+      body: (
+        <>
+          <p>Medications and check-ins are always there. Turn on what else suits you; you can change it any time in Settings.</p>
+          {settings && (
+            <div className="space-y-3">
+              {HAS_PEPTIDES && <Switch label="Peptides and injections" checked={settings.peptideTools} onChange={(v) => setSetting('peptideTools', v)}>Vials you mix, pens, syringe units, titration plans and supplies.</Switch>}
+              {HAS_BODY && <Switch label="Training" checked={settings.trainingTools} onChange={(v) => setSetting('trainingTools', v)}>Workouts, personal bests, what to aim for next time, protein and water. Tags work on gym machines and water bottles too.</Switch>}
+              <Switch label="My cycle" checked={settings.cycleTracking} onChange={(v) => setSetting('cycleTracking', v)}>A Period button on Today, and check-ins by phase of the cycle.</Switch>
+            </div>
+          )}
+        </>
+      ),
+      next: <Button className="w-full min-h-[56px]" onClick={() => setStep(3)}>Next</Button>,
     },
     {
       Icon: Pill,

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { FileText } from 'lucide-react';
-import { useAppointments, useDaily, useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings, useVitals } from '../../app/data';
+import { useWorkouts, useAppointments, useDaily, useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings, useVitals } from '../../app/data';
 import { CheckInForecastCard, EffectWindowCards, SleepImpactCard } from '../../components/Smart';
+import { TrainingTrends } from '../../components/Fitness';
 import { CycleCard, HeartAfterCards, OnOffCards, StepsWeightCard, SubstanceCard } from '../../components/Lifestyle';
 import { checkInForecast, sleepImpact } from '../../logic/habits';
 import { appointmentsAround } from '../../logic/appointments';
@@ -17,7 +18,7 @@ import {
 import { GoalForecastCharts } from '../../components/charts/GoalCharts';
 import { BlendCharts, DoseLevelsCards, EstimatedLevelCharts } from '../../components/charts/PeptideCharts';
 import { shownName } from '../../logic/privacy';
-import { HAS_BODY } from '../../edition';
+import { HAS_BODY, HAS_VISITS } from '../../edition';
 
 export function Trends() {
   const allMeds = useMeds();
@@ -28,6 +29,7 @@ export function Trends() {
   const allVitals = useVitals();
   const allAppts = useAppointments();
   const allDaily = useDaily();
+  const allWorkouts = useWorkouts();
   const fam = useFamily();
   const ss = useScheduleSettings();
   const now = useNow(60_000);
@@ -36,7 +38,7 @@ export function Trends() {
   });
   const pick = (r: Range | 'appt') => { setRange(r); try { localStorage.setItem('trendsRange', r); } catch { /* per-device preference only */ } };
 
-  if (!allMeds || !allDoses || !allCheckIns || !allBody || !allEvents || !allVitals || !allAppts || !allDaily || !ss || !fam) {
+  if (!allMeds || !allDoses || !allCheckIns || !allBody || !allEvents || !allVitals || !allAppts || !allDaily || !allWorkouts || !ss || !fam) {
     return <div className="space-y-4" aria-busy="true" aria-label="Loading">{[0, 1, 2].map((i) => <div key={i} className="h-60 rounded-card bg-surface-2 animate-pulse" />)}</div>;
   }
   // Only the chosen family member's records.
@@ -56,7 +58,7 @@ export function Trends() {
   // Round to the hour so charts don't redraw every minute; the range still includes everything logged so far.
   const end = Math.ceil(now / 3_600_000) * 3_600_000;
   // Since the last appointment: from its date, compared with the same length of time before it.
-  const lastAppt = appointmentsAround(allAppts.filter((a) => personOf(a) === fam.personId), dayKey(now, s)).last;
+  const lastAppt = HAS_VISITS ? appointmentsAround(allAppts.filter((a) => personOf(a) === fam.personId), dayKey(now, s)).last : undefined;
   const r = range === 'appt' && !lastAppt ? '30d' : range;
   const start = r === 'appt' ? new Date(`${lastAppt!.date}T00:00`).getTime() : rangeStart(r, end, earliest);
   const days = r === 'appt' ? Math.max(1, Math.round((end - start) / 86_400_000)) : RANGE_DAYS[r];
@@ -67,7 +69,7 @@ export function Trends() {
   const peptideMeds = settings.peptideTools ? meds.filter((m) => m.peptide) : [];
   const weightMarks = events.filter((e) => e.kind === 'changed' && peptideMeds.some((m) => m.id === e.medicationId))
     .map((e) => ({ at: Date.parse(e.at), text: `${shownName(peptideMeds.find((m) => m.id === e.medicationId)!)}: ${e.summary}` }))
-    .concat(allAppts.filter((a) => !a.deletedAt && personOf(a) === fam.personId).map((a) => ({ at: new Date(`${a.date}T12:00`).getTime(), text: `Appointment${a.with ? ` with ${a.with}` : ''}` })));
+    .concat(allAppts.filter((a) => HAS_VISITS && !a.deletedAt && personOf(a) === fam.personId).map((a) => ({ at: new Date(`${a.date}T12:00`).getTime(), text: `Appointment${a.with ? ` with ${a.with}` : ''}` })));
   const sleep = sleepImpact(meds.filter((m) => !m.peptide && !m.archived), doses, checkIns, now, s);
   const ciForecast = checkInForecast(meds, doses, checkIns, now, s);
 
@@ -101,6 +103,7 @@ export function Trends() {
       {settings.cycleTracking && <CycleCard checkIns={checkIns} now={now} />}
       <HeartAfterCards meds={active} doses={doses} daily={daily} vitals={vitals} now={now} s={s} />
       {HAS_BODY && <StepsWeightCard daily={daily} body={body} units={settings.units} now={now} />}
+      {HAS_BODY && settings.trainingTools && <TrainingTrends daily={daily} body={body} checkIns={checkIns} workouts={allWorkouts.filter((w) => personOf(w) === fam.personId)} start={start} end={end} s={s} targets={{ protein: settings.proteinTargetG, water: settings.waterTargetMl }} />}
       <IntervalCharts meds={active} doses={doses} {...common} />
       {peptideMeds.length > 0 && (
         <>

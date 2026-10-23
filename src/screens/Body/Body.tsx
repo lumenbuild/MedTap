@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { ChevronRight, Ruler, Scale } from 'lucide-react';
-import { useBodyEntries, useFamily, useSettings } from '../../app/data';
+import { useBodyEntries, useDoses, useFamily, useMeds, useSettings } from '../../app/data';
+import { medIsFor } from '../../db/repos/people';
+import { MuscleWatchCard } from '../../components/Fitness';
 import { personOf } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { fmtLength, fmtWeight, MEASUREMENTS } from '../../logic/units';
@@ -20,9 +22,11 @@ export function Body() {
   const settings = useSettings();
   const all = useBodyEntries();
   const fam = useFamily();
+  const meds = useMeds();
+  const doses = useDoses();
   const [sheet, setSheet] = useState<BodySheetState>(null);
   const now = useNow(60_000);
-  if (!settings || !all || !fam) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
+  if (!settings || !all || !fam || !meds || !doses) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
 
   if (!HAS_BODY) return (
     <div className="space-y-4">
@@ -36,6 +40,8 @@ export function Body() {
   const latestWeight = entries.find((e) => e.weightKg !== undefined);
   const latestOf = (k: (typeof MEASUREMENTS)[number]['key']) => entries.find((e) => e[k] !== undefined);
   const measured = MEASUREMENTS.map((m) => ({ ...m, entry: latestOf(m.key) })).filter((m) => m.entry);
+  const latestComp = entries.find((e) => e.bodyFatPct !== undefined || e.leanKg !== undefined || e.muscleKg !== undefined);
+  const peptide = settings.peptideTools ? meds.find((m) => m.peptide && !m.archived && medIsFor(m, fam.personId)) : undefined;
 
   return (
     <div className="space-y-4">
@@ -62,9 +68,18 @@ export function Body() {
               </div>
             ))}
           </dl>
-        ) : <p className="mt-1">Log any of waist, hips, chest, neck, upper arm, thigh or calf. Only the ones you want.</p>}
-        <Button variant="secondary" className="w-full mt-4" onClick={() => setSheet({ kind: 'measure' })}>Add measurements</Button>
+        ) : <p className="mt-1">Log any of waist, hips, chest, neck, upper arm, thigh or calf, and body fat or lean mass if you have them. Only the ones you want.</p>}
+        {latestComp && (
+          <p className="mt-3 text-[15px] tnum">
+            {[latestComp.bodyFatPct !== undefined ? `Body fat ${latestComp.bodyFatPct}%` : null, latestComp.leanKg !== undefined ? `lean ${fmtWeight(latestComp.leanKg, units)}` : null,
+              latestComp.muscleKg !== undefined ? `muscle ${fmtWeight(latestComp.muscleKg, units)}` : null].filter(Boolean).join(' · ')}
+            <span className="text-xs text-muted"> {fmtYmd(latestComp.date)}</span>
+          </p>
+        )}
+        <Button variant="secondary" className="w-full mt-4" onClick={() => setSheet({ kind: 'measure' })}>Add measurements or body fat</Button>
       </Card>
+
+      {entries.some((e) => e.bodyFatPct !== undefined || e.leanKg !== undefined) && <MuscleWatchCard body={entries} units={units} med={peptide} doses={doses} now={now} />}
 
       <VitalsCard personId={fam.personId} />
 
@@ -75,7 +90,7 @@ export function Body() {
           <h2 className="text-sm font-medium text-muted">History</h2>
           <ul className="mt-2 -mx-2">
             {entries.slice(0, 60).map((e) => {
-              const n = MEASUREMENTS.filter((m) => e[m.key] !== undefined).length;
+              const n = MEASUREMENTS.filter((m) => e[m.key] !== undefined).length + (e.bodyFatPct !== undefined || e.leanKg !== undefined || e.muscleKg !== undefined ? 1 : 0);
               return (
                 <li key={e.id}>
                   <button onClick={() => setSheet({ kind: 'edit', entry: e })} className="w-full min-h-[56px] flex items-center gap-3 px-2 rounded-btn text-left hover:bg-surface-2">

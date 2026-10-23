@@ -27,7 +27,9 @@ const r = (n: number, dp = 2) => Math.round(n * 10 ** dp) / 10 ** dp;
 export function seriesOf(entries: BodyEntry[], metric: GoalMetric): Pt[] {
   const byDay = new Map<string, number[]>();
   for (const e of entries) {
-    const v = e[metric];
+    // Lean mass: logged, or worked out from weight and body fat % on the same day.
+    const v = metric === 'leanKg' && e.leanKg === undefined && typeof e.weightKg === 'number' && typeof e.bodyFatPct === 'number'
+      ? Math.round(e.weightKg * (1 - e.bodyFatPct / 100) * 100) / 100 : e[metric];
     if (e.deletedAt || typeof v !== 'number') continue;
     byDay.set(e.date, [...(byDay.get(e.date) ?? []), v]);
   }
@@ -234,4 +236,6 @@ export const isFastWeightPace = (perWeek: number | undefined, level: number | un
 export const GOAL_METRICS: { metric: GoalMetric; label: string }[] = [
   { metric: 'weightKg', label: 'Weight' },
   { metric: 'waistCm', label: 'Waist' },
+  { metric: 'bodyFatPct', label: 'Body fat' },
+  { metric: 'leanKg', label: 'Lean mass' },
 ];

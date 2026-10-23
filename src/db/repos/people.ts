@@ -47,16 +47,18 @@ export async function renamePerson(id: string, name: string) {
 /** How much is recorded for a person (removing someone with records isn't allowed, to avoid losing history). */
 export async function personRecordCount(id: string): Promise<number> {
   const mine = (r: { personId?: string; deletedAt?: string }) => personOf(r) === id && !r.deletedAt;
-  const [meds, checks, body, photos, doses, vitals, labs, appts, qs] = await Promise.all([db.medications.toArray(), db.checkIns.toArray(), db.bodyEntries.toArray(),
-    db.photos.toArray(), db.doses.toArray(), db.vitals.toArray(), db.labs.toArray(), db.appointments.toArray(), db.questions.toArray()]);
+  const [meds, checks, body, photos, doses, vitals, labs, appts, qs, workouts] = await Promise.all([db.medications.toArray(), db.checkIns.toArray(), db.bodyEntries.toArray(),
+    db.photos.toArray(), db.doses.toArray(), db.vitals.toArray(), db.labs.toArray(), db.appointments.toArray(), db.questions.toArray(), db.workouts.toArray()]);
   return meds.filter((m) => !m.shared && personOf(m) === id).length + checks.filter(mine).length + body.filter(mine).length
     + photos.filter(mine).length + doses.filter((d) => d.personId === id && !d.deletedAt).length + vitals.filter(mine).length
-    + labs.filter(mine).length + appts.filter(mine).length + qs.filter(mine).length;
+    + labs.filter(mine).length + appts.filter(mine).length + qs.filter(mine).length + workouts.filter(mine).length;
 }
 
 export async function removePerson(id: string): Promise<boolean> {
   if (id === DEFAULT_PERSON || (await personRecordCount(id)) > 0) return false;
   await db.people.delete(id);
+  // Their tags for exercises, water and so on would log to nobody: unlink them (the stickers show "New tag found").
+  await db.tags.filter((t) => !!t.action && t.personId === id).delete();
   return true;
 }
 

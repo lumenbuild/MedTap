@@ -1,5 +1,6 @@
 // Health Connect (Android) / Apple Health (iPhone) import, in the app only: read-only, kept on the phone. Steps, sleep,
-// resting and hourly heart rate and exercise go into daily rows; weigh-ins and blood pressure become records.
+// resting and hourly heart rate, heart rate variability and exercise go into daily rows; weigh-ins, body fat, lean mass,
+// blood pressure and cardio sessions become records.
 import { db } from '../db/db';
 import { getSettings, setSetting } from '../db/repos/settings';
 import { storedPerson } from '../db/repos/people';
@@ -27,7 +28,7 @@ export async function disconnectHealth() {
   await setSetting('healthImport', false);
 }
 
-export interface ImportResult { days: number; weighIns: number; readings: number }
+export interface ImportResult { days: number; weighIns: number; readings: number; workouts: number }
 
 /** Read since the last import (a day of overlap; 90 days the first time) and save it. */
 export async function importHealth(full = false): Promise<ImportResult> {
@@ -37,13 +38,19 @@ export async function importHealth(full = false): Promise<ImportResult> {
   const tz = deviceTimeZone();
   const data = await MedTapNative.healthRead({ from, to: now, zone: tz });
   const person = storedPerson(s.healthPersonId);
-  const [daily, body, vitals] = await Promise.all([db.daily.toArray(), db.bodyEntries.toArray(), db.vitals.toArray()]);
-  const plan = planHealthImport(data, { daily, body, vitals }, person, tz, new Date(now).toISOString());
+  const [daily, body, vitals, workouts] = await Promise.all([db.daily.toArray(), db.bodyEntries.toArray(), db.vitals.toArray(), db.workouts.toArray()]);
+  const plan = planHealthImport(data, { daily, body, vitals, workouts }, person, tz, new Date(now).toISOString());
   await db.daily.bulkPut(plan.daily);
   if (HAS_BODY) for (const b of plan.body) await upsertBody(b.date, { weightKg: b.kg, note: 'From Health' }, s.healthPersonId);
+  if (HAS_BODY) for (const c of plan.comp) await upsertBody(c.date, { ...(c.bodyFatPct !== undefined ? { bodyFatPct: c.bodyFatPct } : {}), ...(c.leanKg !== undefined ? { leanKg: c.leanKg } : {}) }, s.healthPersonId);
+  if (HAS_BODY) {
+    const at = new Date(now).toISOString();
+    await db.workouts.bulkAdd(plan.cardio.map((c) => ({ id: crypto.randomUUID(), startedAt: c.at, endedAt: c.at, sets: [], source: 'health' as const, personId: person, createdAt: at, updatedAt: at,
+      cardio: { activity: c.activity, durationMin: c.durationMin, ...(c.distanceKm ? { distanceKm: c.distanceKm } : {}) } })));
+  }
   for (const v of plan.vitals) await addVital({ at: v.at, systolic: v.systolic, diastolic: v.diastolic, note: 'From Health', personId: person });
   await setSetting('healthLastImport', new Date(now).toISOString());
-  return { days: plan.daily.length, weighIns: HAS_BODY ? plan.body.length : 0, readings: plan.vitals.length };
+  return { days: plan.daily.length, weighIns: HAS_BODY ? plan.body.length : 0, readings: plan.vitals.length, workouts: HAS_BODY ? plan.cardio.length : 0 };
 }
 
 /** On opening the app: import again if it's on and it's been 6 hours. */

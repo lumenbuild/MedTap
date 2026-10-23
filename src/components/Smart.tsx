@@ -242,9 +242,9 @@ export function CheckInForecastCard({ f }: { f: CheckInForecast }) {
   return (
     <section className="border-t border-border pt-5 pb-1" aria-labelledby="ciforecast-h">
       <h2 id="ciforecast-h" className="text-sm font-medium text-muted mb-2">The coming days</h2>
-      <div className="table-scroll">
+      <div className="table-scroll" tabIndex={0}>
         <table className="w-full text-sm tnum">
-          <thead><tr className="text-left"><th className="py-1 pr-3 font-medium" />{f.days.map((d) => <th key={d.start} className="py-1 px-1 font-medium text-center">{format(d.start, 'EEE')}</th>)}</tr></thead>
+          <thead><tr className="text-left"><th className="py-1 pr-3 font-medium"><span className="sr-only">Measure</span></th>{f.days.map((d) => <th key={d.start} className="py-1 px-1 font-medium text-center">{format(d.start, 'EEE')}</th>)}</tr></thead>
           <tbody>
             {fields.map((k) => (
               <tr key={k} className="border-t border-border">

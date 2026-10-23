@@ -19,13 +19,14 @@ const todayYmd = () => format(Date.now(), 'yyyy-MM-dd');
 
 /** Show and enter values in the person's units (kg/lb, cm/in). */
 export function valueFmt(metric: GoalMetric, units: Units) {
-  const isW = metric === 'weightKg';
+  if (metric === 'bodyFatPct') return { fmt: (v: number) => `${Math.round(v * 10) / 10}%`, show: (v: number) => Math.round(v * 10) / 10, store: (v: number) => v, unit: '%', name: 'body fat' };
+  const isW = metric === 'weightKg' || metric === 'leanKg';
   return {
     fmt: (v: number) => (isW ? fmtWeight(v, units) : fmtLength(v, units)),
     show: (v: number) => (isW ? kgTo(v, units) : cmTo(v, units)),
     store: (v: number) => (isW ? toKg(v, units) : toCm(v, units)),
     unit: isW ? weightUnit(units) : lengthUnit(units),
-    name: isW ? 'weight' : 'waist',
+    name: metric === 'leanKg' ? 'lean mass' : isW ? 'weight' : 'waist',
   };
 }
 
@@ -59,7 +60,7 @@ export function GoalsSection({ personId, goals, entries, units, now }: { personI
       {goals.map((g) => <GoalCard key={g.metric} view={goalView(g, entries, now)} units={units} now={now} onEdit={() => setEditing(g.metric)} />)}
       {free.length > 0 && (
         <Button variant="secondary" className="w-full flex items-center justify-center gap-2" onClick={() => setEditing('new')}>
-          <Flag size={18} aria-hidden="true" /> {goals.length ? 'Set another goal' : 'Set a weight or waist goal'}
+          <Flag size={18} aria-hidden="true" /> {goals.length ? 'Set another goal' : 'Set a goal: weight, waist, body fat or lean mass'}
         </Button>
       )}
       {editing && (
@@ -83,7 +84,7 @@ function GoalCard({ view, units, now, onEdit }: { view: GoalView; units: Units; 
   return (
     <Card className="space-y-3">
       <div className="flex items-start gap-2">
-        <h2 className="flex-1 text-lg font-semibold">{u.name === 'weight' ? 'Weight' : 'Waist'} goal: {u.fmt(g.target)}{g.targetDate ? ` by ${fmtDY(new Date(`${g.targetDate}T12:00`).getTime())}` : ''}</h2>
+        <h2 className="flex-1 text-lg font-semibold">{u.name[0].toUpperCase()}{u.name.slice(1)} goal: {u.fmt(g.target)}{g.targetDate ? ` by ${fmtDY(new Date(`${g.targetDate}T12:00`).getTime())}` : ''}</h2>
         <button onClick={onEdit} className="min-h-[44px] px-2 -mr-2 -mt-2 text-primary font-semibold">Edit</button>
       </div>
 
