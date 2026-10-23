@@ -60,7 +60,7 @@ export function GoalsSection({ personId, goals, entries, units, now }: { personI
       {goals.map((g) => <GoalCard key={g.metric} view={goalView(g, entries, now)} units={units} now={now} onEdit={() => setEditing(g.metric)} />)}
       {free.length > 0 && (
         <Button variant="secondary" className="w-full flex items-center justify-center gap-2" onClick={() => setEditing('new')}>
-          <Flag size={18} aria-hidden="true" /> {goals.length ? 'Set another goal' : 'Set a weight or waist goal'}
+          <Flag size={18} aria-hidden="true" /> {goals.length ? 'Set another goal' : 'Set a goal: weight, waist, body fat or lean mass'}
         </Button>
       )}
       {editing && (

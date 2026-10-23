@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BellRing } from 'lucide-react';
 import { Card } from '../components/ui/Card';
+import { Switch } from '../components/ui/Switch';
 import { Button } from '../components/ui/Button';
 import { useToast } from '../app/toast';
 import { allowExactReminders, exactRemindersAllowed, openBatterySettings, openNotificationSettings, reminderHealth, reminderPermission, setRemindersEnabled, syncReminders, testReminder, type ReminderPermission } from '../app/native';
@@ -27,21 +28,13 @@ export default function RemindersCard({ enabled, nudges }: { enabled: boolean; n
   return (
     <Card className="space-y-3">
       <h2 className="text-sm font-medium text-muted flex items-center gap-2"><BellRing size={18} aria-hidden="true" /> Reminders</h2>
-      <label className="flex items-center justify-between gap-3 min-h-[48px]">
-        <span>
-          <span className="block font-medium">Remind me when doses are due</span>
-          <span className="block text-sm text-muted">Set times for the next week, and the next dose of every-few-hours medications. From your own schedule.</span>
-        </span>
-        <input type="checkbox" role="switch" checked={enabled} onChange={toggle} className="w-6 h-6 accent-[var(--primary)] shrink-0" />
-      </label>
+      <Switch label="Remind me when doses are due" checked={enabled} onChange={() => toggle()}>
+        A notification at each set dose time, and for every-few-hours medications when the next one is due. Set up from your own schedules, a week ahead.
+      </Switch>
       {enabled && (
-        <label className="flex items-center justify-between gap-3 min-h-[48px]">
-          <span>
-            <span className="block font-medium">Nudge me if I haven't logged it</span>
-            <span className="block text-sm text-muted">A second reminder a while after your usual time, learned from when you usually take it. Days you often miss always get one.</span>
-          </span>
-          <input type="checkbox" role="switch" checked={nudges} onChange={async () => { await setSetting('lateNudges', !nudges); void syncReminders(); }} className="w-6 h-6 accent-[var(--primary)] shrink-0" />
-        </label>
+        <Switch label="Nudge me if I haven't logged it" checked={nudges} onChange={async () => { await setSetting('lateNudges', !nudges); void syncReminders(); }}>
+          A second reminder when a dose still isn't logged a while after the time you usually take it. Days you often miss always get one.
+        </Switch>
       )}
       {enabled && perm === 'denied' && <p className="text-sm rounded-btn bg-caution-soft p-3">Notifications are turned off for this app in your phone’s settings, so reminders can’t show.</p>}
       {enabled && !exact && (

@@ -76,7 +76,7 @@ const CONTENT: Record<string, ReactNode> = {
   goals: (
     <>
       <H>Setting a goal</H>
-      <p>On Body, tap <strong>Set a weight or waist goal</strong>. Enter the goal and, if you like, a date. {APP_NAME} starts from where your trend is now.</p>
+      <p>On Body, tap <strong>Set a goal</strong> and choose weight, waist, body fat or lean mass (body fat and lean mass need entries from a smart scale or scan). Enter the goal and, if you like, a date. {APP_NAME} starts from where your trend is now.</p>
       <H>How the forecast works</H>
       <ul className="list-disc pl-5 space-y-1">
         <li><strong>Trend, not the scale.</strong> Weight swings by a kilo or more day to day with water and food. The forecast uses the trend over the last 4 weeks, worked out so one odd day barely moves it.</li>
@@ -334,6 +334,10 @@ const CONTENT: Record<string, ReactNode> = {
       <p>Turn on <strong>Remind me when doses are due</strong> in Settings. {APP_NAME} schedules a notification for each set time over the next week, and for the next dose of every-few-hours medications, from your own schedule. Logging a dose clears its reminder.</p>
       <p><strong>Log it</strong> on a reminder logs the planned amount without opening the app. Tap the reminder itself to check the amount first.</p>
       <p>Reminders show nicknames for medications that have one, so the lock screen doesn't reveal them.</p>
+      <H>Nudges</H>
+      <p>With <strong>Nudge me if I haven't logged it</strong> on, a second reminder comes when a dose still isn't logged a while after the time you usually take it. Days you often miss always get one.</p>
+      <H>Reminders not arriving?</H>
+      <p>Settings → Reminders → <strong>Reminder check</strong> shows what could stop or delay reminders on this phone (notifications off, battery saving), with a fix for each, and sends a test reminder.</p>
     </>
   ) : (
     <>

@@ -355,6 +355,26 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
   repeat a session, rest timer, finish with PBs, routine, plates, cardio, protein target, soreness, body comp, help);
   fit audit at 4 phone sizes; TapDose scan; Android debug build. Health import of the new types not tested on a phone.
 
+## Settings and wording review (owner request: "explained clearer, predictable")
+- Settings regrouped: Backup at the top, then People and phones, Reminders and health data (app), Doses and
+  schedules, Optional features, Check-ins, Display, Privacy and storage, Tools, About, Erase. One line at the top says
+  changes save straight away and turning a feature off only hides it.
+- Real on/off switches that say On or Off (`src/components/ui/Switch.tsx`) for peptides, training, cycle, reminders
+  and nudges; they were bare checkboxes.
+- Tools (lab results, trip planner, peptide calculator, supplies) moved out of the settings lists into a Tools group.
+- Wording made exact: double-log check names "the same medication" and says you can still log it; travel time has a
+  worked example for the chosen option; refill warning says where it shows; the check-in suggestion says what it does
+  in a browser; rest timer in min/s; units say they're for weight and measurements and that training is in kg.
+- Corrected statements that were wrong: "everything is saved on this device only" (not with Family sync on); cycle
+  data "kept on this phone" (period starts are check-ins, so they sync and back up); backups "encrypted" (they're
+  scrambled, but any copy of the app restores them without a password, so keep them private); Health import "again
+  when you open the app" (at most every 6 hours).
+- "Reset to the defaults" for check-in options can now be undone. "Add injection side effects" is a proper button.
+- Elsewhere: Trends "Median gap 4m" → "Usually 4 min between doses"; "(median)" dropped; the estimated level on Trends
+  now shows the value now with sensible rounding, matching the Protocol tab (it showed the end-of-day value to 3 dp);
+  the goal button names all four goal types; Help → Reminders covers nudges and the reminder check.
+- Follow-up worth doing: training weights in lb for people who use lb.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 

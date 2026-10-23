@@ -36,7 +36,7 @@ export default function HealthCard({ on, last, personId, personName, now }: { on
       )}
       {status?.status === 'available' && on && (
         <>
-          <p className="text-[15px] tnum">On{personName ? ` for ${personName}` : ''} · {last ? `last import ${fmtAgo(now - Date.parse(last))}` : 'not imported yet'}. Imports again when you open the app.</p>
+          <p className="text-[15px] tnum">On{personName ? ` for ${personName}` : ''} · {last ? `last import ${fmtAgo(now - Date.parse(last))}` : 'not imported yet'}. Imports again when you open the app, at most every 6 hours.</p>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" disabled={busy} onClick={() => run(async () => { toast(said(await importHealth())); })}>Import now</Button>
             <Button variant="secondary" onClick={() => MedTapNative.openHealthConnect()}>{name} settings</Button>

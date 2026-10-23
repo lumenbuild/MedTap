@@ -152,7 +152,7 @@ export function Backup() {
         <Button className="w-full min-h-[56px] flex items-center justify-center gap-2" onClick={doExport} disabled={busy}>
           <Download size={20} aria-hidden="true" /> Back up now
         </Button>
-        <p className="text-sm text-muted">Backup files are encrypted, so they can't be read by opening them. Any copy of {APP_NAME} can restore them, no password needed.</p>
+        <p className="text-sm text-muted">Backup files are scrambled, so opening one shows nothing readable. But any copy of {APP_NAME} can restore them without a password, so keep them somewhere private, like your own cloud drive.</p>
       </Card>
 
       <Card className="space-y-3">
