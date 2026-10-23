@@ -4,11 +4,37 @@ import { getSettings, scheduleSettings, type AppSettings } from '../db/repos/set
 import type { ScheduleSettings } from '../logic/schedule';
 import { listPeople } from '../db/repos/people';
 import { DEFAULT_PERSON } from '../db/schema';
+import { hiddenMedIds, viewMeds, withoutHidden } from '../logic/privateView';
+import { isPrivateView, useViewMode } from './viewMode';
 
-export const useSettings = () => useLive(getSettings);
-export const useMeds = () => useLive(() => db.medications.orderBy('name').toArray());
-export const useDoses = () => useLive(() => db.doses.toArray());
-export const useTags = () => useLive(() => db.tags.toArray());
+// In the private view (see logic/privateView.ts) these hooks are where it happens: left-out medicines and everything
+// of theirs disappear, covered ones come back under their cover name, and the peptide tools read as off. Screens
+// don't need to know.
+async function viewSettings(): Promise<AppSettings> {
+  const s = await getSettings();
+  return isPrivateView() && s.privacyHidePeptides ? { ...s, peptideTools: false } : s;
+}
+async function hidden(): Promise<Set<string>> {
+  if (!isPrivateView()) return new Set();
+  const [meds, s] = await Promise.all([db.medications.toArray(), getSettings()]);
+  return hiddenMedIds(meds, s.privacyHidePeptides);
+}
+/** Drop a left-out medicine's records (private view only). */
+export async function inView<T extends { medicationId?: string }>(rows: T[]): Promise<T[]> {
+  return withoutHidden(rows, await hidden());
+}
+
+export const useSettings = () => { const v = useViewMode(); return useLive(viewSettings, [v]); };
+export const useMeds = () => {
+  const v = useViewMode();
+  return useLive(async () => {
+    const meds = await db.medications.orderBy('name').toArray();
+    if (v === 'full') return meds;
+    return viewMeds(meds, (await getSettings()).privacyHidePeptides).sort((a, b) => a.name.localeCompare(b.name));
+  }, [v]);
+};
+export const useDoses = () => { const v = useViewMode(); return useLive(async () => inView(await db.doses.toArray()), [v]); };
+export const useTags = () => { const v = useViewMode(); return useLive(async () => inView(await db.tags.toArray()), [v]); };
 
 export function useScheduleSettings(): [AppSettings, ScheduleSettings] | undefined {
   const s = useSettings();
@@ -16,9 +42,9 @@ export function useScheduleSettings(): [AppSettings, ScheduleSettings] | undefin
 }
 export const useCheckIns = () => useLive(() => db.checkIns.toArray());
 export const useBodyEntries = () => useLive(() => db.bodyEntries.orderBy('date').toArray());
-export const useMedEvents = () => useLive(() => db.medEvents.toArray());
+export const useMedEvents = () => { const v = useViewMode(); return useLive(async () => inView(await db.medEvents.toArray()), [v]); };
 export const useVitals = () => useLive(() => db.vitals.toArray());
-export const useSupplies = () => useLive(() => db.supplies.toArray());
+export const useSupplies = () => { const v = useViewMode(); return useLive(async () => ((await viewSettings()).peptideTools ? db.supplies.toArray() : []), [v]); };
 export const usePeople = () => useLive(listPeople);
 export const useLabs = () => useLive(() => db.labs.toArray());
 export const useAppointments = () => useLive(() => db.appointments.toArray());

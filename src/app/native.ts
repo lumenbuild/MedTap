@@ -21,6 +21,8 @@ import { trainingVsPeptide } from '../logic/training';
 import { wearOffToday } from '../logic/wearOff';
 import { fmtAmount, fmtTime } from '../logic/format';
 import { shownName } from '../logic/privacy';
+import { discreetName, viewMeds } from '../logic/privateView';
+import type { Medication } from '../db/schema';
 import { tagIdFromUrl } from '../nfc/url';
 import { isNative, isNativeAndroid } from '../platform';
 import { MedTapNative } from '../nfc/native';
@@ -121,14 +123,17 @@ async function syncExtras() {
     const who = settings.activePersonId;
     const [meds, doses, checkIns, body, daily, workouts, events, own, people] = await Promise.all([db.medications.toArray(), db.doses.toArray(), db.checkIns.toArray(),
       db.bodyEntries.toArray(), db.daily.toArray(), db.workouts.toArray(), db.medEvents.toArray(), db.exercises.toArray(), listPeople()]);
-    const mine = meds.filter((m) => medIsFor(m, who));
+    // With a privacy PIN set, what shows without unlocking (widgets, the watch, shortcuts) follows the private view.
+    const all = meds.filter((m) => medIsFor(m, who));
+    const mine = settings.privacyPinHash ? viewMeds(all, settings.privacyHidePeptides) : all;
     const ids = new Set(mine.map((m) => m.id));
     const live = dosesForPerson(doses.filter((d) => !d.deletedAt && ids.has(d.medicationId)), mine, who);
     const theirs = <T extends { personId?: string; deletedAt?: string }>(xs: T[]) => xs.filter((x) => !x.deletedAt && personOf(x) === who);
     const payload = widgetsPayload({
       app: APP_NAME, meds: mine, doses: live, checkIns: theirs(checkIns), body: theirs(body), daily: theirs(daily), workouts: theirs(workouts),
       events: events.filter((e) => ids.has(e.medicationId)), own, goals: people.find((p) => p.id === who)?.goals ?? [], units: settings.units,
-      proteinTarget: settings.proteinTargetG, waterTarget: settings.waterTargetMl, body_: HAS_BODY, training: settings.trainingTools, peptides: HAS_PEPTIDES && settings.peptideTools,
+      proteinTarget: settings.proteinTargetG, waterTarget: settings.waterTargetMl, body_: HAS_BODY, training: settings.trainingTools,
+      peptides: HAS_PEPTIDES && settings.peptideTools && !(settings.privacyPinHash && settings.privacyHidePeptides),
     }, Date.now(), scheduleSettings(settings));
     await MedTapNative.setWidget({ json: JSON.stringify(payload) });
     await MedTapNative.setShortcuts({ items: shortcutItems(mine) });
@@ -232,14 +237,17 @@ async function doSync() {
   ];
   const byId = new Map(meds.map((m) => [m.id, m]));
   const many = people.length > 1;
+  // Lock-screen text: with a privacy PIN set, covered medicines show their cover name and left-out ones say nothing.
+  const title = (med: Medication) => (settings.privacyPinHash ? discreetName(med, settings.privacyHidePeptides, shownName) : shownName(med));
   await LocalNotifications.schedule({
     notifications: plan.map((r) => {
       const med = byId.get(r.medId)!;
       const who = many && !med.shared ? `${people.find((p) => p.id === personOf(med))?.name ?? ''}: ` : '';
       return {
         id: r.id,
-        title: `${who}${shownName(med)}`,
-        body: r.kind === 'due' ? `${fmtAmount(r.amount, med.unit)} due at ${fmtTime(r.dueAt)}` : `Still to take: ${fmtAmount(r.amount, med.unit)}, due at ${fmtTime(r.dueAt)}`,
+        title: `${who}${title(med) ?? 'Reminder'}`,
+        body: title(med) === null ? `Due at ${fmtTime(r.dueAt)}`
+          : r.kind === 'due' ? `${fmtAmount(r.amount, med.unit)} due at ${fmtTime(r.dueAt)}` : `Still to take: ${fmtAmount(r.amount, med.unit)}, due at ${fmtTime(r.dueAt)}`,
         schedule: { at: new Date(r.at), allowWhileIdle: true },
         channelId: CHANNEL,
         actionTypeId: ACTIONS,
@@ -276,7 +284,9 @@ async function scheduleWearOff(settings: Awaited<ReturnType<typeof getSettings>>
   const [meds, doses, checkIns, daily] = await Promise.all([db.medications.toArray(), db.doses.toArray(), db.checkIns.toArray(), db.daily.toArray()]);
   const now = Date.now();
   const s = scheduleSettings(settings);
-  const mine = meds.filter((m) => !m.archived && !m.peptide && medIsFor(m, me));
+  const mine = meds.filter((m) => !m.archived && !m.peptide && medIsFor(m, me))
+    .map((m) => (settings.privacyPinHash ? (() => { const n = discreetName(m, settings.privacyHidePeptides, shownName); return n === null ? null : { ...m, name: n, nickname: undefined }; })() : m))
+    .filter((m): m is Medication => !!m);
   const notes = mine.map((m) => wearOffToday(m, doses, checkIns.filter((c) => personOf(c) === me), daily.filter((d) => personOf(d) === me), now, s))
     .filter((w): w is NonNullable<typeof w> => !!w && w.at - 30 * 60_000 > now);
   if (!notes.length) return;

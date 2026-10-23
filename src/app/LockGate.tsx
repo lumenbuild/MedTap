@@ -2,13 +2,16 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Delete, Lock } from 'lucide-react';
 import { useSettings } from './data';
 import { verifyPin } from '../logic/pin';
+import { setViewMode } from './viewMode';
+import type { ViewMode } from '../logic/privateView';
 import { eraseAll } from '../db/repos/backup';
 import { APP_NAME } from '../config';
 import { Button } from '../components/ui/Button';
 import { Sheet, SheetActions } from '../components/ui/Sheet';
 import { TextInput } from '../components/ui/Field';
 
-/** Covers the app with a PIN pad when app lock is on: at start, after leaving the app, or after being idle. */
+/** Covers the app with a PIN pad when app lock is on: at start, after leaving the app, or after being idle. The main
+ *  PIN opens everything; the privacy PIN (if set) opens the private view, which looks the same. */
 export function LockGate({ children }: { children: ReactNode }) {
   const settings = useSettings();
   const enabled = !!settings?.lockEnabled && !!settings.pinHash && !!settings.pinSalt;
@@ -21,6 +24,7 @@ export function LockGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!settings) return;
     setLocked((cur) => (enabled ? (cur === null ? true : cur) : false));
+    if (!enabled) setViewMode('full');
   }, [settings, enabled]);
 
   useEffect(() => {
@@ -40,14 +44,15 @@ export function LockGate({ children }: { children: ReactNode }) {
     };
   }, [enabled, afterMs]);
 
-  const unlock = useCallback(() => { lastActive.current = Date.now(); setLocked(false); }, []);
+  const unlock = useCallback((mode: ViewMode) => { setViewMode(mode); lastActive.current = Date.now(); setLocked(false); }, []);
 
   if (settings === undefined || locked === null) return null;
-  if (enabled && locked) return <LockScreen salt={settings.pinSalt!} hash={settings.pinHash!} length={settings.pinLength} onUnlock={unlock} />;
+  if (enabled && locked) return <LockScreen salt={settings.pinSalt!} hash={settings.pinHash!} length={settings.pinLength} onUnlock={unlock}
+    privacy={settings.privacyPinHash && settings.privacyPinSalt ? { salt: settings.privacyPinSalt, hash: settings.privacyPinHash } : null} />;
   return <>{children}</>;
 }
 
-function LockScreen({ salt, hash, length, onUnlock }: { salt: string; hash: string; length: number; onUnlock: () => void }) {
+function LockScreen({ salt, hash, length, onUnlock, privacy }: { salt: string; hash: string; length: number; onUnlock: (m: ViewMode) => void; privacy: { salt: string; hash: string } | null }) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [fails, setFails] = useState(0);
@@ -64,7 +69,8 @@ function LockScreen({ salt, hash, length, onUnlock }: { salt: string; hash: stri
   }, [waiting]);
 
   const tryPin = async (p: string) => {
-    if (await verifyPin(p, salt, hash)) { onUnlock(); return; }
+    if (await verifyPin(p, salt, hash)) { onUnlock('full'); return; }
+    if (privacy && await verifyPin(p, privacy.salt, privacy.hash)) { onUnlock('private'); return; }
     const n = fails + 1;
     setFails(n);
     setPin('');

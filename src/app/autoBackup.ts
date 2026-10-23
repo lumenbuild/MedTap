@@ -27,8 +27,8 @@ export class BackupError extends Error {
 }
 
 /** The backup file's text. Always encrypted (built-in key) so it can't simply be opened and read. */
-export async function backupText(includePhotos: boolean): Promise<string> {
-  const backup = await exportBackup({ includePhotos });
+export async function backupText(includePhotos: boolean, privateView = false): Promise<string> {
+  const backup = await exportBackup({ includePhotos, privateView });
   const sealed = await sealBackup(JSON.stringify(backup));
   return JSON.stringify({ app: APP_NAME, format: backup.format, encrypted: true, sealed });
 }

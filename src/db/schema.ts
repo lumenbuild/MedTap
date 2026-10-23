@@ -155,6 +155,10 @@ export interface Medication extends Stamped {
   /** Shown instead of the real name wherever someone might glance (Today, tag taps, reminders, charts), with a plain
    *  grey badge. The real name only shows on the medication's own page, in the doctor report and in exports. */
   nickname?: string;
+  /** How it appears when the app is opened with the privacy PIN: under `coverName`, or not at all (with its doses,
+   *  tags and history). Missing = as it is (peptides: hidden while the peptide tools are left out). */
+  privateView?: 'show' | 'cover' | 'hide';
+  coverName?: string;
   /** Bottles/packs on hand, each with its own expiry (e.g. a liquid at home and one in the school bag). */
   bottles?: Bottle[];
   /** Script refills left, and when the script expires ('YYYY-MM-DD'). */

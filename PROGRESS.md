@@ -632,6 +632,30 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
 - Tests `tests/exercises-nokit.test.ts`. Axe clean (light and dark); the TapDose check, Insights, Smart, Training and
   Tags flows pass.
 
+## Private view (a second, privacy PIN)
+- **Settings → Privacy → Private view** (only with app lock on, and only in the full view): a second PIN of the same
+  length. On the lock screen the main PIN opens everything; the privacy PIN opens the same-looking app in the private
+  view. The mode is kept in memory only (`src/app/viewMode.ts`), so every unlock decides it again.
+- **Per medicine** (its page, once a privacy PIN exists): shown as it is, under a cover name, or left out with its
+  doses, tags and history. Peptides default to left out while "Leave out peptide tools" is on (MedTap).
+- **How:** the data hooks in `src/app/data.ts` apply the rules (`src/logic/privateView.ts`), so every screen follows:
+  - left-out medicines and their records disappear;
+  - covered ones lose anything identifying (ingredients, instructions, notes, peptide setup, vials, batches);
+  - the peptide tools read as off, and their screens and Help topic fall back.
+- **The private view never mentions itself:** no private-view settings, no Change PIN or Turn off (that would open the
+  full view next time), and no restore or automatic backups (a restore would overwrite what it leaves out).
+  - Manual backups and spreadsheets made there hold only what it shows, and nothing about the privacy PIN.
+  - A left-out medicine's tag says "Nothing to log".
+  - Editing a covered medicine renames the cover; its real details are kept.
+- **Seen without unlocking:** with a privacy PIN set, reminders use the cover name (left-out medicines just say
+  "Reminder" and the time), and widgets, the watch and app shortcuts follow the private view.
+- A privacy screen, not encryption: the data is still on the phone (as with the PIN itself).
+- Tests `tests/private-view.test.ts`. Browser:
+  - the PINs must differ;
+  - the private view shows no real names, peptides or Protocol on any screen, Help or direct links;
+  - the cover name is shown and editable without touching the real one;
+  - the main PIN brings everything back.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 

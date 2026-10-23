@@ -5,13 +5,14 @@ import { APP_NAME, DISCLAIMER } from '../../config';
 import { tagBase } from '../../nfc/url';
 import { Card } from '../../components/ui/Card';
 import { apkDownload, edition, HAS_BODY, HAS_PEPTIDES, HAS_VISITS } from '../../edition';
+import { useViewMode } from '../../app/viewMode';
 
 const TOPICS = [
   { id: 'schedules', title: 'Setting up a schedule', Icon: CalendarClock },
   { id: 'scan', title: 'Scanning a pharmacy label', Icon: ScanText },
   ...(HAS_BODY ? [{ id: 'goals', title: 'Goals and forecasts', Icon: Target }] as const : []),
   ...(HAS_BODY ? [{ id: 'training', title: 'Training and fitness', Icon: Dumbbell }] as const : []),
-  ...(HAS_PEPTIDES ? [{ id: 'peptides', title: 'Peptides and injections', Icon: Syringe }] as const : []),
+  { id: 'peptides', title: 'Peptides and injections', Icon: Syringe, peptides: true },
   { id: 'family', title: 'Family members', Icon: Users },
   { id: 'sync', title: 'Family sync', Icon: RefreshCw },
   { id: 'tags', title: 'Which tags work', Icon: Nfc },
@@ -25,11 +26,17 @@ const TOPICS = [
 
 export const helpTitle = (topic?: string) => TOPICS.find((t) => t.id === topic)?.title ?? 'Help';
 
+/** Peptide help only where the peptide tools can be shown (MedTap, and not in the private view). */
+const usePeptideHelp = () => { const v = useViewMode(); return HAS_PEPTIDES && v !== 'private'; };
+const Pep = ({ children }: { children: ReactNode }) => (usePeptideHelp() ? <>{children}</> : null);
+
 export function Help({ topic }: { topic?: string }) {
+  const peptides = usePeptideHelp();
+  const topics = TOPICS.filter((t) => !('peptides' in t) || peptides);
   if (!topic) {
     return (
       <ul className="space-y-2">
-        {TOPICS.map(({ id, title, Icon }) => (
+        {topics.map(({ id, title, Icon }) => (
           <li key={id}>
             <a href={`#/help/${id}`} className="border-t border-border py-4 min-h-[56px] flex items-center gap-3">
               <Icon className="text-primary" aria-hidden="true" />
@@ -41,7 +48,7 @@ export function Help({ topic }: { topic?: string }) {
       </ul>
     );
   }
-  const page = TOPICS.some((t) => t.id === topic) ? CONTENT[topic] : undefined;
+  const page = topics.some((t) => t.id === topic) ? CONTENT[topic] : undefined;
   return <Card className="space-y-4 help-prose">{page ?? <p>That help page doesn't exist.</p>}</Card>;
 }
 
@@ -119,7 +126,7 @@ const CONTENT: Record<string, ReactNode> = {
           <p>Settings → <strong>Lab results</strong>: type them in or read them from a photo of the printout. They're in the doctor report.</p>
         </>
       )}
-      <p>Check-in notes suggest chips (“bit queasy” → Nausea){HAS_PEPTIDES ? ', and adding vials can read the lot and expiry from a photo of the label' : ''}.</p>
+      <p>Check-in notes suggest chips (“bit queasy” → Nausea)<Pep>, and adding vials can read the lot and expiry from a photo of the label</Pep>.</p>
       <H>More patterns in Trends</H>
       <ul className="list-disc pl-5 space-y-1">
         <li><strong>Days on and off</strong>: check-ins on days you took a medicine against days you didn't.</li>
