@@ -143,6 +143,7 @@ async function doSync() {
   const settings = await getSettings();
   if ((await reminderPermission()) !== 'granted') return;
   if (settings.trainingTools && settings.trainingReminders) await scheduleTraining(settings);
+  if (settings.digestNotify) await scheduleDigest();
   if (!settings.remindersEnabled) return;
   const [meds, doses, people] = await Promise.all([db.medications.toArray(), db.doses.toArray(), listPeople()]);
   const live = doses.filter((d) => !d.deletedAt);
@@ -185,6 +186,21 @@ async function scheduleTraining(settings: Awaited<ReturnType<typeof getSettings>
   await LocalNotifications.schedule({
     notifications: plan.map((r) => ({ id: r.id, title: r.title, body: r.body, schedule: { at: new Date(r.at), allowWhileIdle: true }, channelId: TRAINING_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/training' } })),
   });
+}
+
+/** Next Monday 8:30 am: "Your week" (the digest is on Today until Wednesday). */
+async function scheduleDigest() {
+  const d = new Date(); d.setHours(8, 30, 0, 0);
+  d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || (Date.now() < d.getTime() && d.getDay() === 1 ? 0 : 7)));
+  await LocalNotifications.schedule({ notifications: [{ id: 900_300_000, title: 'Your week', body: 'Doses, weight, training and sleep against the week before. Tap to see.', schedule: { at: d, allowWhileIdle: true }, channelId: TRAINING_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/today' } }] });
+}
+
+/** The Monday digest notification on (asking for permission) or off. */
+export async function setDigestNotify(on: boolean): Promise<boolean> {
+  if (on) { const p = await LocalNotifications.requestPermissions(); if (p.display !== 'granted') return false; }
+  await setSetting('digestNotify', on);
+  await syncReminders();
+  return on;
 }
 
 /** The rest timer, for when the phone is locked or the app is in the background. */

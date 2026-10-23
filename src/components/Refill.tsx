@@ -1,3 +1,4 @@
+import { repeatRequest } from '../logic/records';
 import { useState } from 'react';
 import { shownColour, shownMedName, shownName } from '../logic/privacy';
 import { format } from 'date-fns';
@@ -64,6 +65,7 @@ export function RefillCards({ alerts, settings, now }: { alerts: RefillAlert[]; 
             {expiringBottles.map((b) => <p key={b.id} className="text-sm tnum font-medium">{fmtBottle(b, now)}</p>)}
             <div className="flex flex-wrap gap-2 mt-3">
               <Button variant="secondary" onClick={() => setRestocking(med)}>Add stock</Button>
+              {!!med.repeatsLeft && <AskPharmacy meds={[med]} settings={settings} />}
               {expiringBottles.length > 0 && <Button variant="secondary" onClick={() => go(`/meds/${med.id}`)}>Bottles</Button>}
               <Button variant="secondary" onClick={() => setSetting('dismissedLowStock', { ...settings.dismissedLowStock, [med.id]: med.stockCount ?? -1 })}>Dismiss</Button>
             </div>
@@ -114,3 +116,20 @@ export function RestockSheet({ med, onClose }: { med: Medication; onClose: () =>
     </Sheet>
   );
 }
+
+/** Send the pharmacy a repeat request: by SMS or email when their contact is set (Settings), else share or copy. */
+export function AskPharmacy({ meds, settings, name }: { meds: Medication[]; settings: AppSettings; name?: string }) {
+  const toast = useToast();
+  const text = repeatRequest(meds, name);
+  const c = settings.pharmacyContact.trim();
+  const href = /@/.test(c) ? `mailto:${encodeURIComponent(c)}?subject=${encodeURIComponent('Repeat request')}&body=${encodeURIComponent(text)}`
+    : /\d{6,}/.test(c.replace(/\D/g, '')) ? `sms:${c.replace(/[^\d+]/g, '')}?body=${encodeURIComponent(text)}` : null;
+  if (href) return <a href={href} className="inline-flex items-center min-h-[48px] px-4 rounded-btn border border-border-strong font-semibold">Ask {settings.pharmacyName.trim() || 'the pharmacy'}</a>;
+  return (
+    <Button variant="secondary" onClick={async () => {
+      try { if (navigator.share) { await navigator.share({ text }); return; } } catch { /* cancelled */ }
+      try { await navigator.clipboard.writeText(text); toast('Message copied. Add your pharmacy in Settings to send it in one tap.'); } catch { toast(text); }
+    }}>Ask the pharmacy</Button>
+  );
+}
+

@@ -3,7 +3,7 @@ import { clearLogRequest, onLogRequest } from '../../app/pendingLog';
 import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { CalendarPlus, Lock, Nfc, Pill } from 'lucide-react';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
-import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useMeds, useScheduleSettings, useSupplies, useVitals } from '../../app/data';
+import { useBodyEntries, useCheckIns, useDaily, useDoses, useExercises, useWorkouts, useFamily, useMeds, useScheduleSettings, useSupplies, useVitals } from '../../app/data';
 import { VitalsSheet, type VitalsSheetState } from '../../components/VitalsSheet';
 import { dosesForPerson, medIsFor, personOf, storedPerson } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
@@ -32,7 +32,7 @@ import { HeroCard } from './HeroCard';
 import { TodayRow } from './TodayRow';
 import { WeekStrip } from '../Protocol/WeekStrip';
 import { WeeklySummaryBlock } from '../Protocol/Predictions';
-import { EffectToday, OddRecordsLine, ScriptToday } from '../../components/Smart';
+import { EffectToday, MentionsLine, OddRecordsLine, ScriptToday } from '../../components/Smart';
 import { appointmentsAround } from '../../logic/appointments';
 import { ALCOHOL, CAFFEINE, PERIOD } from '../../logic/lifestyle';
 import { addCheckIn, removeCheckIn } from '../../db/repos/checkIns';
@@ -43,9 +43,14 @@ import { weeklySummary } from '../../logic/predict';
 import { PrnCard } from './PrnCard';
 import { Timeline } from './Timeline';
 import { DoseEditSheet } from './DoseEditSheet';
-import { AutoBackupPermission, BackupReminder, CheckInPrompt, InstallCard } from './PromptCards';
+import { AutoBackupPermission, BackupReminder, CheckInPrompt, InstallCard, UpdateCard } from './PromptCards';
 import { HAS_BODY, HAS_PEPTIDES, HAS_VISITS } from '../../edition';
-import { IntakeCard } from '../../components/Fitness';
+import { DigestCard, IntakeCard } from '../../components/Fitness';
+import { weeklyDigest } from '../../logic/digest';
+import { allExercises } from '../../logic/exercises';
+import { setDigestNotify } from '../../app/native';
+import { isNative } from '../../platform';
+import { setSetting } from '../../db/repos/settings';
 import { readiness } from '../../logic/training';
 
 export function Today() {
@@ -56,6 +61,8 @@ export function Today() {
   const vitals = useVitals();
   const supplies = useSupplies();
   const daily = useDaily();
+  const workouts = useWorkouts();
+  const own = useExercises();
   const appointments = useAppointments();
   const [vitalSheet, setVitalSheet] = useState<VitalsSheetState>(null);
   const ss = useScheduleSettings();
@@ -189,6 +196,7 @@ export function Today() {
         const lines = [
           <EffectToday key="e" meds={viewMeds} doses={viewDoses} checkIns={viewCheckIns} now={now} />,
           <ScriptToday key="s" meds={viewMeds} doses={viewDoses} s={s} now={now} />,
+          <MentionsLine key="m" vitals={viewVitals} daily={(daily ?? []).filter((d) => personOf(d) === fam.personId)} dismissed={settings.mentionsDismissed} now={now} />,
           <OddRecordsLine key="o" meds={viewMeds} doses={viewDoses} body={HAS_BODY ? viewBody : []} checkIns={viewCheckIns} vitals={viewVitals} dismissed={settings.oddDismissed} now={now} />,
         ];
         return (
@@ -237,6 +245,17 @@ export function Today() {
       </div>
       )}
 
+      {!fam.everyone && daily && workouts && own && (() => {
+        // Monday to Wednesday: last week against the week before.
+        const wd = new Date(now).getDay();
+        if (![1, 2, 3].includes(wd)) return null;
+        const mine = <T extends { personId?: string }>(r: T) => personOf(r) === fam.personId;
+        const dg = weeklyDigest({ meds: viewMeds, doses: viewDoses, checkIns: viewCheckIns, body: HAS_BODY ? viewBody : [], workouts: workouts.filter(mine), daily: daily.filter(mine), defs: allExercises(own) },
+          now, s, { units: settings.units, body: HAS_BODY, training: HAS_BODY && settings.trainingTools });
+        return dg ? <DigestCard d={dg} seen={settings.digestSeen} notify={settings.digestNotify} onClose={() => setSetting('digestSeen', dg.weekStart)}
+          onNotify={isNative ? async () => { const on = await setDigestNotify(true); toast(on ? 'You’ll get your week each Monday at 8:30 am' : 'Notifications are off for this app. Turn them on in your phone’s settings.'); } : undefined} /> : null;
+      })()}
+
       {HAS_BODY && settings.trainingTools && !fam.everyone && daily && (() => {
         const mineDaily = daily.filter((d) => !d.deletedAt && personOf(d) === fam.personId);
         const today = format(now, 'yyyy-MM-dd');
@@ -248,6 +267,7 @@ export function Today() {
 
       {needsBackup(settings.lastBackupAt, firstRecord, now, settings.backupReminderDays) && <BackupReminder days={settings.backupReminderDays} />}
       <AutoBackupPermission enabled={settings.autoBackupEnabled} />
+      <UpdateCard dismissed={settings.updateDismissed} />
       <InstallCard hasDoses={doses.some((d) => !d.deletedAt)} dismissed={settings.installCardDismissed} />
 
       <Timeline doses={viewDoses} checkIns={viewCheckIns} body={HAS_BODY ? viewBody : []} vitals={viewVitals} onVital={(v) => setVitalSheet({ editing: v })} meds={viewMedMap} s={s} units={settings.units} now={now} personLabel={fam.everyone ? whose : undefined}

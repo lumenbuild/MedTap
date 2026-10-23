@@ -1,3 +1,4 @@
+import { money } from '../../logic/cost';
 import { PhotoReader } from '../../components/PhotoReader';
 import { parseVialLabel } from '../../logic/records';
 import { useRef, useState } from 'react';
@@ -201,7 +202,7 @@ function StartSheet({ med, stock, onClose, onStarted }: { med: Medication; stock
   );
 }
 
-function BatchFields({ v, set, unit }: { v: Record<'amount' | 'lot' | 'supplier' | 'purity' | 'expiry' | 'note', string>; set: (k: keyof typeof v, x: string) => void; unit: string }) {
+function BatchFields({ v, set, unit }: { v: Record<'amount' | 'lot' | 'supplier' | 'purity' | 'expiry' | 'note' | 'cost', string>; set: (k: keyof typeof v, x: string) => void; unit: string }) {
   return (
     <>
       <TextInput label={`Amount in each (${unit})`} type="number" inputMode="decimal" min="0" step="any" value={v.amount} onChange={(e) => set('amount', e.target.value)} />
@@ -213,21 +214,23 @@ function BatchFields({ v, set, unit }: { v: Record<'amount' | 'lot' | 'supplier'
         <TextInput label="Supplier (optional)" value={v.supplier} onChange={(e) => set('supplier', e.target.value)} autoComplete="off" />
         <TextInput label="Purity % (optional)" type="number" inputMode="decimal" min="0" max="100" step="any" value={v.purity} onChange={(e) => set('purity', e.target.value)} />
       </div>
+      <TextInput label="Price each ($, optional)" type="number" inputMode="decimal" min="0" step="any" value={v.cost} onChange={(e) => set('cost', e.target.value)}
+        help={Number(v.cost) > 0 && Number(v.amount) > 0 ? `${money(Number(v.cost) / Number(v.amount))} per ${unit}. Costs show on Protocol.` : 'For cost per ' + unit + ', per week and per month on Protocol.'} />
       <TextArea label="Note (optional)" rows={2} value={v.note} onChange={(e) => set('note', e.target.value)} />
     </>
   );
 }
 
-const toDetails = (v: Record<'amount' | 'lot' | 'supplier' | 'purity' | 'expiry' | 'note', string>, fallback: number): VialDetails => ({
+const toDetails = (v: Record<'amount' | 'lot' | 'supplier' | 'purity' | 'expiry' | 'note' | 'cost', string>, fallback: number): VialDetails => ({
   amount: Number(v.amount) || fallback, lot: v.lot.trim() || undefined, supplier: v.supplier.trim() || undefined,
-  purity: num(v.purity), expiry: v.expiry || undefined, note: v.note.trim() || undefined,
+  purity: num(v.purity), expiry: v.expiry || undefined, note: v.note.trim() || undefined, cost: num(v.cost),
 });
 
 function AddSheet({ med, onClose }: { med: Medication; onClose: () => void }) {
   const toast = useToast();
   const pen = isPen(med);
   const [count, setCount] = useState('1');
-  const [v, setV] = useState({ amount: String(med.strength || ''), lot: '', supplier: '', purity: '', expiry: '', note: '' });
+  const [v, setV] = useState({ amount: String(med.strength || ''), lot: '', supplier: '', purity: '', expiry: '', note: '', cost: med.costPerUnit ? String(med.costPerUnit) : '' });
   const n = Number(count);
   const save = async () => {
     const ids = await addVials(med.id, n, toDetails(v, med.strength));
@@ -265,7 +268,7 @@ function DetailsSheet({ med, vial, doses, onClose }: { med: Medication; vial: Pe
   const toast = useToast();
   const [v, setV] = useState({
     amount: String(vial.amount), lot: vial.lot ?? '', supplier: vial.supplier ?? '', purity: vial.purity !== undefined ? String(vial.purity) : '',
-    expiry: vial.expiry ?? '', note: vial.note ?? '',
+    expiry: vial.expiry ?? '', note: vial.note ?? '', cost: vial.cost !== undefined ? String(vial.cost) : '',
   });
   const photos = useLive(() => db.photos.filter((p) => p.vialId === vial.id && !p.deletedAt).toArray(), [vial.id]) ?? [];
   const urls = usePhotoUrls(photos);

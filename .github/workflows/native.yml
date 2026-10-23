@@ -18,6 +18,9 @@ jobs:
       HAS_KEY: ${{ secrets.MEDTAP_KEYSTORE_BASE64 != '' }}
       MEDTAP_VERSION_CODE: ${{ github.run_number }}
       MEDTAP_VERSION_NAME: 1.0.${{ github.run_number }}
+      # The app compares its build with the latest release's to offer updates (src/app/updates.ts).
+      VITE_BUILD: ${{ github.run_number }}
+      VITE_APP_VERSION: build ${{ github.run_number }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -59,15 +62,18 @@ jobs:
         if: env.HAS_KEY == 'true' && github.ref_name == github.event.repository.default_branch
         env:
           GH_TOKEN: ${{ github.token }}
+          HEAD_MSG: ${{ github.event.head_commit.message }}
         run: |
+          # "What's new": a merged PR's title (the commit message's third line), else its first line. Shown in the app.
+          NEW="$(printf '%s\n' "$HEAD_MSG" | sed -n '3p')"; [ -n "$NEW" ] || NEW="$(printf '%s\n' "$HEAD_MSG" | sed -n '1p')"
           gh release delete android --yes --cleanup-tag || true
           gh release create android "$RUNNER_TEMP/MedTap.apk" --target "$GITHUB_SHA" --latest \
             --title "MedTap for Android (build ${{ github.run_number }})" \
-            --notes "Download MedTap.apk on your Android phone and open it to install. Updates install over the top and keep your data."
+            --notes "What's new: $NEW"$'\n\n'"Download MedTap.apk on your Android phone and open it to install. Updates install over the top and keep your data."
           gh release delete tapdose-android --yes --cleanup-tag || true
           gh release create tapdose-android "$RUNNER_TEMP/TapDose.apk" --target "$GITHUB_SHA" --latest=false \
             --title "TapDose for Android (build ${{ github.run_number }})" \
-            --notes "Download TapDose.apk on your Android phone and open it to install. Updates install over the top and keep your data."
+            --notes "What's new: $NEW"$'\n\n'"Download TapDose.apk on your Android phone and open it to install. Updates install over the top and keep your data."
 
   ios:
     runs-on: macos-latest

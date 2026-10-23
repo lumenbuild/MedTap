@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ingredientsOf, ingredientsText, parseIngredients } from '../../logic/ingredients';
 import { shownName } from '../../logic/privacy';
 import { Check, ClipboardList, EyeOff, Plus, X } from 'lucide-react';
 import { format } from 'date-fns';
@@ -51,6 +52,8 @@ interface Form extends ScheduleForm {
   amountPerClick: string; blend: { name: string; amount: string; unit: string }[]; halfLife: string; halfLifeUnit: 'hours' | 'days';
   /** Who takes it ('' until the family list loads). */
   personId: string;
+  /** Active ingredients as typed (blank = worked out from the name), and the price paid per pack / vial / pen. */
+  ingredients: string; cost: string;
 }
 
 const blank: Form = {
@@ -59,7 +62,7 @@ const blank: Form = {
   color: MED_COLOURS[0].value, icon: 'pill', stockCount: '', lowStockAt: '', scriptNotes: '',
   repeatsLeft: '', scriptExpiry: '', instructions: '', instructionsBy: '', nickname: '', personId: '',
   mixed: false, kind: 'vial', waterMl: '', syringe: 'U-100', syringeUnits: '30', useWithinDays: '',
-  amountPerClick: '', blend: [], halfLife: '', halfLifeUnit: 'days',
+  amountPerClick: '', blend: [], halfLife: '', halfLifeUnit: 'days', ingredients: '', cost: '',
 };
 
 const str = (n?: number) => (n === undefined || n === null ? '' : String(n));
@@ -79,6 +82,7 @@ function fromMed(m: Medication): Form {
     // Half-lives of a day or more read better in days.
     halfLife: !m.peptide?.halfLifeHours ? '' : m.peptide.halfLifeHours >= 24 ? str(Math.round((m.peptide.halfLifeHours / 24) * 100) / 100) : str(m.peptide.halfLifeHours),
     halfLifeUnit: (m.peptide?.halfLifeHours ?? 24) >= 24 ? 'days' : 'hours',
+    ingredients: m.ingredients?.length ? ingredientsText(m.ingredients) : '', cost: str(m.costPerUnit),
   };
 }
 
@@ -101,6 +105,8 @@ function toInput(f: Form, before?: Medication): MedInput {
       blend: f.kind === 'vial' ? f.blend.filter((b) => b.name.trim() && Number(b.amount) > 0).map((b) => ({ name: b.name.trim(), amount: Number(b.amount), unit: b.unit })) : undefined,
       halfLifeHours: Number(f.halfLife) > 0 ? Number(f.halfLife) * (f.halfLifeUnit === 'days' ? 24 : 1) : undefined,
     } : undefined,
+    ingredients: f.ingredients.trim() ? parseIngredients(f.ingredients) : undefined,
+    costPerUnit: Number(f.cost) > 0 ? Number(f.cost) : undefined,
     instructionsUpdatedAt: !instructions ? undefined
       : instructions === before?.instructions?.trim() ? before?.instructionsUpdatedAt : new Date().toISOString(),
   };
@@ -297,6 +303,18 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
         )}
       </Card>
 
+      <Card className="space-y-2">
+        <h2 className="text-sm font-medium text-muted">Active ingredients</h2>
+        {(() => {
+          const detected = ingredientsOf({ name: f.name, strength: Number(f.strength) || 0, unit: f.unit });
+          return (
+            <TextInput label="Active ingredients (optional)" value={f.ingredients} onChange={(e) => set('ingredients', e.target.value)} autoComplete="off"
+              placeholder={detected.length ? ingredientsText(detected) : 'e.g. paracetamol 500, codeine 8'}
+              help={`${detected.length && !f.ingredients.trim() ? `From the name: ${ingredientsText(detected)}. ` : ''}mg in each ${f.form === 'injection' ? 'dose unit' : f.form}. Used to spot the same ingredient in two medicines, and to add them up against your limits.`} />
+          );
+        })()}
+      </Card>
+
       <Card className="space-y-3">
         <h2 className="text-sm font-medium text-muted flex items-center gap-2"><EyeOff size={20} className="text-primary" aria-hidden="true" /> Privacy</h2>
         <TextInput label="Nickname (optional)" value={f.nickname} onChange={(e) => set('nickname', e.target.value)} autoComplete="off"
@@ -370,6 +388,8 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
             onChange={(e) => set('repeatsLeft', e.target.value)} error={errors.repeatsLeft} />
           <TextInput label="Script expires (optional)" type="date" value={f.scriptExpiry} onChange={(e) => set('scriptExpiry', e.target.value)} />
         </div>
+        <TextInput label={f.mixed ? `Price per ${f.kind === 'pen' ? 'pen' : 'vial'} ($, optional)` : 'Price per pack or script ($, optional)'} type="number" inputMode="decimal" min="0" step="any"
+          value={f.cost} onChange={(e) => set('cost', e.target.value)} help={f.mixed ? 'For cost per mg, per week and per month on Protocol. A vial’s own price (on its stock entry) overrides this.' : 'For the monthly cost on Meds.'} />
         <TextArea label="Script and refill notes (optional)" value={f.scriptNotes} onChange={(e) => set('scriptNotes', e.target.value)}
           help="For example: 2 repeats left, next refill around 14 Nov." />
       </Card>

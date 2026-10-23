@@ -1,3 +1,4 @@
+import { BUILD, checkForUpdate, type Update } from '../../app/updates';
 import { useEffect, useState } from 'react';
 import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { Download, FolderSync, HardDriveDownload, Smile } from 'lucide-react';
@@ -85,6 +86,26 @@ export function AutoBackupPermission({ enabled }: { enabled: boolean }) {
             toast(e instanceof BackupError ? e.message : "Couldn't save into that folder.");
           }
         }}>{isNative ? 'Choose folder' : 'Allow'}</Button>
+      </div>
+    </Card>
+  );
+}
+
+/** Android app: a newer build is out. Opens the download; "Later" hides this build's card. */
+export function UpdateCard({ dismissed }: { dismissed: number }) {
+  const [u, setU] = useState<Update | null>(null);
+  useEffect(() => { checkForUpdate().then(setU).catch(() => setU(null)); }, []);
+  if (!u || u.build <= dismissed) return null;
+  return (
+    <Card className="flex gap-3">
+      <Download className="text-primary shrink-0 mt-0.5" aria-hidden="true" />
+      <div className="flex-1">
+        <p className="font-semibold">{APP_NAME} build {u.build} is ready</p>
+        <p className="text-sm text-muted">You have build {BUILD}.{u.notes ? ` What's new: ${u.notes}.` : ''} It installs over the top and keeps your data.</p>
+        <div className="flex gap-2 mt-3">
+          <a href={u.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center min-h-[48px] px-4 rounded-btn bg-primary text-on-primary font-semibold">Download</a>
+          <Button variant="secondary" onClick={() => setSetting('updateDismissed', u.build)}>Later</Button>
+        </div>
       </div>
     </Card>
   );

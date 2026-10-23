@@ -1,14 +1,15 @@
 // Smart features shared by both apps: learned reminder times and missed-slot patterns (medication page), the effect
 // window and script planning (Today and the medication page), odd records (Today), and sleep impact and the coming
 // days' check-in forecast (Trends). Each one shows what it rests on.
+import { readingsWorthMentioning } from '../logic/readings';
 import { useState } from 'react';
 import { format } from 'date-fns';
-import type { CheckIn, Dose, Medication, Vital, BodyEntry } from '../db/schema';
+import type { CheckIn, DailyHealth, Dose, Medication, Vital, BodyEntry } from '../db/schema';
 import type { ScheduleSettings } from '../logic/schedule';
 import {
   effectWindow, reminderSuggestion, riskySlots, slotHabits, type CheckInForecast, type EffectWindow, type SleepImpact,
 } from '../logic/habits';
-import { oddRecords, scriptPlan, type OddRecord } from '../logic/records';
+import { oddRecords, scriptPlan, scriptVisits, type OddRecord } from '../logic/records';
 import { fmtHHmm, WEEKDAYS } from '../logic/format';
 import { shownName } from '../logic/privacy';
 import { setReminderTimes } from '../db/repos/visits';
@@ -157,18 +158,25 @@ export function EffectToday({ meds, doses, checkIns, now }: { meds: Medication[]
   );
 }
 
-/** "Book a doctor for a new Vyvanse script by Mon 14 Sep" when that's within 3 weeks. */
+/** "Book a doctor for a new Vyvanse script by Mon 14 Sep" when that's within 3 weeks; scripts needed close together
+ *  are put on one visit ("one visit by … for Vyvanse and Dexamfetamine"). */
 export function ScriptToday({ meds, doses, s, now }: { meds: Medication[]; doses: Dose[]; s: ScheduleSettings; now: number }) {
-  const due = meds.map((m) => ({ m, p: scriptPlan(m, doses, now, s) })).filter((x) => x.p?.bookBy != null && x.p.bookBy - now < 21 * DAY);
-  if (!due.length) return null;
+  const visits = scriptVisits(meds, doses, now, s).filter((v) => v.bookBy - now < 21 * DAY);
+  if (!visits.length) return null;
   return (
     <ul className="space-y-1" aria-label="Scripts">
-      {due.map(({ m, p }) => (
-        <li key={m.id} className="relative pl-5 text-[15px] tnum">
+      {visits.map((v) => (
+        <li key={v.meds[0].med.id} className="relative pl-5 text-[15px] tnum">
           <span aria-hidden="true" className="absolute left-0 top-[9px] w-2 h-2 rounded-full" style={{ background: 'var(--caution)' }} />
-          <a href={`#/meds/${m.id}`}>
-            Book a doctor {p!.bookBy! < now ? 'soon' : `by ${day(p!.bookBy!)}`} for a new <span className="font-medium">{shownName(m)}</span> script (needed {day(p!.needBy!)}{p!.reason === 'expiry' ? ', when it expires' : ''}).
-          </a>
+          {v.meds.length === 1 ? (
+            <a href={`#/meds/${v.meds[0].med.id}`}>
+              Book a doctor {v.bookBy < now ? 'soon' : `by ${day(v.bookBy)}`} for a new <span className="font-medium">{shownName(v.meds[0].med)}</span> script (needed {day(v.meds[0].needBy)}{v.meds[0].reason === 'expiry' ? ', when it expires' : ''}).
+            </a>
+          ) : (
+            <span>
+              One doctor visit {v.bookBy < now ? 'soon' : `by ${day(v.bookBy)}`} covers new scripts for {v.meds.map((x, i) => <span key={x.med.id}>{i ? (i === v.meds.length - 1 ? ' and ' : ', ') : ''}<a className="font-medium" href={`#/meds/${x.med.id}`}>{shownName(x.med)}</a> (needed {day(x.needBy)})</span>)}.
+            </span>
+          )}
         </li>
       ))}
     </ul>
@@ -285,3 +293,20 @@ export function EffectWindowCards({ meds, doses, checkIns, now }: { meds: Medica
 }
 
 export const weekdayName = (wd: number) => WEEKDAYS[wd];
+
+/** Today: a week of readings clearly above the person's usual (or 140/90+), each closable for the week. */
+export function MentionsLine({ vitals, daily, dismissed, now }: { vitals: Vital[]; daily: DailyHealth[]; dismissed: string[]; now: number }) {
+  const list = readingsWorthMentioning(vitals, daily, now).filter((m) => !dismissed.includes(m.key));
+  if (!list.length) return null;
+  return (
+    <ul className="space-y-1" aria-label="Readings worth mentioning">
+      {list.map((m) => (
+        <li key={m.key} className="relative pl-5 text-[15px] tnum">
+          <span aria-hidden="true" className="absolute left-0 top-[9px] w-2 h-2 rounded-full" style={{ background: 'var(--caution)' }} />
+          {m.text} <button type="button" className="text-sm text-muted underline underline-offset-4 min-h-[44px]" onClick={() => setSetting('mentionsDismissed', [...dismissed.slice(-20), m.key])}>OK</button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+

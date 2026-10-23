@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Clock, Info } from 'lucide-react';
 import type { Dose, Medication, Person } from '../db/schema';
-import { personOf, storedPerson } from '../db/repos/people';
+import { doseOwner, personOf, storedPerson } from '../db/repos/people';
+import { useMeds } from '../app/data';
+import { combinedTotals } from '../logic/ingredients';
 import { PersonBadge } from './PersonSwitcher';
 import { logDose } from '../db/repos/doses';
 import { FIXED_MATCH_MS, getContextNotes, getExpectedAmount, getFixedSlots, getLastDose, getRecentDose, type ContextNote, type ScheduleSettings } from '../logic/schedule';
@@ -50,6 +52,7 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, vialId, onLog
   defaultPersonId?: string | null;
 }) {
   const choosing = !!med.shared && !!people && people.length > 1;
+  const allMeds = useMeds() ?? [med];
   const [who, setWho] = useState<string | null>(choosing ? defaultPersonId : null);
   // For a shared medication, everything below (guard, plan, notes, last dose) looks only at this person's doses.
   const doses = choosing && who ? allDoses.filter((d) => d.medicationId !== med.id || personOf(d) === who) : allDoses;
@@ -119,6 +122,11 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, vialId, onLog
   const timeError = earlier && (!Number.isFinite(takenAt) ? 'Choose a time.' : takenAt > now + 60_000 ? "That time hasn't happened yet." : undefined);
   const amountError = !(amount > 0) ? 'Enter an amount.' : undefined;
   const notes = Number.isFinite(takenAt) ? getContextNotes(med, doses, takenAt, s, amount > 0 ? amount : undefined) : [];
+  // The same ingredient in other medicines (e.g. paracetamol in Panadol and a cold-and-flu tablet), added up.
+  const owner = choosing && who ? who : doseOwner({}, med);
+  const medById = new Map(allMeds.map((m) => [m.id, m]));
+  const combined = Number.isFinite(takenAt) && amount > 0
+    ? combinedTotals(med, amount, allMeds.filter((m) => !m.archived), allDoses, takenAt, (d) => doseOwner(d, medById.get(d.medicationId)) === owner) : [];
   const last = getLastDose(doses, med.id, now);
 
   const submit = async () => {
@@ -247,6 +255,12 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, vialId, onLog
         )}
       </div>
 
+      {combined.map((c) => (
+        <p key={c.ingredient} className="rounded-btn bg-caution-soft px-4 py-3 flex gap-3 text-sm" role="alert">
+          <Info size={18} className="text-caution shrink-0 mt-0.5" aria-hidden="true" />
+          <span>With {c.others.join(' and ')} in the last 24 hours, this would be {c.totalMg.toLocaleString('en-AU')} mg of {c.ingredient}: more than the {c.limitMg.toLocaleString('en-AU')} mg your limits allow. Check with your pharmacist before taking more.</span>
+        </p>
+      ))}
       {notes.length > 0 && (
         <ul className="space-y-2" aria-label="Notes from your settings">
           {notes.map((n) => (

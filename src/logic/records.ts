@@ -36,6 +36,28 @@ export function scriptPlan(med: Medication, doses: Dose[], now: number, s: Sched
   return { needBy, reason: byExpiry ? 'expiry' : 'repeats', bookBy: needBy !== null ? needBy - 14 * DAY : null, repeatsLeft: med.repeatsLeft, lastRepeat: med.repeatsLeft <= 1 };
 }
 
+export interface ScriptVisit { bookBy: number; meds: { med: Medication; needBy: number; reason: ScriptPlan['reason'] }[] }
+
+/** One doctor visit for several scripts: every script needed within 6 weeks of the first goes on the same visit,
+ *  booked two weeks before the first is needed. Saves separate visits for scripts that fall close together. */
+export function scriptVisits(meds: Medication[], doses: Dose[], now: number, s: ScheduleSettings): ScriptVisit[] {
+  const all = meds.map((med) => ({ med, p: scriptPlan(med, doses, now, s) })).filter((x) => x.p?.needBy != null)
+    .map((x) => ({ med: x.med, needBy: x.p!.needBy!, reason: x.p!.reason })).sort((a, b) => a.needBy - b.needBy);
+  const out: ScriptVisit[] = [];
+  for (const x of all) {
+    const v = out[out.length - 1];
+    if (v && x.needBy - v.meds[0].needBy <= 42 * DAY) v.meds.push(x);
+    else out.push({ bookBy: x.needBy - 14 * DAY, meds: [x] });
+  }
+  return out;
+}
+
+/** A message to the pharmacy asking for repeats to be filled (to send by SMS or email, or copy). */
+export function repeatRequest(meds: Medication[], name?: string): string {
+  const list = meds.map((m) => `- ${m.name}${m.strength ? ` ${m.strength} ${m.unit}` : ''}${m.form ? ` ${m.form}s` : ''}`).join('\n');
+  return `Hi, could you please fill my repeat${meds.length === 1 ? '' : 's'} for:\n${list}${name ? `\n\nName: ${name}` : ''}\n\nThank you.`;
+}
+
 // ── Notes into chips ────────────────────────────────────────────────────────────────────────────────
 
 const NOTE_WORDS: [RegExp, string][] = [

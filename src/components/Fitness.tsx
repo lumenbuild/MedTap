@@ -2,6 +2,7 @@
 // the peptide, and one timeline for every goal.
 import { format } from 'date-fns';
 import type { BodyEntry, BodyGoal, CheckIn, DailyHealth, Dose, FitnessGoal, Medication, Workout } from '../db/schema';
+import type { Digest } from '../logic/digest';
 import { intakeTrend, proteinVsLean, readinessTrend, readinessVsPerformance } from '../logic/fitnessInsights';
 import { addIntake } from '../db/repos/training';
 import { useToast } from '../app/toast';
@@ -234,3 +235,22 @@ export function TrainingTrends({ daily, body, checkIns, workouts, start, end, s,
     </>
   );
 }
+
+/** Today, Monday to Wednesday: last week in a few lines against the week before. */
+export function DigestCard({ d, seen, onClose, onNotify, notify }: { d: Digest; seen: number; onClose: () => void; onNotify?: () => void; notify: boolean }) {
+  if (seen >= d.weekStart) return null;
+  return (
+    <section className="border-t border-border pt-4 pb-1" aria-labelledby="dg-h">
+      <h2 id="dg-h" className="text-sm font-medium text-muted">Your week · {format(d.weekStart, 'd MMM')} – {format(d.weekEnd - 1, 'd MMM')}</h2>
+      <p className="text-[17px] mt-1">{d.headline}</p>
+      <ul className="text-[15px] tnum mt-2 space-y-0.5">
+        {d.lines.map((l) => <li key={l.key} className={l.tone === 'watch' ? 'text-caution' : ''}><span className="text-muted">{l.label}:</span> {l.text}</li>)}
+      </ul>
+      <div className="flex flex-wrap gap-x-5 mt-1">
+        <button type="button" className="min-h-[44px] text-sm font-medium underline underline-offset-4" onClick={onClose}>Done</button>
+        {onNotify && !notify && <button type="button" className="min-h-[44px] text-sm text-muted underline underline-offset-4" onClick={onNotify}>Remind me each Monday</button>}
+      </div>
+    </section>
+  );
+}
+

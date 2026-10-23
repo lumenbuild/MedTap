@@ -1,9 +1,9 @@
 import { ChevronRight, Nfc, Plus } from 'lucide-react';
-import { isPrivate, shownColour, shownMedName } from '../../logic/privacy';
+import { isPrivate, shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { format } from 'date-fns';
 import type { Medication, Tag } from '../../db/schema';
 import { useDoses, useFamily, useMeds, useScheduleSettings, useSettings, useTags } from '../../app/data';
-import { medIsFor } from '../../db/repos/people';
+import { medIsFor, personOf } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
 import { forecastRunOut, nextPlannedChange } from '../../logic/plans';
@@ -13,6 +13,10 @@ import type { Dose } from '../../db/schema';
 import type { ScheduleSettings } from '../../logic/schedule';
 import { go } from '../../app/router';
 import { fmtSchedule, fmtStock } from '../../logic/format';
+import { overlaps } from '../../logic/ingredients';
+import { money, monthlyPackCost } from '../../logic/cost';
+import { setSetting } from '../../db/repos/settings';
+import { APP_NAME } from '../../config';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { MedBadge } from '../../components/MedBadge';
@@ -39,6 +43,14 @@ export function MedsList() {
           <Nfc className="text-primary shrink-0" aria-hidden="true" />
           <p className="flex-1">A tag you tapped isn't linked yet.</p>
           <Button variant="secondary" onClick={() => go(`/tag/${id}`)}>Link</Button>
+        </Card>
+      ))}
+
+      {overlaps(active, personOf).filter((o) => !settings.overlapDismissed.includes(o.key)).map((o) => (
+        <Card key={o.key} className="bg-caution-soft shadow-none space-y-2">
+          <p className="font-semibold">{o.kind === 'same' ? `${shownName(o.a)} and ${shownName(o.b)} both contain ${o.what}` : `${shownName(o.a)} and ${shownName(o.b)} are both ${o.what}`}</p>
+          <p className="text-sm">{o.kind === 'same' ? 'Taking both can add up to more than either label allows. ' : ''}Worth checking with your pharmacist or prescriber that taking both is intended.{o.kind === 'same' ? ` When you log either, ${APP_NAME} adds up the ${o.what} from both against your limits.` : ''}</p>
+          <Button variant="secondary" onClick={() => setSetting('overlapDismissed', [...settings.overlapDismissed, o.key])}>Got it</Button>
         </Card>
       ))}
 
@@ -83,6 +95,7 @@ function MedRow({ med, tags, doses, s, now }: { med: Medication; tags: Tag[]; do
           </span>
           {forecast && <span className="block text-sm text-muted tnum">{forecast}</span>}
           {script && <span className="block text-sm text-muted tnum">{script}</span>}
+          {monthlyPackCost(med, doses, now) !== undefined && <span className="block text-sm text-muted tnum">About {money(monthlyPackCost(med, doses, now)!)} a month</span>}
           {med.bottles?.[0] && <span className={`block text-sm tnum ${Date.parse(`${med.bottles[0].expiry}T23:59:59`) - now < 30 * 86_400_000 ? 'text-caution font-medium' : 'text-muted'}`}>{fmtBottle(med.bottles[0], now)}</span>}
           {change && <span className="block text-sm text-primary tnum">Change planned from {format(new Date(`${change.from}T12:00`), 'EEE d MMM')}</span>}
         </span>

@@ -78,6 +78,21 @@ export interface AppSettings {
   trainingReminders: boolean;
   /** The "remind me on my usual days?" card on Training was answered. */
   trainingReminderAsked: boolean;
+  /** Android app: look for a newer build once a day; the last answer, and a build the person said "later" to. */
+  updateCheck: boolean;
+  lastUpdateCheck: string | null;
+  latestUpdate: { build: number; notes: string; url: string; page: string } | null;
+  updateDismissed: number;
+  /** Same-ingredient notices the person has read (pairs of medication ids). */
+  overlapDismissed: string[];
+  /** The person's pharmacy, for "Ask the pharmacy" (a phone number or an email address). */
+  pharmacyName: string;
+  /** The weekly digest: the week (its Monday) last closed on Today, and a Monday-morning notification (app). */
+  digestSeen: number;
+  /** Readings-worth-mentioning notes closed this week. */
+  mentionsDismissed: string[];
+  digestNotify: boolean;
+  pharmacyContact: string;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -125,6 +140,16 @@ export const DEFAULT_SETTINGS: AppSettings = {
   autoAdjust: true,
   trainingReminders: false,
   trainingReminderAsked: false,
+  updateCheck: true,
+  lastUpdateCheck: null,
+  latestUpdate: null,
+  updateDismissed: 0,
+  overlapDismissed: [],
+  pharmacyName: '',
+  digestSeen: 0,
+  mentionsDismissed: [],
+  digestNotify: false,
+  pharmacyContact: '',
 };
 
 export async function getSettings(): Promise<AppSettings> {

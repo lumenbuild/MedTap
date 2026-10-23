@@ -120,6 +120,8 @@ export interface PeptideVial {
   expiry?: string;
   addedAt: string; startedAt?: string; finishedAt?: string;
   note?: string;
+  /** What was paid for it ($), for cost per mg. */
+  cost?: number;
 }
 
 export interface Medication extends Stamped {
@@ -154,6 +156,10 @@ export interface Medication extends Stamped {
   lotFlags?: LotFlag[];
   /** Reminder times learned from when doses are actually taken, per set time (the plan's times stay as they are). */
   reminderTimes?: ReminderTime[];
+  /** Active ingredients as the person entered them (mg per tablet / unit). Otherwise worked out from the name. */
+  ingredients?: { name: string; mg?: number }[];
+  /** Price paid per vial or pen (peptide tools) or per pack, for cost tracking. */
+  costPerUnit?: number;
 }
 /** For one set time ('HH:mm'): remind at these times instead, on weekdays and/or weekends. */
 export interface ReminderTime { slot: string; weekday?: string; weekend?: string }
