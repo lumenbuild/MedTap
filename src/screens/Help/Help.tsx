@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { BellRing, Sparkles, CalendarClock, ChevronRight, Info, Lock, Nfc, RefreshCw, ScanText, ShieldCheck, Smartphone, Syringe, Target, Users } from 'lucide-react';
+import { BellRing, Sparkles, CalendarClock, ChevronRight, Info, Lock, Nfc, RefreshCw, ScanText, ShieldCheck, Smartphone, Syringe, Target, Users, Dumbbell } from 'lucide-react';
 import { isNative } from '../../platform';
 import { APP_NAME, DISCLAIMER } from '../../config';
 import { tagBase } from '../../nfc/url';
@@ -10,6 +10,7 @@ const TOPICS = [
   { id: 'schedules', title: 'Setting up a schedule', Icon: CalendarClock },
   { id: 'scan', title: 'Scanning a pharmacy label', Icon: ScanText },
   ...(HAS_BODY ? [{ id: 'goals', title: 'Goals and forecasts', Icon: Target }] as const : []),
+  ...(HAS_BODY ? [{ id: 'training', title: 'Training and fitness', Icon: Dumbbell }] as const : []),
   ...(HAS_PEPTIDES ? [{ id: 'peptides', title: 'Peptides and injections', Icon: Syringe }] as const : []),
   { id: 'family', title: 'Family members', Icon: Users },
   { id: 'sync', title: 'Family sync', Icon: RefreshCw },
@@ -47,6 +48,31 @@ export function Help({ topic }: { topic?: string }) {
 const H = ({ children }: { children: ReactNode }) => <h2 className="text-sm font-medium text-muted">{children}</h2>;
 
 const CONTENT: Record<string, ReactNode> = {
+  training: (
+    <>
+      <H>Turning it on</H>
+      <p>Settings → <strong>Training</strong>. This adds a Training tab, protein and water on Today, and a soreness rating in check-ins. Turning it off hides them; nothing is deleted.</p>
+      <H>Logging a workout</H>
+      <ol className="list-decimal pl-5 space-y-1">
+        <li>On Training, tap <strong>Start a workout</strong>: empty, from a routine, or a repeat of a past session.</li>
+        <li>Each set has weight, reps and, if you like, how hard it felt (RPE: 10 is nothing left, 8 is two reps left). Tap the set number to mark a warm-up; warm-ups don't count towards bests.</li>
+        <li>Tick a set when it's done. The rest timer starts (change it in Settings → Training).</li>
+        <li><strong>Finish</strong> shows any new personal bests and offers to save the session as a routine.</li>
+      </ol>
+      <H>What it works out</H>
+      <ul className="list-disc pl-5 space-y-1">
+        <li><strong>Personal bests</strong>: heaviest weight, most reps at a weight, and an estimated one-rep max (from your best set of up to 12 reps).</li>
+        <li><strong>Aim for next time</strong>: up a step when every set hit its reps, the same weight to add reps, or about 10% lighter after a stall.</li>
+        <li><strong>Worth a lighter week</strong>: a lift that hasn't improved for about 3 weeks, or feels harder at the same weight.</li>
+        <li><strong>Strength goals</strong>: a date with a range, from the trend in your estimated max, like weight goals.</li>
+        <li><strong>Ready to train</strong>: today's sleep, resting heart rate and heart rate variability against your own last 4 weeks (from Health Connect or Apple Health), and soreness from a check-in.</li>
+        <li><strong>Sets per muscle</strong>: the last 7 days, and push against pull, upper against lower.</li>
+        <li><strong>Lean mass while losing weight</strong>: log body fat % or lean mass (Body → Add measurements or body fat) and it shows how much of the weight you've lost was lean mass, by dose with peptide tools on.</li>
+        <li><strong>Strength and your peptide</strong>: each session against your recent level, by days since the shot and by dose.</li>
+      </ul>
+      <p>These are worked out from your own records. They're not a training programme or medical advice.</p>
+    </>
+  ),
   goals: (
     <>
       <H>Setting a goal</H>

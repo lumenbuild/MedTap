@@ -7,12 +7,14 @@ import { cmTo, kgTo, lengthUnit, MEASUREMENTS, toCm, toKg, weightUnit, fmtWeight
 import { useToast } from '../app/toast';
 import { Sheet, SheetActions } from './ui/Sheet';
 import { Button } from './ui/Button';
+import { HAS_BODY } from '../edition';
 
 export const todayYmd = () => format(Date.now(), 'yyyy-MM-dd');
 const fmtDate = (ymd: string) => (ymd === todayYmd() ? 'today' : format(new Date(`${ymd}T12:00`), 'EEE d MMM'));
 
 export type BodySheetState = { kind: 'weight' | 'measure' | 'edit'; entry?: BodyEntry } | null;
 
+const COMP = ['bodyFatPct', 'leanKg', 'muscleKg'];
 const numIn = 'w-full min-h-[48px] rounded-btn bg-surface-2 border border-border px-3.5 tnum';
 
 /** Log weight, add measurements, or edit a day's entry. */
@@ -31,13 +33,18 @@ function BodyForm({ state, onClose, units, personId }: { state: NonNullable<Body
     if (state.kind !== 'edit' || !e) return v;
     if (e.weightKg !== undefined) v.weightKg = String(kgTo(e.weightKg, units));
     for (const m of MEASUREMENTS) if (e[m.key] !== undefined) v[m.key] = String(cmTo(e[m.key]!, units));
+    if (e.bodyFatPct !== undefined) v.bodyFatPct = String(e.bodyFatPct);
+    for (const k of ['leanKg', 'muscleKg'] as const) if (e[k] !== undefined) v[k] = String(kgTo(e[k]!, units));
     return v;
   });
+  const [source, setSource] = useState<BodyEntry['compSource']>(state.entry?.compSource ?? 'scale');
   const parsed = (k: string) => (vals[k]?.trim() ? Number(vals[k]) : undefined);
   const showWeight = state.kind !== 'measure';
   const showMeasure = state.kind !== 'weight';
-  const keys = [...(showWeight ? ['weightKg'] : []), ...(showMeasure ? MEASUREMENTS.map((m) => m.key) : [])];
-  const invalid = keys.some((k) => { const n = parsed(k); return n !== undefined && !(n > 0 && n < 1000); });
+  const comp = showMeasure && HAS_BODY;
+  const keys = [...(showWeight ? ['weightKg'] : []), ...(showMeasure ? MEASUREMENTS.map((m) => m.key) : []), ...(comp ? COMP : [])];
+  const invalid = keys.some((k) => { const n = parsed(k); return n !== undefined && !(n > 0 && n < (k === 'bodyFatPct' ? 75 : 1000)); });
+  const hasComp = comp && COMP.some((k) => parsed(k) !== undefined);
   const any = keys.some((k) => parsed(k) !== undefined);
   const future = date > todayYmd();
 
@@ -46,6 +53,12 @@ function BodyForm({ state, onClose, units, personId }: { state: NonNullable<Body
     const w = parsed('weightKg');
     if (showWeight && w !== undefined) f.weightKg = Math.round(toKg(w, units) * 100) / 100;
     if (showMeasure) for (const m of MEASUREMENTS) { const v = parsed(m.key); if (v !== undefined) f[m.key] = Math.round(toCm(v, units) * 10) / 10; }
+    if (comp) {
+      const bf = parsed('bodyFatPct');
+      if (bf !== undefined) f.bodyFatPct = Math.round(bf * 10) / 10;
+      for (const k of ['leanKg', 'muscleKg'] as const) { const v = parsed(k); if (v !== undefined) f[k] = Math.round(toKg(v, units) * 100) / 100; }
+      if (hasComp) f.compSource = source;
+    }
     return f;
   };
 
@@ -73,7 +86,7 @@ function BodyForm({ state, onClose, units, personId }: { state: NonNullable<Body
     onClose();
   };
 
-  const title = state.kind === 'weight' ? 'Log weight' : state.kind === 'measure' ? 'Add measurements' : `Edit ${fmtDate(state.entry!.date)}`;
+  const title = state.kind === 'weight' ? 'Log weight' : state.kind === 'measure' ? (HAS_BODY ? 'Measurements and body fat' : 'Add measurements') : `Edit ${fmtDate(state.entry!.date)}`;
   return (
     <Sheet open onClose={onClose} title={title}>
       <div className="space-y-4">
@@ -98,6 +111,28 @@ function BodyForm({ state, onClose, units, personId }: { state: NonNullable<Body
               </label>
             ))}
           </div>
+        )}
+        {comp && (
+          <fieldset className="space-y-3">
+            <legend className="text-sm font-medium mb-1">Body composition <span className="text-muted font-normal">(optional, from a smart scale or scan)</span></legend>
+            <div className="grid grid-cols-3 gap-3">
+              {([['bodyFatPct', 'Body fat', '%'], ['leanKg', 'Lean mass', weightUnit(units)], ['muscleKg', 'Muscle', weightUnit(units)]] as const).map(([k, l, u]) => (
+                <label key={k} className="block space-y-1">
+                  <span className="block text-sm font-medium">{l} <span className="text-muted font-normal">({u})</span></span>
+                  <input type="number" inputMode="decimal" step="0.1" min="0" value={vals[k] ?? ''} onChange={(e) => setVals({ ...vals, [k]: e.target.value })} className={numIn} />
+                </label>
+              ))}
+            </div>
+            {hasComp && (
+              <label className="block space-y-1">
+                <span className="block text-sm font-medium">Measured by</span>
+                <select value={source} onChange={(e) => setSource(e.target.value as BodyEntry['compSource'])} className={numIn}>
+                  <option value="scale">Smart scale</option><option value="inbody">InBody or similar</option><option value="dexa">DEXA scan</option><option value="other">Other</option>
+                </select>
+              </label>
+            )}
+            <p className="text-xs text-muted">Lean mass is everything except fat (muscle, bone, water). If you only have body fat %, the app works lean mass out from your weight.</p>
+          </fieldset>
         )}
         <label className="block space-y-1.5">
           <span className="block text-sm font-medium">Date</span>

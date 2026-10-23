@@ -335,6 +335,26 @@ then appointment tools, then photo reading and native integrations (health impor
   Developer account for the shared app group); Android phones have no lock-screen widgets; Google Assistant voice
   commands (App Actions) need a Play Store listing, so Android gets launcher shortcuts instead.
 
+## Built: strength training and fitness (MedTap only; owner approved 22 Oct 2026)
+All 16 suggested: workout log with routines and a rest timer, personal bests, body composition, more goals (lean mass,
+body fat, strength, cardio, sessions a week), cardio log, protein and water, plate calculator, training calendar and
+streak, lean mass while losing weight, strength forecast, next-session targets, plateau / lighter-week spotting,
+strength against the peptide, readiness, muscle balance, and one timeline for every goal.
+- Where: a Training tab (Settings → Training, on by default in MedTap; TapDose has none, as it never shows weight).
+  Today gets protein / water buttons and a readiness line; check-ins get a soreness rating; Body → "Add measurements
+  or body fat" takes body fat %, lean mass and muscle mass, and Body shows the lean-mass card.
+- Logic: `src/logic/training.ts` (Epley estimated max to 12 reps, next target, plateau, Theil–Sen strength forecast via
+  `forecast()`, readiness against the person's own last 4 weeks, weekly balance, cardio bests, lean share of weight
+  lost by dose step), `src/logic/exercises.ts` (26 built-in exercises). Tests `tests/training.test.ts`.
+- DB v9: `exercises`, `workouts`, `routines` (synced and backed up); `Person.fitnessGoals`; `BodyEntry` body
+  composition; `DailyHealth` hrvMs / proteinG / waterMl; `CheckIn.soreness`.
+- Health import now also reads runs, walks (10+ min), rides, swims and rows with distance, body fat, lean mass and
+  heart rate variability (Health Connect RMSSD, Apple Health SDNN). A cardio session deleted in the app isn't
+  re-imported.
+- Tested: unit tests; browser flow with 8 weeks of seeded training (readiness, plateau, PBs, peptide card, lean mass,
+  repeat a session, rest timer, finish with PBs, routine, plates, cardio, protein target, soreness, body comp, help);
+  fit audit at 4 phone sizes; TapDose scan; Android debug build. Health import of the new types not tested on a phone.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 

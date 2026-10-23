@@ -35,7 +35,7 @@ export interface Bottle { id: string; expiry: string /* 'YYYY-MM-DD' */; label?:
 
 /** A family member. Records without a personId belong to the default person, DEFAULT_PERSON ("Me"). */
 /** Body measurements a goal can be set for. */
-export type GoalMetric = 'weightKg' | 'waistCm';
+export type GoalMetric = 'weightKg' | 'waistCm' | 'bodyFatPct' | 'leanKg';
 
 /** A goal for a body measurement, e.g. weight 95 → 80 kg, optionally by a date. Values are in kg or cm. */
 export interface BodyGoal {
@@ -47,10 +47,23 @@ export interface BodyGoal {
   start: number; startDate: string;
 }
 
+/** A training goal: a lift (estimated one-rep max, or a weight for a number of reps), a cardio time over a distance,
+ *  or sessions a week. */
+export interface FitnessGoal {
+  id: string;
+  kind: 'lift' | 'cardio' | 'sessions';
+  exerciseId?: string; targetKg?: number; reps?: number;
+  activity?: CardioActivity; distanceKm?: number; targetMin?: number;
+  perWeek?: number;
+  targetDate?: string; setAt: string;
+}
+
 export interface Person extends Stamped {
   name: string;
   /** Body goals, at most one per measurement. */
   goals?: BodyGoal[];
+  /** Strength, cardio and training-days goals. */
+  fitnessGoals?: FitnessGoal[];
 }
 export const DEFAULT_PERSON = 'me';
 
@@ -159,6 +172,8 @@ export interface Dose extends Stamped {
 }
 export interface CheckIn extends Stamped {
   at: string; mood?: number; energy?: number; focus?: number; appetite?: number;
+  /** Muscle soreness 1 (none) to 5 (very sore), for training readiness. */
+  soreness?: number;
   sleepHours?: number; sleepQuality?: number; chips: string[]; note?: string;
   relatedDoseId?: string; deletedAt?: string; personId?: string;
 }
@@ -166,6 +181,8 @@ export interface BodyEntry extends Stamped {
   date: string; // local YYYY-MM-DD
   weightKg?: number; waistCm?: number; hipsCm?: number; chestCm?: number; neckCm?: number;
   armCm?: number; thighCm?: number; calfCm?: number; note?: string; deletedAt?: string; personId?: string;
+  /** Body composition, from a smart scale or a scan (DEXA, InBody). */
+  bodyFatPct?: number; leanKg?: number; muscleKg?: number; compSource?: 'scale' | 'dexa' | 'inbody' | 'other';
 }
 /** A blood pressure and/or heart rate reading. */
 export interface Vital extends Stamped {
@@ -225,7 +242,49 @@ export interface DailyHealth extends Stamped {
   /** One row per person per day: later imports update it. */
   date: string; // local YYYY-MM-DD
   steps?: number; sleepMin?: number; restingHr?: number; exerciseMin?: number;
+  /** Heart rate variability (ms), the night's or the day's average. */
+  hrvMs?: number;
+  /** Logged by hand on Today: protein (g) and water (mL). */
+  proteinG?: number; waterMl?: number;
   /** Average heart rate in each hour of the day (local), null where there's none. */
   hrByHour?: (number | null)[];
   personId?: string; deletedAt?: string;
 }
+
+// ── Training ─────────────────────────────────────────────────────────────────────────────────────────
+
+export type MuscleGroup = 'chest' | 'back' | 'shoulders' | 'biceps' | 'triceps' | 'quads' | 'hamstrings' | 'glutes' | 'calves' | 'core';
+export type CardioActivity = 'run' | 'walk' | 'ride' | 'swim' | 'row' | 'other';
+
+/** An exercise the person added (built-in ones live in src/logic/exercises.ts). */
+export interface Exercise extends Stamped {
+  name: string; muscles: MuscleGroup[]; pattern?: 'push' | 'pull' | 'legs' | 'core';
+  /** Bodyweight exercises log reps (and any added weight). */
+  bodyweight?: boolean;
+  /** How much to add when it's time to go up (kg). */
+  increment?: number;
+  personId?: string; deletedAt?: string;
+}
+
+export interface WorkoutSet {
+  id: string; exerciseId: string;
+  /** kg; added weight for bodyweight exercises (0 = none). */
+  weightKg: number; reps: number;
+  /** How hard it felt: reps in reserve as RPE 6–10 (optional). */
+  rpe?: number;
+  warmup?: boolean; done: boolean;
+}
+
+export interface CardioEntry { activity: CardioActivity; distanceKm?: number; durationMin: number; title?: string }
+
+export interface Workout extends Stamped {
+  startedAt: string; endedAt?: string;
+  routineId?: string; name?: string; note?: string;
+  sets: WorkoutSet[];
+  cardio?: CardioEntry;
+  source: 'manual' | 'health';
+  personId?: string; deletedAt?: string;
+}
+
+export interface RoutineItem { exerciseId: string; sets: number; reps: number; weightKg?: number }
+export interface Routine extends Stamped { name: string; items: RoutineItem[]; personId?: string; deletedAt?: string }

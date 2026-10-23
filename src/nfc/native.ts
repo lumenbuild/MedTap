@@ -45,8 +45,13 @@ export interface MedTapNativePlugin {
   setWidget(options: { json: string }): Promise<void>;
 }
 
-export interface HealthDay { date: string; steps?: number; sleepMin?: number; restingHr?: number; exerciseMin?: number; hrByHour?: (number | null)[] }
-export interface HealthData { days: HealthDay[]; weights: { t: number; kg: number }[]; bp: { t: number; sys: number; dia: number }[] }
+export interface HealthDay { date: string; steps?: number; sleepMin?: number; restingHr?: number; exerciseMin?: number; hrvMs?: number; hrByHour?: (number | null)[] }
+export interface HealthData {
+  days: HealthDay[]; weights: { t: number; kg: number }[]; bp: { t: number; sys: number; dia: number }[];
+  /** Exercise sessions from a watch or app: type is run, walk, ride, swim, row, strength or other. Older app versions leave these out. */
+  workouts?: { t: number; end: number; type: string; km?: number }[];
+  bodyFat?: { t: number; pct: number }[]; lean?: { t: number; kg: number }[];
+}
 
 export const isNative = Capacitor.isNativePlatform();
 export const nativePlatform = Capacitor.getPlatform() as 'ios' | 'android' | 'web';

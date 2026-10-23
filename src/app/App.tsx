@@ -31,6 +31,10 @@ import { Progress } from '../screens/Progress';
 // Charts are the heaviest code; load them only when Trends or the report is opened, so tag taps stay fast.
 const Trends = lazy(() => import('../screens/Trends/Trends').then((m) => ({ default: m.Trends })));
 const Report = lazy(() => import('../screens/Report/Report').then((m) => ({ default: m.Report })));
+const Training = lazy(() => import('../screens/Training/Training').then((m) => ({ default: m.Training })));
+const WorkoutScreen = lazy(() => import('../screens/Training/WorkoutScreen').then((m) => ({ default: m.WorkoutScreen })));
+const ExerciseScreen = lazy(() => import('../screens/Training/ExerciseScreen').then((m) => ({ default: m.ExerciseScreen })));
+const Routines = lazy(() => import('../screens/Training/Routines').then((m) => ({ default: m.Routines })));
 const ProtocolReport = lazy(() => import('../screens/Protocol/ProtocolReport').then((m) => ({ default: m.ProtocolReport })));
 const ChartsLoading = () => <div className="space-y-4" aria-busy="true" aria-label="Loading">{[0, 1].map((i) => <div key={i} className="h-60 rounded-card bg-surface-2 animate-pulse" />)}</div>;
 
@@ -55,6 +59,10 @@ function title(r: Route): string {
     case 'protocol': return 'Protocol';
     case 'protocolReport': return 'Protocol report';
     case 'progress': return 'Progress';
+    case 'training': return 'Training';
+    case 'workout': return 'Workout';
+    case 'exercise': return 'Exercise';
+    case 'routines': return 'Routines';
     case 'appointments': return HAS_VISITS ? 'Appointments' : 'Today';
     case 'appointmentSummary': return HAS_VISITS ? 'Since your last appointment' : 'Today';
     case 'labs': return 'Lab results';
@@ -66,6 +74,7 @@ function title(r: Route): string {
 function backTo(r: Route, protocol: boolean): string | undefined {
   switch (r.name) {
     case 'protocolReport': return '#/protocol';
+    case 'workout': case 'exercise': case 'routines': return '#/training';
     case 'appointments': case 'travel': return '#/settings';
     case 'appointmentSummary': return '#/appointments';
     case 'labs': return HAS_VISITS ? '#/appointments' : '#/settings';
@@ -97,6 +106,10 @@ function Screen({ r }: { r: Route }) {
     case 'protocol': return HAS_PEPTIDES ? <Protocol /> : <Today />;
     case 'protocolReport': return HAS_PEPTIDES ? <Suspense fallback={<ChartsLoading />}><ProtocolReport /></Suspense> : <Today />;
     case 'progress': return <Progress />;
+    case 'training': return HAS_BODY ? <Suspense fallback={<ChartsLoading />}><Training /></Suspense> : <Today />;
+    case 'workout': return HAS_BODY ? <Suspense fallback={<ChartsLoading />}><WorkoutScreen key={r.id} id={r.id} /></Suspense> : <Today />;
+    case 'exercise': return HAS_BODY ? <Suspense fallback={<ChartsLoading />}><ExerciseScreen key={r.id} id={r.id} /></Suspense> : <Today />;
+    case 'routines': return HAS_BODY ? <Suspense fallback={<ChartsLoading />}><Routines /></Suspense> : <Today />;
     case 'appointments': return HAS_VISITS ? <Appointments /> : <Today />;
     case 'appointmentSummary': return HAS_VISITS ? <AppointmentSummary /> : <Today />;
     case 'labs': return <Labs />;
@@ -112,6 +125,7 @@ export function App() {
   const meds = useMeds();
   // Peptide tools on (MedTap): the tabs are Today, Protocol, Progress (Trends and Body together) and Meds.
   const protocol = HAS_PEPTIDES && !!settings?.peptideTools;
+  const training = HAS_BODY && !!settings?.trainingTools;
   const back = backTo(r, protocol);
   const now = useNow(60_000);
   const showTabs = !back && r.name !== 'tag';
@@ -146,7 +160,7 @@ export function App() {
                 </header>
               ))}
               <main><Screen r={r} /></main>
-              {showTabs && <TabBar route={'/' + r.name} protocol={protocol} />}
+              {showTabs && <TabBar route={'/' + r.name} protocol={protocol} training={training} />}
             </>
           )}
           <UpdatePrompt />

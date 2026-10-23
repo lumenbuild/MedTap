@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Calculator, CalendarCheck, ChevronRight, Package, HardDriveDownload, HelpCircle, Lock, Plane, RefreshCw, Syringe, X } from 'lucide-react';
+import { Calculator, CalendarCheck, ChevronRight, Package, HardDriveDownload, HelpCircle, Lock, Plane, RefreshCw, Syringe, Dumbbell, X } from 'lucide-react';
 import { useSyncConfig } from '../app/sync';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -181,6 +181,43 @@ export function Settings() {
         )}
       </Card>}
 
+      {HAS_BODY && <Card className="space-y-4">
+        <h2 className="text-sm font-medium text-muted flex items-center gap-2"><Dumbbell size={18} aria-hidden="true" /> Training</h2>
+        <label className="flex items-center justify-between gap-3 min-h-[48px]">
+          <span>
+            <span className="block font-medium">Training tab</span>
+            <span className="block text-sm text-muted">Log workouts and cardio, see personal bests, what to aim for next time and readiness. Also adds protein and water to Today and soreness to check-ins.</span>
+          </span>
+          <input type="checkbox" role="switch" checked={settings.trainingTools} onChange={(e) => setSetting('trainingTools', e.target.checked)}
+            className="w-6 h-6 accent-[var(--primary)] shrink-0" aria-label="Training tab" />
+        </label>
+        {settings.trainingTools && (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label htmlFor="rest" className="block text-sm font-medium">Rest timer</label>
+                <select id="rest" value={settings.restSeconds} onChange={(e) => setSetting('restSeconds', Number(e.target.value))} className={selectCls}>
+                  <option value={0}>Off</option>
+                  {[60, 90, 120, 150, 180, 240, 300].map((x) => <option key={x} value={x}>{x < 120 ? `${x} seconds` : `${x / 60} minutes`}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="bar" className="block text-sm font-medium">Barbell weighs</label>
+                <select id="bar" value={settings.barKg} onChange={(e) => setSetting('barKg', Number(e.target.value))} className={selectCls}>
+                  {[20, 15, 10, 7].map((x) => <option key={x} value={x}>{x} kg</option>)}
+                </select>
+              </div>
+            </div>
+            <p className="text-sm text-muted -mt-2">The rest timer starts each time you tick a set. The bar weight is used by the plate calculator.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <TargetInput id="protein" label="Protein a day (g)" value={settings.proteinTargetG} onChange={(v) => setSetting('proteinTargetG', v)} />
+              <TargetInput id="water" label="Water a day (mL)" value={settings.waterTargetMl} onChange={(v) => setSetting('waterTargetMl', v)} />
+            </div>
+            <p className="text-sm text-muted -mt-2">Your own targets, from your dietitian or prescriber if you have one. Leave blank to just count.</p>
+          </>
+        )}
+      </Card>}
+
       <Card className="space-y-4">
         <h2 className="text-sm font-medium text-muted">Check-ins</h2>
         <div className="space-y-1.5">
@@ -311,6 +348,18 @@ export function Settings() {
           </SheetActions>
         </div>
       </Sheet>
+    </div>
+  );
+}
+
+function TargetInput({ id, label, value, onChange }: { id: string; label: string; value: number | null; onChange: (v: number | null) => void }) {
+  const [text, setText] = useState(value === null ? '' : String(value));
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor={id} className="block text-sm font-medium">{label}</label>
+      <input id={id} type="number" inputMode="numeric" min="0" step="1" value={text} placeholder="None"
+        onChange={(e) => setText(e.target.value)} onBlur={() => { const n = Number(text); onChange(text.trim() && n > 0 ? Math.round(n) : null); }}
+        className={`${selectCls} tnum`} />
     </div>
   );
 }

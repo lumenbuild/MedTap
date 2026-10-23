@@ -13,7 +13,7 @@ describe('database v1 → v2', () => {
 
     const { db } = await import('../src/db/db');
     await db.open();
-    expect(db.verno).toBe(8);
+    expect(db.verno).toBe(9);
     expect((await db.medications.get('a'))?.color).toBe('#1baf7a');
     expect((await db.medications.get('b'))?.color).toBe('#123456');
     expect(await db.doses.count()).toBe(1);

@@ -18,7 +18,7 @@ const SIX_HOURS = 6 * 3_600_000;
 
 export interface CheckInSeed { editing?: CheckIn; mood?: number; relatedDoseId?: string }
 
-type Props = { onClose: () => void; doses: Dose[]; checkIns: CheckIn[]; meds: Medication[]; chips: string[]; s: ScheduleSettings; personId: string };
+type Props = { onClose: () => void; doses: Dose[]; checkIns: CheckIn[]; meds: Medication[]; chips: string[]; s: ScheduleSettings; personId: string; soreness?: boolean };
 
 /** A check-in in under 20 seconds. Everything is optional. */
 export function CheckInSheet({ seed, ...rest }: Props & { seed: CheckInSeed | null }) {
@@ -28,7 +28,7 @@ export function CheckInSheet({ seed, ...rest }: Props & { seed: CheckInSeed | nu
   return seed ? <CheckInForm key={n} seed={seed} {...rest} /> : null;
 }
 
-function CheckInForm({ seed, onClose, doses, checkIns, meds, chips, s, personId }: Props & { seed: CheckInSeed }) {
+function CheckInForm({ seed, onClose, doses, checkIns, meds, chips, s, personId, soreness }: Props & { seed: CheckInSeed }) {
   const toast = useToast();
   const [f, setF] = useState<CheckInInput>(() => seed.editing ? { ...seed.editing }
     : { at: new Date().toISOString(), chips: [], mood: seed.mood, relatedDoseId: seed.relatedDoseId });
@@ -87,6 +87,7 @@ function CheckInForm({ seed, onClose, doses, checkIns, meds, chips, s, personId 
         <Rating label="Energy" low="Drained" high="Energised" value={f.energy} onChange={(v) => set('energy', v)} />
         <Rating label="Focus" low="Scattered" high="Sharp" value={f.focus} onChange={(v) => set('focus', v)} />
         <Rating label="Appetite" low="None" high="Very hungry" value={f.appetite} onChange={(v) => set('appetite', v)} />
+        {(soreness || f.soreness !== undefined) && <Rating label="Muscle soreness" low="None" high="Very sore" value={f.soreness} onChange={(v) => set('soreness', v)} />}
 
         {showSleep && (
           <div className="space-y-3">

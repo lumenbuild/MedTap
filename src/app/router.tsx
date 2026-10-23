@@ -25,7 +25,8 @@ export type Route =
   | { name: 'meds' } | { name: 'medNew'; tagId?: string } | { name: 'med'; id: string }
   | { name: 'tag'; id: string } | { name: 'sync' } | { name: 'join'; code: string } | { name: 'calc' } | { name: 'supplies' }
   | { name: 'protocol' } | { name: 'protocolReport' } | { name: 'progress' }
-  | { name: 'appointments' } | { name: 'appointmentSummary' } | { name: 'labs' } | { name: 'travel' };
+  | { name: 'appointments' } | { name: 'appointmentSummary' } | { name: 'labs' } | { name: 'travel' }
+  | { name: 'training' } | { name: 'workout'; id: string } | { name: 'exercise'; id: string } | { name: 'routines' };
 
 export function parseRoute(path: string): Route {
   const [, a, b, c, d] = path.split('/').map(decodeURIComponent);
@@ -45,6 +46,11 @@ export function parseRoute(path: string): Route {
     case 'appointments': return b === 'summary' ? { name: 'appointmentSummary' } : { name: 'appointments' };
     case 'labs': return { name: 'labs' };
     case 'travel': return { name: 'travel' };
+    case 'training':
+      if (b === 'workout' && c) return { name: 'workout', id: c };
+      if (b === 'exercise' && c) return { name: 'exercise', id: c };
+      if (b === 'routines') return { name: 'routines' };
+      return { name: 'training' };
     case 'join': return { name: 'join', code: b ?? '' };
     case 'meds':
       if (b === 'new') return { name: 'medNew', tagId: c === 'tag' ? d : undefined };
