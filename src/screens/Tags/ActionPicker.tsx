@@ -74,7 +74,7 @@ export function ActionPicker({ onPicked }: { onPicked: (a: TagAction, label: str
         <Sheet open onClose={() => setStep(null)} title={step === 'water' ? 'Water bottle' : 'Protein shaker'}>
           <div className="space-y-4">
             <TextInput label={step === 'water' ? 'How much it holds (mL)' : 'Protein in each shake (g)'} type="number" inputMode="numeric" min="1" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} />
-            <p className="text-sm text-muted">Each tap adds this much to today, with Undo. You can change it later by linking the tag again.</p>
+            <p className="text-sm text-muted">Added on each tap</p>
             <SheetActions>
               <Button className="w-full min-h-[56px]" disabled={!(Number(amount) > 0)} onClick={() => {
                 const n = Math.round(Number(amount)); setStep(null);

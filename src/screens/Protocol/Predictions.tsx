@@ -18,14 +18,18 @@ import { shownName } from '../../logic/privacy';
 import { HAS_BODY } from '../../edition';
 import { Sheet } from '../../components/ui/Sheet';
 import { TextInput } from '../../components/ui/Field';
+import { Bar, Stat } from '../../components/ui/Visual';
+import { Activity, Frown, Package, Scale, Syringe } from 'lucide-react';
 
 const day = (ms: number) => format(ms, 'EEE d MMM');
 const LONG_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const ordinal = (n: number) => (n === 0 ? 'shot day' : `day ${n} after`);
 const signed = (n: number) => `${n > 0 ? '+' : ''}${n}`;
 
+/** What a prediction stands on, in a few words: "3 shots · 81 check-ins". */
 export function Basis({ text }: { text: string }) {
-  return text ? <p className="text-xs text-muted mt-1">{text}</p> : null;
+  const short = text.replace(/^Based on /i, '').split('.')[0].replace(/, (and )?/g, ' · ').replace(/ and /g, ' · ');
+  return short ? <p className="text-xs text-muted mt-1 tnum">{short}</p> : null;
 }
 
 /** Shifts worth a look: a dot and a line each. */
@@ -37,7 +41,7 @@ export function FlagList({ flags }: { flags: ChangeFlag[] }) {
         <li key={f.kind} className="relative pl-5">
           <span aria-hidden="true" className="absolute left-0 top-[9px] w-2 h-2 rounded-full" style={{ background: 'var(--caution)' }} />
           <p className="font-medium">{f.title}</p>
-          <p className="text-sm text-muted">{f.detail} Worth raising with your prescriber.</p>
+          <p className="text-sm text-muted">{f.detail}</p>
           <Basis text={basisText(f.basis)} />
         </li>
       ))}
@@ -106,17 +110,22 @@ export function vialRestText(v: VialRest, unit: string, pen: boolean): string {
 /** The last 7 days in a few lines. */
 export function WeeklySummaryBlock({ w, med, units, title = 'Last 7 days' }: { w: WeeklySummary; med: Medication; units: Units; title?: string }) {
   const u = weightUnit(units);
-  const lines = [
-    w.planned ? `${w.shots} of ${w.planned} shot${w.planned === 1 ? '' : 's'} taken${med.schedule.type === 'fixed' ? `, ${w.onTime} on time` : ''}` : w.shots ? `${w.shots} shot${w.shots === 1 ? '' : 's'}` : 'No shots planned',
-    w.level ? `Estimated level ${Math.round(w.level.min * 100) / 100}–${fmtAmount(Math.round(w.level.max * 100) / 100, med.unit)}` : null,
-    HAS_BODY && w.weightPerWeek !== undefined ? `Weight ${signed(kgTo(w.weightPerWeek, units))} ${u}/week${w.stepPerWeek !== undefined ? ` (this step's average ${signed(kgTo(w.stepPerWeek, units))})` : ''}` : null,
-    w.effectPct !== undefined ? `Side effects in ${w.effectPct}% of ${w.checkIns} check-in${w.checkIns === 1 ? '' : 's'}${w.effectPctBefore !== undefined ? ` (${w.effectPctBefore}% the 3 weeks before)` : ''}` : null,
-    w.stock?.runOutAt ? `Stock lasts until ${day(w.stock.runOutAt)}${w.stock.orderBy ? `, order by ${day(w.stock.orderBy)}` : ''}` : null,
-  ].filter(Boolean) as string[];
+  const r2 = (n: number) => Math.round(n * 100) / 100;
   return (
     <div>
-      <p className="text-sm font-medium text-muted mb-1">{title}</p>
-      <ul className="text-[15px] tnum space-y-0.5">{lines.map((l) => <li key={l}>{l}</li>)}</ul>
+      <p className="text-sm font-medium text-muted mb-2">{title}</p>
+      <div className="grid grid-cols-2 gap-2">
+        <Stat Icon={Syringe} label={med.schedule.type === 'fixed' && w.planned ? `Shots · ${w.onTime} on time` : 'Shots'} value={w.planned ? `${w.shots}/${w.planned}` : w.shots}
+          tone={w.planned && w.shots >= w.planned ? 'good' : 'watch'}>
+          {w.planned ? <Bar value={w.shots} max={w.planned} tone={w.shots >= w.planned ? 'good' : 'watch'} label={`${w.shots} of ${w.planned} shots`} /> : null}
+        </Stat>
+        {w.level && <Stat Icon={Activity} label="Level (est.)" value={`${r2(w.level.min)}–${r2(w.level.max)}`} unit={med.unit} />}
+        {HAS_BODY && w.weightPerWeek !== undefined && <Stat Icon={Scale} label="Weight a week" value={signed(kgTo(w.weightPerWeek, units))} unit={u} tone={w.weightPerWeek <= 0 ? 'good' : 'plain'} />}
+        {w.effectPct !== undefined && <Stat Icon={Frown} label="Side effects" value={`${w.effectPct}%`} unit={w.effectPctBefore !== undefined ? `was ${w.effectPctBefore}%` : undefined}>
+          <Bar value={w.effectPct} max={100} tone={w.effectPct > 50 ? 'watch' : 'plain'} label={`Side effects in ${w.effectPct}% of check-ins`} />
+        </Stat>}
+        {w.stock?.runOutAt && <Stat Icon={Package} label={w.stock.orderBy ? `Stock · order by ${day(w.stock.orderBy)}` : 'Stock lasts to'} value={day(w.stock.runOutAt)} />}
+      </div>
     </div>
   );
 }
@@ -144,7 +153,6 @@ export function LateShotsSheet({ med, report, onClose }: { med: Medication; repo
         </ul>
       )}
       {!med.peptide?.halfLifeHours && <p className="text-sm text-muted mt-2">Add a half-life on {shownName(med)}'s page to see the level change too.</p>}
-      <p className="text-xs text-muted mt-3">What followed in your records, not what caused it. Ask your prescriber what to do about a late or missed shot.</p>
     </Sheet>
   );
 }
@@ -157,7 +165,7 @@ export function ShotDaySheet({ result, busy, onClose }: { result: ShotDayResult 
   const cur = result?.options.find((o) => o.weekday === result.current);
   return (
     <Sheet open onClose={onClose} title="Best shot day">
-      <p className="text-sm text-muted">Mark your busy or important days. From the days your side effects usually come after a shot, this shows which shot day keeps them off those days. Timing only; the dose stays the same. Check a change of day with your prescriber.</p>
+      <p className="text-sm text-muted">Tick your busy days</p>
       <fieldset className="mt-4">
         <legend className="text-sm font-medium mb-2">Busy days</legend>
         <div className="grid grid-cols-7 gap-1">
@@ -191,7 +199,7 @@ export function ShotDaySheet({ result, busy, onClose }: { result: ShotDayResult 
 export function PatternsSheet({ findings, weeks, onClose }: { findings: WeekFinding[]; weeks: number; onClose: () => void }) {
   return (
     <Sheet open onClose={onClose} title="Patterns across weeks">
-      <p className="text-sm text-muted">Your weeks compared by shot time, sleep, batch, water in the vial and missed shots, on side effects and appetite. Only weeks with 2+ check-ins count, each side needs 2+ weeks, and only clear differences show. A link in your records, not proof of a cause.</p>
+      <p className="text-sm text-muted">What differs in your better weeks</p>
       {findings.length === 0 ? <p className="border-t border-border mt-3 pt-4">No clear differences yet across {weeks} week{weeks === 1 ? '' : 's'} with check-ins.</p> : (
         <ul className="mt-3">
           {findings.map((f) => (

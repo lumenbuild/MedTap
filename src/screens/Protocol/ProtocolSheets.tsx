@@ -24,7 +24,7 @@ export function LotSheet({ med, batches, onClose }: { med: Medication; batches: 
   const units = settings?.units ?? 'metric';
   return (
     <Sheet open onClose={onClose} title={`Batches: ${med.name}`}>
-      <p className="text-sm text-muted mb-2">What you recorded while each batch's vials were in use, side by side. It doesn't show cause.</p>
+      <p className="text-sm text-muted mb-2">Each batch side by side</p>
       <ul>
         {batches.map((b) => (
           <li key={b.lot} className="border-t border-border py-4 space-y-1">

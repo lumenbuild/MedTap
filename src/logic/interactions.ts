@@ -1,5 +1,5 @@
-// Interaction flags: well-known pairs of medicines (and peptides) that are worth raising with a pharmacist or doctor,
-// from product labels and standard Australian references. Facts, not advice: the screen always says "worth asking".
+// Interaction flags: well-known pairs of medicines (and peptides), from product labels and standard Australian
+// references, each in a few words.
 // Also research peptides, whose interactions haven't been studied at all. Pure.
 import type { Medication } from '../db/schema';
 import { ingredientsOf } from './ingredients';
@@ -43,23 +43,23 @@ interface Rule { key: string; a: Group; b: Group; why: string }
 
 // Wording is shared by both apps (TapDose shows no peptide wording: these name the medicine, never the word).
 const RULES: Rule[] = [
-  { key: 'serotonin', a: 'serotonergic', b: 'serotonin-other', why: 'Both raise serotonin. Rarely, together they cause serotonin toxicity (agitation, shaking, sweating, fever).' },
-  { key: 'bleed-ssri', a: 'serotonergic', b: 'nsaid', why: 'Together they raise the chance of bleeding, including stomach bleeding.' },
-  { key: 'bleed-ssri-thinner', a: 'serotonergic', b: 'blood-thinner', why: 'Together they raise the chance of bleeding.' },
-  { key: 'bleed-thinner', a: 'blood-thinner', b: 'nsaid', why: 'Together they raise the chance of bleeding, including stomach bleeding.' },
-  { key: 'breathing', a: 'opioid', b: 'sedative', why: 'Their effects add up: more drowsiness and slower breathing. Labels carry a warning about this pair.' },
-  { key: 'stim-decongestant', a: 'stimulant', b: 'decongestant', why: 'Both can raise blood pressure and heart rate.' },
-  { key: 'kidney', a: 'bp-raas', b: 'nsaid', why: 'Anti-inflammatories can make this blood pressure medicine work less well and, especially with a fluid tablet as well, strain the kidneys.' },
-  { key: 'potassium', a: 'bp-raas', b: 'potassium-keeping', why: 'Together they can raise potassium in the blood.' },
-  { key: 'lithium-nsaid', a: 'lithium', b: 'nsaid', why: 'Can raise lithium levels.' },
-  { key: 'lithium-raas', a: 'lithium', b: 'bp-raas', why: 'Can raise lithium levels.' },
-  { key: 'lithium-diuretic', a: 'lithium', b: 'diuretic', why: 'Can raise lithium levels.' },
-  { key: 'nitrate', a: 'pde5', b: 'nitrate', why: 'Together they can drop blood pressure dangerously. The labels say not to take them together.' },
-  { key: 'low-sugar', a: 'glp1', b: 'low-sugar', why: 'Together they can make blood sugar go too low (both labels mention it).' },
-  { key: 'amylin-insulin', a: 'amylin', b: 'low-sugar', why: 'Together they can make blood sugar go too low.' },
-  { key: 'gh-sugar', a: 'gh-releaser', b: 'diabetes', why: 'Growth-hormone releasers can raise blood sugar, which can change how well diabetes medicines keep it in range.' },
-  { key: 'pill', a: 'tirzepatide', b: 'pill', why: 'Tirzepatide can make the pill less reliable, mostly for 4 weeks after starting and after each dose step up (its label suggests a backup or non-pill method then).' },
-  { key: 'naltrexone', a: 'bremelanotide', b: 'naltrexone', why: 'Bremelanotide lowers how much naltrexone tablets get absorbed (its label says to avoid the pair).' },
+  { key: 'serotonin', a: 'serotonergic', b: 'serotonin-other', why: 'Together: rare serotonin toxicity' },
+  { key: 'bleed-ssri', a: 'serotonergic', b: 'nsaid', why: 'Together: more bleeding risk' },
+  { key: 'bleed-ssri-thinner', a: 'serotonergic', b: 'blood-thinner', why: 'Together: more bleeding risk' },
+  { key: 'bleed-thinner', a: 'blood-thinner', b: 'nsaid', why: 'Together: more bleeding risk' },
+  { key: 'breathing', a: 'opioid', b: 'sedative', why: 'Together: more drowsy, slower breathing' },
+  { key: 'stim-decongestant', a: 'stimulant', b: 'decongestant', why: 'Both raise blood pressure and heart rate' },
+  { key: 'kidney', a: 'bp-raas', b: 'nsaid', why: 'Can weaken the BP medicine and strain kidneys' },
+  { key: 'potassium', a: 'bp-raas', b: 'potassium-keeping', why: 'Together: higher potassium' },
+  { key: 'lithium-nsaid', a: 'lithium', b: 'nsaid', why: 'Can raise lithium levels' },
+  { key: 'lithium-raas', a: 'lithium', b: 'bp-raas', why: 'Can raise lithium levels' },
+  { key: 'lithium-diuretic', a: 'lithium', b: 'diuretic', why: 'Can raise lithium levels' },
+  { key: 'nitrate', a: 'pde5', b: 'nitrate', why: 'Labels say not together: big BP drop' },
+  { key: 'low-sugar', a: 'glp1', b: 'low-sugar', why: 'Together: blood sugar can go too low' },
+  { key: 'amylin-insulin', a: 'amylin', b: 'low-sugar', why: 'Together: blood sugar can go too low' },
+  { key: 'gh-sugar', a: 'gh-releaser', b: 'diabetes', why: 'Can raise blood sugar' },
+  { key: 'pill', a: 'tirzepatide', b: 'pill', why: 'Pill less reliable for 4 weeks after each step up' },
+  { key: 'naltrexone', a: 'bremelanotide', b: 'naltrexone', why: 'Less naltrexone absorbed: label says avoid' },
 ];
 
 const groupsOf = (m: Medication) => {

@@ -2,10 +2,10 @@ import { repeatRequest } from '../logic/records';
 import { useState } from 'react';
 import { shownColour, shownMedName, shownName } from '../logic/privacy';
 import { format } from 'date-fns';
-import { Package } from 'lucide-react';
+import { Package, X } from 'lucide-react';
+import { Bar } from './ui/Visual';
 import type { Bottle, Medication } from '../db/schema';
 import { go } from '../app/router';
-import { fmtStock } from '../logic/format';
 import type { Forecast } from '../logic/plans';
 import type { RefillAlert } from '../logic/reminders';
 import { addBottle, restock, unrestock } from '../db/repos/meds';
@@ -52,26 +52,33 @@ export function RefillCards({ alerts, settings, now }: { alerts: RefillAlert[]; 
   const [restocking, setRestocking] = useState<Medication | null>(null);
   return (
     <>
-      {alerts.map(({ med, forecast, low, runningOut, scriptExpiring, expiringBottles }) => (
-        <Card key={med.id} className="flex gap-3 bg-caution-soft shadow-none">
-          <Package className="text-caution shrink-0 mt-0.5" aria-hidden="true" />
-          <div className="flex-1 min-w-0">
-            <p className="tnum"><strong>{shownName(med)}</strong>
-              {med.stockCount !== undefined ? `: ${fmtStock(med)}.` : '.'}
-              {low && !runningOut && med.lowStockAt !== undefined ? ` You asked to know at ${med.lowStockAt}.` : ''}
-            </p>
-            {(runningOut || low) && fmtForecast(forecast) && <p className="text-sm tnum">{fmtForecast(forecast)}</p>}
+      {alerts.map(({ med, forecast, low, runningOut, scriptExpiring, expiringBottles }) => {
+        const days = forecast?.runOutAt === null ? null : forecast?.daysLeft;
+        return (
+          <Card key={med.id} className="space-y-2">
+            <div className="flex items-center gap-3">
+              <Package className="shrink-0" style={{ color: shownColour(med) }} aria-hidden="true" />
+              <p className="flex-1 min-w-0 font-semibold truncate">{shownName(med)}</p>
+              {med.stockCount !== undefined && <p className="tnum"><span className="text-[22px] font-semibold">{Math.round(med.stockCount * 100) / 100}</span> <span className="text-sm text-muted">left</span></p>}
+              <button type="button" aria-label="Dismiss" className="w-11 h-11 -mr-2 flex items-center justify-center text-muted"
+                onClick={() => setSetting('dismissedLowStock', { ...settings.dismissedLowStock, [med.id]: med.stockCount ?? -1 })}><X size={20} /></button>
+            </div>
+            {(runningOut || low) && days !== undefined && days !== null && (
+              <div className="space-y-1">
+                <Bar value={days} max={Math.max(30, days)} tone={days <= 3 ? 'bad' : 'watch'} label={`${days} days left`} />
+                <p className="text-sm text-muted tnum">{days} day{days === 1 ? '' : 's'}{forecast?.runOutAt ? ` · out ${format(forecast.runOutAt, 'EEE d MMM')}` : ''}</p>
+              </div>
+            )}
             {(scriptExpiring || med.repeatsLeft !== undefined) && fmtScript(med, now) && <p className="text-sm tnum">{fmtScript(med, now)}</p>}
             {expiringBottles.map((b) => <p key={b.id} className="text-sm tnum font-medium">{fmtBottle(b, now)}</p>)}
-            <div className="flex flex-wrap gap-2 mt-3">
+            <div className="flex flex-wrap gap-2">
               <Button variant="secondary" onClick={() => setRestocking(med)}>Add stock</Button>
               {!!med.repeatsLeft && <AskPharmacy meds={[med]} settings={settings} />}
               {expiringBottles.length > 0 && <Button variant="secondary" onClick={() => go(`/meds/${med.id}`)}>Bottles</Button>}
-              <Button variant="secondary" onClick={() => setSetting('dismissedLowStock', { ...settings.dismissedLowStock, [med.id]: med.stockCount ?? -1 })}>Dismiss</Button>
             </div>
-          </div>
-        </Card>
-      ))}
+          </Card>
+        );
+      })}
       {restocking && <RestockSheet med={restocking} onClose={() => setRestocking(null)} />}
     </>
   );
@@ -128,7 +135,7 @@ export function AskPharmacy({ meds, settings, name }: { meds: Medication[]; sett
   return (
     <Button variant="secondary" onClick={async () => {
       try { if (navigator.share) { await navigator.share({ text }); return; } } catch { /* cancelled */ }
-      try { await navigator.clipboard.writeText(text); toast('Message copied. Add your pharmacy in Settings to send it in one tap.'); } catch { toast(text); }
+      try { await navigator.clipboard.writeText(text); toast('Message copied'); } catch { toast(text); }
     }}>Ask the pharmacy</Button>
   );
 }

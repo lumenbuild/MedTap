@@ -67,7 +67,7 @@ export function UnknownTag({ id, meds, relinking, onLinked, personName }: {
       <div className="mt-5 space-y-3">
         <Button variant="secondary" className="w-full" onClick={notNow}>Not now</Button>
       </div>
-      <p className="text-sm text-muted mt-4">If this tag belongs to someone else's medication, choose Not now. Nothing is saved about it except the tag's code.</p>
+      <p className="text-sm text-muted mt-4">Not yours? Choose Not now.</p>
     </Card>
   );
 }

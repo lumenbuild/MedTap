@@ -37,7 +37,7 @@ export default function LevelProjection({ med, doses, s, now }: { med: Medicatio
             scales: { x: timeAxis(th, from, to), y: { ...baseOptions(th).scales.y, min: 0, ticks: { ...baseOptions(th).scales.y.ticks, maxTicksLimit: 3 } } } }}
         />
       </div>
-      <p className="text-xs text-muted">Solid: from doses taken. Dashed: if you follow your plan. An estimate from your half-life figure, not a measurement.</p>
+      <p className="text-xs text-muted flex gap-4"><span>━ taken</span><span>┅ planned</span></p>
     </figure>
   );
 }

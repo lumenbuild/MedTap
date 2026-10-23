@@ -309,7 +309,7 @@ function SwapSheet({ def, defs, others, units, onPick, onClose }: { def: Exercis
           })}
         </ul>
       )}
-      <p className="text-sm text-muted mt-2">Swaps the sets you haven’t done yet. Same main muscle; ones you’ve done before come first.</p>
+      <p className="text-sm text-muted mt-2">Same muscle; yours first</p>
     </Sheet>
   );
 }

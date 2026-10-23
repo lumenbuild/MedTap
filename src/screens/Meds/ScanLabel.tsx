@@ -119,7 +119,7 @@ function Review({ text, onRetake, onUse }: { text: string; onRetake: () => void;
         <p className="rounded-btn bg-caution-soft p-3">Couldn't find the medication details. Try a closer, sharper photo in good light, or fix the text below.</p>
       )}
       <TextArea label="Text read from the photo" help="Fix anything misread and the details above update." rows={7} value={t} onChange={(e) => setT(e.target.value)} />
-      <p className="text-sm text-muted">Check every detail against the label before saving. Your pharmacist can help with anything unclear.</p>
+      <p className="text-sm text-muted">Check against the label.</p>
       <Button className="w-full min-h-[56px]" onClick={() => onUse(details)} disabled={!lines.length}>Use these details</Button>
       <Button variant="secondary" className="w-full" onClick={onRetake}>Take another photo</Button>
     </div>

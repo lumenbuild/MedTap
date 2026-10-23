@@ -6,7 +6,6 @@ import { addPlannedChange, removePlannedChange } from '../../db/repos/meds';
 import { fmtAmount, fmtSchedule } from '../../logic/format';
 import { medOn } from '../../logic/plans';
 import { useToast } from '../../app/toast';
-import { APP_NAME } from '../../config';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Sheet, SheetActions } from '../../components/ui/Sheet';
@@ -31,7 +30,7 @@ export function PlannedChanges({ med }: { med: Medication }) {
     <Card>
       <h2 className="text-sm font-medium text-muted flex items-center gap-2"><CalendarClock size={20} className="text-primary" aria-hidden="true" /> Planned changes</h2>
       {changes.length === 0 ? (
-        <p className="text-muted mt-1">For a dose change or a taper your prescriber has planned. On the day, {APP_NAME} switches over and records the change.</p>
+        <p className="text-muted mt-1">A dose change or taper on a set date.</p>
       ) : (
         <ol className="mt-2 space-y-2">
           {changes.map((c) => (
@@ -82,7 +81,7 @@ function PlanChangeSheet({ med, onClose }: { med: Medication; onClose: () => voi
         <TextInput label="Starting on" type="date" min={tomorrow} value={from} onChange={(e) => setFrom(e.target.value)} error={errors.from} />
         <ScheduleFields f={f} set={set} errors={errors} unit={med.unit} />
         <TextInput label="Note (optional)" placeholder="e.g. Week 2 of taper, per Dr Lee" value={note} onChange={(e) => setNote(e.target.value)} />
-        <p className="text-sm text-muted">For a taper, add one change for each step. Enter what your prescriber told you.</p>
+        <p className="text-sm text-muted">One change per step.</p>
         <SheetActions>
           <Button className="w-full min-h-[56px]" onClick={save}>Save planned change</Button>
         </SheetActions>

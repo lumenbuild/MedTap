@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { clearLogRequest, onLogRequest } from '../../app/pendingLog';
 import { shownColour, shownMedName, shownName } from '../../logic/privacy';
-import { CalendarPlus, Lock, Nfc, Pill } from 'lucide-react';
+import { CalendarDays, CalendarPlus, Coffee, Droplet, HeartPulse, Lock, Nfc, Pill, Ruler, Scale, Smile, Wine } from 'lucide-react';
+import { IconRow, MiniRing, Tile } from '../../components/ui/Visual';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
 import { useBodyEntries, useCheckIns, useDaily, useDoses, useExercises, useWorkouts, useFamily, useMeds, useScheduleSettings, useSupplies, useVitals } from '../../app/data';
 import { VitalsSheet, type VitalsSheetState } from '../../components/VitalsSheet';
@@ -181,10 +182,15 @@ export function Today() {
       )}
       {scheduled.length > 1 && (
         <section aria-labelledby="today-meds" className="border-t border-border pt-4">
-          <div className="flex items-baseline justify-between">
-            <h2 id="today-meds" className="text-sm font-medium text-muted">Today</h2>
-            <p className="text-sm text-muted tnum">{scheduled.filter((m) => getStatus(m, doses, now, s) === 'done-today').length} of {scheduled.length} done</p>
-          </div>
+          {(() => {
+            const done = scheduled.filter((m) => getStatus(m, doses, now, s) === 'done-today').length;
+            return (
+              <div className="flex items-center justify-between">
+                <h2 id="today-meds" className="text-sm font-medium text-muted">Today</h2>
+                <MiniRing value={done} max={scheduled.length} tone={done === scheduled.length ? 'good' : 'primary'} label={`${done} of ${scheduled.length} done`} />
+              </div>
+            );
+          })()}
           <ul className="mt-1">
             {scheduled.map((m) => <TodayRow key={m.id} med={m} doses={viewDoses} s={s} now={now} person={whose(m)} onLog={() => setLogFor(m)} />)}
           </ul>
@@ -200,18 +206,18 @@ export function Today() {
           <OddRecordsLine key="o" meds={viewMeds} doses={viewDoses} body={HAS_BODY ? viewBody : []} checkIns={viewCheckIns} vitals={viewVitals} dismissed={settings.oddDismissed} now={now} />,
         ];
         return (
-          <section className="border-t border-border pt-4 space-y-2 empty:hidden" aria-label="Notes">
+          <section className="border-t border-border pt-3 empty:hidden" aria-label="Notes">
             {lines}
             {visit && Date.parse(`${visit.date}T00:00`) - now < 14 * 86_400_000 && (
-              <a href="#/appointments" className="block text-[15px]">
-                Appointment {format(new Date(`${visit.date}T12:00`), 'EEE d MMM')}{visit.with ? ` with ${visit.with}` : ''}. <span className="underline underline-offset-4 font-medium">Summary and questions</span>
-              </a>
+              <IconRow Icon={CalendarDays} tone="primary" href="#/appointments">
+                Appointment {format(new Date(`${visit.date}T12:00`), 'EEE d MMM')}{visit.with ? ` · ${visit.with}` : ''}
+              </IconRow>
             )}
           </section>
         );
       })()}
 
-      {promptDose && <CheckInPrompt dose={promptDose} med={medMap.get(promptDose.medicationId)} now={now} onCheckIn={() => setCheckIn({ relatedDoseId: promptDose.id })} />}
+      {promptDose && <CheckInPrompt dose={promptDose} med={medMap.get(promptDose.medicationId)} now={now} onCheckIn={(mood) => setCheckIn({ relatedDoseId: promptDose.id, mood })} />}
       <RefillCards alerts={refills} settings={settings} now={now} />
       {HAS_PEPTIDES && <VialAlerts meds={viewMeds} doses={doses} now={now} />}
       {settings.peptideTools && supplies && <SupplyAlerts alerts={supplyAlerts(supplies, meds, doses)} />}
@@ -224,24 +230,20 @@ export function Today() {
       )}
 
       {fam.everyone ? (
-        <p className="text-sm text-muted text-center px-4">Choose a person above to check in or log {HAS_BODY ? 'weight or ' : ''}blood pressure for them.</p>
+        <p className="text-sm text-muted text-center px-4">Pick a person above to log for them.</p>
       ) : (
-      <div role="group" className="border-t border-border pt-2 flex flex-wrap gap-x-6" aria-label={fam.many ? `Log for ${fam.person}` : 'Log something else'}>
+      <div role="group" className="border-t border-border pt-4 grid grid-cols-4 gap-2" aria-label={fam.many ? `Log for ${fam.person}` : 'Log something else'}>
         {([
-          ['Check in', 'Check in', () => setCheckIn({})],
-          ['Blood pressure', 'Log blood pressure and pulse', () => setVitalSheet({})],
+          ['Check in', 'Check in', Smile, () => setCheckIn({})],
+          ['BP', 'Log blood pressure and pulse', HeartPulse, () => setVitalSheet({})],
           ...(HAS_BODY ? [
-            ['Weight', 'Log weight', () => setBodySheet({ kind: 'weight' })],
-            ['Measure', 'Add measurement', () => setBodySheet({ kind: 'measure' })],
+            ['Weight', 'Log weight', Scale, () => setBodySheet({ kind: 'weight' })],
+            ['Measure', 'Add measurement', Ruler, () => setBodySheet({ kind: 'measure' })],
           ] as const : []),
-          ['Coffee', 'Log caffeine now', () => quick(CAFFEINE, 'Caffeine')],
-          ['Alcohol', 'Log alcohol now', () => quick(ALCOHOL, 'Alcohol')],
-          ...(settings.cycleTracking ? [['Period', 'Period started today', () => quick(PERIOD, 'Period start')]] as const : []),
-        ] as const).map(([label, name, on]) => (
-          <button key={label} onClick={on} aria-label={name} className="min-h-[44px] text-[15px] font-medium underline underline-offset-4 decoration-border-strong">
-            {label}
-          </button>
-        ))}
+          ['Coffee', 'Log caffeine now', Coffee, () => quick(CAFFEINE, 'Caffeine')],
+          ['Alcohol', 'Log alcohol now', Wine, () => quick(ALCOHOL, 'Alcohol')],
+          ...(settings.cycleTracking ? [['Period', 'Period started today', Droplet, () => quick(PERIOD, 'Period start')]] as const : []),
+        ] as const).map(([label, name, Icon, on]) => <Tile key={label} Icon={Icon} label={label} name={name} onClick={on} />)}
       </div>
       )}
 

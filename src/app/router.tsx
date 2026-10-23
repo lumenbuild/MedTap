@@ -20,7 +20,7 @@ export const replace = (path: string) => {
 };
 
 export type Route =
-  | { name: 'today' } | { name: 'trends' } | { name: 'body' } | { name: 'settings' }
+  | { name: 'today' } | { name: 'trends' } | { name: 'body' } | { name: 'settings'; section?: string }
   | { name: 'backup' } | { name: 'report' } | { name: 'help'; topic?: string }
   | { name: 'meds' } | { name: 'medNew'; tagId?: string } | { name: 'med'; id: string }
   | { name: 'tag'; id: string } | { name: 'sync' } | { name: 'join'; code: string } | { name: 'calc' } | { name: 'supplies' }
@@ -33,7 +33,7 @@ export function parseRoute(path: string): Route {
   switch (a) {
     case 'trends': return { name: 'trends' };
     case 'body': return { name: 'body' };
-    case 'settings': return { name: 'settings' };
+    case 'settings': return { name: 'settings', section: b || undefined };
     case 'backup': return { name: 'backup' };
     case 'report': return { name: 'report' };
     case 'help': return { name: 'help', topic: b || undefined };

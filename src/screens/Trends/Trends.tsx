@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText } from 'lucide-react';
+import { FileText, FlaskConical } from 'lucide-react';
 import { useWorkouts, useAppointments, useDaily, useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings, useVitals } from '../../app/data';
 import { CheckInForecastCard, EffectWindowCards, SleepImpactCard } from '../../components/Smart';
 import { TrainingTrends } from '../../components/Fitness';
@@ -8,6 +8,8 @@ import { checkInForecast, sleepImpact } from '../../logic/habits';
 import { appointmentsAround } from '../../logic/appointments';
 import { dayKey } from '../../logic/stats';
 import { dosesForPerson, medIsFor, personOf } from '../../db/repos/people';
+import { JumpBar } from '../../components/ui/JumpBar';
+import { Tile } from '../../components/ui/Visual';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
 import { RANGE_DAYS, rangeStart, type Range } from '../../logic/stats';
@@ -80,6 +82,7 @@ export function Trends() {
         <Segmented<Range | 'appt'> label="Date range" value={r} onChange={pick}
           options={[{ value: '7d', label: '7D' }, { value: '30d', label: '30D' }, { value: '90d', label: '90D' }, { value: 'all', label: 'All' },
             ...(lastAppt ? [{ value: 'appt' as const, label: 'Appt' }] : [])]} />
+        <JumpBar inline deps={[r, fam.personId]} />
         {r === 'appt' && <p className="text-xs text-muted mt-1">Since your appointment on {new Date(`${lastAppt!.date}T12:00`).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}, compared with the {days} days before it.</p>}
       </div>
       {HAS_BODY && (
@@ -112,14 +115,10 @@ export function Trends() {
           <DoseLevelsCards meds={peptideMeds} doses={doses} body={body} checkIns={checkIns} units={settings.units} now={now} />
         </>
       )}
-      <a href="#/report" className="border-t border-border py-4 flex items-center gap-3 min-h-[56px]">
-        <FileText className="text-primary" aria-hidden="true" />
-        <span className="flex-1">
-          <span className="block font-semibold">Report for your doctor</span>
-          <span className="block text-sm text-muted">Print or save as PDF</span>
-        </span>
-      </a>
-      <p className="text-sm text-muted text-center px-4">These charts show what you've recorded. They don't interpret it. Talk to your prescriber about what it means for you.</p>
+      <div className="border-t border-border pt-4 grid grid-cols-2 gap-2" role="group" aria-label="More">
+        <Tile Icon={FileText} label="Doctor report" href="#/report" />
+        <Tile Icon={FlaskConical} label={HAS_VISITS ? 'Appointments' : 'Lab results'} href={HAS_VISITS ? '#/appointments' : '#/labs'} />
+      </div>
     </div>
   );
 }

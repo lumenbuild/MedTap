@@ -20,7 +20,7 @@ export function TitrationCard({ med }: { med: Medication }) {
   return (
     <Card className="space-y-2">
       <h2 className="text-sm font-medium text-muted flex items-center gap-2"><TrendingUp size={20} className="text-primary" aria-hidden="true" /> Titration</h2>
-      <p className="text-muted">Step the dose up (or down) on a schedule your prescriber gave you. Each step becomes a planned change that switches over on its day.</p>
+      <p className="text-muted">Step the dose up or down on a schedule.</p>
       <Button variant="secondary" className="w-full" onClick={() => setOpen(true)}>Plan a titration</Button>
       {open && <TitrationSheet med={med} onClose={() => setOpen(false)} />}
     </Card>
@@ -59,7 +59,7 @@ function TitrationSheet({ med, onClose }: { med: Medication; onClose: () => void
   return (
     <Sheet open onClose={onClose} title="Plan a titration">
       <div className="space-y-4">
-        <p className="text-sm text-muted">Enter the plan from your prescriber. {med.name}'s times and days stay the same; only the dose changes.</p>
+        <p className="text-sm text-muted">Times and days stay the same; only the dose changes.</p>
         <TextInput label={`First dose (${med.unit})`} type="number" inputMode="decimal" min="0" step="any" value={start} onChange={(e) => setStart(e.target.value)} />
         <Segmented label="Increase or decrease" value={dir} options={[{ value: 'up', label: 'Increase' }, { value: 'down', label: 'Decrease' }]} onChange={setDir} />
         <TextInput label={`By (${med.unit}) each step`} type="number" inputMode="decimal" min="0" step="any" value={step} onChange={(e) => setStep(e.target.value)} />

@@ -14,6 +14,7 @@ import { MedInstructions } from './MedInstructions';
 import { fmtAgo, fmtAmount, fmtDuration, fmtHHmm, fmtTime, fmtWhen, fromLocalInput, toLocalInput } from '../logic/format';
 import { canVibrate } from '../platform';
 import { Button } from './ui/Button';
+import { Bar } from './ui/Visual';
 import { Stepper } from './ui/Stepper';
 import { SheetActions } from './ui/Sheet';
 
@@ -101,8 +102,8 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, vialId, onLog
     return (
       <div className="space-y-4">
         {whoPicker}
-        <div className="rounded-btn bg-caution-soft p-4 flex gap-3">
-          <Info className="text-caution shrink-0 mt-0.5" aria-hidden="true" />
+        <div className="rounded-btn bg-surface-2 p-4 flex gap-3">
+          <Info className="shrink-0 mt-0.5" aria-hidden="true" />
           <p>
             You already logged this at <strong className="tnum">{fmtTime(Date.parse(recent.takenAt))}</strong>
             {' '}({fmtAgo(now - Date.parse(recent.takenAt))}). Log another dose?
@@ -256,17 +257,17 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, vialId, onLog
       </div>
 
       {combined.map((c) => (
-        <p key={c.ingredient} className="rounded-btn bg-caution-soft px-4 py-3 flex gap-3 text-sm" role="alert">
-          <Info size={18} className="text-caution shrink-0 mt-0.5" aria-hidden="true" />
-          <span>With {c.others.join(' and ')} in the last 24 hours, this would be {c.totalMg.toLocaleString('en-AU')} mg of {c.ingredient}: more than the {c.limitMg.toLocaleString('en-AU')} mg your limits allow. Check with your pharmacist before taking more.</span>
-        </p>
+        <div key={c.ingredient} className="rounded-btn bg-surface-2 px-4 py-3 space-y-2" role="alert">
+          <p className="text-sm flex justify-between gap-3"><span className="first-letter:uppercase">{c.ingredient} in 24 h (with {c.others.join(', ')})</span><span className="tnum font-semibold">{c.totalMg.toLocaleString('en-AU')} / {c.limitMg.toLocaleString('en-AU')} mg</span></p>
+          <Bar value={c.totalMg} max={c.totalMg} marker={c.limitMg} tone="bad" label={`${c.totalMg} mg of ${c.ingredient}, your limit is ${c.limitMg} mg`} />
+        </div>
       ))}
       {notes.length > 0 && (
         <ul className="space-y-2" aria-label="Notes from your settings">
           {notes.map((n) => (
-            <li key={n.kind} className="rounded-btn bg-caution-soft px-4 py-3 flex gap-3 text-sm">
-              <Info size={18} className="text-caution shrink-0 mt-0.5" aria-hidden="true" />
-              <span>{noteText(n, !earlier, med.unit)} You can still log it.</span>
+            <li key={n.kind} className="rounded-btn bg-surface-2 px-4 py-3 flex gap-3 text-sm">
+              <Info size={18} className="shrink-0 mt-0.5" aria-hidden="true" />
+              <span>{noteText(n, !earlier, med.unit)}</span>
             </li>
           ))}
         </ul>

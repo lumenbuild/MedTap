@@ -1,4 +1,5 @@
-import { ChevronRight, Nfc, Plus } from 'lucide-react';
+import { CalendarClock, CalendarX, ChevronRight, FileText, Link2, Nfc, Package, Plus, Wallet, X, type LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { isPrivate, shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { format } from 'date-fns';
 import type { Medication, Tag } from '../../db/schema';
@@ -8,16 +9,15 @@ import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
 import { forecastRunOut, nextPlannedChange } from '../../logic/plans';
 import { dayKey } from '../../logic/stats';
-import { fmtBottle, fmtForecast, fmtScript } from '../../components/Refill';
 import type { Dose } from '../../db/schema';
 import type { ScheduleSettings } from '../../logic/schedule';
 import { go } from '../../app/router';
-import { fmtSchedule, fmtStock } from '../../logic/format';
+import { fmtSchedule } from '../../logic/format';
 import { overlaps } from '../../logic/ingredients';
 import { interactions } from '../../logic/interactions';
+import { Bar, IconRow, Tile } from '../../components/ui/Visual';
 import { money, monthlyPackCost } from '../../logic/cost';
 import { setSetting } from '../../db/repos/settings';
-import { APP_NAME } from '../../config';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { MedBadge } from '../../components/MedBadge';
@@ -39,6 +39,11 @@ export function MedsList() {
   return (
     <div className="space-y-4">
       <PersonSwitcher />
+      <div className="grid grid-cols-3 gap-2" role="group" aria-label="Medication tools">
+        <Tile Icon={Plus} label="Add" name={`Add medication${fam.many ? ` for ${fam.person}` : ''}`} href="#/meds/new" />
+        <Tile Icon={Nfc} label="Tags" href="#/tags" />
+        <Tile Icon={FileText} label="Report" name="Doctor report" href="#/report" />
+      </div>
       {settings.pendingTags.map((id) => (
         <Card key={id} className="flex items-center gap-3">
           <Nfc className="text-primary shrink-0" aria-hidden="true" />
@@ -47,20 +52,15 @@ export function MedsList() {
         </Card>
       ))}
 
-      {overlaps(active, personOf).filter((o) => !settings.overlapDismissed.includes(o.key)).map((o) => (
-        <Card key={o.key} className="bg-caution-soft shadow-none space-y-2">
-          <p className="font-semibold">{o.kind === 'same' ? `${shownName(o.a)} and ${shownName(o.b)} both contain ${o.what}` : `${shownName(o.a)} and ${shownName(o.b)} are both ${o.what}`}</p>
-          <p className="text-sm">{o.kind === 'same' ? 'Taking both can add up to more than either label allows. ' : ''}Worth checking with your pharmacist or prescriber that taking both is intended.{o.kind === 'same' ? ` When you log either, ${APP_NAME} adds up the ${o.what} from both against your limits.` : ''}</p>
-          <Button variant="secondary" onClick={() => setSetting('overlapDismissed', [...settings.overlapDismissed, o.key])}>Got it</Button>
-        </Card>
-      ))}
-
-      {interactions(active, personOf).filter((x) => !settings.overlapDismissed.includes(x.key)).map((x) => (
-        <Card key={x.key} className="bg-caution-soft shadow-none space-y-2">
-          <p className="font-semibold">Worth asking about: {shownName(x.a)} with {shownName(x.b)}</p>
-          <p className="text-sm">{x.why} Your pharmacist or doctor can say whether the pair is intended and what to watch for.</p>
-          <Button variant="secondary" onClick={() => setSetting('overlapDismissed', [...settings.overlapDismissed, x.key])}>Got it</Button>
-        </Card>
+      {[
+        ...overlaps(active, personOf).map((o) => ({ key: o.key, a: o.a, b: o.b, text: o.kind === 'same' ? `both contain ${o.what}` : `both ${o.what}` })),
+        ...interactions(active, personOf).map((x) => ({ key: x.key, a: x.a, b: x.b, text: x.why })),
+      ].filter((x) => !settings.overlapDismissed.includes(x.key)).map((x) => (
+        <IconRow key={x.key} Icon={Link2} tone="plain"
+          action={<button type="button" aria-label="Got it" className="w-11 h-11 flex items-center justify-center text-muted" onClick={() => setSetting('overlapDismissed', [...settings.overlapDismissed, x.key])}><X size={20} /></button>}>
+          <span className="font-medium">{shownName(x.a)} + {shownName(x.b)}</span>
+          <span className="block text-sm text-muted">{x.text}</span>
+        </IconRow>
       ))}
 
       {active.length === 0 ? (
@@ -71,9 +71,6 @@ export function MedsList() {
         <ul className="space-y-2">{active.map((m) => <MedRow key={m.id} med={m} tags={tags} doses={doses} s={ss[1]} now={now} />)}</ul>
       )}
 
-      <Button className="w-full min-h-[56px] flex items-center justify-center gap-2" onClick={() => go('/meds/new')}>
-        <Plus size={20} aria-hidden="true" /> Add medication{fam.many ? ` for ${fam.person}` : ''}
-      </Button>
 
       {archived.length > 0 && (
         <details className="pt-2">
@@ -87,29 +84,40 @@ export function MedsList() {
 
 function MedRow({ med, tags, doses, s, now }: { med: Medication; tags: Tag[]; doses: Dose[]; s: ScheduleSettings; now: number }) {
   const n = tags.filter((t) => t.medicationId === med.id).length;
-  const forecast = med.archived ? null : fmtForecast(forecastRunOut(med, doses, now, s));
-  const script = fmtScript(med, now);
+  const f = med.archived ? null : forecastRunOut(med, doses, now, s);
+  const days = f && f.runOutAt !== null ? f.daysLeft : undefined;
   const change = med.archived ? undefined : nextPlannedChange(med, dayKey(now, s));
   const low = med.stockCount !== undefined && med.lowStockAt !== undefined && med.stockCount <= med.lowStockAt;
+  const cost = monthlyPackCost(med, doses, now);
+  const bottle = med.bottles?.[0];
+  const bottleSoon = bottle && Date.parse(`${bottle.expiry}T23:59:59`) - now < 30 * 86_400_000;
   return (
     <li>
-      <a href={`#/meds/${med.id}`} className="border-t border-border py-4 flex items-center gap-3">
+      <a href={`#/meds/${med.id}`} className="border-t border-border py-3.5 flex items-center gap-3">
         <MedBadge color={shownColour(med)} icon={med.icon} />
-        <span className="flex-1 min-w-0">
+        <span className="flex-1 min-w-0 space-y-1">
           <span className="block font-semibold truncate">{shownMedName(med)}{isPrivate(med) && <span className="ml-2 text-xs font-medium text-muted">Nickname</span>}{med.shared && <span className="ml-2 text-xs font-medium text-primary">Shared</span>}</span>
           <span className="block text-sm text-muted">{fmtSchedule(med.schedule, med.unit)}</span>
-          <span className="block text-sm text-muted tnum">
-            {n === 0 ? 'No tag yet' : `${n} tag${n === 1 ? '' : 's'} linked`}
-            {med.stockCount !== undefined && <> · <span className={low ? 'text-caution font-medium' : ''}>{fmtStock(med)}</span></>}
+          <span className="flex flex-wrap gap-1.5 text-xs tnum">
+            <Chip Icon={Nfc} muted={n === 0}>{n === 0 ? 'No tag' : n}</Chip>
+            {med.stockCount !== undefined && <Chip Icon={Package} warn={low}>{Math.round(med.stockCount * 100) / 100}{days !== undefined ? ` · ${days} d` : ''}</Chip>}
+            {med.repeatsLeft !== undefined && <Chip Icon={FileText} warn={med.repeatsLeft === 0}>{med.repeatsLeft} rpt</Chip>}
+            {cost !== undefined && <Chip Icon={Wallet}>{money(cost)}/mo</Chip>}
+            {bottle && <Chip Icon={CalendarX} warn={bottleSoon}>{format(new Date(`${bottle.expiry}T12:00`), 'd MMM')}</Chip>}
+            {change && <Chip Icon={CalendarClock}>{format(new Date(`${change.from}T12:00`), 'd MMM')}</Chip>}
           </span>
-          {forecast && <span className="block text-sm text-muted tnum">{forecast}</span>}
-          {script && <span className="block text-sm text-muted tnum">{script}</span>}
-          {monthlyPackCost(med, doses, now) !== undefined && <span className="block text-sm text-muted tnum">About {money(monthlyPackCost(med, doses, now)!)} a month</span>}
-          {med.bottles?.[0] && <span className={`block text-sm tnum ${Date.parse(`${med.bottles[0].expiry}T23:59:59`) - now < 30 * 86_400_000 ? 'text-caution font-medium' : 'text-muted'}`}>{fmtBottle(med.bottles[0], now)}</span>}
-          {change && <span className="block text-sm text-primary tnum">Change planned from {format(new Date(`${change.from}T12:00`), 'EEE d MMM')}</span>}
+          {days !== undefined && med.stockCount !== undefined && <Bar value={days} max={Math.max(30, days)} tone={days <= 7 ? 'watch' : 'plain'} height={4} label={`${days} days of stock`} />}
         </span>
         <ChevronRight className="text-muted" aria-hidden="true" />
       </a>
     </li>
+  );
+}
+
+function Chip({ Icon, children, warn, muted }: { Icon: LucideIcon; children: ReactNode; warn?: boolean; muted?: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1 h-6 px-2 rounded-chip ${warn ? 'bg-caution-soft text-caution font-medium' : 'bg-surface-2'} ${muted ? 'text-muted' : ''}`}>
+      <Icon size={12} aria-hidden="true" />{children}
+    </span>
   );
 }

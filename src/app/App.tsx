@@ -1,11 +1,11 @@
 import { lazy, Suspense } from 'react';
-import { SlidersHorizontal, ArrowLeft } from 'lucide-react';
+import { Settings as Gear, ArrowLeft } from 'lucide-react';
 import { parseRoute, useHashRoute, type Route } from './router';
 import { ToastProvider } from './toast';
 import { LockGate } from './LockGate';
 import { useMeds, useSettings } from './data';
 import { TabBar } from '../components/TabBar';
-import { Settings } from '../screens/Settings';
+import { SECTION_TITLE, Settings, type SettingsSection } from '../screens/Settings';
 import { Today } from '../screens/Today/Today';
 import { TagLanding } from '../screens/TagLanding/TagLanding';
 import { MedsList } from '../screens/Meds/MedsList';
@@ -47,7 +47,7 @@ function title(r: Route): string {
     case 'trends': return 'Trends';
     case 'body': return HAS_BODY ? 'Body' : 'Vitals';
     case 'meds': return 'Meds';
-    case 'settings': return 'Settings';
+    case 'settings': return r.section && r.section in SECTION_TITLE ? SECTION_TITLE[r.section as SettingsSection] : 'Settings';
     case 'medNew': return 'Add medication';
     case 'med': return 'Medication';
     case 'backup': return 'Backup and restore';
@@ -80,7 +80,7 @@ function backTo(r: Route, protocol: boolean): string | undefined {
     case 'appointments': case 'travel': case 'tags': return '#/settings';
     case 'appointmentSummary': return '#/appointments';
     case 'labs': return HAS_VISITS ? '#/appointments' : '#/settings';
-    case 'settings': return '#/today';
+    case 'settings': return r.section ? '#/settings' : '#/today';
     case 'medNew': case 'med': return '#/meds';
     case 'backup': case 'sync': case 'join': case 'calc': case 'supplies': return '#/settings';
     case 'report': return protocol ? '#/progress' : '#/trends';
@@ -91,7 +91,7 @@ function backTo(r: Route, protocol: boolean): string | undefined {
 
 function Screen({ r }: { r: Route }) {
   switch (r.name) {
-    case 'settings': return <Settings />;
+    case 'settings': return <Settings section={r.section} />;
     case 'trends': return <Suspense fallback={<ChartsLoading />}><Trends /></Suspense>;
     case 'body': return <Body />;
     case 'meds': return <MedsList />;
@@ -154,8 +154,8 @@ export function App() {
                     <p className="text-sm text-muted">{r.name === 'today' ? DATE_LINE.format(now) : ''}</p>
                     <div className="flex items-center -mr-3">
                       {r.name === 'today' && isNativeIOS && <ScanTagButton />}
-                      {r.name === 'today' && (
-                        <a href="#/settings" aria-label="Settings" className="w-11 h-11 flex items-center justify-center"><SlidersHorizontal size={20} strokeWidth={1.5} aria-hidden="true" /></a>
+                      {r.name !== 'settings' && (
+                        <a href="#/settings" aria-label="Settings" className="w-11 h-11 flex items-center justify-center"><Gear size={22} strokeWidth={1.75} aria-hidden="true" /></a>
                       )}
                     </div>
                   </div>

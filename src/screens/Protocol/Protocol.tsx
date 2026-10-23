@@ -22,6 +22,8 @@ import { MedBadge } from '../../components/MedBadge';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { Button } from '../../components/ui/Button';
 import { WeekStrip } from './WeekStrip';
+import { Tile } from '../../components/ui/Visual';
+import { Calculator, CalendarRange, FileText, Package } from 'lucide-react';
 import { LeadTimeSheet, LotSheet } from './ProtocolSheets';
 
 const LevelProjection = lazy(() => import('../../components/charts/LevelProjection'));
@@ -92,18 +94,13 @@ export function Protocol() {
         </section>
       )}
 
-      {sup.length === 0 && peptides.length > 0 && (
-        <button type="button" onClick={() => setNeeds(true)} className="w-full border-t border-border flex items-center justify-between min-h-[64px] text-[17px] font-medium text-left">
-          Enough until…<span className="text-sm font-normal text-muted">Stock for a trip or a date</span>
-        </button>
-      )}
       {needs && <NeedsSheet meds={meds.filter((m) => medIsFor(m, fam.personId))} supplies={supplies} doses={doses} s={s} now={now} onClose={() => setNeeds(false)} />}
-      {peptides.length > 0 && (
-        <a href="#/protocol/report" className="border-t border-border flex items-center justify-between min-h-[64px] text-[17px] font-medium">
-          Protocol report<span className="text-sm font-normal text-muted">Each dose step, for your doctor</span>
-        </a>
-      )}
-      <p className="text-sm text-muted pt-2">These are your own numbers and plan. Check doses with your prescriber or pharmacist.</p>
+      <div className="border-t border-border pt-4 grid grid-cols-4 gap-2" role="group" aria-label="Tools">
+        <Tile Icon={Calculator} label="Calculator" href="#/calc" />
+        <Tile Icon={Package} label="Supplies" href="#/supplies" />
+        {peptides.length > 0 && <Tile Icon={CalendarRange} label="Enough until" name="Enough until: stock for a trip or a date" onClick={() => setNeeds(true)} />}
+        {peptides.length > 0 && <Tile Icon={FileText} label="Report" name="Protocol report for your doctor" href="#/protocol/report" />}
+      </div>
     </div>
   );
 }
@@ -256,7 +253,7 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal 
             <>
               <Suspense fallback={<div className="h-[170px]" />}><WeightPathChart path={path} body={body} units={units} now={now} /></Suspense>
               <p className="text-[15px] mt-2 tnum">{pathSummary(path, units, med.unit)}</p>
-              <Basis text={`${basisText(path.basis)}. If the trend continues${path.segments.length > 1 ? ', following your planned changes' : ''}; not a promise.`} />
+              <Basis text={`${basisText(path.basis)}. If the trend continues${path.segments.length > 1 ? ', following your planned changes' : ''}.`} />
             </>
           ) : <p className="text-sm text-muted">Log your weight 5 times over a week or more to see where it's heading through your plan.</p>}
         </div>

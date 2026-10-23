@@ -3,7 +3,7 @@ import { ListChecks, Lock, Nfc, Pill, Smartphone } from 'lucide-react';
 import { useSettings } from '../../app/data';
 import { Switch } from '../../components/ui/Switch';
 import { HAS_BODY, HAS_PEPTIDES } from '../../edition';
-import { APP_NAME, DISCLAIMER } from '../../config';
+import { APP_NAME } from '../../config';
 import { isAndroid, isIOS, isNative, isNativeIOS, isStandalone } from '../../platform';
 import { setSetting } from '../../db/repos/settings';
 import { go } from '../../app/router';
@@ -26,7 +26,6 @@ export function Onboarding() {
         <>
           <p>Tap your phone on a tag stuck to your medication to log a dose in seconds. See when your next dose is due, and keep track of how you feel.</p>
           <p className="flex items-center gap-2 font-semibold"><Lock size={18} className="text-primary" aria-hidden="true" /> Your data stays on this phone.</p>
-          <p className="text-sm text-muted">{DISCLAIMER}</p>
         </>
       ),
       next: <Button className="w-full min-h-[56px]" onClick={() => setStep(1)}>Get started</Button>,
@@ -83,7 +82,7 @@ export function Onboarding() {
       title: 'Add your first medication',
       body: (
         <>
-          <p>Enter it the way your prescriber told you: how much, and how often. {APP_NAME} only reminds you of your own settings.</p>
+          <p>How much, and how often.</p>
           <p>Then link a tag to it and test it. It takes about two minutes.</p>
         </>
       ),

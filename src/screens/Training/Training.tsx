@@ -1,3 +1,5 @@
+import { BellRing, Disc, Flame, Footprints, ListChecks, Nfc, Plus } from 'lucide-react';
+import { MiniRing, Tile } from '../../components/ui/Visual';
 // The Training tab (MedTap): start or continue a workout, readiness, the week, goals, personal bests, plateaus,
 // strength against the peptide, lean mass, muscle balance, cardio and the history.
 import { useState } from 'react';
@@ -65,20 +67,21 @@ export function Training() {
           : <Button className="w-full min-h-[56px]" onClick={() => setSheet('start')}>Start a workout</Button>}
         {ws.filter((w) => w.cardio && !w.endedAt && now - Date.parse(w.startedAt) < 6 * 3_600_000).map((w) => (
           <p key={w.id} className="text-[15px] rounded-btn bg-surface-2 p-3 tnum">
-            {ACTIVITIES.find((a) => a.id === w.cardio!.activity)?.name} in progress · {Math.round((now - Date.parse(w.startedAt)) / 60_000)} min. Tap its tag again to finish.
+            {ACTIVITIES.find((a) => a.id === w.cardio!.activity)?.name} · {Math.round((now - Date.parse(w.startedAt)) / 60_000)} min
             <button type="button" className="block mt-1 underline min-h-[44px]" onClick={() => finishCardio(w)}>Finish now</button>
           </p>
         ))}
-        <div className="flex flex-wrap gap-x-6">
-          {[['Log cardio', () => setSheet('cardio')], ['Routines', () => go('/training/routines')], ['Plates', () => setSheet('plates')], ['Tags', () => go('/tags')]].map(([l, f]) => (
-            <button key={l as string} type="button" onClick={f as () => void} className="min-h-[44px] text-[15px] font-medium underline underline-offset-4 decoration-border-strong">{l as string}</button>
-          ))}
+        <div className="grid grid-cols-4 gap-2 pt-1">
+          <Tile Icon={Footprints} label="Cardio" name="Log cardio" onClick={() => setSheet('cardio')} />
+          <Tile Icon={ListChecks} label="Routines" onClick={() => go('/training/routines')} />
+          <Tile Icon={Disc} label="Plates" onClick={() => setSheet('plates')} />
+          <Tile Icon={Nfc} label="Tags" onClick={() => go('/tags')} />
         </div>
       </section>
 
       {habit && isNative && !settings.trainingReminders && !settings.trainingReminderAsked && (
         <section className="border-t border-border pt-4 pb-2" aria-label="Training reminders">
-          <p className="text-[15px]">You usually train {habitText(habit)}. Remind you on those days?</p>
+          <p className="text-[15px] flex items-center gap-2"><BellRing size={18} aria-hidden="true" /> You train {habitText(habit)}. Remind you?</p>
           <div className="flex gap-4">
             <button type="button" className="min-h-[44px] font-medium underline underline-offset-4" onClick={async () => { const on = await setTrainingReminders(true); toast(on ? 'Reminders on for your usual training days' : 'Notifications are off for this app. Turn them on in your phone’s settings.'); }}>Remind me</button>
             <button type="button" className="min-h-[44px] text-muted underline underline-offset-4" onClick={() => setSetting('trainingReminderAsked', true)}>No thanks</button>
@@ -89,14 +92,18 @@ export function Training() {
       {ready && <section className="border-t border-border pt-5 pb-1"><ReadinessBlock r={ready} /></section>}
 
       <section className="border-t border-border pt-5 pb-1" aria-labelledby="wk-h">
-        <div className="flex items-baseline justify-between">
-          <h2 id="wk-h" className="text-sm font-medium text-muted">Sessions a week</h2>
-          <span className="text-sm tnum">{cal.thisWeek} this week{sessionsGoal ? ` of ${sessionsGoal.perWeek}` : ''}{cal.streak ? ` · ${cal.streak}-week streak` : ''}</span>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 id="wk-h" className="text-sm font-medium text-muted">Sessions this week</h2>
+            {cal.streak ? <p className="text-sm tnum flex items-center gap-1"><Flame size={14} aria-hidden="true" className="text-caution" />{cal.streak}-week streak</p> : null}
+          </div>
+          <MiniRing value={cal.thisWeek} max={sessionsGoal?.perWeek ?? Math.max(cal.thisWeek, 3)} size={52} tone={sessionsGoal && cal.thisWeek >= sessionsGoal.perWeek! ? 'good' : 'primary'}
+            label={`${cal.thisWeek} this week${sessionsGoal ? ` of ${sessionsGoal.perWeek}` : ''}`}>{sessionsGoal ? `${cal.thisWeek}/${sessionsGoal.perWeek}` : cal.thisWeek}</MiniRing>
         </div>
-        <div className="flex items-end gap-1.5 h-14 mt-2" role="img" aria-label={`Sessions in each of the last 8 weeks: ${cal.weeks.map((x) => x.sessions).join(', ')}`}>
+        {cal.weeks.some((x) => x.sessions) && <div className="flex items-end gap-1.5 h-14 mt-2" role="img" aria-label={`Sessions in each of the last 8 weeks: ${cal.weeks.map((x) => x.sessions).join(', ')}`}>
           {cal.weeks.map((x, i) => <div key={x.start} className="flex-1 rounded-[3px]" style={{ height: `${(x.sessions / maxCal) * 100}%`, minHeight: x.sessions ? 3 : 0, background: i === cal.weeks.length - 1 ? 'var(--text)' : sessionsGoal && x.sessions >= sessionsGoal.perWeek! ? 'var(--border-strong)' : 'var(--border)' }} />)}
-        </div>
-        {!sessionsGoal && <button type="button" className="text-sm underline underline-offset-4 min-h-[44px]" onClick={() => { setEditGoal(null); setSheet('goal'); }}>Set a sessions-a-week goal</button>}
+        </div>}
+        {!sessionsGoal && <button type="button" className="text-sm underline underline-offset-4 min-h-[44px]" onClick={() => { setEditGoal(null); setSheet('goal'); }}>Set a weekly goal</button>}
       </section>
 
       <GoalTimeline bodyGoals={person?.goals ?? []} fitnessGoals={goals} body={body.filter(mine)} workouts={ws} defs={defs} units={settings.units} now={now} s={s} />
@@ -109,8 +116,7 @@ export function Training() {
             </li>
           ))}
         </ul>
-        <button type="button" className="text-sm font-medium underline underline-offset-4 min-h-[44px]" onClick={() => { setEditGoal(null); setSheet('goal'); }}>Add a goal</button>
-        <p className="text-xs text-muted">Weight, body fat and lean mass goals are on Progress → Body.</p>
+        <button type="button" className="flex items-center gap-2 text-sm font-medium min-h-[44px]" onClick={() => { setEditGoal(null); setSheet('goal'); }}><Plus size={16} aria-hidden="true" /> Add a goal</button>
       </section>
 
       {lifted.length > 0 && (
@@ -154,7 +160,7 @@ export function Training() {
         <section className="border-t border-border pt-5 pb-1" aria-labelledby="push-h">
           <h2 id="push-h" className="text-sm font-medium text-muted mb-1">Room to push</h2>
           <ul className="text-[15px] space-y-1">{pushable.map((e) => <li key={e.exerciseId}><a className="font-medium underline underline-offset-4" href={`#/training/exercise/${e.exerciseId}`}>{defs.find((d) => d.id === e.exerciseId)?.name}</a>: {e.text}</li>)}</ul>
-          <p className="text-xs text-muted mt-1">From how hard your sets felt (RPE) and your trend. Next session’s targets already allow for it.</p>
+          <p className="text-xs text-muted mt-1">From RPE and your trend</p>
         </section>
       )}
 

@@ -498,6 +498,28 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
   bridge): snooze, skip, interaction card, research-peptide note, editor pairs, Install + permission path, watch next
   set and Done → rest. Not yet tried on a real phone or watch.
 
+## Visual, predictable, less writing (owner: "more graphical and visual rather than a heap of writing. Remove caution notes. As predictable to use as possible. Features aren't hidden, settings make sense without being over explained")
+- Building blocks in `src/components/ui/Visual.tsx`: mini ring, bar, icon row (one short line with a coloured icon),
+  action tile, stat tile; `JumpBar` (chips that jump to each chart on Trends).
+- Tab bar has icons; the Settings gear is in the header of every main tab (it was only on Today).
+- Today: today's doses as a ring; notes (effect window, script visit, readings, odd records, appointment) as icon
+  rows with a few words; check-in prompt is five faces (one tap starts it with that mood); refill card shows what's
+  left and a days-left bar; protein and water as bars; quick logging as an icon grid; last 7 days of a peptide as stat
+  tiles; digest and readiness as icon rows and a ring; backup, install and update cards are one line.
+- Caution notes removed: no "check with your pharmacist / prescriber", "not a promise", "not a measurement",
+  disclaimer on Settings and onboarding, or tinted caution banners for information. What matters stays, as data:
+  interaction and same-ingredient pairs are a neutral one-line row ("Ozempic + Lantus · blood sugar can go too
+  low"); the 24-hour ingredient total when logging is a bar against the limit; errors still show as errors.
+- Settings is a list: feature switches with icons at the top (peptides, training, cycle, reminders), then rows with
+  their current value that open short pages (Reminders, Doses, Training, Check-ins, People and sync, Health data,
+  Backup, Privacy, Display, Watch, Tools, About). Each option has a short label and at most a few words of hint.
+- Tools are where they're used as well as in Settings: Add / Tags / Report tiles on Meds; Calculator, Supplies, Enough
+  until and Report tiles on Protocol; Cardio / Routines / Plates / Tags tiles on Training; Doctor report and lab
+  results tiles on Trends.
+- Meds rows: chips (tags, stock and days, repeats, cost a month, expiry, planned change) and a stock bar.
+- Help text cut across the medicine editor, schedules, tags, vials, training, sync and charts; chart footnotes
+  are a few words ("3 shots · 81 check-ins").
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 

@@ -131,7 +131,7 @@ function BodyForm({ state, onClose, units, personId }: { state: NonNullable<Body
                 </select>
               </label>
             )}
-            <p className="text-xs text-muted">Lean mass is everything except fat (muscle, bone, water). If you only have body fat %, the app works lean mass out from your weight.</p>
+            <p className="text-xs text-muted">Muscle, bone and water</p>
           </fieldset>
         )}
         <label className="block space-y-1.5">

@@ -34,7 +34,7 @@ export function EstimatedLevelCharts({ meds, doses, start, end }: RangeProps & {
         return (
           <ChartCard key={`${m.id}-${th.key}`} title={`Estimated level: ${shownName(m)}`}
             empty={peak > 0 ? null : 'No doses in this range.'}
-            summary={`About ${fmtAmount(r3(nowV), m.unit)} now, from your half-life figure of ${fmtHalfLife(h)}. An estimate, not a measurement.`}
+            summary={`About ${fmtAmount(r3(nowV), m.unit)} now, from your half-life figure of ${fmtHalfLife(h)}.`}
             table={{ head: ['Date', `Estimated (${m.unit})`], rows: daily.map((p) => [fmtDay(p.t), Math.round(p.v * 1000) / 1000]).reverse() }}>
             <Line
               data={{ datasets: [{ label: 'Estimated level', data: pts.map((p) => ({ x: p.t, y: p.v })), borderColor: th.series[0], backgroundColor: th.series[0], borderWidth: 2, pointRadius: 0, pointHitRadius: 8, tension: 0.2, fill: false }] }}
@@ -80,7 +80,7 @@ export function DoseLevelsCards({ meds, doses, body, checkIns, units, now }: { m
                 </tbody>
               </table>
             </div>
-            <p className="text-xs text-muted">Appetite is the average from check-ins (1 to 5). Log weight and check in during each dose to fill this in.</p>
+            <p className="text-xs text-muted">Appetite: check-in average, 1–5</p>
           </Card>
         );
       })}

@@ -6,7 +6,6 @@ import { useToast } from '../app/toast';
 import { connectHealth, disconnectHealth, healthStatus, importHealth } from '../app/health';
 import { MedTapNative, nativePlatform } from '../nfc/native';
 import { fmtAgo } from '../logic/format';
-import { HAS_BODY } from '../edition';
 
 /** Native app only: read steps, sleep and heart rate (and weigh-ins, blood pressure) from Health Connect or Apple Health. */
 export default function HealthCard({ on, last, personId, personName, now }: { on: boolean; last: string | null; personId: string; personName?: string; now: number }) {
@@ -20,7 +19,7 @@ export default function HealthCard({ on, last, personId, personName, now }: { on
   return (
     <Card className="space-y-3">
       <h2 className="text-sm font-medium text-muted flex items-center gap-2"><HeartPulse size={18} aria-hidden="true" /> {name}</h2>
-      <p className="text-sm text-muted">Read steps, sleep, heart rate{HAS_BODY ? ', weigh-ins, body fat, runs, walks and rides' : ''} and blood pressure from {name} (read only; nothing is sent anywhere). Used for heart rate after a dose, sleep{HAS_BODY ? ', steps against weight, and readiness on Training' : ''}.</p>
+      <p className="text-sm text-muted">Read only</p>
       {status?.status === 'unsupported' && <p className="text-[15px]">Not available on this phone.</p>}
       {status?.status === 'needs-update' && (
         <>
@@ -36,7 +35,7 @@ export default function HealthCard({ on, last, personId, personName, now }: { on
       )}
       {status?.status === 'available' && on && (
         <>
-          <p className="text-[15px] tnum">On{personName ? ` for ${personName}` : ''} · {last ? `last import ${fmtAgo(now - Date.parse(last))}` : 'not imported yet'}. Imports again when you open the app, at most every 6 hours.</p>
+          <p className="text-[15px] tnum">On{personName ? ` for ${personName}` : ''} · {last ? `last import ${fmtAgo(now - Date.parse(last))}` : 'not imported yet'}</p>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" disabled={busy} onClick={() => run(async () => { toast(said(await importHealth())); })}>Import now</Button>
             <Button variant="secondary" onClick={() => MedTapNative.openHealthConnect()}>{name} settings</Button>
