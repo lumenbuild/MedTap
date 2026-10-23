@@ -4,7 +4,6 @@ import type { ScheduleSettings } from '../src/logic/schedule';
 import { wearOffToday } from '../src/logic/wearOff';
 import { weightStall } from '../src/logic/stall';
 import { stepUpChecklist } from '../src/logic/stepUp';
-import { cycleForecast, cycleWeightEffect } from '../src/logic/cycle';
 import { whatChanged } from '../src/logic/changes';
 import { ask, askSuggestions } from '../src/logic/ask';
 
@@ -77,27 +76,6 @@ describe('step-up checklist', () => {
     expect(by).toEqual({ minWeeks: true, maxEffectPct: true, maxLossKgWeek: true, minAppetite: true, noMissedWeeks: true });
     const skipped = stepUpChecklist(tz, [...doses, dose('t', at(3, 8), 5, { skipped: true })], cis, body, NOW, S)!;
     expect(skipped.checks.find((c) => c.key === 'noMissedWeeks')!.ok).toBe(false);
-  });
-});
-
-describe('cycle-aware', () => {
-  const cis: CheckIn[] = [], body: BodyEntry[] = [];
-  for (let c = 0; c < 5; c++) cis.push(ci(at(4 + c * 28, 9), { chips: ['Period started'] }));
-  for (let k = 140; k >= 0; k--) {
-    const day = ((k - 4) % 28 + 28) % 28; // days since a start, going back
-    const cycleDay = 28 - day; // rough
-    body.push({ id: `b${k}`, date: ymd(at(k, 8)), weightKg: 90 - (140 - k) * 0.02 + (cycleDay >= 20 ? 0.8 : 0), ...st });
-    if (k % 2 === 0) cis.push(ci(at(k, 18), { mood: cycleDay >= 17 ? 2 : 4 }));
-  }
-  it('learns water by phase and lays out the coming weeks', () => {
-    const w = cycleWeightEffect(body, cis, NOW)!;
-    expect(w).toBeTruthy();
-    const late = w.offsets.find((o) => o.name === 'Day 17 on')!;
-    expect(late.kg).toBeGreaterThan(0.2);
-    const f = cycleForecast(cis, body, [], [], NOW)!;
-    expect(f.length).toBe(28);
-    expect(f.upcoming.length).toBeGreaterThan(2);
-    expect(f.upcoming.some((u) => u.notes.some((n) => /Mood usually lower/.test(n)))).toBe(true);
   });
 });
 

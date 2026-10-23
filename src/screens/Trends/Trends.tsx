@@ -3,7 +3,7 @@ import { FileText, FlaskConical } from 'lucide-react';
 import { useWorkouts, useAppointments, useDaily, useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings, useVitals } from '../../app/data';
 import { CheckInForecastCard, EffectWindowCards, SleepImpactCard } from '../../components/Smart';
 import { TrainingTrends } from '../../components/Fitness';
-import { CycleCard, HeartAfterCards, OnOffCards, StepsWeightCard, SubstanceCard } from '../../components/Lifestyle';
+import { HeartAfterCards, OnOffCards, StepsWeightCard, SubstanceCard } from '../../components/Lifestyle';
 import { checkInForecast, sleepImpact } from '../../logic/habits';
 import { appointmentsAround } from '../../logic/appointments';
 import { dayKey } from '../../logic/stats';
@@ -12,7 +12,6 @@ import { JumpBar } from '../../components/ui/JumpBar';
 import { AskBox, ChangesCard, StallBlock } from '../../components/Insights';
 import { whatChanged, dailySignals } from '../../logic/changes';
 import { weightStall } from '../../logic/stall';
-import { cycleForecast } from '../../logic/cycle';
 import { Tile } from '../../components/ui/Visual';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
@@ -132,7 +131,6 @@ export function Trends() {
       {sleep && <SleepImpactCard r={sleep} />}
       <OnOffCards meds={active} doses={doses} checkIns={checkIns} now={now} s={s} />
       <SubstanceCard checkIns={checkIns} now={now} s={s} />
-      {settings.cycleTracking && <CycleCard checkIns={checkIns} now={now} forecast={cycleForecast(checkIns, HAS_BODY ? body : [], meds, doses, now)} />}
       <HeartAfterCards meds={active} doses={doses} daily={daily} vitals={vitals} now={now} s={s} />
       {HAS_BODY && <StepsWeightCard daily={daily} body={body} units={settings.units} now={now} />}
       {HAS_BODY && settings.trainingTools && <TrainingTrends daily={daily} body={body} checkIns={checkIns} workouts={allWorkouts.filter((w) => personOf(w) === fam.personId)} start={start} end={end} s={s} targets={{ protein: settings.proteinTargetG, water: settings.waterTargetMl }} />}

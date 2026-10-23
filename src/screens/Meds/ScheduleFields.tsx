@@ -22,9 +22,15 @@ export interface ScheduleForm {
   dayMode: DayMode; days: number[]; everyNDays: string; startDate: string;
   /** As needed: limits from the label or the doctor. */
   maxPer24h: string; maxAmountPer24h: string; minHoursApart: string;
-  /** On/off cycle (peptide tools). */
-  cycle: boolean; cycleOn: string; cycleOnUnit: CycleUnit; cycleOff: string; cycleOffUnit: CycleUnit; cycleStart: string;
+  /** Ongoing, on and off (repeating), or a course then a break until started again. */
+  pattern: Pattern;
+  cycleOn: string; cycleOnUnit: CycleUnit; cycleOff: string; cycleOffUnit: CycleUnit; cycleStart: string;
+  courseLen: string; courseLenUnit: CycleUnit; courseStart: string;
+  /** During the break: ask about starting again when a check-in mentions these (comma-separated), or after this many weeks. */
+  restartOn: string; restartAfterWeeks: string;
 }
+
+export type Pattern = 'ongoing' | 'cycle' | 'course';
 
 export type CycleUnit = 'days' | 'weeks';
 const inUnit = (days: number): [string, CycleUnit] => (days >= 7 && days % 7 === 0 ? [String(days / 7), 'weeks'] : [String(days), 'days']);
@@ -42,7 +48,8 @@ export const blankSchedule = (): ScheduleForm => ({
   varyAmounts: false, doseAmounts: ['', ''], slots: [{ time: '08:00', amount: '' }],
   dayMode: 'every', days: [], everyNDays: '14', startDate: todayYmd(),
   maxPer24h: '', maxAmountPer24h: '', minHoursApart: '',
-  cycle: false, cycleOn: '8', cycleOnUnit: 'weeks', cycleOff: '4', cycleOffUnit: 'weeks', cycleStart: todayYmd(),
+  pattern: 'ongoing', cycleOn: '8', cycleOnUnit: 'weeks', cycleOff: '4', cycleOffUnit: 'weeks', cycleStart: todayYmd(),
+  courseLen: '12', courseLenUnit: 'weeks', courseStart: todayYmd(), restartOn: '', restartAfterWeeks: '',
 });
 
 export function scheduleFormFromMed(m: Pick<Medication, 'schedule' | 'defaultAmount'>): ScheduleForm {
@@ -59,8 +66,14 @@ export function scheduleFormFromMed(m: Pick<Medication, 'schedule' | 'defaultAmo
     ...(sc.cycle ? (() => {
       const [on, onU] = inUnit(sc.cycle.on);
       const [off, offU] = inUnit(sc.cycle.off);
-      return { cycle: true, cycleOn: on, cycleOnUnit: onU, cycleOff: off, cycleOffUnit: offU, cycleStart: sc.cycle.start };
-    })() : { cycle: false, cycleOn: '8', cycleOnUnit: 'weeks' as const, cycleOff: '4', cycleOffUnit: 'weeks' as const, cycleStart: todayYmd() }),
+      return { cycleOn: on, cycleOnUnit: onU, cycleOff: off, cycleOffUnit: offU, cycleStart: sc.cycle.start };
+    })() : { cycleOn: '8', cycleOnUnit: 'weeks' as const, cycleOff: '4', cycleOffUnit: 'weeks' as const, cycleStart: todayYmd() }),
+    ...(sc.course ? (() => {
+      const [len, lenU] = inUnit(sc.course.days);
+      return { courseLen: len, courseLenUnit: lenU, courseStart: sc.course.start, restartOn: (sc.course.restartOn ?? []).join(', '),
+        restartAfterWeeks: sc.course.remindAfterDays ? String(Math.round(sc.course.remindAfterDays / 7)) : '' };
+    })() : { courseLen: '12', courseLenUnit: 'weeks' as const, courseStart: todayYmd(), restartOn: '', restartAfterWeeks: '' }),
+    pattern: sc.course ? 'course' : sc.cycle ? 'cycle' : 'ongoing',
   };
 }
 
@@ -84,7 +97,12 @@ export function scheduleFromForm(f: ScheduleForm): { schedule: Schedule; default
   if (f.type !== 'prn') {
     if (f.dayMode === 'days' && f.days.length && f.days.length < 7) schedule.days = [...f.days].sort((a, b) => a - b);
     if (f.dayMode === 'everyN') { schedule.everyNDays = Number(f.everyNDays); schedule.startDate = f.startDate; }
-    if (f.cycle) schedule.cycle = { on: toDays(f.cycleOn, f.cycleOnUnit), off: toDays(f.cycleOff, f.cycleOffUnit), start: f.cycleStart };
+    if (f.pattern === 'cycle') schedule.cycle = { on: toDays(f.cycleOn, f.cycleOnUnit), off: toDays(f.cycleOff, f.cycleOffUnit), start: f.cycleStart };
+    if (f.pattern === 'course') {
+      const words = f.restartOn.split(',').map((w) => w.trim()).filter(Boolean);
+      schedule.course = { start: f.courseStart, days: toDays(f.courseLen, f.courseLenUnit),
+        ...(words.length ? { restartOn: words } : {}), ...(Number(f.restartAfterWeeks) > 0 ? { remindAfterDays: Math.round(Number(f.restartAfterWeeks) * 7) } : {}) };
+    }
   }
   // Usual dose can be left blank when the plan gives every amount; it then defaults to the first planned amount.
   const planned = schedule.doseAmounts?.[0] ?? schedule.slots?.find((x) => x.amount !== undefined)?.amount;
@@ -122,7 +140,12 @@ export function validateSchedule(f: ScheduleForm): ScheduleErrors {
     if (!(Number.isInteger(Number(f.everyNDays)) && Number(f.everyNDays) >= 2)) e.everyNDays = 'Enter a whole number of days, 2 or more.';
     if (!f.startDate) e.startDate = 'Choose a day you take it.';
   }
-  if (f.type !== 'prn' && f.cycle) {
+  if (f.type !== 'prn' && f.pattern === 'course') {
+    if (!(Number.isInteger(Number(f.courseLen)) && Number(f.courseLen) >= 1)) e.courseLen = 'Enter a whole number.';
+    if (!f.courseStart) e.courseStart = 'Choose the first day of the course.';
+    if (f.restartAfterWeeks.trim() && !(Number(f.restartAfterWeeks) > 0)) e.restartAfterWeeks = 'Enter a number of weeks, or leave it blank.';
+  }
+  if (f.type !== 'prn' && f.pattern === 'cycle') {
     if (!(Number.isInteger(Number(f.cycleOn)) && Number(f.cycleOn) >= 1)) e.cycleOn = 'Enter a whole number.';
     if (!(Number.isInteger(Number(f.cycleOff)) && Number(f.cycleOff) >= 1)) e.cycleOff = 'Enter a whole number.';
     if (!f.cycleStart) e.cycleStart = 'Choose the first day of an "on" stretch.';
@@ -133,10 +156,8 @@ export function validateSchedule(f: ScheduleForm): ScheduleErrors {
 const ORDINAL = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'];
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-export function ScheduleFields({ f, set, errors, unit, cycles = false }: {
+export function ScheduleFields({ f, set, errors, unit }: {
   f: ScheduleForm; set: ScheduleSetter; errors: ScheduleErrors; unit: string;
-  /** Offer on/off cycles (peptide tools). */
-  cycles?: boolean;
 }) {
   const amountLabel = unit === 'tablet' ? 'tablets' : unit;
   const uid = useId(); // the editor and "Plan a change" can both be on screen
@@ -285,30 +306,38 @@ export function ScheduleFields({ f, set, errors, unit, cycles = false }: {
                 error={errors.startDate} help="A day you take it" />
             </div>
           )}
-          {(cycles || f.cycle) && (
-            <div className="space-y-3">
-              <label className="flex items-start gap-3 min-h-[48px] py-1">
-                <input type="checkbox" checked={f.cycle} onChange={(e) => set('cycle', e.target.checked)} className="w-5 h-5 mt-0.5 accent-[var(--primary)]" />
-                <span>
-                  <span className="block font-medium">On and off cycles</span>
-                  <span className="block text-sm text-muted">For example 8 weeks on, 4 weeks off, or 5 days on, 2 off. Off days aren't scheduled.</span>
-                </span>
-              </label>
-              {f.cycle && (
-                <>
-                  <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
-                    <TextInput label="On for" type="number" inputMode="numeric" min="1" step="1" value={f.cycleOn} onChange={(e) => set('cycleOn', e.target.value)} error={errors.cycleOn} />
-                    <Segmented<CycleUnit> label="On for, days or weeks" value={f.cycleOnUnit} onChange={(v) => set('cycleOnUnit', v)} options={[{ value: 'days', label: 'Days' }, { value: 'weeks', label: 'Weeks' }]} />
-                  </div>
-                  <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
-                    <TextInput label="Then off for" type="number" inputMode="numeric" min="1" step="1" value={f.cycleOff} onChange={(e) => set('cycleOff', e.target.value)} error={errors.cycleOff} />
-                    <Segmented<CycleUnit> label="Off for, days or weeks" value={f.cycleOffUnit} onChange={(v) => set('cycleOffUnit', v)} options={[{ value: 'days', label: 'Days' }, { value: 'weeks', label: 'Weeks' }]} />
-                  </div>
-                  <TextInput label="First day of an “on” stretch" type="date" value={f.cycleStart} onChange={(e) => set('cycleStart', e.target.value)} error={errors.cycleStart} />
-                </>
-              )}
-            </div>
-          )}
+          <div className="space-y-3">
+            <Segmented<Pattern> label="Pattern" value={f.pattern} onChange={(v) => set('pattern', v)}
+              options={[{ value: 'ongoing', label: 'Ongoing' }, { value: 'cycle', label: 'On and off' }, { value: 'course', label: 'Course' }]} />
+            {f.pattern === 'cycle' && (
+              <>
+                <p className="text-sm text-muted">Repeats, e.g. 4 weeks on, 12 weeks off. Off days aren't scheduled.</p>
+                <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
+                  <TextInput label="On for" type="number" inputMode="numeric" min="1" step="1" value={f.cycleOn} onChange={(e) => set('cycleOn', e.target.value)} error={errors.cycleOn} />
+                  <Segmented<CycleUnit> label="On for, days or weeks" value={f.cycleOnUnit} onChange={(v) => set('cycleOnUnit', v)} options={[{ value: 'days', label: 'Days' }, { value: 'weeks', label: 'Weeks' }]} />
+                </div>
+                <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
+                  <TextInput label="Then off for" type="number" inputMode="numeric" min="1" step="1" value={f.cycleOff} onChange={(e) => set('cycleOff', e.target.value)} error={errors.cycleOff} />
+                  <Segmented<CycleUnit> label="Off for, days or weeks" value={f.cycleOffUnit} onChange={(v) => set('cycleOffUnit', v)} options={[{ value: 'days', label: 'Days' }, { value: 'weeks', label: 'Weeks' }]} />
+                </div>
+                <TextInput label="First day of an “on” stretch" type="date" value={f.cycleStart} onChange={(e) => set('cycleStart', e.target.value)} error={errors.cycleStart} />
+              </>
+            )}
+            {f.pattern === 'course' && (
+              <>
+                <p className="text-sm text-muted">Taken for a set time, then a break until you start another course, e.g. 12 weeks then off until it's needed again.</p>
+                <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
+                  <TextInput label="Course length" type="number" inputMode="numeric" min="1" step="1" value={f.courseLen} onChange={(e) => set('courseLen', e.target.value)} error={errors.courseLen} />
+                  <Segmented<CycleUnit> label="Course length, days or weeks" value={f.courseLenUnit} onChange={(v) => set('courseLenUnit', v)} options={[{ value: 'days', label: 'Days' }, { value: 'weeks', label: 'Weeks' }]} />
+                </div>
+                <TextInput label="First day of the course" type="date" value={f.courseStart} onChange={(e) => set('courseStart', e.target.value)} error={errors.courseStart} />
+                <TextInput label="On the break, ask about starting again when a check-in mentions (optional)" value={f.restartOn} onChange={(e) => set('restartOn', e.target.value)}
+                  placeholder="e.g. Pain" help="Comma between words. They're added as check-in chips." />
+                <TextInput label="Or after this many weeks off (optional)" type="number" inputMode="numeric" min="1" step="1" value={f.restartAfterWeeks}
+                  onChange={(e) => set('restartAfterWeeks', e.target.value)} error={errors.restartAfterWeeks} />
+              </>
+            )}
+          </div>
         </div>
       )}
 

@@ -86,6 +86,7 @@ export function isScheduledDay(med: Medication, t: number, s: ScheduleSettings):
   if (sc.type === 'prn') return true;
   const start = getDayBounds(t, s.dayStartsAt, s.tz).start;
   if (sc.cycle && cycleInfo(sc.cycle, start, s)?.phase === 'off') return false;
+  if (sc.course && courseInfo(sc.course, start, s).phase !== 'on') return false;
   if (sc.everyNDays && sc.everyNDays > 1 && sc.startDate) {
     const { y, m, d } = dayDate(start, s);
     const [sy, sm, sd] = sc.startDate.split('-').map(Number);
@@ -117,6 +118,29 @@ export function cycleInfo(c: NonNullable<Schedule['cycle']>, dayStart: number, s
   return k < c.on
     ? { phase: 'on', day: k + 1, length: c.on, nextChange: ymd(c.on - k) }
     : { phase: 'off', day: k - c.on + 1, length: c.off, nextChange: ymd(period - k) };
+}
+
+export interface CourseInfo {
+  /** Not started yet, taking it (`day` of `length`), or on the break since `ended` ('YYYY-MM-DD', the first day off). */
+  phase: 'before' | 'on' | 'break';
+  day: number; length: number;
+  /** The last day of the course ('YYYY-MM-DD'). */
+  lastDay: string;
+  /** Days into the break (1 = the first day off). */
+  breakDays: number;
+}
+
+/** Where the user's day starting at `dayStart` falls in a course. */
+export function courseInfo(c: NonNullable<Schedule['course']>, dayStart: number, s: ScheduleSettings): CourseInfo {
+  const { y, m, d } = dayDate(dayStart, s);
+  const [sy, sm, sd] = c.start.split('-').map(Number);
+  const diff = Math.round((Date.UTC(y, m - 1, d) - Date.UTC(sy, sm - 1, sd)) / DAY);
+  const length = Math.max(1, Math.round(c.days));
+  const last = addDays(sy, sm, sd, length - 1);
+  const lastDay = `${last.y}-${String(last.m).padStart(2, '0')}-${String(last.d).padStart(2, '0')}`;
+  if (diff < 0) return { phase: 'before', day: 0, length, lastDay, breakDays: 0 };
+  if (diff < length) return { phase: 'on', day: diff + 1, length, lastDay, breakDays: 0 };
+  return { phase: 'break', day: length, length, lastDay, breakDays: diff - length + 1 };
 }
 
 /** Start of the next scheduled user day after the one containing `now` (null if none within ~a year). */

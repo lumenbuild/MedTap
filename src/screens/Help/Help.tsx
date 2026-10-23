@@ -191,7 +191,6 @@ const CONTENT: Record<string, ReactNode> = {
       <ul className="list-disc pl-5 space-y-1">
         <li><strong>Days on and off</strong>: check-ins on days you took a medicine against days you didn't.</li>
         <li><strong>Caffeine and alcohol</strong>: tap Coffee or Alcohol on Today; Trends compares the next morning's sleep (and, for alcohol, side effects the next day).</li>
-        <li><strong>Your cycle</strong> (optional, Settings → Check-ins): a Period button on Today, and check-ins by phase of the cycle.</li>
         <li><strong>Heart rate after a dose</strong>{HAS_BODY ? <> and <strong>steps and weight</strong></> : null}: from Health Connect or Apple Health.</li>
       </ul>
       <H>Count what's left</H>
@@ -224,8 +223,7 @@ const CONTENT: Record<string, ReactNode> = {
       <p>On the medication's page, <strong>Add</strong> vials or pens to stock with their lot, expiry, supplier and purity. Mixing a new vial takes the one that expires soonest. Tap any vial to add photos of its label or certificate of analysis, and to see the doses taken from it, so you can trace a batch.</p>
       <H>Supplies</H>
       <p>Protocol → <strong>Supplies</strong> (also in Settings, under Tools). Enter how many syringes, pen needles and swabs you have, and your water. They count down as you log injections and mix vials. The sharps container counts up, and Today reminds you when it's nearly full.</p>
-      <H>On and off cycles</H>
-      <p>In a medication's schedule, tick <strong>On and off cycles</strong>, e.g. 8 weeks on, 4 off, or 5 days on, 2 off. Off days aren't scheduled, and Today shows “Week 3 of 8 on” or “Off until …”.</p>
+      <p>Courses, on and off cycles, and stepping the dose when ready are in <a href="#/help/schedules" className="underline underline-offset-4">Setting up a schedule</a>.</p>
       <H>Titration</H>
       <p>On the medication's page, <strong>Plan a titration</strong>: the first dose, the step up (or down), how often, and the final dose. Each step is a planned change that switches over on its day, and it's marked on the weight chart.</p>
       <H>Charts</H>
@@ -326,6 +324,13 @@ const CONTENT: Record<string, ReactNode> = {
       <p>On other days, Today shows “Not scheduled today” and counts down to the next one.</p>
       <H>Every few days</H>
       <p>For something every second day, fortnightly or every 4 weeks, choose <strong>Every few days</strong>, enter the number of days (for example 14) and a day you take it.</p>
+      <H>On and off</H>
+      <p>In the schedule, <strong>Pattern</strong> → <strong>On and off</strong>: for example 4 weeks on, 12 weeks off, repeating. Off days aren't scheduled and send no reminders; Meds and Protocol show where you are (“On, week 3 of 4”).</p>
+      <H>A course, then a break</H>
+      <p><strong>Pattern</strong> → <strong>Course</strong>: for example {HAS_PEPTIDES ? '10 units' : 'a dose'} each night for 12 weeks, then off until it's needed again. After the last day nothing is scheduled. To be asked about starting again, add a word like <strong>Pain</strong>: it becomes a check-in chip, and when a check-in mentions it Today asks “Start another course?”. Or choose a number of weeks off. Nothing starts until you tap <strong>Start today</strong>.</p>
+      <H>Step the dose when ready</H>
+      <p>On the medication's page, <strong>Step when ready</strong> → <strong>Set a step plan</strong>: how much each step is (in {HAS_PEPTIDES ? 'syringe units or ' : ''}the medication's unit), the least time on each dose, the most you'll go to (a dose or a week), and, if you like, conditions from your check-ins: appetite back to a level, side effects settled{HAS_BODY ? ', weight loss slowed' : ''}, no missed doses. For example: {HAS_PEPTIDES ? 'up 5 units every 4 weeks or more once appetite is back to 3 of 5, to at most 12 mg a week' : 'up 10 mg at least a week apart while side effects stay settled, to at most 70 mg a dose'}.</p>
+      <p>When every condition is met, Today shows the next dose with <strong>Step up</strong> and <strong>Not yet</strong>. It never changes a dose by itself, and stops at your maximum. For steps on fixed dates instead, use a planned change{HAS_PEPTIDES ? ' or a titration' : ''}.</p>
       <H>Set times with different amounts</H>
       <p>Each set time can have its own amount, such as 10 mg at 8 am and 5 mg at 1 pm. Leave an amount blank to use your usual dose.</p>
       <H>Instructions</H>

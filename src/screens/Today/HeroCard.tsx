@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { planShort } from '../../logic/dosePlan';
 import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import type { Dose, Medication } from '../../db/schema';
 import {
@@ -49,7 +50,9 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer, pe
     sub = `in ${fmtCountdownLong(next - now)}`;
   } else if (status === 'not-today') {
     const nd = nextScheduledDayStart(med, now, s);
-    big = 'Not today'; sub = nd !== null ? `Next: ${dayName.format(nd)}` : 'Nothing planned';
+    const plan = planShort(med, now, s);
+    big = plan === 'On a break' ? 'On a break' : 'Not today';
+    sub = plan === 'On a break' ? 'Until you start another course' : nd !== null ? `Next: ${dayName.format(nd)}` : 'Nothing planned';
   } else {
     big = 'Any time'; sub = last ? `Last ${fmtWhen(Date.parse(last.takenAt), now)}` : 'No doses yet';
   }

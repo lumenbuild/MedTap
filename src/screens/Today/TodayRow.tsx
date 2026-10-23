@@ -3,6 +3,7 @@ import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { getDosesToday, getNextDue, getStatus, type ScheduleSettings } from '../../logic/schedule';
 import { fmtTime, fmtWhen } from '../../logic/format';
 import { medColour } from '../../logic/palette';
+import { planShort } from '../../logic/dosePlan';
 
 /** One scheduled medicine on Today (B2): a dot (filled when today's doses are done), its name, and where it's at. */
 export function TodayRow({ med, doses, s, now, onLog, person }: {
@@ -15,7 +16,7 @@ export function TodayRow({ med, doses, s, now, onLog, person }: {
   const colour = medColour(shownColour(med));
   const right = done ? (today.length ? fmtTime(Date.parse(today[today.length - 1].takenAt)) : 'Done')
     : status === 'due' ? 'Due now'
-      : status === 'not-today' ? 'Not today'
+      : status === 'not-today' ? planShort(med, now, s) ?? 'Not today'
         : status === 'past-latest-time' ? 'Past latest time'
           : next !== null ? fmtWhen(next, now) : '';
   return (

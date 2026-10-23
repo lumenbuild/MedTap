@@ -1,4 +1,4 @@
-// The smart insights, each in one place: today's wear-off forecast, a weight stall, today's cycle phase and recent
+// The smart insights, each in one place: today's wear-off forecast, a weight stall and recent
 // changes as one line on Today; "What changed" and "Ask your data" on Trends; the step-up checklist on Protocol.
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
@@ -7,7 +7,6 @@ import type { CheckIn, DailyHealth, Dose, Medication, StepUpCriteria } from '../
 import type { ScheduleSettings } from '../logic/schedule';
 import { wearOffToday, type WearOff } from '../logic/wearOff';
 import type { Stall } from '../logic/stall';
-import type { CycleForecast } from '../logic/cycle';
 import { fmtChangeValue, type Change, type SignalKey } from '../logic/changes';
 import { ask, askSuggestions, type AskData } from '../logic/ask';
 import { DEFAULT_STEP_UP, stepUpChecklist } from '../logic/stepUp';
@@ -68,7 +67,7 @@ export function StallBlock({ stall }: { stall: Stall }) {
   return (
     <div className="mt-3 rounded-card bg-surface-2 p-3 space-y-2">
       <p className="font-semibold">{stall.likelyWater ? 'Probably water' : `Steady since ${day(stall.since)}`}</p>
-      <p className="text-sm tnum">{stall.before.toFixed(2)} kg/wk before · {stall.during >= 0 ? '+' : ''}{stall.during.toFixed(2)} kg/wk now{stall.cycleAdjusted ? ' · cycle water taken out' : ''}</p>
+      <p className="text-sm tnum">{stall.before.toFixed(2)} kg/wk before · {stall.during >= 0 ? '+' : ''}{stall.during.toFixed(2)} kg/wk now</p>
       {stall.water.length > 0 && <p className="text-sm text-muted">Water from {stall.water.join(', ')}</p>}
       {stall.diffs.length > 0 && (
         <table className="w-full text-sm tnum">
@@ -76,30 +75,6 @@ export function StallBlock({ stall }: { stall: Stall }) {
           <tbody>{stall.diffs.map((d) => <tr key={d.key} className="border-t border-border"><td className="py-1.5 pr-2">{d.label}</td><td className="py-1.5 pr-2">{d.before}</td><td className="py-1.5 font-medium">{d.during}</td></tr>)}</tbody>
         </table>
       )}
-    </div>
-  );
-}
-
-// ── Cycle ──────────────────────────────────────────────────────────────────────────────────────────
-
-export function CycleLine({ f }: { f: CycleForecast }) {
-  if (!f.today?.notes.length || f.day === undefined) return null;
-  return <IconRow Icon={Droplet} tone="primary" href="#/progress/trends">Cycle day {f.day}<span className="block text-sm text-muted">{f.today.notes.join(' · ')}</span></IconRow>;
-}
-
-/** The next five weeks by phase, each with what usually differs. */
-export function CycleStrip({ f, now }: { f: CycleForecast; now: number }) {
-  return (
-    <div className="mt-3">
-      <p className="text-sm font-medium text-muted mb-2">Coming weeks · next period about {day(f.nextStart)}</p>
-      <ul className="space-y-1.5">
-        {f.upcoming.map((u) => (
-          <li key={u.from} className={`flex gap-3 text-sm ${u.from <= now && u.to > now ? 'font-medium' : ''}`}>
-            <span className="w-28 shrink-0 tnum text-muted">{format(Math.max(u.from, now), 'd MMM')}–{format(u.to - 1, 'd MMM')}</span>
-            <span className="flex-1">{u.notes.length ? u.notes.join(' · ') : 'Usual'}</span>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }

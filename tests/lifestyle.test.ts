@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { BodyEntry, CheckIn, DailyHealth, Dose, Medication } from '../src/db/schema';
-import { countCheck, cycleView, heartAfterDose, onOffDays, PERIOD, stepsVsWeight, substanceFindings, ALCOHOL, CAFFEINE } from '../src/logic/lifestyle';
+import { countCheck, heartAfterDose, onOffDays, stepsVsWeight, substanceFindings, ALCOHOL, CAFFEINE } from '../src/logic/lifestyle';
 import { countTablets } from '../src/logic/countTablets';
 import type { ScheduleSettings } from '../src/logic/schedule';
 import { zonedToUtc } from '../src/logic/tz';
@@ -69,15 +69,6 @@ describe('caffeine, alcohol and the cycle', () => {
     expect(c.with.sleepQuality).toBeLessThan(c.without.sleepQuality!);
     const a = f.find((x) => x.what === 'alcohol')!;
     expect(a.with.effectPct!).toBeGreaterThan(a.without.effectPct!);
-  });
-  it('check-ins by phase of the cycle', () => {
-    const cis: CheckIn[] = [ci(syd('2026-06-01'), { chips: [PERIOD] }), ci(syd('2026-06-29'), { chips: [PERIOD] }), ci(syd('2026-07-27'), { chips: [PERIOD] })];
-    for (let d = 0; d < 56; d++) cis.push(ci(syd('2026-06-01', '18:00') + d * DAY, { mood: d % 28 >= 21 ? 2 : 4 }));
-    const v = cycleView(cis, NOW)!;
-    expect(v.averageLength).toBe(28);
-    expect(v.today).toBe(6);
-    expect(v.phases[0].mood).toBe(4);
-    expect(v.phases[3].mood).toBeLessThan(4);
   });
 });
 

@@ -25,8 +25,32 @@ export interface Schedule {
   maxPer24h?: number;
   maxAmountPer24h?: number;
   minHoursApart?: number;
-  /** On/off cycle (peptide tools): `on` days taking it, then `off` days not, repeating from `start` ('YYYY-MM-DD'). */
+  /** On/off cycle: `on` days taking it, then `off` days not, repeating from `start` ('YYYY-MM-DD'). */
   cycle?: { on: number; off: number; start: string };
+  /** A course: `days` days from `start` ('YYYY-MM-DD'), then a break until the person starts another. */
+  course?: Course;
+}
+
+export interface Course {
+  start: string; days: number;
+  /** During the break, ask about starting again when a check-in mentions one of these (e.g. "Pain")… */
+  restartOn?: string[];
+  /** …or once the break has lasted this many days. */
+  remindAfterDays?: number;
+  /** When the person last said "Not now" to starting again (ISO), so the same reason doesn't ask twice. */
+  dismissedAt?: string;
+}
+
+/** Step the dose when ready: by `by` (in the medication's unit, or syringe units with `byUnits`) once the step-up
+ *  checklist (Medication.stepUp: weeks on the dose, appetite, side effects…) is all met, up to `max` a dose or a week.
+ *  The person's own (or prescriber's) plan: the app says when it's due and changes nothing until they confirm. */
+export interface StepPlan {
+  by: number; byUnits?: boolean;
+  /** Step down instead (a taper). */
+  down?: boolean;
+  max: number; maxPer: 'dose' | 'week';
+  /** "Not yet": don't ask again before this date ('YYYY-MM-DD'). */
+  snoozedUntil?: string;
 }
 
 interface Stamped { id: string; createdAt: string; updatedAt: string }
@@ -169,6 +193,8 @@ export interface Medication extends Stamped {
   peptide?: PeptideSetup;
   /** Step-up checklist: the person's (or prescriber's) criteria for being ready for the next dose step. */
   stepUp?: StepUpCriteria;
+  /** Step the dose when the checklist is met (see StepPlan). */
+  stepPlan?: StepPlan;
   /** Vials or pens: in stock, in use and finished, each with its own water, lot and expiry. */
   vials?: PeptideVial[];
   /** Batches flagged by the person (peptide tools). */

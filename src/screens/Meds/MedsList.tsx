@@ -13,6 +13,7 @@ import type { Dose } from '../../db/schema';
 import type { ScheduleSettings } from '../../logic/schedule';
 import { go } from '../../app/router';
 import { fmtSchedule } from '../../logic/format';
+import { planLine } from '../../logic/dosePlan';
 import { overlaps } from '../../logic/ingredients';
 import { interactions } from '../../logic/interactions';
 import { Bar, IconRow, Tile } from '../../components/ui/Visual';
@@ -103,6 +104,7 @@ function MedRow({ med, tags, doses, s, now }: { med: Medication; tags: Tag[]; do
         <span className="flex-1 min-w-0 space-y-1">
           <span className="block font-semibold truncate">{shownMedName(med)}{isPrivate(med) && <span className="ml-2 text-xs font-medium text-muted">Nickname</span>}{med.shared && <span className="ml-2 text-xs font-medium text-primary">Shared</span>}</span>
           <span className="block text-sm text-muted">{fmtSchedule(med.schedule, med.unit)}</span>
+          {!med.archived && planLine(med, now, s) && <span className="block text-sm tnum">{planLine(med, now, s)}</span>}
           <span className="flex flex-wrap gap-1.5 text-xs tnum">
             <Chip Icon={Nfc} muted={n === 0}>{n === 0 ? 'No tag' : n}</Chip>
             {med.stockCount !== undefined && <Chip Icon={Package} warn={low}>{Math.round(med.stockCount * 100) / 100}{days !== undefined ? ` · ${days} d` : ''}</Chip>}

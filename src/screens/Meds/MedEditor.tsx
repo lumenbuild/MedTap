@@ -10,7 +10,7 @@ import { useLive } from '../../db/live';
 import { useFamily, useMeds, useSettings } from '../../app/data';
 import { useViewMode } from '../../app/viewMode';
 import { disguise, privateRule } from '../../logic/privateView';
-import { getSettings } from '../../db/repos/settings';
+import { getSettings, setSetting } from '../../db/repos/settings';
 import { personOf, storedPerson } from '../../db/repos/people';
 import { DEFAULT_PERSON } from '../../db/schema';
 import { addBottle, createMed, deleteMedForever, setArchived, updateMed, type MedInput } from '../../db/repos/meds';
@@ -33,6 +33,7 @@ import { PlannedChanges } from './PlannedChanges';
 import { BottlesSection } from './BottlesSection';
 import { ScanLabelCard } from './ScanLabel';
 import { TitrationCard } from './PeptideSections';
+import { StepPlanCard } from '../../components/DosePlan';
 import { VialCard } from './VialCard';
 import { MedPatterns } from '../../components/Smart';
 import { CountButton, countsFromPhoto } from '../../components/CountSheet';
@@ -233,6 +234,15 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
           scriptNotes: real.scriptNotes, peptide: real.peptide };
       } else if (real) input = { ...input, privateView: real.privateView, coverName: real.coverName };
     }
+    // A course's restart words become check-in chips (so they're one tap), and "Not now" carries over.
+    const course = input.schedule.course;
+    if (course) {
+      const was = existing?.schedule.course;
+      if (was?.dismissedAt && was.start === course.start) input = { ...input, schedule: { ...input.schedule, course: { ...course, dismissedAt: was.dismissedAt } } };
+      const st = await getSettings();
+      const add = (course.restartOn ?? []).filter((w) => !st.chips.some((c) => c.toLowerCase() === w.toLowerCase()));
+      if (add.length) await setSetting('chips', [...st.chips, ...add]);
+    }
     if (existing) {
       const at = record ? new Date(`${record.date}T${format(Date.now(), 'HH:mm')}`).toISOString() : undefined;
       await updateMed(existing.id, input, record && at ? {
@@ -295,6 +305,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
       )}
       {existing && <TagsSection med={existing} />}
       {HAS_PEPTIDES && existing?.peptide && !existing.archived && <VialCard med={existing} />}
+      {existing && !existing.archived && !priv && <StepPlanCard med={existing} />}
       {existing && !existing.archived && <PlannedChanges med={existing} />}
       {existing && !existing.archived && settings?.peptideTools && <TitrationCard med={existing} />}
       {existing && !existing.archived && !existing.peptide && <BottlesSection med={existing} />}
@@ -382,7 +393,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
         <div>
           <h2 className="text-sm font-medium text-muted">From your prescription</h2>
         </div>
-        <ScheduleFields f={f} set={set as ScheduleSetter} errors={errors} unit={f.unit} cycles={!!settings?.peptideTools} />
+        <ScheduleFields f={f} set={set as ScheduleSetter} errors={errors} unit={f.unit} />
       </Card>
 
       <Card className="space-y-4">

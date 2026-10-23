@@ -114,13 +114,16 @@ export function fmtSchedule(s: Schedule, unit = ''): string {
       s.maxAmountPer24h ? `max ${s.maxAmountPer24h}${u} in 24 h` : ''].filter(Boolean).join(', ');
     return lim ? `As needed: ${lim}` : 'As needed';
   }
-  const parts = [main, fmtDays(s), s.cycle ? fmtCycle(s.cycle) : ''].filter(Boolean);
+  const parts = [main, fmtDays(s), s.cycle ? fmtCycle(s.cycle) : '', s.course ? fmtCourse(s.course) : ''].filter(Boolean);
   return parts.join(' · ');
 }
 
 const span = (d: number) => (d >= 7 && d % 7 === 0 ? `${d / 7} week${d === 7 ? '' : 's'}` : `${d} day${d === 1 ? '' : 's'}`);
 /** "8 weeks on, 4 weeks off" */
 export const fmtCycle = (c: NonNullable<Schedule['cycle']>) => `${span(c.on)} on, ${span(c.off)} off`;
+/** "12-week course, then a break" */
+export const fmtCourse = (c: NonNullable<Schedule['course']>) => `${span(c.days).replace(/s$/, '').replace(' ', '-')} course, then a break`;
+export { span as fmtSpan };
 
 /** "Ritalin 10 mg". A mixed vial's strength is the whole vial, not a dose, so it's left off. */
 export function fmtMedName(m: Pick<Medication, 'name' | 'strength' | 'unit'> & { peptide?: unknown }): string {

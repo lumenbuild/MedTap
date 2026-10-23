@@ -1,14 +1,17 @@
 import { db } from '../db';
-import type { Bottle, PeptideVial, MedEvent, Medication, PlannedChange } from '../schema';
+import type { Bottle, Course, PeptideVial, MedEvent, Medication, PlannedChange, StepPlan, StepUpCriteria } from '../schema';
 import { describeChange, splitDueChanges } from '../../logic/plans';
-import { vialsOf } from '../../logic/peptide';
+import { scheduleAtDose, vialsOf } from '../../logic/peptide';
+import { fmtAmount } from '../../logic/format';
 
 const nowIso = () => new Date().toISOString();
 
 export type MedInput = Omit<Medication, 'id' | 'createdAt' | 'updatedAt' | 'archived'>;
 
-async function addEvent(medicationId: string, kind: MedEvent['kind'], summary: string, at = nowIso(), before?: unknown, after?: unknown) {
-  await db.medEvents.add({ id: crypto.randomUUID(), medicationId, at, kind, summary, before, after });
+async function addEvent(medicationId: string, kind: MedEvent['kind'], summary: string, at = nowIso(), before?: unknown, after?: unknown): Promise<string> {
+  const id = crypto.randomUUID();
+  await db.medEvents.add({ id, medicationId, at, kind, summary, before, after });
+  return id;
 }
 
 export async function createMed(input: MedInput): Promise<Medication> {
@@ -107,6 +110,64 @@ export async function removePlannedChanges(medId: string, ids: string[]) {
   const med = await db.medications.get(medId);
   const rest = (med?.plannedChanges ?? []).filter((c) => !ids.includes(c.id));
   await db.medications.update(medId, { plannedChanges: rest.length ? rest : undefined, updatedAt: nowIso() });
+}
+
+// ── Dosing plans ─────────────────────────────────────────────────────────────────────────────────────
+
+/** The step plan and its conditions (the step-up checklist), or none. */
+export async function saveStepPlan(medId: string, plan: StepPlan | undefined, criteria: StepUpCriteria | undefined) {
+  await db.medications.update(medId, { stepPlan: plan, ...(criteria ? { stepUp: criteria } : {}), updatedAt: nowIso() });
+}
+
+export interface Undo { before: Medication; eventId: string }
+
+/** The person confirmed the next step: the new dose from now (times stay; per-time amounts become the one dose). */
+export async function applyStep(medId: string, amount: number): Promise<Undo | undefined> {
+  const med = await db.medications.get(medId);
+  if (!med) return undefined;
+  const schedule = scheduleAtDose(med.schedule);
+  let eventId = '';
+  await db.transaction('rw', db.medications, db.medEvents, async () => {
+    eventId = await addEvent(med.id, 'changed', `Dose ${fmtAmount(med.defaultAmount, med.unit)} → ${fmtAmount(amount, med.unit)} (step plan)`, nowIso(),
+      { defaultAmount: med.defaultAmount, schedule: med.schedule }, { defaultAmount: amount, schedule });
+    await db.medications.update(medId, { defaultAmount: amount, schedule, stepPlan: med.stepPlan ? { ...med.stepPlan, snoozedUntil: undefined } : undefined, updatedAt: nowIso() });
+  });
+  return { before: med, eventId };
+}
+
+/** Undo a step or a restart: the medication as it was, and no record of the change. */
+export async function undoPlanChange(u: Undo) {
+  await db.transaction('rw', db.medications, db.medEvents, async () => {
+    await db.medEvents.delete(u.eventId);
+    await db.medications.put({ ...u.before, updatedAt: nowIso() });
+  });
+}
+
+/** "Not yet": don't ask about the next step before `untilYmd`. */
+export async function snoozeStep(medId: string, untilYmd: string) {
+  const med = await db.medications.get(medId);
+  if (med?.stepPlan) await db.medications.update(medId, { stepPlan: { ...med.stepPlan, snoozedUntil: untilYmd }, updatedAt: nowIso() });
+}
+
+/** Start another course on `startYmd` (same length and restart reasons). */
+export async function startCourse(medId: string, startYmd: string): Promise<Undo | undefined> {
+  const med = await db.medications.get(medId);
+  const c = med?.schedule.course;
+  if (!med || !c) return undefined;
+  const course: Course = { ...c, start: startYmd, dismissedAt: undefined };
+  let eventId = '';
+  await db.transaction('rw', db.medications, db.medEvents, async () => {
+    eventId = await addEvent(med.id, 'changed', `Started another course from ${startYmd}`, nowIso(), { schedule: med.schedule }, { schedule: { ...med.schedule, course } });
+    await db.medications.update(medId, { schedule: { ...med.schedule, course }, updatedAt: nowIso() });
+  });
+  return { before: med, eventId };
+}
+
+/** "Not now" to starting another course: asks again only for a new reason. */
+export async function dismissRestart(medId: string) {
+  const med = await db.medications.get(medId);
+  const c = med?.schedule.course;
+  if (med && c) await db.medications.update(medId, { schedule: { ...med.schedule, course: { ...c, dismissedAt: nowIso() } }, updatedAt: nowIso() });
 }
 
 // ── Vials and pens (peptide tools) ───────────────────────────────────────────────────────────────────

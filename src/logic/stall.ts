@@ -1,9 +1,8 @@
-// Stall detector: a real weight-loss plateau, told apart from water (cycle phase, alcohol, a big training session),
+// Stall detector: a real weight-loss plateau, told apart from water (alcohol, a big training session),
 // and what's different during it from the weeks of loss before: protein, steps, sleep, shots late or missed, a new
 // batch, alcohol, training. From the person's own records. Pure.
 import type { BodyEntry, CheckIn, DailyHealth, Dose, Medication, Workout } from '../db/schema';
 import { robustFit, type Pt } from './forecast';
-import { cycleAdjusted, cycleDay, cycleStarts, cycleWeightEffect } from './cycle';
 import { ALCOHOL } from './lifestyle';
 import { vialsOf } from './peptide';
 
@@ -19,19 +18,15 @@ export interface Stall {
   before: number; during: number;
   /** Short and with a water reason: probably water rather than a real stall. */
   likelyWater: boolean; water: string[];
-  /** Weigh-ins had the cycle's water taken out first. */
-  cycleAdjusted: boolean;
   diffs: StallDiff[];
 }
 
 export interface StallData { body: BodyEntry[]; checkIns: CheckIn[]; daily: DailyHealth[]; doses: Dose[]; meds: Medication[]; workouts: Workout[] }
 
 export function weightStall(d: StallData, now: number): Stall | null {
-  const raw: Pt[] = d.body.filter((b) => !b.deletedAt && typeof b.weightKg === 'number').map((b) => ({ t: new Date(`${b.date}T08:00`).getTime(), v: b.weightKg! }))
+  const pts: Pt[] = d.body.filter((b) => !b.deletedAt && typeof b.weightKg === 'number').map((b) => ({ t: new Date(`${b.date}T08:00`).getTime(), v: b.weightKg! }))
     .filter((p) => p.t > now - 150 * DAY && p.t <= now + DAY).sort((a, b) => a.t - b.t);
-  if (raw.length < 8) return null;
-  const effect = cycleWeightEffect(d.body, d.checkIns, now);
-  const pts = cycleAdjusted(raw, d.checkIns, effect);
+  if (pts.length < 8) return null;
   const fitIn = (a: number, b: number) => { const w = pts.filter((p) => p.t >= a && p.t <= b); return w.length >= 4 ? robustFit(w, b) : undefined; };
 
   // The longest recent stretch that's flat (under 0.15 kg a week down) after losing at least 0.3 kg a week.
@@ -50,8 +45,6 @@ export function weightStall(d: StallData, now: number): Stall | null {
   const water: string[] = [];
   const recent = (t: number) => t > now - 5 * DAY && t <= now;
   if (d.checkIns.some((c) => !c.deletedAt && recent(Date.parse(c.at)) && c.chips.includes(ALCOHOL))) water.push('alcohol in the last few days');
-  const day = cycleDay(cycleStarts(d.checkIns), now);
-  if (day !== undefined && (day <= 3 || day >= 20)) water.push(day <= 3 ? 'the start of your period' : 'the days before your period');
   if (d.workouts.some((w) => !w.deletedAt && recent(Date.parse(w.startedAt)) && w.sets.filter((s) => s.done && !s.warmup).length >= 15)) water.push('a big training session');
 
   // Before (5 weeks) against during.
@@ -95,5 +88,5 @@ export function weightStall(d: StallData, now: number): Stall | null {
   if (ab !== undefined && aw !== undefined && Math.abs(aw - ab) >= 0.5) diffs.push({ key: 'appetite', label: 'Appetite', before: r1(ab).toFixed(1), during: r1(aw).toFixed(1) });
 
   return { since, days, before: Math.round(before * 100) / 100, during: Math.round(during * 100) / 100,
-    likelyWater: days < 14 && water.length > 0, water, cycleAdjusted: !!effect, diffs };
+    likelyWater: days < 14 && water.length > 0, water, diffs };
 }

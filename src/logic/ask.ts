@@ -6,8 +6,6 @@ import { ALCOHOL, CAFFEINE } from './lifestyle';
 import { EFFECT_CHIPS } from './predict';
 import { vialsOf } from './peptide';
 import { shownName } from './privacy';
-import { cycleDay, cycleStarts } from './cycle';
-import { PHASES } from './lifestyle';
 
 const DAY = 86_400_000;
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : undefined);
@@ -143,10 +141,7 @@ export function ask(question: string, d: AskData, now: number): AskAnswer {
     const word = chipSplit === ALCOHOL ? 'alcohol' : 'caffeine';
     return groupBy(`${m.label} with and without ${word}`, grouped(within, (t) => (days.has(new Date(t).toDateString()) || days.has(new Date(t - DAY).toDateString()) ? `With ${word}` : `Without`)), word);
   }
-  if (/cycle|period|phase/.test(q)) {
-    const starts = cycleStarts(d.checkIns);
-    return groupBy(`${m.label} by cycle phase`, grouped(all, (t) => { const day = cycleDay(starts, t); return PHASES.find((p) => day !== undefined && day >= p.from && day <= p.to)?.name; }, PHASES.map((p) => p.name)), 'cycle phase');
-  }
+
 
   // Over time: the span against the same length before it.
   const start = sp?.start ?? now - 30 * DAY;
@@ -175,6 +170,5 @@ export function askSuggestions(d: AskData): string[] {
   if (pep && amounts.length > 1) out.push('Appetite by dose');
   if (d.body.some((b) => b.weightKg)) out.push('Weight in the last 3 months');
   if (d.daily.some((r) => r.restingHr)) out.push('Resting heart rate this month');
-  if (cycleStarts(d.checkIns).length >= 2) out.push('Mood by cycle phase');
   return out.slice(0, 6);
 }

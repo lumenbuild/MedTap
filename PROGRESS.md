@@ -753,3 +753,22 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
   Progress tab, so they go to the Trends tab.
 - Help and hints name the real menus: Settings → People and sync (family members, family sync), Protocol →
   Calculator and Supplies, and the Settings row is now "Backup and restore" like the page and every mention of it.
+
+## Period tracking removed; dosing plans
+
+- Period tracking is gone: the setting, the Period button, the cycle card in Trends, the cycle line on Today, the
+  cycle-phase question in Ask your data, the cycle water adjustment in the stall detector, and the onboarding switch.
+  Old check-ins keep their chips; nothing reads them now.
+- Dosing plans, all the person's own (or their prescriber's), and nothing changes without them saying so:
+  - **Step when ready** (medicine page): step by an amount (or syringe units for a mixed vial), at least N weeks on
+    each dose, up to a maximum a dose or a week, and optionally only when appetite is back to a level, side effects
+    are settled, weight loss has slowed, or no doses were missed. When all are met Today shows the next dose with
+    Step up (undoable) and Not yet (asks again in a week). Stops at the maximum; waits for the first dose at a new
+    amount before asking again. Protocol shows where it's at.
+  - **Course** (schedule → Pattern): N weeks from a date, then a break with nothing scheduled and no reminders.
+    Words like "Pain" become check-in chips; a check-in mentioning one (or a set number of weeks off) asks on Today
+    "Start another course?" with Start today (undoable) and Not now.
+  - **On and off** (schedule → Pattern), now for every medicine, not only with peptide tools.
+  - Today's rows, the hero, Meds and Protocol say where each is ("Course, week 4 of 12", "On a break", "Off until …").
+- logic/dosePlan.ts with tests (tests/dose-plan.test.ts); course gating in isScheduledDay, so reminders, widgets,
+  the watch, forecasts and reports all follow it.
