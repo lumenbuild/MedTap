@@ -28,23 +28,18 @@ export default function RemindersCard({ enabled, nudges }: { enabled: boolean; n
   return (
     <Card className="space-y-3">
       <h2 className="text-sm font-medium text-muted flex items-center gap-2"><BellRing size={18} aria-hidden="true" /> Reminders</h2>
-      <Switch label="Remind me when doses are due" checked={enabled} onChange={() => toggle()}>
-        A notification at each set dose time, and for every-few-hours medications when the next one is due. Set up from your own schedules, a week ahead.
-      </Switch>
+      <Switch label="When doses are due" checked={enabled} onChange={() => toggle()} />
       {enabled && (
-        <Switch label="Nudge me if I haven't logged it" checked={nudges} onChange={async () => { await setSetting('lateNudges', !nudges); void syncReminders(); }}>
-          A second reminder when a dose still isn't logged a while after the time you usually take it. Days you often miss always get one.
-        </Switch>
+        <Switch label="Again if not logged" checked={nudges} onChange={async () => { await setSetting('lateNudges', !nudges); void syncReminders(); }} />
       )}
-      {enabled && perm === 'denied' && <p className="text-sm rounded-btn bg-caution-soft p-3">Notifications are turned off for this app in your phone’s settings, so reminders can’t show.</p>}
+      {enabled && perm === 'denied' && <p className="text-sm">Notifications are off for this app.</p>}
       {enabled && !exact && (
         <div className="rounded-btn bg-surface-2 p-3 space-y-2">
-          <p className="text-sm">Your phone may delay reminders by a few minutes. Allow exact timing to have them on the minute.</p>
+          <p className="text-sm">Reminders may be a few minutes late.</p>
           <Button variant="secondary" onClick={async () => { await allowExactReminders(); refresh(); }}>Allow exact timing</Button>
         </div>
       )}
       {enabled && <ReminderCheck />}
-      <p className="text-sm text-muted">Nicknamed medications show their nickname. “Log it” on a reminder logs the planned amount.</p>
     </Card>
   );
 }

@@ -34,7 +34,7 @@ export function BottlesSection({ med }: { med: Medication }) {
     <Card>
       <h2 className="text-sm font-medium text-muted flex items-center gap-2"><CalendarX2 size={20} className="text-primary" aria-hidden="true" /> Bottles and expiry dates</h2>
       {bottles.length === 0
-        ? <p className="text-muted mt-1">Add each bottle or pack with its expiry date. Today lets you know 30 days before one expires.</p>
+        ? <p className="text-muted mt-1">Expiry dates</p>
         : (
           <ul className="mt-2 space-y-2">
             {bottles.map((b) => {

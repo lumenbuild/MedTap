@@ -29,8 +29,8 @@ export interface MedTapNativePlugin {
   addListener(event: 'logRequest', fn: (e: { medId: string }) => void): Promise<PluginListenerHandle>;
   /** Android opened the app on a page (e.g. Health Connect asking why the app reads health data). */
   addListener(event: 'route', fn: (e: { path: string }) => void): Promise<PluginListenerHandle>;
-  /** Android: the watch sent a "log" tap (read them with takeWatchLogs). */
-  addListener(event: 'watchLog', fn: () => void): Promise<PluginListenerHandle>;
+  /** Android: the watch sent a "log" tap (read them with takeWatchLogs), or a "set done" (takeWatchSets). */
+  addListener(event: 'watchLog' | 'watchSet', fn: () => void): Promise<PluginListenerHandle>;
 
   // Health Connect (Android) / Apple Health (iPhone), read only. `granted` names the record types allowed (iPhone: ['unknown']).
   healthStatus(): Promise<{ status: 'available' | 'needs-update' | 'unsupported'; granted: string[] }>;
@@ -47,6 +47,13 @@ export interface MedTapNativePlugin {
   setWidget(options: { json: string }): Promise<void>;
   /** Android: "log" taps from a paired Wear OS watch, waiting to be logged (cleared when read). */
   takeWatchLogs(): Promise<{ items: { medId: string; at: number }[] }>;
+  /** Android: download a newer build of this app from its GitHub release and open the installer. Rejects with `code`
+   *  'permission' (the "install unknown apps" setting was opened), 'mismatch' or 'io'. */
+  installUpdate(options: { url: string }): Promise<void>;
+  /** Android: the workout in progress, for the watch ("{}" when there's none). */
+  setWatchWorkout(options: { json: string }): Promise<void>;
+  takeWatchSets(): Promise<{ items: { setId: string; at: number }[] }>;
+  addListener(event: 'updateProgress', fn: (e: { pct: number }) => void): Promise<PluginListenerHandle>;
 }
 
 export interface HealthDay { date: string; steps?: number; sleepMin?: number; restingHr?: number; exerciseMin?: number; hrvMs?: number; hrByHour?: (number | null)[] }

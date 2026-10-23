@@ -3,6 +3,7 @@
 import type { Dose, Medication } from '../db/schema';
 import { getDayBounds, getExpectedAmount, getFixedSlots, getNextDue, getSlots, isScheduledDay, timeInDay, weekdayOf, type ScheduleSettings } from './schedule';
 import { nudgeDelayMin, reminderAt, riskySlots, slotHabits } from './habits';
+import type { Snooze } from '../db/repos/settings';
 
 export interface PlannedReminder {
   /** Stable 31-bit id, so rescheduling replaces rather than duplicates. */
@@ -78,3 +79,18 @@ export function planReminders(meds: Medication[], doses: Dose[], now: number, s:
   }
   return out.sort((a, b) => a.at - b.at).slice(0, max);
 }
+
+export const SNOOZE_MIN = 15;
+
+/** A snoozed reminder: the same dose, `SNOOZE_MIN` minutes from now. Its own id range so it never replaces a plan one. */
+export function snoozeOf(r: { medId: string; amount: number; dueAt: number }, now: number): Snooze {
+  return { id: (reminderId(`${r.medId}~snooze`, now) % 900_000_000) || 1, medId: r.medId, amount: r.amount, dueAt: r.dueAt, at: now + SNOOZE_MIN * 60_000, made: now };
+}
+
+/** Snoozes still to go off: not yet due and nothing logged for the medicine since (a skip counts). */
+export const liveSnoozes = (snoozes: Snooze[], doses: Dose[], now: number) =>
+  snoozes.filter((z) => z.at > now && !doses.some((d) => d.medicationId === z.medId && !d.deletedAt && Date.parse(d.createdAt) >= z.made));
+
+/** The plan with a snooze in place: drops the same dose's reminders that would go off before the snooze does. */
+export const withoutSnoozed = (plan: PlannedReminder[], snoozes: Snooze[]) =>
+  plan.filter((r) => !snoozes.some((z) => z.medId === r.medId && z.dueAt === r.dueAt && r.at <= z.at));

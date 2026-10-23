@@ -1,5 +1,7 @@
 // Fitness cards used on Training, Body, Protocol and Today: readiness, lean mass while losing weight, strength against
 // the peptide, and one timeline for every goal.
+import { Beef, Dumbbell, GlassWater, Moon, Pill, Scale, Smile, type LucideIcon } from 'lucide-react';
+import { Bar, IconRow, MiniRing, Stat } from './ui/Visual';
 import { format } from 'date-fns';
 import type { BodyEntry, BodyGoal, CheckIn, DailyHealth, Dose, FitnessGoal, Medication, Workout } from '../db/schema';
 import type { Digest } from '../logic/digest';
@@ -24,10 +26,14 @@ const LONG = ['shot day', 'day 1', 'day 2', 'day 3', 'day 4', 'day 5', 'day 6'];
 export function ReadinessBlock({ r, compact = false }: { r: Readiness; compact?: boolean }) {
   return (
     <div>
-      <p className="text-sm font-medium text-muted">Ready to train</p>
-      <p className={compact ? 'text-[17px]' : 'text-[28px] font-light'}><span className="tnum">{r.score}</span> · {r.label}</p>
-      {!compact && <ul className="text-[15px] tnum mt-1">{r.parts.map((p) => <li key={p.what} className={p.good ? '' : 'text-caution'}>{p.what}: {p.text}</li>)}</ul>}
-      {!compact && <p className="text-xs text-muted mt-1">Against your own last 4 weeks. On a low day, a lighter session or rest may suit you better.</p>}
+      <div className="flex items-center gap-3">
+        <MiniRing value={r.score} max={100} size={compact ? 44 : 64} tone={r.score >= 70 ? 'good' : r.score < 55 ? 'watch' : 'primary'} label={`Ready to train: ${r.score} of 100, ${r.label}`}>{r.score}</MiniRing>
+        <div>
+          <p className="text-sm font-medium text-muted">Ready to train</p>
+          <p className="text-[17px] font-medium">{r.label}</p>
+        </div>
+      </div>
+      {!compact && <ul className="text-[15px] tnum mt-2 grid grid-cols-2 gap-x-4 gap-y-1">{r.parts.map((p) => <li key={p.what} className="flex items-center gap-2"><span aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ background: p.good ? 'var(--success)' : 'var(--caution)' }} />{p.what}: {p.text}</li>)}</ul>}
     </div>
   );
 }
@@ -43,16 +49,19 @@ export function MuscleWatchCard({ body, units, med, doses, now }: { body: BodyEn
     <section className="border-t border-border pt-5 pb-1" aria-labelledby="lean-h">
       <h2 id="lean-h" className="text-sm font-medium text-muted mb-1">Lean mass while losing weight</h2>
       {!w.overall ? (
-        <p className="text-[15px] text-muted">{w.points < 2 ? 'Log body fat % or lean mass with your weight (from a smart scale or a scan) at least twice to see how much of what you lose is lean mass.' : 'Shows once you\'ve lost 2+ kg between two body composition entries.'}</p>
+        <p className="text-[15px] text-muted">{w.points < 2 ? 'Log body fat % twice to see this.' : 'Shows after 2+ kg lost.'}</p>
       ) : (
         <>
-          <p className={`text-[17px] tnum ${high(w.overall.share) ? 'text-caution' : ''}`}>{line(w.overall)}</p>
-          <p className="text-sm text-muted tnum">{format(w.overall.from, 'd MMM')} – {format(w.overall.to, 'd MMM yyyy')}</p>
+          <div className="grid grid-cols-2 gap-2 mt-1">
+            <Stat label="Lost" value={kgTo(w.overall.weightLost, units)} unit={u} />
+            <Stat label="Of it lean" value={`${Math.round(Math.max(0, w.overall.share) * 100)}%`} tone={high(w.overall.share) ? 'watch' : 'good'}>
+              <Bar value={Math.max(0, w.overall.share) * 100} max={100} marker={35} tone={high(w.overall.share) ? 'watch' : 'good'} label={`${Math.round(Math.max(0, w.overall.share) * 100)}% of the loss was lean mass`} />
+            </Stat>
+          </div>
+          <p className="text-sm text-muted tnum mt-1">{format(w.overall.from, 'd MMM')} – {format(w.overall.to, 'd MMM yyyy')}</p>
           {w.steps.length > 0 && <ul className="text-[15px] tnum mt-2">{w.steps.map((s) => <li key={s.dose}>{med ? fmtAmount(s.dose, med.unit) : s.dose}: {line(s)}</li>)}</ul>}
-          {(high(w.overall.share) || w.steps.some((s) => high(s.share))) && <p className="text-[15px] mt-2">More than about a third of the loss as lean mass is worth raising with your prescriber. Strength training and protein are the usual ways to hold on to muscle.</p>}
         </>
       )}
-      <p className="text-xs text-muted mt-1">Lean mass from your entries (or weight × (1 − body fat %)). Scales estimate it; scans are more accurate.</p>
     </section>
   );
 }
@@ -78,7 +87,7 @@ export function PeptideTrainingCard({ med, doses, workouts, tz }: { med: Medicat
       {plan && <p className="text-[15px] mt-2 font-medium">Plan your heaviest session for {plan.weekday}s ({plan.day === 0 ? 'shot day' : `day ${plan.day} after your shot`}), usually your strongest.</p>}
       {r.bestDays.length > 0 && <p className="text-[15px] mt-2">Your strongest {r.bestDays.length === 1 ? 'day' : 'days'}: {andList(r.bestDays.map((d) => d === 0 ? 'shot day' : `${LONG[d]} after it`))}.</p>}
       {r.byDose.filter((d) => d.pct !== undefined).length > 1 && <p className="text-[15px] tnum">By dose: {r.byDose.filter((d) => d.pct !== undefined).map((d) => `${fmtAmount(d.dose, med.unit)} ${d.pct! > 0 ? '+' : ''}${d.pct}%`).join(' · ')}</p>}
-      <p className="text-xs text-muted mt-1">Each session's lifts against your own recent level for those lifts. Based on {r.sessions} sessions.</p>
+      <p className="text-xs text-muted mt-1">{r.sessions} sessions</p>
     </section>
   );
 }
@@ -132,24 +141,27 @@ export function IntakeCard({ personId, today, day, proteinTarget, waterTarget, r
     const total = await addIntake(personId, today, field, amount);
     toast(`+${amount} ${unit} · ${total} ${unit} today`, { onAction: () => addIntake(personId, today, field, -amount) });
   };
-  const row = (label: string, field: 'proteinG' | 'waterMl', unit: string, target: number | null, steps: number[]) => {
+  const row = (label: string, Icon: LucideIcon, field: 'proteinG' | 'waterMl', unit: string, target: number | null, steps: number[]) => {
     const v = day?.[field] ?? 0;
     return (
-      <div>
-        <p className="flex justify-between gap-3"><span className="font-medium">{label}</span><span className="tnum text-[15px]">{v}{target ? ` of ${target}` : ''} {unit}</span></p>
-        {target ? <div className="h-1.5 rounded-full bg-surface-2 mt-1" aria-hidden="true"><div className="h-1.5 rounded-full bg-text" style={{ width: `${Math.min(100, (v / target) * 100)}%` }} /></div> : null}
-        <div className="flex gap-2 mt-2">
-          {steps.map((a) => <button key={a} type="button" onClick={() => add(field, a, unit)} aria-label={`Add ${a} ${unit} of ${label.toLowerCase()}`} className="min-h-[44px] px-4 rounded-chip border border-border-strong text-sm font-medium tnum">+{a}</button>)}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Icon size={18} aria-hidden="true" className="text-primary" />
+          <span className="font-medium flex-1">{label}</span>
+          <span className="tnum"><span className="text-[20px] font-semibold">{v}</span><span className="text-sm text-muted">{target ? ` / ${target}` : ''} {unit}</span></span>
+        </div>
+        {target ? <Bar value={v} max={target} tone={v >= target ? 'good' : 'primary'} label={`${v} of ${target} ${unit}`} /> : null}
+        <div className="flex gap-2">
+          {steps.map((a) => <button key={a} type="button" onClick={() => add(field, a, unit)} aria-label={`Add ${a} ${unit} of ${label.toLowerCase()}`} className="flex-1 min-h-[44px] rounded-chip bg-surface-2 text-sm font-medium tnum">+{a}</button>)}
         </div>
       </div>
     );
   };
   return (
-    <section className="border-t border-border pt-4 space-y-3" aria-label="Protein, water and readiness">
+    <section className="border-t border-border pt-4 space-y-4" aria-label="Protein, water and readiness">
       {ready && <ReadinessBlock r={ready} compact />}
-      {row('Protein', 'proteinG', 'g', proteinTarget, [10, 25, 40])}
-      {row('Water', 'waterMl', 'mL', waterTarget, [250, 500])}
-      {!proteinTarget && !waterTarget && <p className="text-xs text-muted">Set your own daily targets in Settings → Training.</p>}
+      {row('Protein', Beef, 'proteinG', 'g', proteinTarget, [10, 25, 40])}
+      {row('Water', GlassWater, 'waterMl', 'mL', waterTarget, [250, 500])}
     </section>
   );
 }
@@ -183,7 +195,7 @@ export function TrainingReport({ sum, units }: { sum: TrainingSummary; units: Un
               </tr>
             ))}</tbody>
           </table>
-          <p className="text-xs text-muted mt-1">Lifts as an estimated one-rep max from the best set each session; bodyweight and timed exercises as best reps or seconds.</p>
+          <p className="text-xs text-muted mt-1">Estimated 1-rep max per session</p>
         </div>
       )}
     </section>
@@ -218,7 +230,7 @@ export function TrainingTrends({ daily, body, checkIns, workouts, start, end, s,
           <Bars values={last.filter((d) => d.protein).map((d) => ({ key: d.date, v: d.protein! }))} max={Math.max(...last.map((d) => d.protein ?? 0), targets.protein ?? 0)} target={targets.protein}
             label={`Protein each logged day: ${last.filter((d) => d.protein).map((d) => `${d.date} ${d.protein} g`).join(', ')}`} />
           {intake.water && <p className="text-[15px] tnum mt-3">Water averaged {(intake.water.avg / 1000).toFixed(1)} L on {intake.water.days} logged day{intake.water.days === 1 ? '' : 's'}{intake.water.onTarget !== undefined ? `; on target ${intake.water.onTarget}` : ''}.</p>}
-          <p className="text-xs text-muted mt-1">From the Protein and Water buttons on Today (and tags). Days not logged are left out, not counted as zero.</p>
+          <p className="text-xs text-muted mt-1">Logged days only</p>
         </section>
       )}
       {ready.length >= 3 && (
@@ -233,7 +245,6 @@ export function TrainingTrends({ daily, body, checkIns, workouts, start, end, s,
           <h2 id="ln-h" className="text-sm font-medium text-muted mb-1">Links in your records</h2>
           {pl && <p className="text-[15px] tnum">Between scans or weigh-ins with body fat, about <strong>{pl.higher.share}%</strong> of the weight lost was lean mass when protein averaged {pl.higher.protein} g, against <strong>{pl.lower.share}%</strong> at {pl.lower.protein} g ({pl.higher.spans + pl.lower.spans} spans).</p>}
           {rp && <p className="text-[15px] tnum mt-2">On your better-readiness days (about {rp.higher.score}), your lifts were {rp.higher.pct > 0 ? '+' : ''}{rp.higher.pct}% against your recent level ({rp.higher.sessions} sessions); on lower days (about {rp.lower.score}), {rp.lower.pct > 0 ? '+' : ''}{rp.lower.pct}% ({rp.lower.sessions}).</p>}
-          <p className="text-xs text-muted mt-1">These show what went together in your own records, not what caused what. Talk to your prescriber or dietitian before changing what you eat.</p>
         </section>
       )}
     </>
@@ -241,14 +252,17 @@ export function TrainingTrends({ daily, body, checkIns, workouts, start, end, s,
 }
 
 /** Today, Monday to Wednesday: last week in a few lines against the week before. */
+const DIGEST_ICON: Record<string, LucideIcon> = { doses: Pill, weight: Scale, training: Dumbbell, protein: Beef, sleep: Moon, mood: Smile };
+
 export function DigestCard({ d, seen, onClose, onNotify, notify }: { d: Digest; seen: number; onClose: () => void; onNotify?: () => void; notify: boolean }) {
   if (seen >= d.weekStart) return null;
   return (
     <section className="border-t border-border pt-4 pb-1" aria-labelledby="dg-h">
       <h2 id="dg-h" className="text-sm font-medium text-muted">Your week · {format(d.weekStart, 'd MMM')} – {format(d.weekEnd - 1, 'd MMM')}</h2>
-      <p className="text-[17px] mt-1">{d.headline}</p>
-      <ul className="text-[15px] tnum mt-2 space-y-0.5">
-        {d.lines.map((l) => <li key={l.key} className={l.tone === 'watch' ? 'text-caution' : ''}><span className="text-muted">{l.label}:</span> {l.text}</li>)}
+      <ul className="tnum mt-1">
+        {d.lines.map((l) => (
+          <li key={l.key}><IconRow Icon={DIGEST_ICON[l.key] ?? Smile} tone={l.tone === 'good' ? 'good' : l.tone === 'watch' ? 'watch' : 'plain'}>{l.text}</IconRow></li>
+        ))}
       </ul>
       <div className="flex flex-wrap gap-x-5 mt-1">
         <button type="button" className="min-h-[44px] text-sm font-medium underline underline-offset-4" onClick={onClose}>Done</button>

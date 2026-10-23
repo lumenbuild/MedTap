@@ -70,8 +70,6 @@ export function PeptideCalc() {
         <TextInput label="Units you'd like each dose to be" type="number" inputMode="decimal" min="0" step="any" value={target} onChange={(e) => setTarget(e.target.value)} />
         <p className="tnum" aria-live="polite">{doseOk && num(target) > 0 ? <>Add <strong>{fmt(waterForUnits(num(dose), vialInDoseUnit, num(target), syringe), 2)} mL</strong> of water</> : '–'}</p>
       </Card>
-
-      <p className="text-sm text-muted text-center px-4">These are sums on the numbers you enter. Check them against the label, your prescriber's directions or your pharmacist before injecting.</p>
     </div>
   );
 }

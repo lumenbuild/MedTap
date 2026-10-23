@@ -19,10 +19,10 @@ export function readingsWorthMentioning(vitals: Vital[], daily: DailyHealth[], n
   if (recent.length >= 3) {
     const s = Math.round(avg(recent.map((v) => v.systolic!))), d = Math.round(avg(recent.map((v) => v.diastolic!)));
     if (s >= 140 || d >= 90) {
-      out.push({ key: `bp-high:${week}`, kind: 'bp-high', text: `Blood pressure averaged ${s}/${d} over ${recent.length} readings this week. Australian guidelines call 140/90 or more high: worth raising with your doctor.` });
+      out.push({ key: `bp-high:${week}`, kind: 'bp-high', text: `Blood pressure ${s}/${d} this week (high is 140/90+)` });
     } else if (base.length >= 5) {
       const bs = Math.round(median(base.map((v) => v.systolic!))), bd = Math.round(median(base.map((v) => v.diastolic!)));
-      if (s - bs >= 10 || d - bd >= 6) out.push({ key: `bp:${week}`, kind: 'bp', text: `Blood pressure averaged ${s}/${d} this week, above your usual ${bs}/${bd}. Worth mentioning to your doctor if it stays up.` });
+      if (s - bs >= 10 || d - bd >= 6) out.push({ key: `bp:${week}`, kind: 'bp', text: `Blood pressure ${s}/${d} this week, usually ${bs}/${bd}` });
     }
   }
   const hr = daily.filter((x) => !x.deletedAt && x.restingHr);
@@ -30,7 +30,7 @@ export function readingsWorthMentioning(vitals: Vital[], daily: DailyHealth[], n
   const hrBase = hr.filter((x) => ymdToMs(x.date) <= now - 8 * DAY && ymdToMs(x.date) > now - 36 * DAY);
   if (hrRecent.length >= 5 && hrBase.length >= 10) {
     const r = Math.round(avg(hrRecent.map((x) => x.restingHr!))), b = Math.round(median(hrBase.map((x) => x.restingHr!)));
-    if (r - b >= 7) out.push({ key: `hr:${week}`, kind: 'hr', text: `Resting heart rate averaged ${r} bpm this week, up from your usual ${b}. Illness, poor sleep, alcohol or a medicine change can do this; worth mentioning to your doctor if it stays up.` });
+    if (r - b >= 7) out.push({ key: `hr:${week}`, kind: 'hr', text: `Resting heart rate ${r} bpm this week, usually ${b}` });
   }
   return out;
 }

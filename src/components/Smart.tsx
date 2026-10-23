@@ -22,6 +22,8 @@ import { useCheckIns, useDoses, useScheduleSettings } from '../app/data';
 import { useNow } from '../app/useNow';
 import { personOf } from '../db/repos/people';
 import { Button } from './ui/Button';
+import { IconRow } from './ui/Visual';
+import { FileText, HeartPulse, SearchCheck, Zap } from 'lucide-react';
 import { Sheet } from './ui/Sheet';
 
 const HOUR = 3_600_000;
@@ -90,7 +92,7 @@ export function HabitsSection({ med, doses, checkIns, s, now }: { med: Medicatio
       </li>,
     );
   }
-  if (win) rows.push(<li key="win"><p className="font-medium">Effect window</p><p className="text-[15px]">{windowText(win)}</p><p className="text-xs text-muted">From {win.checkIns} check-ins after {win.doses} doses. Your own pattern, not a measurement.</p></li>);
+  if (win) rows.push(<li key="win"><p className="font-medium">Effect window</p><p className="text-[15px]">{windowText(win)}</p><p className="text-xs text-muted">From {win.checkIns} check-ins after {win.doses} doses.</p></li>);
   if (script?.needBy) {
     rows.push(
       <li key="script">
@@ -98,7 +100,7 @@ export function HabitsSection({ med, doses, checkIns, s, now }: { med: Medicatio
         <p className={`text-[15px] tnum ${script.bookBy !== null && script.bookBy - now < 14 * DAY ? 'text-caution font-medium' : ''}`}>
           Needed by {day(script.needBy)}{script.reason === 'expiry' ? ' (the script expires)' : ` (${script.repeatsLeft} repeat${script.repeatsLeft === 1 ? '' : 's'} left)`}. Book your doctor by {day(script.bookBy!)}.
         </p>
-        {script.lastRepeat && script.repeatsLeft === 1 && <p className="text-sm text-muted">The next refill is the last repeat.</p>}
+        {script.lastRepeat && script.repeatsLeft === 1 && <p className="text-sm text-muted">Last repeat next</p>}
       </li>,
     );
   }
@@ -147,13 +149,13 @@ export function EffectToday({ meds, doses, checkIns, now }: { meds: Medication[]
     if (!w || w.wearOffH === undefined) return null;
     const off = t + w.wearOffH * HOUR;
     const on = w.onsetH !== undefined ? t + w.onsetH * HOUR : undefined;
-    if (off < now) return { m, text: `usually wearing off since about ${clock(off)}` };
-    return { m, text: on && on > now ? `usually working from about ${clock(on)} until ${clock(off)}` : `focus likely until about ${clock(off)}` };
-  }).filter(Boolean) as { m: Medication; text: string }[];
+    if (off < now) return { m, text: `wearing off since ${clock(off)}`, on: false };
+    return { m, text: on && on > now ? `working ${clock(on)} – ${clock(off)}` : `working until ${clock(off)}`, on: true };
+  }).filter(Boolean) as { m: Medication; text: string; on: boolean }[];
   if (!lines.length) return null;
   return (
-    <ul className="space-y-1" aria-label="Effect window">
-      {lines.map(({ m, text }) => <li key={m.id} className="text-[15px]"><span className="font-medium">{shownName(m)}</span>: {text}</li>)}
+    <ul aria-label="Effect window">
+      {lines.map(({ m, text, on }) => <li key={m.id}><IconRow Icon={Zap} tone={on ? 'good' : 'plain'}><span className="font-medium">{shownName(m)}</span> · {text}</IconRow></li>)}
     </ul>
   );
 }
@@ -164,19 +166,13 @@ export function ScriptToday({ meds, doses, s, now }: { meds: Medication[]; doses
   const visits = scriptVisits(meds, doses, now, s).filter((v) => v.bookBy - now < 21 * DAY);
   if (!visits.length) return null;
   return (
-    <ul className="space-y-1" aria-label="Scripts">
+    <ul aria-label="Scripts">
       {visits.map((v) => (
-        <li key={v.meds[0].med.id} className="relative pl-5 text-[15px] tnum">
-          <span aria-hidden="true" className="absolute left-0 top-[9px] w-2 h-2 rounded-full" style={{ background: 'var(--caution)' }} />
-          {v.meds.length === 1 ? (
-            <a href={`#/meds/${v.meds[0].med.id}`}>
-              Book a doctor {v.bookBy < now ? 'soon' : `by ${day(v.bookBy)}`} for a new <span className="font-medium">{shownName(v.meds[0].med)}</span> script (needed {day(v.meds[0].needBy)}{v.meds[0].reason === 'expiry' ? ', when it expires' : ''}).
-            </a>
-          ) : (
-            <span>
-              One doctor visit {v.bookBy < now ? 'soon' : `by ${day(v.bookBy)}`} covers new scripts for {v.meds.map((x, i) => <span key={x.med.id}>{i ? (i === v.meds.length - 1 ? ' and ' : ', ') : ''}<a className="font-medium" href={`#/meds/${x.med.id}`}>{shownName(x.med)}</a> (needed {day(x.needBy)})</span>)}.
-            </span>
-          )}
+        <li key={v.meds[0].med.id}>
+          <IconRow Icon={FileText} tone="watch" href={`#/meds/${v.meds[0].med.id}`}>
+            <span className="tnum">Book doctor {v.bookBy < now ? 'soon' : `by ${day(v.bookBy)}`}</span>
+            <span className="block text-sm text-muted">New script: {v.meds.map((x) => shownName(x.med)).join(', ')}</span>
+          </IconRow>
         </li>
       ))}
     </ul>
@@ -192,10 +188,9 @@ export function OddRecordsLine({ meds, doses, body, checkIns, vitals, dismissed,
   if (!odd.length && !open) return null;
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="w-full text-left relative pl-5 text-[15px] min-h-[44px]">
-        <span aria-hidden="true" className="absolute left-0 top-[9px] w-2 h-2 rounded-full" style={{ background: 'var(--caution)' }} />
-        {odd.length} record{odd.length === 1 ? '' : 's'} look{odd.length === 1 ? 's' : ''} odd. <span className="underline underline-offset-4 font-medium">Check</span>
-      </button>
+      <IconRow Icon={SearchCheck} tone="watch" action={<Button variant="secondary" onClick={() => setOpen(true)}>Check</Button>}>
+        {odd.length} record{odd.length === 1 ? '' : 's'} to check
+      </IconRow>
       {open && <OddSheet odd={odd} dismissed={dismissed} onClose={() => setOpen(false)} />}
     </>
   );
@@ -240,7 +235,6 @@ export function SleepImpactCard({ r }: { r: SleepImpact }) {
       <h2 id="sleep-h" className="text-sm font-medium text-muted mb-1">Last dose and sleep</h2>
       <p className="text-[17px]">When your last dose is after about <span className="font-medium">{t}</span>, your sleep is usually worse.</p>
       <p className="text-[15px] tnum mt-1">Before {t}: {line(r.before)} ({r.before.nights} nights). After: {line(r.after)} ({r.after.nights} nights).</p>
-      <p className="text-xs text-muted mt-1">The day's last dose time against the next morning's check-in. A link in your records, not a cause; ask your prescriber about timing.</p>
     </section>
   );
 }
@@ -264,7 +258,7 @@ export function CheckInForecastCard({ f }: { f: CheckInForecast }) {
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-muted mt-1">Likely scores (1–5) from your usual day of the week, days with and without doses, and the last 2 weeks. Based on {f.checkIns} check-ins over {f.weeks} weeks.</p>
+      
     </section>
   );
 }
@@ -299,11 +293,12 @@ export function MentionsLine({ vitals, daily, dismissed, now }: { vitals: Vital[
   const list = readingsWorthMentioning(vitals, daily, now).filter((m) => !dismissed.includes(m.key));
   if (!list.length) return null;
   return (
-    <ul className="space-y-1" aria-label="Readings worth mentioning">
+    <ul aria-label="Readings">
       {list.map((m) => (
-        <li key={m.key} className="relative pl-5 text-[15px] tnum">
-          <span aria-hidden="true" className="absolute left-0 top-[9px] w-2 h-2 rounded-full" style={{ background: 'var(--caution)' }} />
-          {m.text} <button type="button" className="text-sm text-muted underline underline-offset-4 min-h-[44px]" onClick={() => setSetting('mentionsDismissed', [...dismissed.slice(-20), m.key])}>OK</button>
+        <li key={m.key}>
+          <IconRow Icon={HeartPulse} tone="watch" action={<button type="button" className="text-sm text-muted min-h-[44px] px-2" onClick={() => setSetting('mentionsDismissed', [...dismissed.slice(-20), m.key])}>OK</button>}>
+            <span className="tnum">{m.text}</span>
+          </IconRow>
         </li>
       ))}
     </ul>

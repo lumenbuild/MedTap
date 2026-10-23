@@ -16,6 +16,10 @@ import { plannedSets } from '../../logic/tagActions';
 import { fmtLoad, fromLoad, loadUnit, showLoad } from '../../logic/load';
 import type { Units } from '../../db/repos/settings';
 import { cancelRestEnd, scheduleRestEnd } from '../../app/native';
+import { App as CapApp } from '@capacitor/app';
+import { isNativeAndroid } from '../../platform';
+import { MedTapNative } from '../../nfc/native';
+import { watchWorkout } from '../../logic/watchWorkout';
 import { go, replace } from '../../app/router';
 import { useToast } from '../../app/toast';
 import { useNow } from '../../app/useNow';
@@ -57,6 +61,27 @@ export function WorkoutScreen({ id }: { id: string }) {
   useEffect(() => {
     if (rest && now >= rest.until) { setRest(null); void cancelRestEnd(); try { navigator.vibrate?.([200, 100, 200]); } catch { /* not supported */ } }
   }, [now, rest]);
+  // Wear OS: the next set and the rest countdown on the watch, and its "Done" taps ticking sets here.
+  const fromWatch = useRef<(setIds: string[]) => void>(() => {});
+  const watchJson = useRef('');
+  useEffect(() => {
+    if (!isNativeAndroid || !w || !own) return;
+    const defs = allExercises(own);
+    const state = watchWorkout(w, (exId) => defs.find((d) => d.id === exId) ?? FALLBACK(exId), settings?.units ?? 'metric', rest?.until ?? 0, Date.now());
+    const json = JSON.stringify({ ...state, t: 0 });
+    if (json === watchJson.current) return;
+    watchJson.current = json;
+    MedTapNative.setWatchWorkout({ json: JSON.stringify(state) }).catch(() => { /* no watch support */ });
+  }, [w, rest, own, settings?.units]);
+  useEffect(() => {
+    if (!isNativeAndroid) return;
+    const drain = async () => {
+      try { const { items } = await MedTapNative.takeWatchSets(); if (items.length) fromWatch.current(items.map((it) => it.setId)); } catch { /* none */ }
+    };
+    const hs = [MedTapNative.addListener('watchSet', () => { void drain(); }), CapApp.addListener('resume', () => { void drain(); })];
+    void drain();
+    return () => { for (const h of hs) void h.then((x) => x.remove()); };
+  }, [!!w]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!workouts || !own || !settings || !fam) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
   if (!loaded || !w) return <p className="border-t border-border pt-5">This workout doesn't exist any more. <a className="underline" href="#/training">Back to Training</a></p>;
   const units = settings.units;
@@ -88,9 +113,9 @@ export function WorkoutScreen({ id }: { id: string }) {
   };
 
   /** Tick a set: start the rest worked out for it, or (in a superset) go straight to the partner's next set. */
-  const tick = (s: WorkoutSet, def: ExerciseDef) => {
+  const tick = (s: WorkoutSet, def: ExerciseDef, from: Workout = w) => {
     const nowDone = !s.done;
-    let next = { ...w, sets: w.sets.map((x) => (x.id === s.id ? { ...x, done: nowDone } : x)) };
+    let next = { ...from, sets: from.sets.map((x) => (x.id === s.id ? { ...x, done: nowDone } : x)) };
     if (nowDone) next = adjustFrom(next, { ...s, done: true }, def);
     update(next);
     if (!nowDone || finished || settings.restSeconds <= 0) return;
@@ -104,6 +129,17 @@ export function WorkoutScreen({ id }: { id: string }) {
     void scheduleRestEnd(until, nextText ?? 'Time for your next set');
   };
   const skipRest = () => { setRest(null); void cancelRestEnd(); };
+  // "Done" taps on the watch: tick those sets as if tapped here (the last one starts the rest; earlier ones, from while
+  // the phone was asleep, are just marked done).
+  fromWatch.current = (setIds) => {
+    if (finished) return;
+    const ids = setIds.filter((sid) => w.sets.some((x) => x.id === sid && !x.done));
+    if (!ids.length) return;
+    const last = ids[ids.length - 1];
+    const marked = { ...w, sets: w.sets.map((x) => (ids.includes(x.id) && x.id !== last ? { ...x, done: true } : x)) };
+    const s = marked.sets.find((x) => x.id === last)!;
+    tick(s, defOf(s.exerciseId), marked);
+  };
 
   const superset = (exId: string) => {
     const i = order.indexOf(exId);
@@ -273,7 +309,7 @@ function SwapSheet({ def, defs, others, units, onPick, onClose }: { def: Exercis
           })}
         </ul>
       )}
-      <p className="text-sm text-muted mt-2">Swaps the sets you haven’t done yet. Same main muscle; ones you’ve done before come first.</p>
+      <p className="text-sm text-muted mt-2">Same muscle; yours first</p>
     </Sheet>
   );
 }

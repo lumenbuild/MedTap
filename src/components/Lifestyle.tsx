@@ -43,7 +43,7 @@ export function OnOffCards({ meds, doses, checkIns, now, s }: { meds: Medication
           </div>
         ))}
       </div>
-      <p className="text-xs text-muted mt-1">Check-in averages on days you took it and days you didn't (breaks, days off, skipped). Sleep is the next morning's.</p>
+      <p className="text-xs text-muted mt-1">Days taken vs not</p>
     </Section>
   );
 }
@@ -71,7 +71,7 @@ export function SubstanceCard({ checkIns, now, s }: { checkIns: CheckIn[]; now: 
 
 export function CycleCard({ checkIns, now }: { checkIns: CheckIn[]; now: number }) {
   const v = cycleView(checkIns, now);
-  if (!v) return <Section id="cycle-h" title="Your cycle"><p className="text-[15px] text-muted">Tap Period on Today when one starts. After two, check-ins show here by phase of the cycle.</p></Section>;
+  if (!v) return <Section id="cycle-h" title="Your cycle"><p className="text-[15px] text-muted">Tap Period on Today when one starts.</p></Section>;
   return (
     <Section id="cycle-h" title="Your cycle">
       <p className="text-[15px] mb-2 tnum">{v.today ? `Day ${v.today} today` : ''}{v.averageLength ? ` · usually ${v.averageLength} days` : ''} · {v.starts.length} cycles logged</p>
@@ -124,7 +124,7 @@ export function HeartAfterCards({ meds, doses, daily, vitals, now, s }: { meds: 
           );
         })}
       </ul>
-      <p className="text-xs text-muted mt-1">From heart rate imported from your watch and readings you've logged. Ask your prescriber about anything that concerns you.</p>
+      <p className="text-xs text-muted mt-1">From heart rate imported from your watch and readings you've logged.</p>
     </Section>
   );
 }

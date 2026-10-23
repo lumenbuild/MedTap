@@ -5,7 +5,7 @@ import { fmtAmount } from '../logic/format';
 
 const WARN_TEXT: Record<DrawWarning, string> = {
   'too-small': 'Under 2 units is hard to measure accurately. More water in the vial makes each dose bigger to draw.',
-  'too-big': "That's more than this syringe holds. Use a bigger syringe or split the dose, as your prescriber or pharmacist advises.",
+  'too-big': "More than this syringe holds.",
   'not-exact': "This isn't on a half-unit mark, so round to the nearest mark you can read.",
 };
 
@@ -67,7 +67,7 @@ export function DrawGuide({ med, amount }: { med: Pick<Medication, 'id' | 'stren
       <div className="rounded-btn bg-primary-soft p-3 space-y-1" aria-live="polite">
         <p className="text-sm font-medium">On the pen</p>
         <p className="text-2xl font-semibold tnum">{g.clicks !== undefined ? `${g.clicks} click${g.clicks === 1 ? '' : 's'}` : `Set to ${fmtAmount(amount, med.unit)}`}</p>
-        {g.clicks !== undefined && !Number.isInteger(g.clicks) && <p className="text-sm">Not a whole click: check the dose with your pharmacist.</p>}
+        {g.clicks !== undefined && !Number.isInteger(g.clicks) && <p className="text-sm">Not a whole click.</p>}
       </div>
     );
   }
@@ -76,7 +76,7 @@ export function DrawGuide({ med, amount }: { med: Pick<Medication, 'id' | 'stren
       <p className="text-sm font-medium">Draw to</p>
       <DrawResult draw={g.draw} capacity={g.capacity} syringe={g.syringe} />
       {parts.length > 0 && <p className="text-sm tnum">Also in this dose: {parts.map((b) => fmtAmount(b.amount, b.unit) + ' ' + b.name).join(', ')}</p>}
-      <p className="text-xs text-muted">From {fmtAmount(g.amount, med.unit)} mixed with {g.waterMl} mL. Check against your own working or your pharmacist's.</p>
+      <p className="text-xs text-muted">From {fmtAmount(g.amount, med.unit)} mixed with {g.waterMl} mL.</p>
     </div>
   );
 }

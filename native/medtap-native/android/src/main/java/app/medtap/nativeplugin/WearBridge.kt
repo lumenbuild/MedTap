@@ -15,54 +15,65 @@ import org.json.JSONObject
  */
 object WearBridge {
     private const val PREFS = "medtap.wear"
-    private const val QUEUE = "queue"
     const val STATE_PATH = "/medtap/state"
     const val LOG_PATH = "/medtap/log"
+    /** The workout in progress (next set, rest end), and the watch's "set done" taps. */
+    const val WORKOUT_PATH = "/medtap/workout"
+    const val SET_PATH = "/medtap/set"
+    const val LOGS = "queue"
+    const val SETS = "sets"
 
     /** Called with the widget's JSON each time it changes. Fails quietly when there's no watch or no Play services. */
     @JvmStatic
-    fun push(context: Context, json: String) {
+    fun push(context: Context, json: String) = put(context, STATE_PATH, json)
+
+    /** The workout screen's state for the watch ("{}" when there's no workout going). */
+    @JvmStatic
+    fun pushWorkout(context: Context, json: String) = put(context, WORKOUT_PATH, json)
+
+    private fun put(context: Context, path: String, json: String) {
         try {
-            val req = PutDataMapRequest.create(STATE_PATH)
+            val req = PutDataMapRequest.create(path)
             req.dataMap.putString("json", json)
             req.dataMap.putLong("t", System.currentTimeMillis())
             Wearable.getDataClient(context).putDataItem(req.asPutDataRequest().setUrgent())
         } catch (_: Exception) { /* no watch support on this phone */ }
     }
 
+    /** Queue a tap (`queue` is LOGS or SETS) and tell the app if it's running. */
     @JvmStatic
     @Synchronized
-    fun enqueue(context: Context, item: JSONObject) {
+    fun enqueue(context: Context, queue: String, item: JSONObject) {
         val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val arr = JSONArray(p.getString(QUEUE, "[]"))
+        val arr = JSONArray(p.getString(queue, "[]"))
         arr.put(item)
-        p.edit().putString(QUEUE, arr.toString()).apply()
-        listener?.invoke()
+        p.edit().putString(queue, arr.toString()).apply()
+        listener?.invoke(queue)
     }
 
     /** The queued taps (oldest first), cleared. */
     @JvmStatic
     @Synchronized
-    fun take(context: Context): String {
+    fun take(context: Context, queue: String): String {
         val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val s = p.getString(QUEUE, "[]") ?: "[]"
-        p.edit().putString(QUEUE, "[]").apply()
+        val s = p.getString(queue, "[]") ?: "[]"
+        p.edit().putString(queue, "[]").apply()
         return s
     }
 
-    /** Set by the plugin while the app runs, so a tap is handled at once. */
+    /** Set by the plugin while the app runs, so a tap is handled at once (called with the queue's name). */
     @JvmStatic
-    var listener: (() -> Unit)? = null
+    var listener: ((String) -> Unit)? = null
 }
 
-/** Receives the watch's "log" messages: {"medId": "...", "at": 1730000000000}. */
+/** Receives the watch's messages: "log" {"medId": "...", "at": 1730000000000} and "set done" {"setId": "...", "at": ...}. */
 class MedTapWearListener : WearableListenerService() {
     override fun onMessageReceived(event: MessageEvent) {
-        if (event.path != WearBridge.LOG_PATH) return
+        val queue = when (event.path) { WearBridge.LOG_PATH -> WearBridge.LOGS; WearBridge.SET_PATH -> WearBridge.SETS; else -> return }
         try {
             val o = JSONObject(String(event.data, Charsets.UTF_8))
             if (!o.has("at")) o.put("at", System.currentTimeMillis())
-            WearBridge.enqueue(applicationContext, o)
+            WearBridge.enqueue(applicationContext, queue, o)
         } catch (_: Exception) { /* malformed: ignore */ }
     }
 }

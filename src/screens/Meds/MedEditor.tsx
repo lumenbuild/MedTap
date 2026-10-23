@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ingredientsOf, ingredientsText, parseIngredients } from '../../logic/ingredients';
 import { shownName } from '../../logic/privacy';
-import { Check, ClipboardList, EyeOff, Plus, X } from 'lucide-react';
+import { interactions, unstudied } from '../../logic/interactions';
+import { Check, ClipboardList, EyeOff, Link2, Plus, X } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Medication, SyringeType } from '../../db/schema';
 import { db } from '../../db/db';
@@ -296,7 +297,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
         {HAS_PEPTIDES && (f.mixed || (settings?.peptideTools && f.form === 'injection')) && <MixedVialFields f={f} set={set} errors={errors} vials={existing?.vials} />}
         {fam?.many && (
           <Select label="Who is this for?" value={f.personId || fam.personId} onChange={(e) => set('personId', e.target.value)}
-            help={f.personId === 'shared' ? "One stock count for everyone. When it's logged, you choose who took it, and each person's count and history are their own." : undefined}>
+            help={f.personId === 'shared' ? 'One stock for everyone' : undefined}>
             {fam.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             <option value="shared">Shared (anyone in the family)</option>
           </Select>
@@ -310,7 +311,26 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
           return (
             <TextInput label="Active ingredients (optional)" value={f.ingredients} onChange={(e) => set('ingredients', e.target.value)} autoComplete="off"
               placeholder={detected.length ? ingredientsText(detected) : 'e.g. paracetamol 500, codeine 8'}
-              help={`${detected.length && !f.ingredients.trim() ? `From the name: ${ingredientsText(detected)}. ` : ''}mg in each ${f.form === 'injection' ? 'dose unit' : f.form}. Used to spot the same ingredient in two medicines, and to add them up against your limits.`} />
+              help={detected.length && !f.ingredients.trim() ? `Found: ${ingredientsText(detected)}` : undefined} />
+          );
+        })()}
+        {(() => {
+          // Pairs with this person's other medicines that are worth raising with a pharmacist (as typed, before saving).
+          const draft: Medication = { ...(existing ?? { id: '__new', color: '', icon: 'pill', schedule: { type: 'prn' }, defaultAmount: 0, createdAt: '', updatedAt: '' }),
+            name: f.name, strength: Number(f.strength) || 0, unit: f.unit, form: f.form, archived: false,
+            ingredients: f.ingredients.trim() ? parseIngredients(f.ingredients) : undefined,
+            shared: f.personId === 'shared', personId: f.personId === 'shared' ? undefined : storedPerson(f.personId) } as Medication;
+          const others = (meds ?? []).filter((m) => m.id !== draft.id);
+          const pairs = f.name.trim() ? interactions([draft, ...others], (m) => personOf(m)).filter((x) => x.a.id === draft.id || x.b.id === draft.id) : [];
+          const note = HAS_PEPTIDES && f.name.trim() && unstudied(draft);
+          if (!pairs.length && !note) return null;
+          return (
+            <div className="space-y-2 pt-1" role="note">
+              {pairs.map((x) => (
+                <p key={x.key} className="text-sm flex items-center gap-2"><Link2 size={16} aria-hidden="true" className="shrink-0" /><span><span className="font-semibold">With {shownName(x.a.id === draft.id ? x.b : x.a)}:</span> {x.why}</span></p>
+              ))}
+              {note && <p className="text-sm flex items-center gap-2"><Link2 size={16} aria-hidden="true" className="shrink-0" />Interactions not studied</p>}
+            </div>
           );
         })()}
       </Card>
@@ -319,7 +339,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
         <h2 className="text-sm font-medium text-muted flex items-center gap-2"><EyeOff size={20} className="text-primary" aria-hidden="true" /> Privacy</h2>
         <TextInput label="Nickname (optional)" value={f.nickname} onChange={(e) => set('nickname', e.target.value)} autoComplete="off"
           placeholder="e.g. Morning tablet"
-          help={`Shown instead of the real name on Today, when the tag is tapped, in calendar reminders and on Trends, with a plain grey icon. The real name only shows on this page, in the doctor report and in exports.`} />
+          help="Shown instead of the name" />
         {f.nickname.trim() && (
           <div className="flex items-center gap-3 rounded-btn bg-surface-2 p-3" aria-label="Preview">
             <MedBadge color="private" icon={f.icon} />
@@ -332,7 +352,6 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
       <Card className="space-y-4">
         <div>
           <h2 className="text-sm font-medium text-muted">From your prescription</h2>
-          <p className="text-sm text-muted mt-1">Enter what your prescriber told you. {APP_NAME} only reminds you of your own settings.</p>
         </div>
         <ScheduleFields f={f} set={set as ScheduleSetter} errors={errors} unit={f.unit} cycles={!!settings?.peptideTools} />
       </Card>
@@ -340,7 +359,6 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
       <Card className="space-y-4">
         <div>
           <h2 className="text-sm font-medium text-muted flex items-center gap-2"><ClipboardList size={20} className="text-primary" aria-hidden="true" /> Instructions</h2>
-          <p className="text-sm text-muted mt-1">Shown every time this medication is tapped or logged. You, a carer, pharmacist or doctor can write them.</p>
         </div>
         <TextArea label="Instructions (optional)" value={f.instructions} onChange={(e) => set('instructions', e.target.value)} rows={4}
           placeholder="For example: Take with food. Swallow whole, don't crush." />
@@ -379,7 +397,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
         <h2 className="text-sm font-medium text-muted">Stock and refills</h2>
         <TextInput label={f.mixed ? `How many ${f.kind === 'pen' ? 'pens' : 'vials'} you have (optional)` : `How many ${f.unit === 'tablet' || !Number(f.strength) ? `${f.form}s` : `${f.form}s (${f.strength} ${f.unit} each)`} you have (optional)`}
           type="number" inputMode="decimal" min="0" step="any" value={f.stockCount} onChange={(e) => set('stockCount', e.target.value)} error={errors.stockCount}
-          help={perDose !== undefined ? `Goes down by ${perDose} each time you log ${fmtAmount(draftAmount, f.unit)}. Undo puts it back.` : undefined} />
+          help={perDose !== undefined ? `−${perDose} per dose` : undefined} />
         {existing && !existing.peptide && existing.stockCount !== undefined && <CountButton med={existing} onCounted={(n) => set('stockCount', String(n))} />}
         <TextInput label="Let me know when it's down to (optional)" type="number" inputMode="decimal" min="0" step="any" value={f.lowStockAt}
           onChange={(e) => set('lowStockAt', e.target.value)} error={errors.lowStockAt} />
@@ -389,15 +407,13 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
           <TextInput label="Script expires (optional)" type="date" value={f.scriptExpiry} onChange={(e) => set('scriptExpiry', e.target.value)} />
         </div>
         <TextInput label={f.mixed ? `Price per ${f.kind === 'pen' ? 'pen' : 'vial'} ($, optional)` : 'Price per pack or script ($, optional)'} type="number" inputMode="decimal" min="0" step="any"
-          value={f.cost} onChange={(e) => set('cost', e.target.value)} help={f.mixed ? 'For cost per mg, per week and per month on Protocol. A vial’s own price (on its stock entry) overrides this.' : 'For the monthly cost on Meds.'} />
-        <TextArea label="Script and refill notes (optional)" value={f.scriptNotes} onChange={(e) => set('scriptNotes', e.target.value)}
-          help="For example: 2 repeats left, next refill around 14 Nov." />
+          value={f.cost} onChange={(e) => set('cost', e.target.value)} help={undefined} />
+        <TextArea label="Script and refill notes (optional)" value={f.scriptNotes} onChange={(e) => set('scriptNotes', e.target.value)} />
       </Card>
 
       {existing && (
         <Card className="space-y-3">
           <Button variant="secondary" className="w-full" onClick={archive}>{existing.archived ? 'Restore medication' : 'Archive medication'}</Button>
-          <p className="text-sm text-muted">Archiving hides it from Today but keeps its history.</p>
           <Button variant="danger" className="w-full" onClick={() => { setTyped(''); setConfirmDelete(true); }}>Delete permanently</Button>
         </Card>
       )}
@@ -412,7 +428,6 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
         {change && (
           <div className="space-y-4">
             <ul className="space-y-1">{change.lines.map((l) => <li key={l} className="tnum">{l}</li>)}</ul>
-            <p className="text-sm text-muted">Recording it marks the date on your charts, so you can see what changed and when.</p>
             <label className="block space-y-1.5">
               <span className="block text-sm font-medium">Date of the change</span>
               <input type="date" value={change.date} max={format(Date.now(), 'yyyy-MM-dd')} onChange={(e) => setChange({ ...change, date: e.target.value })}
@@ -465,7 +480,7 @@ function MixedVialFields({ f, set, errors, vials }: { f: Form; set: <K extends k
       </Select>
       {f.mixed && f.kind === 'vial' && (
         <>
-          <TextInput label="Water usually added to a vial (mL)" help="You can change it for each vial when you mix it." type="number" inputMode="decimal" min="0" step="any" value={f.waterMl}
+          <TextInput label="Water usually added to a vial (mL)" type="number" inputMode="decimal" min="0" step="any" value={f.waterMl}
             onChange={(e) => set('waterMl', e.target.value)} error={errors.waterMl} />
           <div className="grid grid-cols-2 gap-3 items-start">
             <Select label="Syringe" value={f.syringe} onChange={(e) => { set('syringe', e.target.value as SyringeType); set('syringeUnits', String(syringeSizes(e.target.value as SyringeType)[0].units)); }}>
@@ -479,16 +494,15 @@ function MixedVialFields({ f, set, errors, vials }: { f: Form; set: <K extends k
         </>
       )}
       {f.mixed && f.kind === 'pen' && (
-        <TextInput label={`Amount per click of the dial (${f.unit}, optional)`} help="From the pen's instructions. Then Log dose shows the clicks for each dose."
+        <TextInput label={`Amount per click of the dial (${f.unit}, optional)`}
           type="number" inputMode="decimal" min="0" step="any" value={f.amountPerClick} onChange={(e) => set('amountPerClick', e.target.value)} error={errors.amountPerClick} />
       )}
       {f.mixed && (
         <>
           <TextInput label={f.kind === 'pen' ? 'Use a pen within (days of first use, optional)' : 'Use a mixed vial within (days, optional)'}
-            help="From the label or your pharmacist. Today warns you when it's past it."
             type="number" inputMode="numeric" min="1" step="1" value={f.useWithinDays} onChange={(e) => set('useWithinDays', e.target.value)} error={errors.useWithinDays} />
           <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
-            <TextInput label="Half-life (optional)" help="For the estimated level chart in Trends. Use the figure from the product information."
+            <TextInput label="Half-life (optional)"
               type="number" inputMode="decimal" min="0" step="any" value={f.halfLife} onChange={(e) => set('halfLife', e.target.value)} error={errors.halfLife} />
             <Select label="Unit" value={f.halfLifeUnit} onChange={(e) => set('halfLifeUnit', e.target.value as 'hours' | 'days')}>
               <option value="hours">hours</option><option value="days">days</option>
@@ -507,7 +521,7 @@ function BlendFields({ f, set }: { f: Form; set: <K extends keyof Form>(k: K, v:
   return (
     <div className="space-y-2">
       <p className="text-sm font-medium">Blend (optional)</p>
-      <p className="text-sm text-muted">If each vial holds more than one peptide, add the others here with their amount per vial. The name and amount above are the first.</p>
+      <p className="text-sm text-muted">Other peptides in the same vial</p>
       {f.blend.map((b, i) => (
         <div key={i} className="grid grid-cols-[1fr_5rem_4.5rem_auto] gap-2 items-end">
           <TextInput label="Also contains" value={b.name} onChange={(e) => update(i, { name: e.target.value })} />

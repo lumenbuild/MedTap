@@ -471,6 +471,76 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
 - Browser checks: watch tap logged once at tap time, Settings → Watch, warm-ups, PB in reach, strength for body weight;
   fit audit and axe clean; TapDose scan clean.
 
+## Reminders, updates, interactions, watch workouts (owner picked 1, 2, 5 "about peptides too", 6)
+- **Snooze and Skip** on dose reminders (with "Log it"): "In 15 min" reminds again then (kept in settings as
+  `snoozes`, so the resync that replaces every reminder keeps it; dropped once anything is logged for the medicine);
+  "Skip" records the dose as skipped at its due time. `src/logic/notify.ts` (`snoozeOf`, `liveSnoozes`,
+  `withoutSnoozed`). Android opens the app briefly for either action (Capacitor's notification actions).
+- **One-tap update install** (Android): the update card's Install downloads the build in the app (progress bar),
+  checks it's the same app and a newer version code, and opens Android's installer (the person confirms; Android also
+  checks the signing key). First time: Android's "Install unknown apps" setting for the app opens, with a note.
+  `installUpdate` in the native plugin; `REQUEST_INSTALL_PACKAGES`.
+- **Interaction flags** (`src/logic/interactions.ts`): well-known pairs from labels and standard references, worded
+  "worth asking your pharmacist or doctor": serotonin (SSRIs/SNRIs with tramadol, tapentadol, triptans, St John's
+  wort), bleeding (SSRIs or blood thinners with NSAIDs), opioids with sedatives, stimulants with decongestants,
+  ACE/ARB with NSAIDs or spironolactone, lithium, PDE5 with nitrates. Peptides: GLP-1s (incl. retatrutide,
+  survodutide) with insulin or sulfonylureas, tirzepatide with the pill, growth-hormone releasers (ipamorelin,
+  CJC-1295, sermorelin, tesamorelin, MK-677) with diabetes medicines, cagrilintide/pramlintide with insulin, PT-141
+  with naltrexone. Research peptides (BPC-157, TB-500, GHK-Cu, melanotan, etc.) get "how it mixes hasn't been
+  studied" on the editor (MedTap only). Cards on Meds (dismissible), pairs on the medicine's page while typing.
+  Many more brands and generics in `ingredients.ts`; names keep digits now so "PT-141", "BPC-157" match.
+- **Watch extras**: a watch-face complication (short and long text) counting down to the next dose, or the rest
+  left during a workout; during a workout the watch app shows the next set (exercise, set number, load) with Done and
+  the rest countdown, and the tile shows the set. Done is sent to the phone, which ticks the set exactly like a tap
+  (rest timer, auto-adjust); taps queued while the phone slept are marked done together. Phone side:
+  `src/logic/watchWorkout.ts`, `setWatchWorkout` / `takeWatchSets`, `WearBridge` queues per kind.
+- Tests: `tests/interactions.test.ts` (incl. snooze), `tests/watch-workout.test.ts`. Browser (simulated native
+  bridge): snooze, skip, interaction card, research-peptide note, editor pairs, Install + permission path, watch next
+  set and Done → rest. Not yet tried on a real phone or watch.
+
+## Visual, predictable, less writing (owner: "more graphical and visual rather than a heap of writing. Remove caution notes. As predictable to use as possible. Features aren't hidden, settings make sense without being over explained")
+- Building blocks in `src/components/ui/Visual.tsx`: mini ring, bar, icon row (one short line with a coloured icon),
+  action tile, stat tile; `JumpBar` (chips that jump to each chart on Trends).
+- Tab bar has icons; the Settings gear is in the header of every main tab (it was only on Today).
+- Today: today's doses as a ring; notes (effect window, script visit, readings, odd records, appointment) as icon
+  rows with a few words; check-in prompt is five faces (one tap starts it with that mood); refill card shows what's
+  left and a days-left bar; protein and water as bars; quick logging as an icon grid; last 7 days of a peptide as stat
+  tiles; digest and readiness as icon rows and a ring; backup, install and update cards are one line.
+- Caution notes removed: no "check with your pharmacist / prescriber", "not a promise", "not a measurement",
+  disclaimer on Settings and onboarding, or tinted caution banners for information. What matters stays, as data:
+  interaction and same-ingredient pairs are a neutral one-line row ("Ozempic + Lantus · blood sugar can go too
+  low"); the 24-hour ingredient total when logging is a bar against the limit; errors still show as errors.
+- Settings is a list: feature switches with icons at the top (peptides, training, cycle, reminders), then rows with
+  their current value that open short pages (Reminders, Doses, Training, Check-ins, People and sync, Health data,
+  Backup, Privacy, Display, Watch, Tools, About). Each option has a short label and at most a few words of hint.
+- Tools are where they're used as well as in Settings: Add / Tags / Report tiles on Meds; Calculator, Supplies, Enough
+  until and Report tiles on Protocol; Cardio / Routines / Plates / Tags tiles on Training; Doctor report and lab
+  results tiles on Trends.
+- Meds rows: chips (tags, stock and days, repeats, cost a month, expiry, planned change) and a stock bar.
+- Help text cut across the medicine editor, schedules, tags, vials, training, sync and charts; chart footnotes
+  are a few words ("3 shots · 81 check-ins").
+
+## Charts: one system, one home per measure (owner: "better systems for data visualisation without doubling up")
+- `src/components/charts/TrendChart.tsx` is the one over-time chart: one y-axis; a single series in ink (no legend;
+  the title names it), 2+ series in fixed categorical slots (`METRIC_SLOT`: mood, energy, focus, appetite, systolic,
+  diastolic) with a legend and labels at the line ends (skipped when they'd collide); 2px lines, 8px dots with a 2px
+  surface ring, raw readings lighter than the line; forecasts dashed with the likely range as a light wash; goals as
+  a dotted ink line; a crosshair on hover; and an automatic table. Weight, goals, feelings, vitals, estimated level
+  and strength all use it.
+- Palette checked with the dataviz validator: light and dark both pass (CVD worst adjacent ΔE 9.1 / 8.4). Three
+  light hues are under 3:1 against white, so every chart keeps a table and multi-series charts label their lines.
+- One home for each measure:
+  - Weight: the Trends weight chart, which now carries the goal line and the forecast (through the dose plan when
+    there is one, else towards the goal), looking as far ahead as the range looks back. Removed: the separate weight
+    goal chart, "Appetite and weight", and the Protocol weight-path chart (Protocol shows one figure, "Weight in 12
+    weeks", that links to the chart).
+  - Appetite: a line in "How you've felt" (with mood, energy and focus).
+  - Estimated level: Protocol only (taken + plan); the Trends copy is gone.
+  - A goal for waist, body fat or lean mass gets its chart, which replaces that measurement's small chart.
+  - The peptide week strip and 7-day stats live on Protocol only (Today keeps the next-dose hero). Stock and level
+    tiles dropped from the 7-day stats since Protocol shows both. The Supplies header links that repeated the tools
+    tiles are gone.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 

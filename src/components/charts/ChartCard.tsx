@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Table2 } from 'lucide-react';
 
 /** Title, one plain-English line, the chart, and the same data as a table (for screen readers, print and colour-independent reading). */
 export function ChartCard({ title, summary, empty, children, table, height = 220, footer }: {
@@ -17,7 +18,7 @@ export function ChartCard({ title, summary, empty, children, table, height = 220
           {footer}
           {table && table.rows.length > 0 && (
             <details className="mt-3 chart-table">
-              <summary className="min-h-[44px] flex items-center text-sm font-semibold text-primary cursor-pointer no-print">Show as table</summary>
+              <summary className="min-h-[44px] inline-flex items-center gap-1.5 text-sm text-muted cursor-pointer no-print"><Table2 size={16} aria-hidden="true" />Table</summary>
               <div className="overflow-x-auto" tabIndex={0}>
                 <table className="w-full text-sm tnum mt-2">
                   <thead><tr>{table.head.map((h) => <th key={h} className="text-left font-semibold py-1.5 pr-3 border-b border-border">{h}</th>)}</tr></thead>

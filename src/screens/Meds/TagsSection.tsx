@@ -37,7 +37,7 @@ export function TagsSection({ med }: { med: Medication }) {
     <Card>
       <h2 className="text-sm font-medium text-muted">Tags</h2>
       {tags.length === 0 ? (
-        <p className="text-muted mt-1">Link a tag to log {med.name} by tapping your phone on the bottle.</p>
+        <p className="text-muted mt-1">Tap to log</p>
       ) : (
         <ul className="mt-2 -mx-2">
           {tags.map((t) => (
@@ -72,7 +72,6 @@ export function TagsSection({ med }: { med: Medication }) {
             <TagTest tagId={selected.id} medName={shownName(med)} />
             <Button variant="secondary" className="w-full" onClick={() => { setQr(tagUrl(selected.id)); setSelected(null); }}>Print QR sticker</Button>
             <Button variant="danger" className="w-full" onClick={() => unlink(selected)}>Unlink this tag</Button>
-            <p className="text-sm text-muted">Unlinking doesn't erase the tag. Tapping it afterwards shows “New tag found”.</p>
           </div>
         )}
       </Sheet>

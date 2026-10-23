@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText } from 'lucide-react';
+import { FileText, FlaskConical } from 'lucide-react';
 import { useWorkouts, useAppointments, useDaily, useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings, useVitals } from '../../app/data';
 import { CheckInForecastCard, EffectWindowCards, SleepImpactCard } from '../../components/Smart';
 import { TrainingTrends } from '../../components/Fitness';
@@ -8,15 +8,20 @@ import { checkInForecast, sleepImpact } from '../../logic/habits';
 import { appointmentsAround } from '../../logic/appointments';
 import { dayKey } from '../../logic/stats';
 import { dosesForPerson, medIsFor, personOf } from '../../db/repos/people';
+import { JumpBar } from '../../components/ui/JumpBar';
+import { Tile } from '../../components/ui/Visual';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
 import { RANGE_DAYS, rangeStart, type Range } from '../../logic/stats';
 import { Segmented } from '../../components/ui/Field';
 import {
-  AdherenceHeatmap, AppetiteWeight, VitalsCharts, DoseTimingCharts, FeelingsChart, IntervalCharts, MeasurementCharts, NoticedMost, WeightChart,
+  AdherenceHeatmap, VitalsCharts, DoseTimingCharts, FeelingsChart, IntervalCharts, MeasurementCharts, NoticedMost, WeightChart,
 } from '../../components/charts/Charts';
 import { GoalForecastCharts } from '../../components/charts/GoalCharts';
-import { BlendCharts, DoseLevelsCards, EstimatedLevelCharts } from '../../components/charts/PeptideCharts';
+import { BlendCharts, DoseLevelsCards } from '../../components/charts/PeptideCharts';
+import { weightPath } from '../../logic/predict';
+import { goalLine, goalView } from '../Body/Goals';
+import { fmtWeight } from '../../logic/units';
 import { shownName } from '../../logic/privacy';
 import { HAS_BODY, HAS_VISITS } from '../../edition';
 
@@ -80,20 +85,39 @@ export function Trends() {
         <Segmented<Range | 'appt'> label="Date range" value={r} onChange={pick}
           options={[{ value: '7d', label: '7D' }, { value: '30d', label: '30D' }, { value: '90d', label: '90D' }, { value: 'all', label: 'All' },
             ...(lastAppt ? [{ value: 'appt' as const, label: 'Appt' }] : [])]} />
+        <JumpBar inline deps={[r, fam.personId]} />
         {r === 'appt' && <p className="text-xs text-muted mt-1">Since your appointment on {new Date(`${lastAppt!.date}T12:00`).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}, compared with the {days} days before it.</p>}
       </div>
       {HAS_BODY && (
         <>
-          <GoalForecastCharts goals={fam.people.find((p) => p.id === fam.personId)?.goals ?? []} entries={body} units={settings.units} now={now} />
-          <WeightChart entries={body} units={settings.units} {...common} marks={weightMarks} />
-          <MeasurementCharts entries={body} units={settings.units} {...common} />
+          {(() => {
+            // One chart per measure: weight carries its goal and forecast; other goals get their own chart, which then
+            // stands in for that measurement's small chart.
+            const goals = fam.people.find((p) => p.id === fam.personId)?.goals ?? [];
+            const wGoal = goals.find((g) => g.metric === 'weightKg');
+            const path = peptideMeds[0] ? weightPath(peptideMeds[0], doses, body, now, 12, wGoal?.target) : null;
+            const gv = wGoal ? goalView(wGoal, body, now) : null;
+            const last = path?.points[path.points.length - 1];
+            // Look as far ahead as the range looks back, so history keeps its room.
+            const ahead = path ? path.points.filter((p) => p.t <= end + (end - start)) : [];
+            const forecast = path && last && ahead.length > 1
+              ? { points: ahead, text: `About ${fmtWeight(last.v, settings.units)} in ${path.points.length - 1} weeks through your plan` }
+              : gv && gv.f.level !== undefined && gv.f.eta ? { points: [{ t: now, v: gv.f.level }, { t: gv.f.eta, v: wGoal!.target }], text: goalLine(gv, settings.units) } : null;
+            const others = goals.filter((g) => g.metric !== 'weightKg');
+            return (
+              <>
+                <WeightChart entries={body} units={settings.units} {...common} marks={weightMarks} goalKg={wGoal?.target} forecast={forecast} />
+                <GoalForecastCharts goals={others} entries={body} units={settings.units} now={now} />
+                <MeasurementCharts entries={body} units={settings.units} {...common} skip={others.map((g) => g.metric)} />
+              </>
+            );
+          })()}
         </>
       )}
       {ciForecast && <CheckInForecastCard f={ciForecast} />}
       <AdherenceHeatmap meds={active} doses={doses} {...common} />
       <DoseTimingCharts meds={active} doses={doses} {...common} />
       <FeelingsChart checkIns={checkIns} events={events} meds={meds} prevStart={prevStart} {...common} />
-      <AppetiteWeight checkIns={checkIns} entries={body} units={settings.units} weight={HAS_BODY} {...common} />
       <VitalsCharts vitals={vitals} {...common} />
       <NoticedMost checkIns={checkIns} {...common} />
       <EffectWindowCards meds={active} doses={doses} checkIns={checkIns} now={now} />
@@ -107,19 +131,14 @@ export function Trends() {
       <IntervalCharts meds={active} doses={doses} {...common} />
       {peptideMeds.length > 0 && (
         <>
-          <EstimatedLevelCharts meds={peptideMeds} doses={doses} {...common} />
           <BlendCharts meds={peptideMeds} doses={doses} {...common} />
           <DoseLevelsCards meds={peptideMeds} doses={doses} body={body} checkIns={checkIns} units={settings.units} now={now} />
         </>
       )}
-      <a href="#/report" className="border-t border-border py-4 flex items-center gap-3 min-h-[56px]">
-        <FileText className="text-primary" aria-hidden="true" />
-        <span className="flex-1">
-          <span className="block font-semibold">Report for your doctor</span>
-          <span className="block text-sm text-muted">Print or save as PDF</span>
-        </span>
-      </a>
-      <p className="text-sm text-muted text-center px-4">These charts show what you've recorded. They don't interpret it. Talk to your prescriber about what it means for you.</p>
+      <div className="border-t border-border pt-4 grid grid-cols-2 gap-2" role="group" aria-label="More">
+        <Tile Icon={FileText} label="Doctor report" href="#/report" />
+        <Tile Icon={FlaskConical} label={HAS_VISITS ? 'Appointments' : 'Lab results'} href={HAS_VISITS ? '#/appointments' : '#/labs'} />
+      </div>
     </div>
   );
 }

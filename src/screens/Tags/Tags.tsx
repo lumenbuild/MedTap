@@ -38,7 +38,6 @@ export function Tags() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted">A tag holds only a link with its own code. What it does is saved on this phone, so you can change it any time without rewriting the tag.</p>
       <section aria-labelledby="ot-h">
         <h2 id="ot-h" className="text-sm font-medium text-muted mb-1">Training and everyday</h2>
         {others.length === 0 && <p className="text-muted">None yet. Stick one on a gym machine, a water bottle or the scales.</p>}

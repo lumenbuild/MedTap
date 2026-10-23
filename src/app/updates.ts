@@ -4,6 +4,7 @@
 import { edition } from '../edition';
 import { isNativeAndroid } from '../platform';
 import { getSettings, setSetting } from '../db/repos/settings';
+import { MedTapNative } from '../nfc/native';
 
 export const BUILD = Number(import.meta.env.VITE_BUILD) || 0;
 const API = `https://api.github.com/repos/lumenbuild/MedTap/releases/tags/${edition.release}`;
@@ -33,4 +34,15 @@ export async function checkForUpdate(force = false): Promise<Update | null> {
     await setSetting('latestUpdate', u);
     return build > BUILD && u.url ? u : null;
   } catch { return null; }
+}
+
+export type InstallResult = 'started' | 'permission' | 'failed';
+
+/** Download the build and open Android's installer (the person confirms there). `onPct` gets the download progress.
+ *  'permission': Android's "install unknown apps" setting was opened for this app; try again once it's allowed. */
+export async function installUpdate(u: Update, onPct: (pct: number) => void): Promise<InstallResult> {
+  const h = await MedTapNative.addListener('updateProgress', (e) => onPct(e.pct));
+  try { await MedTapNative.installUpdate({ url: u.url }); return 'started'; }
+  catch (e) { return (e as { code?: string }).code === 'permission' ? 'permission' : 'failed'; }
+  finally { void h.remove(); }
 }

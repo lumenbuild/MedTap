@@ -52,7 +52,7 @@ export function Appointments() {
             <p className="text-[17px]">{ymd(last.date)}{last.with ? ` with ${last.with}` : ''}{next ? `. Next: ${ymd(next.date)}${next.with ? ` with ${next.with}` : ''}` : ''}.</p>
             <a href="#/appointments/summary" className="inline-flex items-center min-h-[48px] px-5 rounded-btn bg-text text-bg font-medium">One-page summary</a>
           </>
-        ) : <p className="text-[15px] text-muted">Add your last appointment to see what's changed since, and to compare charts before and after it (Trends → Appt).</p>}
+        ) : <p className="text-[15px] text-muted">Add your last appointment to see what's changed since</p>}
       </section>
 
       <section className="border-t border-border pt-5 pb-3" aria-labelledby="q-h">

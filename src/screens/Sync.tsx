@@ -62,7 +62,7 @@ function SyncOff() {
           Start family sync
         </Button>
         <Button variant="secondary" className="w-full" onClick={() => setJoining(true)}>Join with an invite</Button>
-        <p className="text-sm text-muted">Start on one phone, then invite the others. If another phone has already started, join with its invite instead.</p>
+        <p className="text-sm text-muted">Start on one phone, then invite the others.</p>
       </Card>
       <Sheet open={joining} onClose={() => setJoining(false)} title="Join with an invite">
         <div className="space-y-3">

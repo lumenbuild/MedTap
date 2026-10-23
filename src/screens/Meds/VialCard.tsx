@@ -21,6 +21,7 @@ import { moveVialTags, restoreTag } from '../../db/repos/tags';
 import { LinkTagSheet } from './LinkTagSheet';
 import { VialLabelSheet } from './VialLabel';
 import { Card } from '../../components/ui/Card';
+import { IconRow } from '../../components/ui/Visual';
 import { Button } from '../../components/ui/Button';
 import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { TextArea, TextInput } from '../../components/ui/Field';
@@ -69,7 +70,7 @@ export function VialCard({ med }: { med: Medication }) {
           <ChevronRight className="text-muted mt-1" aria-hidden="true" />
         </button>
       ) : (
-        <p className="text-muted">Tap below when you {pen ? 'start a pen' : 'mix a vial'}, and {APP_NAME} keeps count of what's left in it.</p>
+        <p className="text-muted">Counts what's left</p>
       )}
       <DrawGuide med={med} amount={med.defaultAmount} />
       {v && <VialTagRow med={med} vialId={v.vial.id} onLink={() => setLinking(true)} onLabel={() => setLabel(true)} />}
@@ -180,7 +181,7 @@ function StartSheet({ med, stock, onClose, onStarted }: { med: Medication; stock
           <TextInput label={`Amount in it (${med.unit})`} type="number" inputMode="decimal" min="0" step="any" value={amount} onChange={(e) => setAmount(e.target.value)} />
         )}
         {!pen && (
-          <TextInput label="Water added (mL)" help="Units for this vial are worked out from this." type="number" inputMode="decimal" min="0" step="any"
+          <TextInput label="Water added (mL)" type="number" inputMode="decimal" min="0" step="any"
             value={water} onChange={(e) => setWater(e.target.value)} error={waterOk ? undefined : 'Enter the water you added.'} />
         )}
         {flagged && (
@@ -254,7 +255,6 @@ function AddSheet({ med, onClose }: { med: Medication; onClose: () => void }) {
           toast(found.length ? `Filled in the ${found.join(', ')}. Check them.` : "Couldn't find a lot or expiry on it. Type them in.");
         }} />
         <BatchFields v={v} set={(k, x) => setV((p) => ({ ...p, [k]: x }))} unit={med.unit} />
-        <p className="text-sm text-muted">Same details for all of them. Add photos of the label or certificate from each one's page.</p>
         <SheetActions>
           <Button className="w-full min-h-[56px]" disabled={!(Number.isInteger(n) && n >= 1 && n <= 50)} onClick={save}>Add to stock</Button>
         </SheetActions>
@@ -337,15 +337,12 @@ export function VialAlerts({ meds, doses, now }: { meds: Medication[]; doses: Do
       {alerts.map(({ m, v }) => {
         const word = isPen(m) ? 'pen' : 'vial';
         return (
-          <Card key={m.id} className="bg-caution-soft shadow-none flex gap-3">
-            <FlaskConical className="text-caution shrink-0 mt-0.5" aria-hidden="true" />
-            <div className="flex-1 space-y-2">
-              <p><strong>{shownName(m)} {word}:</strong>{' '}
-                {v.expired ? `past its use-within date (${isPen(m) ? 'started' : 'mixed'} ${fmtDay(v.startedAt)}).` : v.dosesLeft === 0 ? 'probably empty.' : 'about 1 dose left.'}
-                {' '}{stockVials(m).length ? `${stockVials(m).length} in stock.` : `None in stock in ${APP_NAME}.`}
-              </p>
-              <Button variant="secondary" onClick={() => { location.hash = `#/meds/${m.id}`; }}>{isPen(m) ? 'Start a new pen' : 'Mix a new vial'}</Button>
-            </div>
+          <Card key={m.id}>
+            <IconRow Icon={FlaskConical} tone={v.expired || v.dosesLeft === 0 ? 'watch' : 'plain'}
+              action={<Button variant="secondary" onClick={() => { location.hash = `#/meds/${m.id}`; }}>{isPen(m) ? 'New pen' : 'Mix new'}</Button>}>
+              <span className="font-medium">{shownName(m)} {word}</span>
+              <span className="block text-sm text-muted">{v.expired ? 'Past use-by' : v.dosesLeft === 0 ? 'Empty' : '1 dose left'} · {stockVials(m).length} in stock</span>
+            </IconRow>
           </Card>
         );
       })}
@@ -368,7 +365,7 @@ function VialTagRow({ med, vialId, onLink, onLabel }: { med: Medication; vialId:
       <p className="text-sm font-medium text-muted">{word === 'pen' ? 'Pen' : 'Vial'} tag</p>
       {here.length > 0 && <p>On this {word}. Tap it to log from this {word}{here[0].lastScannedAt ? ` · last tapped ${format(Date.parse(here[0].lastScannedAt), 'EEE d MMM')}` : ''}.</p>}
       {here.length === 0 && left.length > 0 && <p>Your {word} tag is still set to a finished {word}.</p>}
-      {here.length === 0 && left.length === 0 && <p className="text-muted">Stick a tag on the {word}: tapping it logs from this {word} and shows what to draw.</p>}
+      {here.length === 0 && left.length === 0 && <p className="text-muted">Tag the {word} to log from it</p>}
       <div className="flex flex-wrap gap-2">
         {here.length === 0 && left.length > 0 && (
           <Button onClick={async () => { const before = await moveVialTags(med.id, vialId, left[0].id); toast(`Tag moved to this ${word}`, { onAction: () => before.forEach((t) => restoreTag(t)) }); }}>Move it to this {word}</Button>

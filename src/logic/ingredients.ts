@@ -9,7 +9,7 @@ export type DrugClass = 'nsaid' | 'glp1';
 
 const CLASS_OF: Record<string, DrugClass> = {
   ibuprofen: 'nsaid', naproxen: 'nsaid', diclofenac: 'nsaid', aspirin: 'nsaid', celecoxib: 'nsaid', meloxicam: 'nsaid', mefenamic: 'nsaid',
-  semaglutide: 'glp1', tirzepatide: 'glp1', liraglutide: 'glp1', dulaglutide: 'glp1', exenatide: 'glp1',
+  semaglutide: 'glp1', tirzepatide: 'glp1', liraglutide: 'glp1', dulaglutide: 'glp1', exenatide: 'glp1', retatrutide: 'glp1', survodutide: 'glp1', mazdutide: 'glp1',
 };
 export const CLASS_NAME: Record<DrugClass, string> = { nsaid: 'anti-inflammatories (NSAIDs)', glp1: 'GLP-1 medicines' };
 
@@ -42,6 +42,47 @@ const KNOWN: [string, Ingredient[]][] = [
   ['ritalin', [{ name: 'methylphenidate' }]], ['concerta', [{ name: 'methylphenidate' }]], ['methylphenidate', [{ name: 'methylphenidate' }]],
   ['zoloft', [{ name: 'sertraline' }]], ['sertraline', [{ name: 'sertraline' }]], ['lexapro', [{ name: 'escitalopram' }]], ['escitalopram', [{ name: 'escitalopram' }]],
   ['metformin', [{ name: 'metformin' }]], ['diabex', [{ name: 'metformin' }]],
+  // For interaction flags (src/logic/interactions.ts).
+  ...([
+    'citalopram', 'fluoxetine', 'paroxetine', 'fluvoxamine', 'venlafaxine', 'desvenlafaxine', 'duloxetine', 'tramadol', 'tapentadol',
+    'sumatriptan', 'rizatriptan', 'zolmitriptan', 'naratriptan', 'eletriptan', 'warfarin', 'apixaban', 'rivaroxaban', 'dabigatran', 'clopidogrel',
+    'oxycodone', 'morphine', 'hydromorphone', 'buprenorphine', 'fentanyl', 'diazepam', 'temazepam', 'oxazepam', 'alprazolam', 'clonazepam',
+    'lorazepam', 'zolpidem', 'zopiclone', 'pregabalin', 'gabapentin', 'pseudoephedrine', 'phenylephrine', 'ramipril', 'perindopril', 'enalapril',
+    'lisinopril', 'candesartan', 'irbesartan', 'telmisartan', 'losartan', 'valsartan', 'olmesartan', 'furosemide', 'hydrochlorothiazide',
+    'indapamide', 'chlorthalidone', 'spironolactone', 'lithium', 'sildenafil', 'tadalafil', 'vardenafil', 'isosorbide', 'insulin', 'gliclazide',
+    'glimepiride', 'glibenclamide', 'glipizide', 'empagliflozin', 'dapagliflozin', 'naltrexone', 'levonorgestrel', 'ethinylestradiol',
+    'norethisterone', 'drospirenone', 'desogestrel', 'gestodene', 'retatrutide', 'survodutide', 'mazdutide', 'cagrilintide', 'pramlintide',
+    'ipamorelin', 'sermorelin', 'tesamorelin', 'hexarelin', 'ibutamoren', 'bremelanotide',
+  ].map((n) => [n, [{ name: n }]] as [string, Ingredient[]])),
+  ['frusemide', [{ name: 'furosemide' }]], ['lasix', [{ name: 'furosemide' }]], ['st john', [{ name: 'st johns wort' }]], ['hypericum', [{ name: 'st johns wort' }]],
+  ['efexor', [{ name: 'venlafaxine' }]], ['pristiq', [{ name: 'desvenlafaxine' }]], ['cymbalta', [{ name: 'duloxetine' }]], ['prozac', [{ name: 'fluoxetine' }]],
+  ['lovan', [{ name: 'fluoxetine' }]], ['cipramil', [{ name: 'citalopram' }]], ['aropax', [{ name: 'paroxetine' }]], ['tramal', [{ name: 'tramadol' }]],
+  ['palexia', [{ name: 'tapentadol' }]], ['imigran', [{ name: 'sumatriptan' }]], ['maxalt', [{ name: 'rizatriptan' }]], ['zomig', [{ name: 'zolmitriptan' }]],
+  ['coumadin', [{ name: 'warfarin' }]], ['marevan', [{ name: 'warfarin' }]], ['eliquis', [{ name: 'apixaban' }]], ['xarelto', [{ name: 'rivaroxaban' }]],
+  ['pradaxa', [{ name: 'dabigatran' }]], ['plavix', [{ name: 'clopidogrel' }]], ['endone', [{ name: 'oxycodone' }]], ['oxycontin', [{ name: 'oxycodone' }]],
+  ['targin', [{ name: 'oxycodone' }]], ['valium', [{ name: 'diazepam' }]], ['normison', [{ name: 'temazepam' }]], ['xanax', [{ name: 'alprazolam' }]],
+  ['kalma', [{ name: 'alprazolam' }]], ['rivotril', [{ name: 'clonazepam' }]], ['stilnox', [{ name: 'zolpidem' }]], ['imovane', [{ name: 'zopiclone' }]],
+  ['lyrica', [{ name: 'pregabalin' }]], ['neurontin', [{ name: 'gabapentin' }]], ['sudafed', [{ name: 'pseudoephedrine' }]],
+  ['coversyl', [{ name: 'perindopril' }]], ['tritace', [{ name: 'ramipril' }]], ['atacand', [{ name: 'candesartan' }]], ['avapro', [{ name: 'irbesartan' }]],
+  ['micardis', [{ name: 'telmisartan' }]], ['cozaar', [{ name: 'losartan' }]], ['olmetec', [{ name: 'olmesartan' }]], ['natrilix', [{ name: 'indapamide' }]],
+  ['aldactone', [{ name: 'spironolactone' }]], ['lithicarb', [{ name: 'lithium' }]], ['viagra', [{ name: 'sildenafil' }]], ['cialis', [{ name: 'tadalafil' }]],
+  ['nitrolingual', [{ name: 'glyceryl trinitrate' }]], ['glyceryl trinitrate', [{ name: 'glyceryl trinitrate' }]], ['anginine', [{ name: 'glyceryl trinitrate' }]],
+  ['imdur', [{ name: 'isosorbide' }]], ['novorapid', [{ name: 'insulin' }]], ['humalog', [{ name: 'insulin' }]], ['lantus', [{ name: 'insulin' }]],
+  ['optisulin', [{ name: 'insulin' }]], ['toujeo', [{ name: 'insulin' }]], ['levemir', [{ name: 'insulin' }]], ['tresiba', [{ name: 'insulin' }]],
+  ['ryzodeg', [{ name: 'insulin' }]], ['novomix', [{ name: 'insulin' }]], ['humulin', [{ name: 'insulin' }]], ['fiasp', [{ name: 'insulin' }]],
+  ['diamicron', [{ name: 'gliclazide' }]], ['amaryl', [{ name: 'glimepiride' }]], ['jardiance', [{ name: 'empagliflozin' }]], ['forxiga', [{ name: 'dapagliflozin' }]],
+  ['contrave', [{ name: 'naltrexone' }, { name: 'bupropion' }]], ['vyleesi', [{ name: 'bremelanotide' }]], ['pt 141', [{ name: 'bremelanotide' }]],
+  ['levlen', [{ name: 'levonorgestrel' }, { name: 'ethinylestradiol' }]], ['microgynon', [{ name: 'levonorgestrel' }, { name: 'ethinylestradiol' }]],
+  ['yaz', [{ name: 'drospirenone' }, { name: 'ethinylestradiol' }]], ['yasmin', [{ name: 'drospirenone' }, { name: 'ethinylestradiol' }]],
+  ['brenda', [{ name: 'cyproterone' }, { name: 'ethinylestradiol' }]], ['diane', [{ name: 'cyproterone' }, { name: 'ethinylestradiol' }]],
+  ['zoely', [{ name: 'nomegestrol' }, { name: 'estradiol' }]], ['slinda', [{ name: 'drospirenone' }]], ['microlut', [{ name: 'levonorgestrel' }]],
+  ['noriday', [{ name: 'norethisterone' }]], ['loette', [{ name: 'levonorgestrel' }, { name: 'ethinylestradiol' }]], ['qlaira', [{ name: 'dienogest' }, { name: 'estradiol' }]],
+  ['contraceptive pill', [{ name: 'oral contraceptive' }]], ['the pill', [{ name: 'oral contraceptive' }]],
+  ['cjc 1295', [{ name: 'cjc-1295' }]], ['cjc', [{ name: 'cjc-1295' }]], ['mod grf', [{ name: 'cjc-1295' }]], ['ghrp', [{ name: 'ghrp' }]],
+  ['mk 677', [{ name: 'ibutamoren' }]], ['egrifta', [{ name: 'tesamorelin' }]], ['cagrisema', [{ name: 'cagrilintide' }, { name: 'semaglutide' }]],
+  ['symlin', [{ name: 'pramlintide' }]], ['bpc 157', [{ name: 'bpc-157' }]], ['bpc', [{ name: 'bpc-157' }]], ['tb 500', [{ name: 'tb-500' }]],
+  ['thymosin', [{ name: 'tb-500' }]], ['ghk', [{ name: 'ghk-cu' }]], ['aod 9604', [{ name: 'aod-9604' }]], ['melanotan', [{ name: 'melanotan' }]],
+  ['epitalon', [{ name: 'epitalon' }]], ['selank', [{ name: 'selank' }]], ['semax', [{ name: 'semax' }]], ['kpv', [{ name: 'kpv' }]], ['mots c', [{ name: 'mots-c' }]],
 ].sort((a, b) => b[0].length - a[0].length) as [string, Ingredient[]][];
 
 const MASS = new Set(['mg', 'mcg', 'g']);
@@ -50,7 +91,7 @@ const toMg = (v: number, unit: string) => (unit === 'g' ? v * 1000 : unit === 'm
 /** The medicine's ingredients: as entered, else from its name. A single ingredient takes the medicine's strength. */
 export function ingredientsOf(med: Pick<Medication, 'name' | 'strength' | 'unit'> & { ingredients?: Ingredient[] }): Ingredient[] {
   if (med.ingredients?.length) return med.ingredients;
-  const n = ` ${med.name.toLowerCase().replace(/[^a-z& ]+/g, ' ').replace(/\s+/g, ' ')} `;
+  const n = ` ${med.name.toLowerCase().replace(/[^a-z0-9& ]+/g, ' ').replace(/\s+/g, ' ')} `;
   const hit = KNOWN.find(([k]) => n.includes(` ${k} `) || n.includes(` ${k}`));
   if (!hit) return [];
   const list = hit[1].map((i) => ({ ...i }));

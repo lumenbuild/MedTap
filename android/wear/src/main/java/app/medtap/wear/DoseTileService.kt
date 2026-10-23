@@ -16,7 +16,7 @@ import androidx.wear.tiles.TileService
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 
-/** A tile with the next dose; tapping it opens the app to log. */
+/** A tile with the next dose (or, during a workout, the next set); tapping it opens the app. */
 class DoseTileService : TileService() {
     override fun onTileRequest(requestParams: RequestBuilders.TileRequest): ListenableFuture<TileBuilders.Tile> {
         val d = WatchState.load(this)
@@ -29,7 +29,14 @@ class DoseTileService : TileService() {
         val device = requestParams.deviceConfiguration
         fun line(s: String, typo: Int, color: Int) = Text.Builder(this, s).setTypography(typo).setColor(argb(color)).setMaxLines(2).build()
         val col = LayoutElementBuilders.Column.Builder()
-        if (title.isEmpty()) {
+        val workout = WatchState.workout(this)
+        val nextSet = workout?.optJSONObject("next")
+        if (workout != null && nextSet != null) {
+            col.addContent(line(workout.optString("title", "Workout"), Typography.TYPOGRAPHY_CAPTION1, 0xFFBBBBBB.toInt()))
+            col.addContent(line(nextSet.optString("exercise"), Typography.TYPOGRAPHY_TITLE3, 0xFFFFFFFF.toInt()))
+            col.addContent(line("${nextSet.optString("label")} · ${nextSet.optString("load")}", Typography.TYPOGRAPHY_BODY2, 0xFFFFFFFF.toInt()))
+            col.addContent(line("Tap for Done and rest", Typography.TYPOGRAPHY_CAPTION2, 0xFF8AB4F8.toInt()))
+        } else if (title.isEmpty()) {
             col.addContent(line(getString(R.string.app_name), Typography.TYPOGRAPHY_CAPTION1, 0xFFBBBBBB.toInt()))
             col.addContent(line("Open the app on your phone to set up", Typography.TYPOGRAPHY_BODY1, 0xFFFFFFFF.toInt()))
         } else {

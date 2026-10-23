@@ -188,7 +188,7 @@ export function ScheduleFields({ f, set, errors, unit, cycles = false }: {
             </div>
           ) : (
             <TextInput label="Most doses in a day (optional)" type="number" inputMode="numeric" min="1" step="1" value={f.maxPerDay}
-              onChange={(e) => set('maxPerDay', e.target.value)} error={errors.maxPerDay} help="Shown as “Today: 2 of 3”." />
+              onChange={(e) => set('maxPerDay', e.target.value)} error={errors.maxPerDay} />
           )}
           <div className="space-y-1.5">
             <label htmlFor={`${uid}latest`} className="block text-sm font-medium">Latest dose time (optional)</label>
@@ -197,7 +197,7 @@ export function ScheduleFields({ f, set, errors, unit, cycles = false }: {
                 className="flex-1 min-w-0 min-h-[48px] rounded-btn bg-surface-2 border border-border px-3 tnum" />
               {f.latestDoseTime && <Button variant="secondary" onClick={() => set('latestDoseTime', '')}>Clear</Button>}
             </div>
-            <p className="text-sm text-muted">For example, if you were told not to take it after 4 pm.</p>
+            
           </div>
         </>
       )}
@@ -229,16 +229,14 @@ export function ScheduleFields({ f, set, errors, unit, cycles = false }: {
           <Button variant="secondary" className="flex items-center gap-2" onClick={() => set('slots', [...f.slots, { time: '', amount: '' }])}>
             <Plus size={18} aria-hidden="true" /> Add a time
           </Button>
-          <p className="text-sm text-muted">Leave an amount blank to use your usual dose. Different times can have different amounts.</p>
         </div>
       )}
 
       {f.type === 'prn' && (
         <div className="space-y-3">
-          <p className="text-sm text-muted">No countdown. Today shows when it was last taken.</p>
           <div>
             <h3 className="font-semibold">Limits (optional)</h3>
-            <p className="text-sm text-muted">From the label or the doctor. Counted over any 24 hours, not just today. Logging shows a note if a dose would go past them.</p>
+            <p className="text-sm text-muted">Over any 24 hours</p>
           </div>
           <div className="grid grid-cols-2 gap-3 items-start">
             <TextInput label="Most doses in 24 hours" type="number" inputMode="numeric" min="1" step="1" value={f.maxPer24h}
@@ -247,8 +245,7 @@ export function ScheduleFields({ f, set, errors, unit, cycles = false }: {
               onChange={(e) => set('minHoursApart', e.target.value)} error={errors.minHoursApart} />
           </div>
           <TextInput label={`Most in 24 hours (${amountLabel})`} type="number" inputMode="decimal" min="0" step="any" value={f.maxAmountPer24h}
-            onChange={(e) => set('maxAmountPer24h', e.target.value)} error={errors.maxAmountPer24h}
-            help="For example 4000 mg for adult paracetamol, or a child's limit from the doctor." />
+            onChange={(e) => set('maxAmountPer24h', e.target.value)} error={errors.maxAmountPer24h} />
         </div>
       )}
 
@@ -318,8 +315,7 @@ export function ScheduleFields({ f, set, errors, unit, cycles = false }: {
       <TextInput label={`Usual dose (${amountLabel})${(f.type === 'interval' && f.varyAmounts) || f.type === 'fixed' ? ' (optional)' : ''}`}
         type="number" inputMode="decimal" min="0" step="any" value={f.defaultAmount}
         onChange={(e) => set('defaultAmount', e.target.value)} error={errors.defaultAmount}
-        help={f.type === 'interval' && f.varyAmounts ? 'Used for any extra doses beyond the plan. Leave blank to use the 1st dose amount.'
-          : f.type === 'fixed' ? 'Used for any time without its own amount.' : 'Filled in each time you log. You can change it when logging.'} />
+        help={f.type === 'fixed' ? 'For times without their own amount' : undefined} />
     </>
   );
 }

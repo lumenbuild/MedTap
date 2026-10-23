@@ -30,7 +30,7 @@ export function Travel() {
     <div className="space-y-2">
       <PersonSwitcher />
       <section className="border-t border-border pt-5 pb-3 space-y-3">
-        <p className="text-[15px] text-muted">From home ({place(home)}). This only shows the options: nothing changes. Check the plan with your prescriber or pharmacist before you go.</p>
+        <p className="text-[15px] text-muted">From home ({place(home)}).</p>
         <label className="block space-y-1.5">
           <span className="block text-sm font-medium">Going to</span>
           <select value={dest} onChange={(e) => setDest(e.target.value)} className="w-full min-h-[48px] rounded-btn border border-border-strong bg-transparent px-3">
@@ -53,7 +53,6 @@ export function Travel() {
         </section>
       ))}
       {interval.length > 0 && <p className="border-t border-border pt-4 text-[15px] text-muted">{interval.map(shownName).join(', ')}: every few hours, counted in real hours, so travel doesn't change {interval.length === 1 ? 'it' : 'them'}.</p>}
-      <p className="text-sm text-muted pt-2">While away, Settings → When travelling chooses whether set times follow the phone's time zone or home time.</p>
     </div>
   );
 }

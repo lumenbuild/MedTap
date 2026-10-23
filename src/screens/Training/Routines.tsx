@@ -71,7 +71,7 @@ function RoutineSheet({ routine, personId, onClose }: { routine?: Routine; perso
           </fieldset>
         ))}
         <Button variant="secondary" onClick={() => setPicking(true)}>Add exercise</Button>
-        <p className="text-xs text-muted">After the first time, each session aims from what you did last: up when every set hits its reps. A range like 8-12 adds a rep each time until every set reaches 12, then adds weight and starts again from 8.</p>
+        <p className="text-xs text-muted">Reps: one number, or a range like 8-12</p>
         {routine && <ActionTagsCard action={{ kind: 'routine', routineId: routine.id }} name={routine.name} hint="A tag on your gym bag or locker starts this routine with one tap." />}
         <SheetActions>
           <Button className="w-full min-h-[56px]" disabled={!name.trim() || !items.length} onClick={async () => { await saveRoutine(personId, { id: routine?.id, name, items }); toast(`Saved ${name.trim()}`); onClose(); }}>Save routine</Button>

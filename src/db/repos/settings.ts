@@ -96,7 +96,11 @@ export interface AppSettings {
   lighterLast: number;
   digestNotify: boolean;
   pharmacyContact: string;
+  /** Reminders put off from the notification ("In 15 min"), kept until they go off or the dose is logged. */
+  snoozes: Snooze[];
 }
+
+export interface Snooze { id: number; medId: string; amount: number; dueAt: number; at: number; made: number }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   dayStartsAt: '04:00',
@@ -155,6 +159,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   lighterLast: 0,
   digestNotify: false,
   pharmacyContact: '',
+  snoozes: [],
 };
 
 export async function getSettings(): Promise<AppSettings> {
