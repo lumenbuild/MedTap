@@ -1,7 +1,8 @@
 // Fitness cards used on Training, Body, Protocol and Today: readiness, lean mass while losing weight, strength against
 // the peptide, and one timeline for every goal.
 import { Beef, Dumbbell, GlassWater, Moon, Pill, Scale, Smile, type LucideIcon } from 'lucide-react';
-import { Bar, IconRow, MiniRing, Stat } from './ui/Visual';
+import { Bar, CompareBars, IconRow, MiniRing, Stat, ZeroBars } from './ui/Visual';
+import { HeadlineStat } from './charts/ChartCard';
 import { format } from 'date-fns';
 import type { BodyEntry, BodyGoal, CheckIn, DailyHealth, Dose, FitnessGoal, Medication, Workout } from '../db/schema';
 import type { Digest } from '../logic/digest';
@@ -20,8 +21,6 @@ import { shownName } from '../logic/privacy';
 import { fmtAmount } from '../logic/format';
 
 const DAY = 86_400_000;
-const andList = (xs: string[]) => xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
-const LONG = ['shot day', 'day 1', 'day 2', 'day 3', 'day 4', 'day 5', 'day 6'];
 
 export function ReadinessBlock({ r, compact = false }: { r: Readiness; compact?: boolean }) {
   return (
@@ -72,22 +71,13 @@ export function PeptideTrainingCard({ med, doses, workouts, tz }: { med: Medicat
   if (!r) return null;
   const shots = doses.filter((d) => d.medicationId === med.id && !d.deletedAt && !d.skipped).map((d) => Date.parse(d.takenAt)).sort((a, b) => a - b).slice(-6);
   const plan = tz ? strongestWeekday(shots, r.bestDays, tz) : null;
-  const known = r.byDay.filter((d) => d.pct !== undefined);
   return (
     <section className="border-t border-border pt-5 pb-1" aria-labelledby="pt-h">
       <h2 id="pt-h" className="text-sm font-medium text-muted mb-2">Strength and {shownName(med)}</h2>
-      <div className="grid grid-cols-7 gap-1 text-center" role="img" aria-label={known.map((d) => `${LONG[d.day]} ${d.pct}%`).join(', ')}>
-        {r.byDay.map((d) => (
-          <div key={d.day} className="flex flex-col items-center gap-1">
-            <span className={`text-sm tnum ${d.pct !== undefined && d.pct < -3 ? 'text-caution' : ''}`}>{d.pct === undefined ? '–' : `${d.pct > 0 ? '+' : ''}${d.pct}%`}</span>
-            <span className="text-xs text-muted">{d.day === 0 ? 'Shot' : `D${d.day}`}</span>
-          </div>
-        ))}
-      </div>
+      <ZeroBars fmt={(v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v)}%`} items={r.byDay.map((d) => ({ label: d.day === 0 ? 'Shot' : `D${d.day}`, v: d.pct ?? null, strong: r.bestDays.includes(d.day) }))} />
+      <p className="text-xs text-muted mt-1 tnum">Lifts against your usual, by day after a shot ({r.sessions} sessions). Bold: your strongest days.</p>
       {plan && <p className="text-[15px] mt-2 font-medium">Plan your heaviest session for {plan.weekday}s ({plan.day === 0 ? 'shot day' : `day ${plan.day} after your shot`}), usually your strongest.</p>}
-      {r.bestDays.length > 0 && <p className="text-[15px] mt-2">Your strongest {r.bestDays.length === 1 ? 'day' : 'days'}: {andList(r.bestDays.map((d) => d === 0 ? 'shot day' : `${LONG[d]} after it`))}.</p>}
-      {r.byDose.filter((d) => d.pct !== undefined).length > 1 && <p className="text-[15px] tnum">By dose: {r.byDose.filter((d) => d.pct !== undefined).map((d) => `${fmtAmount(d.dose, med.unit)} ${d.pct! > 0 ? '+' : ''}${d.pct}%`).join(' · ')}</p>}
-      <p className="text-xs text-muted mt-1">{r.sessions} sessions</p>
+      {r.byDose.filter((d) => d.pct !== undefined).length > 1 && <p className="text-[15px] tnum">By dose: {r.byDose.filter((d) => d.pct !== undefined).map((d) => `${fmtAmount(d.dose, med.unit)} ${d.pct! > 0 ? '+' : d.pct! < 0 ? '−' : ''}${Math.abs(d.pct!)}%`).join(' · ')}</p>}
     </section>
   );
 }
@@ -226,25 +216,36 @@ export function TrainingTrends({ daily, body, checkIns, workouts, start, end, s,
       {intake?.protein && (
         <section className="border-t border-border pt-5 pb-1" aria-labelledby="pr-h">
           <h2 id="pr-h" className="text-sm font-medium text-muted">Protein</h2>
-          <p className="text-[15px] tnum mt-1">Averaged {intake.protein.avg} g on {intake.protein.days} logged day{intake.protein.days === 1 ? '' : 's'}{intake.protein.perKg ? ` (${intake.protein.perKg} g per kg of body weight)` : ''}.{intake.protein.onTarget !== undefined ? ` At or over your ${targets.protein} g target on ${intake.protein.onTarget}.` : ''}</p>
+          <HeadlineStat h={{ value: String(intake.protein.avg), unit: 'g a day', delta: intake.protein.onTarget !== undefined ? `${intake.protein.onTarget} of ${intake.protein.days} days at ${targets.protein} g` : undefined }} />
+          {intake.protein.perKg && <p className="text-sm text-muted tnum">{intake.protein.perKg} g per kg of body weight</p>}
           <Bars values={last.filter((d) => d.protein).map((d) => ({ key: d.date, v: d.protein! }))} max={Math.max(...last.map((d) => d.protein ?? 0), targets.protein ?? 0)} target={targets.protein}
             label={`Protein each logged day: ${last.filter((d) => d.protein).map((d) => `${d.date} ${d.protein} g`).join(', ')}`} />
-          {intake.water && <p className="text-[15px] tnum mt-3">Water averaged {(intake.water.avg / 1000).toFixed(1)} L on {intake.water.days} logged day{intake.water.days === 1 ? '' : 's'}{intake.water.onTarget !== undefined ? `; on target ${intake.water.onTarget}` : ''}.</p>}
-          <p className="text-xs text-muted mt-1">Logged days only</p>
+          {intake.water && (
+            <>
+              <h3 className="text-sm font-medium text-muted mt-4">Water</h3>
+              <HeadlineStat h={{ value: (intake.water.avg / 1000).toFixed(1), unit: 'L a day', delta: intake.water.onTarget !== undefined && targets.water ? `${intake.water.onTarget} of ${intake.water.days} days at ${(targets.water / 1000).toFixed(1)} L` : undefined }} />
+              <Bars values={last.filter((d) => d.water).map((d) => ({ key: d.date, v: d.water! }))} max={Math.max(...last.map((d) => d.water ?? 0), targets.water ?? 0)} target={targets.water}
+                label={`Water each logged day: ${last.filter((d) => d.water).map((d) => `${d.date} ${d.water} mL`).join(', ')}`} />
+            </>
+          )}
+          <p className="text-xs text-muted mt-1">Logged days only. Pale bars are under your target.</p>
         </section>
       )}
       {ready.length >= 3 && (
         <section className="border-t border-border pt-5 pb-1" aria-labelledby="rd-h">
           <h2 id="rd-h" className="text-sm font-medium text-muted">Ready to train</h2>
-          <p className="text-[15px] tnum mt-1">Averaged {Math.round(ready.reduce((n, x) => n + x.score, 0) / ready.length)} over {ready.length} days; {ready.filter((x) => x.score < 55).length} low.</p>
+          <HeadlineStat h={{ value: String(Math.round(ready.reduce((n, x) => n + x.score, 0) / ready.length)), unit: 'average', delta: `${ready.filter((x) => x.score < 55).length} low of ${ready.length} days` }} />
           <Bars values={ready.map((x) => ({ key: String(x.t), v: x.score }))} max={100} target={55} label={`Readiness by day: ${ready.map((x) => `${format(x.t, 'd MMM')} ${x.score}`).join(', ')}`} />
+          <p className="text-xs text-muted mt-1">Pale bars are low days (under 55).</p>
         </section>
       )}
       {(pl || rp) && (
-        <section className="border-t border-border pt-5 pb-1" aria-labelledby="ln-h">
-          <h2 id="ln-h" className="text-sm font-medium text-muted mb-1">Links in your records</h2>
-          {pl && <p className="text-[15px] tnum">Between scans or weigh-ins with body fat, about <strong>{pl.higher.share}%</strong> of the weight lost was lean mass when protein averaged {pl.higher.protein} g, against <strong>{pl.lower.share}%</strong> at {pl.lower.protein} g ({pl.higher.spans + pl.lower.spans} spans).</p>}
-          {rp && <p className="text-[15px] tnum mt-2">On your better-readiness days (about {rp.higher.score}), your lifts were {rp.higher.pct > 0 ? '+' : ''}{rp.higher.pct}% against your recent level ({rp.higher.sessions} sessions); on lower days (about {rp.lower.score}), {rp.lower.pct > 0 ? '+' : ''}{rp.lower.pct}% ({rp.lower.sessions}).</p>}
+        <section className="border-t border-border pt-5 pb-1 space-y-4" aria-labelledby="ln-h">
+          <h2 id="ln-h" className="text-sm font-medium text-muted">Links in your records</h2>
+          {rp && <CompareBars a={`Better readiness (about ${rp.higher.score})`} b={`Lower (about ${rp.lower.score})`}
+            rows={[{ label: `Lifts against your recent level (${rp.higher.sessions} and ${rp.lower.sessions} sessions)`, a: rp.higher.pct, b: rp.lower.pct, fmt: (v) => `${v > 0 ? '+' : ''}${v}%` }]} />}
+          {pl && <CompareBars a={`Protein about ${pl.higher.protein} g`} b={`About ${pl.lower.protein} g`}
+            rows={[{ label: `Share of weight lost that was lean mass (${pl.higher.spans + pl.lower.spans} spans)`, a: pl.higher.share, b: pl.lower.share, fmt: (v) => `${v}%` }]} />}
         </section>
       )}
     </>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="mw_bg">#141414</color>
+    <color name="mw_text">#F5F5F5</color>
+    <color name="mw_muted">#A3A3A3</color>
+    <color name="mw_chip">#262626</color>
+    <color name="mw_track">#2E2E2E</color>
+    <color name="mw_accent">#F5F5F5</color>
+    <color name="mw_on_accent">#0A0A0A</color>
+    <color name="mw_good">#4ADE80</color>
+    <color name="mw_watch">#F5A54A</color>
+</resources>

@@ -4,11 +4,12 @@ import { format } from 'date-fns';
 import type { CheckIn, DailyHealth, Dose, Medication, Vital, BodyEntry } from '../db/schema';
 import type { ScheduleSettings } from '../logic/schedule';
 import type { Units } from '../db/repos/settings';
-import { cycleView, heartAfterDose, onOffDays, stepsVsWeight, substanceFindings, type Side } from '../logic/lifestyle';
+import { PHASES, cycleView, heartAfterDose, onOffDays, stepsVsWeight, substanceFindings, type Side } from '../logic/lifestyle';
 import { shownName } from '../logic/privacy';
 import { kgTo, weightUnit } from '../logic/units';
 import type { CycleForecast } from '../logic/cycle';
 import { CycleStrip } from './Insights';
+import { CompareBars, HeatTable } from './ui/Visual';
 
 const Section = ({ id, title, children }: { id: string; title: string; children: React.ReactNode }) => (
   <section className="border-t border-border pt-5 pb-1" aria-labelledby={id}>
@@ -16,20 +17,14 @@ const Section = ({ id, title, children }: { id: string; title: string; children:
     {children}
   </section>
 );
-const cell = (v?: number, unit = '') => (v === undefined ? '–' : `${v}${unit}`);
-
-function CompareTable({ cols, rows }: { cols: [string, string]; rows: [string, string, string][] }) {
-  const shown = rows.filter((r) => r[1] !== '–' || r[2] !== '–');
-  return (
-    <table className="w-full text-[15px] tnum">
-      <thead><tr className="text-left text-sm text-muted"><th className="font-medium py-1"><span className="sr-only">Measure</span></th><th className="font-medium py-1">{cols[0]}</th><th className="font-medium py-1">{cols[1]}</th></tr></thead>
-      <tbody>{shown.map(([k, a, b]) => <tr key={k} className="border-t border-border"><td className="py-1.5 pr-3 text-muted">{k}</td><td className="py-1.5 pr-3">{a}</td><td className="py-1.5">{b}</td></tr>)}</tbody>
-    </table>
-  );
-}
-const sideRows = (a: Side, b: Side): [string, string, string][] => [
-  ['Focus', cell(a.focus), cell(b.focus)], ['Mood', cell(a.mood), cell(b.mood)], ['Energy', cell(a.energy), cell(b.energy)], ['Appetite', cell(a.appetite), cell(b.appetite)],
-  ['Sleep', cell(a.sleepHours, ' h'), cell(b.sleepHours, ' h')], ['Sleep quality', cell(a.sleepQuality), cell(b.sleepQuality)],
+const one = (v: number) => String(Math.round(v * 10) / 10);
+type Row = { label: string; a: number | null; b: number | null; fmt: (v: number) => string };
+const row = (label: string, a: number | undefined, b: number | undefined, fmt: (v: number) => string = one): Row => ({ label, a: a ?? null, b: b ?? null, fmt });
+/** Side by side as bars; measures with nothing on either side are left out. */
+const Compare = ({ a, b, rows }: { a: string; b: string; rows: Row[] }) => <CompareBars a={a} b={b} rows={rows.filter((r) => r.a !== null || r.b !== null)} />;
+const sideRows = (a: Side, b: Side): Row[] => [
+  row('Focus', a.focus, b.focus), row('Mood', a.mood, b.mood), row('Energy', a.energy, b.energy), row('Appetite', a.appetite, b.appetite),
+  row('Sleep', a.sleepHours, b.sleepHours, (v) => `${one(v)} h`), row('Sleep quality', a.sleepQuality, b.sleepQuality),
 ];
 
 export function OnOffCards({ meds, doses, checkIns, now, s }: { meds: Medication[]; doses: Dose[]; checkIns: CheckIn[]; now: number; s: ScheduleSettings }) {
@@ -41,7 +36,7 @@ export function OnOffCards({ meds, doses, checkIns, now, s }: { meds: Medication
         {rows.map((r) => (
           <div key={r!.med.id}>
             <p className="font-medium">{shownName(r!.med)}</p>
-            <CompareTable cols={[`Taken (${r!.on.days} days)`, `Not taken (${r!.off.days})`]} rows={sideRows(r!.on, r!.off)} />
+            <div className="mt-2"><Compare a={`Taken (${r!.on.days} days)`} b={`Not taken (${r!.off.days})`} rows={sideRows(r!.on, r!.off)} /></div>
           </div>
         ))}
       </div>
@@ -59,10 +54,10 @@ export function SubstanceCard({ checkIns, now, s }: { checkIns: CheckIn[]; now: 
         {f.map((x) => (
           <div key={x.what}>
             <p className="font-medium">{x.title}</p>
-            <CompareTable cols={[`With (${x.with.days} nights)`, `Without (${x.without.days})`]} rows={[
-              ['Sleep', cell(x.with.sleepHours, ' h'), cell(x.without.sleepHours, ' h')], ['Sleep quality', cell(x.with.sleepQuality), cell(x.without.sleepQuality)],
-              ...(x.what === 'alcohol' ? [['Side effects next day', cell(x.with.effectPct, '%'), cell(x.without.effectPct, '%')] as [string, string, string]] : []),
-            ]} />
+            <div className="mt-2"><Compare a={`With (${x.with.days} nights)`} b={`Without (${x.without.days})`} rows={[
+              row('Sleep', x.with.sleepHours, x.without.sleepHours, (v) => `${one(v)} h`), row('Sleep quality (1–5)', x.with.sleepQuality, x.without.sleepQuality),
+              ...(x.what === 'alcohol' ? [row('Side effects next day', x.with.effectPct, x.without.effectPct, (v) => `${Math.round(v)}%`)] : []),
+            ]} /></div>
           </div>
         ))}
       </div>
@@ -77,12 +72,14 @@ export function CycleCard({ checkIns, now, forecast }: { checkIns: CheckIn[]; no
   return (
     <Section id="cycle-h" title="Your cycle">
       <p className="text-[15px] mb-2 tnum">{v.today ? `Day ${v.today} today` : ''}{v.averageLength ? ` · usually ${v.averageLength} days` : ''} · {v.starts.length} cycles logged</p>
-      <div className="table-scroll" tabIndex={0}>
-        <table className="w-full text-sm tnum">
-          <thead><tr className="text-left text-muted"><th className="font-medium py-1 pr-3">Phase</th><th className="font-medium py-1 pr-2">Mood</th><th className="font-medium py-1 pr-2">Focus</th><th className="font-medium py-1 pr-2">Appetite</th><th className="font-medium py-1 pr-2">Side effects</th></tr></thead>
-          <tbody>{v.phases.map((p) => <tr key={p.name} className="border-t border-border"><td className="py-1.5 pr-3">{p.name}</td><td className="py-1.5 pr-2">{cell(p.mood)}</td><td className="py-1.5 pr-2">{cell(p.focus)}</td><td className="py-1.5 pr-2">{cell(p.appetite)}</td><td className="py-1.5 pr-2">{cell(p.effectPct, '%')}</td></tr>)}</tbody>
-        </table>
-      </div>
+      <HeatTable columns={v.phases.map((p) => p.name.replace(/^Days? /, '').replace(' on', '+'))} highlight={v.today ? PHASES.findIndex((p) => v.today! >= p.from && v.today! <= p.to) : undefined}
+        rows={[
+          { label: 'Mood', values: v.phases.map((p) => p.mood ?? null) },
+          { label: 'Focus', values: v.phases.map((p) => p.focus ?? null) },
+          { label: 'Appetite', values: v.phases.map((p) => p.appetite ?? null) },
+          { label: 'Side effects', values: v.phases.map((p) => p.effectPct ?? null), fmt: (x) => `${Math.round(x)}%` },
+        ]} />
+      <p className="text-xs text-muted mt-1">Days of your cycle. Stronger colour is higher, row by row.</p>
       {forecast && forecast.upcoming.length > 0 && <CycleStrip f={forecast} now={now} />}
     </Section>
   );
@@ -92,12 +89,12 @@ export function StepsWeightCard({ daily, body, units, now }: { daily: DailyHealt
   const r = stepsVsWeight(daily, body, now);
   if (!r) return null;
   const u = weightUnit(units);
-  const k = (v: number) => `${v > 0 ? '+' : ''}${kgTo(v, units)} ${u}`;
+  const k = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(kgTo(v, units))} ${u}`;
   return (
     <Section id="steps-h" title="Steps and weight">
-      <CompareTable cols={[`Busier (${r.busier.weeks} wks)`, `Quieter (${r.quieter.weeks})`]} rows={[
-        ['Steps a day', r.busier.steps.toLocaleString('en-AU'), r.quieter.steps.toLocaleString('en-AU')],
-        ['Weight a week', k(r.busier.perWeek), k(r.quieter.perWeek)],
+      <Compare a={`Busier weeks (${r.busier.weeks})`} b={`Quieter weeks (${r.quieter.weeks})`} rows={[
+        row('Steps a day', r.busier.steps, r.quieter.steps, (v) => Math.round(v).toLocaleString('en-AU')),
+        row('Weight change a week', r.busier.perWeek, r.quieter.perWeek, k),
       ]} />
       <p className="text-xs text-muted mt-1">Weeks with more steps against weeks with fewer, from Health Connect or Apple Health.</p>
     </Section>

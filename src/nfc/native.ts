@@ -43,8 +43,12 @@ export interface MedTapNativePlugin {
   reminderHealth(): Promise<{ notificationsEnabled: boolean; channelOff: boolean; batteryUnrestricted: boolean; manufacturer: string; sdk: number }>;
   openBatterySettings(): Promise<void>;
   openNotificationSettings(): Promise<void>;
-  /** What the home-screen widget shows (Android). */
+  /** What the home-screen widgets show (Android; see src/logic/widgets.ts). Also sent to the watch. */
   setWidget(options: { json: string }): Promise<void>;
+  /** Android: taps on the widgets still to log (cleared when read). */
+  takeWidgetActions(): Promise<{ items: WidgetAction[] }>;
+  /** Android: a widget was tapped (read them with takeWidgetActions). */
+  addListener(event: 'widgetAction', fn: () => void): Promise<PluginListenerHandle>;
   /** Android: "log" taps from a paired Wear OS watch, waiting to be logged (cleared when read). */
   takeWatchLogs(): Promise<{ items: { medId: string; at: number }[] }>;
   /** Android: download a newer build of this app from its GitHub release and open the installer. Rejects with `code`
@@ -55,6 +59,8 @@ export interface MedTapNativePlugin {
   takeWatchSets(): Promise<{ items: { setId: string; at: number }[] }>;
   addListener(event: 'updateProgress', fn: (e: { pct: number }) => void): Promise<PluginListenerHandle>;
 }
+
+export type WidgetAction = { at: number } & ({ kind: 'dose'; medId: string } | { kind: 'intake'; field: 'proteinG' | 'waterMl'; amount: number } | { kind: 'chip'; chip: string });
 
 export interface HealthDay { date: string; steps?: number; sleepMin?: number; restingHr?: number; exerciseMin?: number; hrvMs?: number; hrByHour?: (number | null)[] }
 export interface HealthData {

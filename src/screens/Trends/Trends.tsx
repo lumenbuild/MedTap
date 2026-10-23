@@ -10,7 +10,7 @@ import { dayKey } from '../../logic/stats';
 import { dosesForPerson, medIsFor, personOf } from '../../db/repos/people';
 import { JumpBar } from '../../components/ui/JumpBar';
 import { AskBox, ChangesCard, StallBlock } from '../../components/Insights';
-import { whatChanged } from '../../logic/changes';
+import { whatChanged, dailySignals } from '../../logic/changes';
 import { weightStall } from '../../logic/stall';
 import { cycleForecast } from '../../logic/cycle';
 import { Tile } from '../../components/ui/Visual';
@@ -93,7 +93,7 @@ export function Trends() {
         <JumpBar inline deps={[r, fam.personId]} />
         {r === 'appt' && <p className="text-xs text-muted mt-1">Since your appointment on {new Date(`${lastAppt!.date}T12:00`).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}, compared with the {days} days before it.</p>}
       </div>
-      <ChangesCard changes={whatChanged({ meds, doses, checkIns, daily, events }, now)} />
+      <ChangesCard changes={whatChanged({ meds, doses, checkIns, daily, events }, now)} series={dailySignals({ meds, doses, checkIns, daily, events }, now)} />
       {HAS_BODY && (
         <>
           {(() => {

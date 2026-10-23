@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { format } from 'date-fns';
 import { Camera, Columns2, Lock } from 'lucide-react';
 import type { Photo } from '../../db/schema';
 import { db } from '../../db/db';
@@ -11,8 +10,9 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { todayYmd } from '../../components/BodySheets';
+import { fmtYmdDay } from '../../logic/format';
 
-const fmtYmd = (ymd: string) => format(new Date(`${ymd}T12:00`), 'd MMM yyyy');
+const fmtYmd = (ymd: string) => fmtYmdDay(ymd);
 
 /** Object URLs for photo blobs, released when no longer shown. */
 export function usePhotoUrls(photos: Photo[]) {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { shownColour, shownMedName, shownName } from '../../logic/privacy';
+import { shownMedName, shownName } from '../../logic/privacy';
 import type { Dose, Medication } from '../../db/schema';
 import { removeDose, restoreDose, updateDose } from '../../db/repos/doses';
 import { fmtAmount, fmtTime, fromLocalInput, toLocalInput } from '../../logic/format';

@@ -16,12 +16,10 @@ import { go, replace } from '../../app/router';
 import { useToast } from '../../app/toast';
 import { MED_COLOURS, MED_ICONS, medColour, medInk } from '../../logic/palette';
 import { stockUnitsFor } from '../../logic/stock';
-import { fmtAmount } from '../../logic/format';
-import { APP_NAME } from '../../config';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Sheet, SheetActions } from '../../components/ui/Sheet';
-import { Segmented, Select, TextArea, TextInput } from '../../components/ui/Field';
+import { Select, TextArea, TextInput } from '../../components/ui/Field';
 import { MedBadge, MED_ICON_COMPONENTS } from '../../components/MedBadge';
 import { describeChange } from '../../logic/plans';
 import {
@@ -211,7 +209,6 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF((p) => ({ ...p, [k]: v }));
   const errors: Errors = tried ? validate(f) : {};
-  const amountLabel = f.unit === 'tablet' ? 'tablets' : f.unit;
 
   const save = async (record?: { date: string; lines: string[] }) => {
     const input = toInput(f, existing ?? undefined);
@@ -279,7 +276,7 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
       {HAS_PEPTIDES && existing?.peptide && !existing.archived && <VialCard med={existing} />}
       {existing && !existing.archived && <PlannedChanges med={existing} />}
       {existing && !existing.archived && settings?.peptideTools && <TitrationCard med={existing} />}
-      {existing && !existing.archived && <BottlesSection med={existing} />}
+      {existing && !existing.archived && !existing.peptide && <BottlesSection med={existing} />}
       {existing && !existing.archived && <MedPatterns med={existing} />}
 
       <Card className="space-y-4">

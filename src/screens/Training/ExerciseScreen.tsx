@@ -16,9 +16,10 @@ import { useNow } from '../../app/useNow';
 import { HAS_BODY } from '../../edition';
 import { Button } from '../../components/ui/Button';
 import { GoalSheet } from './TrainingSheets';
+import { fmtDay } from '../../logic/format';
 
 const StrengthChart = lazy(() => import('../../components/charts/StrengthChart'));
-const d = (t: number) => format(t, 'd MMM yyyy');
+const d = (t: number) => fmtDay(t);
 
 export function ExerciseScreen({ id }: { id: string }) {
   const workouts = useWorkouts();

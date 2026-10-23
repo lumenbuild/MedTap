@@ -87,7 +87,7 @@ export function useChartTheme(): ChartTheme {
   return t;
 }
 
-/** Shared options: recessive hairline grid, muted ticks, Geist, tooltips on hover/tap, no motion if reduced. */
+/** Shared options: recessive horizontal guides, muted ticks, Geist, tooltips on hover/tap, no motion if reduced. */
 export function baseOptions(th: ChartTheme) {
   const font = { family: '"Geist Variable", system-ui, sans-serif', size: 12 };
   return {
@@ -103,7 +103,8 @@ export function baseOptions(th: ChartTheme) {
       },
     },
     scales: {
-      x: { grid: { color: th.grid, lineWidth: 1, drawTicks: false }, border: { display: false }, ticks: { color: th.muted, font, maxRotation: 0, autoSkipPadding: 16, padding: 8 } },
+      // Horizontal guides only: values are read across, dates from the axis.
+      x: { grid: { display: false, drawTicks: false }, border: { display: true, color: th.grid }, ticks: { color: th.muted, font, maxRotation: 0, autoSkipPadding: 20, padding: 8 } },
       y: { grid: { color: th.grid, lineWidth: 1, drawTicks: false }, border: { display: false }, ticks: { color: th.muted, font, padding: 6 } },
     },
   };

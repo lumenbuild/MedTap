@@ -571,6 +571,67 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
 - Tests `tests/smart-f.test.ts` (8). Browser: What changed, Ask (suggestion and typed), step-up criteria saved, Today
   lines. Not yet tried on a real phone.
 
+## Home-screen widgets (owner picked 1 to 8)
+- The app works out everything once (`src/logic/widgets.ts`, `widgetsPayload`) and saves one payload (`setWidget`);
+  the watch still reads the same top-level next-dose fields. Android draws eight widgets from it
+  (`native/medtap-native/.../WidgetStore.java`, `BaseWidget`, one class each), light and dark with the phone:
+  1. **Next dose** (4×1): ring of today's doses done, the next with a live countdown, Log (opens straight into logging
+     it, so its reminders clear).
+  2. **Focus window**: today's dose to the likely drop, with now marked (from the wear-off forecast).
+  3. **Shot week**: this week's shots as dots, the next one, how today usually feels, doses left in the vial or pen.
+  4. **Protein and water**: rings towards the targets, +25 g and +250 mL without opening the app.
+  5. **Quick log** (2×2): as-needed medicines, coffee/alcohol, Check in (opens the check-in sheet).
+  6. **Weight trend**: 8 weekly averages and 4 weeks ahead dashed (through the dose plan, else towards the goal).
+  7. **Training**: readiness ring and the last session's first lift at today's target.
+  8. **Today at a glance**: doses done, the next one, steps and the newest "What changed".
+- Taps that log without opening the app (4, 5) are queued on the phone (`WidgetActionReceiver`, shown at once on the
+  widget) and logged by the app at the time tapped when it next runs or straight away if it's running (dose source
+  `widget`, with the usual double-log guard).
+- TapDose: Shot week, Protein and water, Weight trend and Training are switched off (`@bool/mw_body_widgets` in
+  `android/app/src/tapdose/res/values/widgets.xml`).
+- Tests `tests/widgets.test.ts` (3). Fake-native browser flow: payload, protein/coffee/as-needed taps logged once,
+  resync, Check in route. Both flavours compile. Not yet placed on a real home screen.
+
+## Readable charts, more visuals, no-equipment training
+- **Every chart** (`TrendChart`, `ChartCard`):
+  - The number it's about is big at the top, with how it moved (`HeadlineStat`).
+  - A key above the chart when there's more than one kind of mark (`ChartLegend`, drawn the way each mark is).
+  - Lines carry no dots except the latest value, which is labelled.
+  - A "Today" line where a forecast begins; the unit once, on the top tick; no vertical grid lines.
+- **Charts reworked:**
+  - How you've felt: one small chart per measure (daily dots and a 7-day line).
+  - Dose timing: zoomed to the hours used, with a dotted "usual" line.
+  - Doses per day: a full-width week grid with weekday letters and months (`WeekGrid`).
+  - Blood pressure: a bar from the lower number to the upper for each reading.
+  - Time between doses: no chart under 4 gaps.
+- **Text turned into visuals** (`Visual.tsx`: `Sparkline`, `CompareBars`, `HeatTable`, `ZeroBars`):
+  - Progress:
+    - What changed has a small chart of each signal with the before/after levels.
+    - The coming days and the cycle phases are shaded grids.
+    - Caffeine and alcohol, days on and off, steps and weight, and readiness against lifts are side-by-side bars.
+    - Protein, water and readiness lead with their averages.
+    - Dose levels are rows with a weight-change bar and appetite dots.
+  - Training:
+    - Bars per muscle; push/pull and upper/lower split bars.
+    - Strength by day after a shot as bars around zero.
+    - A sparkline per lift and a run pace chart.
+    - Readable weekly session bars with counts.
+  - Body: a 60-day weight sparkline.
+- **Consistency:**
+  - One day format on screen, `fmtDay`: "Thu 22 Oct", with the year only when it isn't this year. Printed documents
+    and expiry dates keep the full year.
+  - Minus signs in changes; BP rows on one line.
+  - No effect window or bottle expiry section for injections.
+  - Unused code removed.
+- **No equipment:**
+  - 30 exercises that need the floor, a wall, a chair or stairs at most (equipment `none`), each going up by reps,
+    with cues for the harder version.
+  - A No equipment / Gym / All switch in the exercise picker (grouped by legs, push, pull, core; remembered).
+  - Three ready-made no-equipment sessions under Start a workout.
+  - First-time hints suited to bodyweight and timed holds.
+- Tests `tests/exercises-nokit.test.ts`. Axe clean (light and dark); the TapDose check, Insights, Smart, Training and
+  Tags flows pass.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 

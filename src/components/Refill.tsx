@@ -1,6 +1,6 @@
 import { repeatRequest } from '../logic/records';
 import { useState } from 'react';
-import { shownColour, shownMedName, shownName } from '../logic/privacy';
+import { shownColour, shownName } from '../logic/privacy';
 import { format } from 'date-fns';
 import { Package, X } from 'lucide-react';
 import { Bar } from './ui/Visual';

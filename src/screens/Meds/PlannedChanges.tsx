@@ -3,7 +3,7 @@ import { format, addDays } from 'date-fns';
 import { CalendarClock, Trash2 } from 'lucide-react';
 import type { Medication, PlannedChange } from '../../db/schema';
 import { addPlannedChange, removePlannedChange } from '../../db/repos/meds';
-import { fmtAmount, fmtSchedule } from '../../logic/format';
+import { fmtAmount, fmtSchedule, fmtYmdDay } from '../../logic/format';
 import { medOn } from '../../logic/plans';
 import { useToast } from '../../app/toast';
 import { Card } from '../../components/ui/Card';
@@ -12,7 +12,7 @@ import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { TextInput } from '../../components/ui/Field';
 import { ScheduleFields, scheduleFormFromMed, scheduleFromForm, validateSchedule, type ScheduleErrors, type ScheduleForm } from './ScheduleFields';
 
-const fmtDate = (ymd: string) => format(new Date(`${ymd}T12:00`), 'EEE d MMM yyyy');
+const fmtDate = (ymd: string) => fmtYmdDay(ymd);
 const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
 
 /** Dose changes and tapers that take over on a date. Each is applied automatically on its day. */

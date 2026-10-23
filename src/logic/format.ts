@@ -3,7 +3,14 @@ import { format } from 'date-fns';
 import type { Medication, Schedule } from '../db/schema';
 
 const timeFmt = new Intl.DateTimeFormat('en-AU', { hour: 'numeric', minute: '2-digit' });
-const dayFmt = new Intl.DateTimeFormat('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+
+/** A day as the app writes it everywhere on screen: "Thu 22 Oct", with the year only when it isn't this year
+ *  ("Mon 3 Nov 2025"). Printed documents and expiry dates write the full date themselves. */
+export function fmtDay(ms: number, now = Date.now()): string {
+  return format(ms, new Date(ms).getFullYear() === new Date(now).getFullYear() ? 'EEE d MMM' : 'EEE d MMM yyyy');
+}
+/** fmtDay for a stored local date ("2026-10-22"). */
+export const fmtYmdDay = (ymd: string, now = Date.now()) => fmtDay(new Date(`${ymd}T12:00`).getTime(), now);
 
 /** "3:02 pm" */
 export function fmtTime(ms: number): string {
@@ -19,7 +26,7 @@ export function fmtWhen(ms: number, now: number): string {
   if (day(ms) === day(now - 86_400_000)) return `yesterday ${fmtTime(ms)}`;
   if (day(ms) === day(now + 86_400_000)) return `tomorrow ${fmtTime(ms)}`;
   if (ms > now && ms - now < 6 * 86_400_000) return `${weekdayFmt.format(ms)} ${fmtTime(ms)}`;
-  return `${dayFmt.format(ms)}, ${fmtTime(ms)}`;
+  return `${fmtDay(ms, now)}, ${fmtTime(ms)}`;
 }
 
 /** "2h 14m", "14m", "3d 2h" */

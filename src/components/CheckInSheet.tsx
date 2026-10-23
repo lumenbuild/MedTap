@@ -1,6 +1,6 @@
 import { chipsFromNote } from '../logic/records';
 import { useEffect, useState } from 'react';
-import { shownColour, shownMedName, shownName } from '../logic/privacy';
+import { shownName } from '../logic/privacy';
 import { Plus } from 'lucide-react';
 import type { CheckIn, Dose, Medication } from '../db/schema';
 import { addCheckIn, removeCheckIn, restoreCheckIn, updateCheckIn, type CheckInInput } from '../db/repos/checkIns';

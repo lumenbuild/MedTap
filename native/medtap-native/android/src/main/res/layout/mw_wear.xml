@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/mw_root"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="14dp" android:background="@drawable/medtap_widget_bg">
+    <TextView android:id="@+id/mw_label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/mw_muted" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/mw_title" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/mw_text" android:textSize="19sp" android:maxLines="1" android:ellipsize="end" />
+    <ImageView android:id="@+id/mw_bar" android:layout_width="match_parent" android:layout_height="22dp" android:layout_marginTop="8dp" android:scaleType="fitXY" android:contentDescription="Focus window" />
+    <TextView android:id="@+id/mw_detail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/mw_muted" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:layout_marginTop="4dp"/>
+</LinearLayout>

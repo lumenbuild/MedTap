@@ -74,6 +74,7 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
     public void load() {
         adapter = NfcAdapter.getDefaultAdapter(getContext());
         // A tap on the watch while the app is open: tell the app to log it now.
+        WidgetStore.listener = () -> main.post(() -> notifyListeners("widgetAction", new JSObject(), true));
         WearBridge.setListener((queue) -> {
             String event = WearBridge.SETS.equals(queue) ? "watchSet" : "watchLog";
             main.post(() -> notifyListeners(event, new JSObject(), true));
@@ -112,6 +113,14 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
             o.put("medId", intent.getStringExtra(LOG_EXTRA));
             intent.removeExtra(LOG_EXTRA); // handled; don't repeat if the activity is recreated
             notifyListeners("logRequest", o, true);
+            return;
+        }
+        if (intent != null && intent.hasExtra("medtap.route")) {
+            // A widget opened the app on a page (e.g. a check-in).
+            JSObject o = new JSObject();
+            o.put("path", intent.getStringExtra("medtap.route"));
+            intent.removeExtra("medtap.route");
+            notifyListeners("route", o, true);
             return;
         }
         if (intent != null && ("androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE".equals(intent.getAction()) || "android.intent.action.VIEW_PERMISSION_USAGE".equals(intent.getAction()))) {
@@ -655,7 +664,7 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
     @PluginMethod
     public void setWidget(PluginCall call) {
         String json = call.getString("json", "{}");
-        DoseWidget.save(getContext(), json);
+        WidgetStore.save(getContext(), json);
         WearBridge.push(getContext(), json);
         call.resolve();
     }
@@ -683,6 +692,16 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
         try {
             JSObject o = new JSObject();
             o.put("items", new org.json.JSONArray(WearBridge.take(getContext(), WearBridge.SETS)));
+            call.resolve(o);
+        } catch (Exception e) { call.reject(e.getMessage(), "io"); }
+    }
+
+    /** Widget taps waiting to be logged: {items: [{kind, ..., at}]}, cleared. */
+    @PluginMethod
+    public void takeWidgetActions(PluginCall call) {
+        try {
+            JSObject o = new JSObject();
+            o.put("items", new org.json.JSONArray(WidgetStore.take(getContext())));
             call.resolve(o);
         } catch (Exception e) { call.reject(e.getMessage(), "io"); }
     }

@@ -22,8 +22,9 @@ import { PhotoReader } from '../components/PhotoReader';
 import { Button } from '../components/ui/Button';
 import { TextInput } from '../components/ui/Field';
 import { Sheet, SheetActions } from '../components/ui/Sheet';
+import { fmtYmdDay } from '../logic/format';
 
-const ymd = (x: string) => format(new Date(`${x}T12:00`), 'EEE d MMM yyyy');
+const ymd = (x: string) => fmtYmdDay(x);
 const Loading = () => <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
 
 // ── Appointments and questions ──────────────────────────────────────────────────────────────────────
