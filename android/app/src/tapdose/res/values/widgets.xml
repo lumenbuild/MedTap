@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TapDose has no injections, weight or training: those widgets are switched off (see the plugin's manifest) and their
+     names are plain here so nothing in the app mentions them. -->
+<resources>
+    <bool name="mw_body_widgets">false</bool>
+    <string name="mw_shot_label">Week</string>
+    <string name="mw_shot_description">This week.</string>
+    <string name="mw_weight_label">Trend</string>
+    <string name="mw_weight_description">The last 8 weeks.</string>
+    <string name="mw_intake_label">Intake</string>
+    <string name="mw_intake_description">Today.</string>
+</resources>

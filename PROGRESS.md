@@ -571,6 +571,27 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
 - Tests `tests/smart-f.test.ts` (8). Browser: What changed, Ask (suggestion and typed), step-up criteria saved, Today
   lines. Not yet tried on a real phone.
 
+## Home-screen widgets (owner picked 1 to 8)
+- The app works out everything once (`src/logic/widgets.ts`, `widgetsPayload`) and saves one payload (`setWidget`);
+  the watch still reads the same top-level next-dose fields. Android draws eight widgets from it
+  (`native/medtap-native/.../WidgetStore.java`, `BaseWidget`, one class each), light and dark with the phone:
+  1. **Next dose** (4×1): ring of today's doses done, the next with a live countdown, Log (opens straight into logging
+     it, so its reminders clear).
+  2. **Focus window**: today's dose to the likely drop, with now marked (from the wear-off forecast).
+  3. **Shot week**: this week's shots as dots, the next one, how today usually feels, doses left in the vial or pen.
+  4. **Protein and water**: rings towards the targets, +25 g and +250 mL without opening the app.
+  5. **Quick log** (2×2): as-needed medicines, coffee/alcohol, Check in (opens the check-in sheet).
+  6. **Weight trend**: 8 weekly averages and 4 weeks ahead dashed (through the dose plan, else towards the goal).
+  7. **Training**: readiness ring and the last session's first lift at today's target.
+  8. **Today at a glance**: doses done, the next one, steps and the newest "What changed".
+- Taps that log without opening the app (4, 5) are queued on the phone (`WidgetActionReceiver`, shown at once on the
+  widget) and logged by the app at the time tapped when it next runs or straight away if it's running (dose source
+  `widget`, with the usual double-log guard).
+- TapDose: Shot week, Protein and water, Weight trend and Training are switched off (`@bool/mw_body_widgets` in
+  `android/app/src/tapdose/res/values/widgets.xml`).
+- Tests `tests/widgets.test.ts` (3). Fake-native browser flow: payload, protein/coffee/as-needed taps logged once,
+  resync, Check in route. Both flavours compile. Not yet placed on a real home screen.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 

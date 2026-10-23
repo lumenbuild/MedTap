@@ -195,7 +195,7 @@ export interface Tag {
 }
 export interface Dose extends Stamped {
   medicationId: string; takenAt: string; amount: number;
-  source: 'tag' | 'manual' | 'backdated' | 'reminder' | 'watch'; tagId?: string; note?: string; deletedAt?: string;
+  source: 'tag' | 'manual' | 'backdated' | 'reminder' | 'watch' | 'widget'; tagId?: string; note?: string; deletedAt?: string;
   /** Recorded as skipped on purpose: covers its place in the plan but wasn't taken (no stock change). */
   skipped?: boolean; skipReason?: string;
   /** Who took it, for shared medications (otherwise the medication's person). */

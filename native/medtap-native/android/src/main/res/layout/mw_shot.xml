@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/mw_root"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="14dp" android:background="@drawable/medtap_widget_bg">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <TextView android:id="@+id/mw_title" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/mw_text" android:textSize="17sp" android:maxLines="1" android:ellipsize="end" android:layout_weight="1"/>
+        <TextView android:id="@+id/mw_next" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/mw_muted" android:textSize="13sp" android:maxLines="1" android:ellipsize="end" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp">
+        <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center_horizontal">
+            <TextView android:id="@+id/mw_d0_l" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/mw_muted" android:textSize="11sp" />
+            <ImageView android:id="@+id/mw_d0" android:layout_width="16dp" android:layout_height="16dp" android:layout_marginTop="3dp" android:scaleType="center" android:src="@drawable/mw_day_none" />
+        </LinearLayout><LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center_horizontal">
+            <TextView android:id="@+id/mw_d1_l" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/mw_muted" android:textSize="11sp" />
+            <ImageView android:id="@+id/mw_d1" android:layout_width="16dp" android:layout_height="16dp" android:layout_marginTop="3dp" android:scaleType="center" android:src="@drawable/mw_day_none" />
+        </LinearLayout><LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center_horizontal">
+            <TextView android:id="@+id/mw_d2_l" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/mw_muted" android:textSize="11sp" />
+            <ImageView android:id="@+id/mw_d2" android:layout_width="16dp" android:layout_height="16dp" android:layout_marginTop="3dp" android:scaleType="center" android:src="@drawable/mw_day_none" />
+        </LinearLayout><LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center_horizontal">
+            <TextView android:id="@+id/mw_d3_l" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/mw_muted" android:textSize="11sp" />
+            <ImageView android:id="@+id/mw_d3" android:layout_width="16dp" android:layout_height="16dp" android:layout_marginTop="3dp" android:scaleType="center" android:src="@drawable/mw_day_none" />
+        </LinearLayout><LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center_horizontal">
+            <TextView android:id="@+id/mw_d4_l" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/mw_muted" android:textSize="11sp" />
+            <ImageView android:id="@+id/mw_d4" android:layout_width="16dp" android:layout_height="16dp" android:layout_marginTop="3dp" android:scaleType="center" android:src="@drawable/mw_day_none" />
+        </LinearLayout><LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center_horizontal">
+            <TextView android:id="@+id/mw_d5_l" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/mw_muted" android:textSize="11sp" />
+            <ImageView android:id="@+id/mw_d5" android:layout_width="16dp" android:layout_height="16dp" android:layout_marginTop="3dp" android:scaleType="center" android:src="@drawable/mw_day_none" />
+        </LinearLayout><LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center_horizontal">
+            <TextView android:id="@+id/mw_d6_l" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/mw_muted" android:textSize="11sp" />
+            <ImageView android:id="@+id/mw_d6" android:layout_width="16dp" android:layout_height="16dp" android:layout_marginTop="3dp" android:scaleType="center" android:src="@drawable/mw_day_none" />
+        </LinearLayout>
+    </LinearLayout>
+    <TextView android:id="@+id/mw_feel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/mw_text" android:textSize="13sp" android:maxLines="1" android:ellipsize="end" android:layout_marginTop="8dp"/>
+    <TextView android:id="@+id/mw_left" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/mw_muted" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" />
+</LinearLayout>

@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="medtap_widget_label">Next dose</string>
-    <string name="medtap_widget_description">Your next dose with a countdown, and buttons to log as-needed medicines.</string>
+    <string name="medtap_widget_description">Your next dose with a ring for today and a Log button.</string>
+    <string name="mw_wear_label">Focus window</string>
+    <string name="mw_wear_description">Today\'s dose and when focus usually drops.</string>
+    <string name="mw_shot_label">Shot week</string>
+    <string name="mw_shot_description">This week\'s shots, how today usually feels, and what\'s left in the vial.</string>
+    <string name="mw_intake_label">Protein and water</string>
+    <string name="mw_intake_description">Today\'s protein and water with buttons to add.</string>
+    <string name="mw_quick_label">Quick log</string>
+    <string name="mw_quick_description">One tap logs an as-needed medicine or a coffee.</string>
+    <string name="mw_weight_label">Weight trend</string>
+    <string name="mw_weight_description">The last 8 weeks and where it\'s heading.</string>
+    <string name="mw_training_label">Training</string>
+    <string name="mw_training_description">How ready you are and your first lift\'s target.</string>
+    <string name="mw_glance_label">Today at a glance</string>
+    <string name="mw_glance_description">Doses done, the next one, steps and what changed.</string>
 </resources>

@@ -16,3 +16,14 @@ export function onLogRequest(l: Listener): () => void {
 }
 
 export function clearLogRequest() { pending = null; }
+
+// The widget's "Check in" button: Today opens the check-in sheet.
+let checkInPending = false;
+const checkInListeners = new Set<() => void>();
+export function requestCheckIn() { checkInPending = true; checkInListeners.forEach((l) => l()); }
+export function onCheckInRequest(l: () => void): () => void {
+  checkInListeners.add(l);
+  if (checkInPending) l();
+  return () => { checkInListeners.delete(l); };
+}
+export function clearCheckInRequest() { checkInPending = false; }

@@ -20,7 +20,7 @@ import { AdherenceHeatmap, DoseTimingCharts, FeelingsChart, VitalsCharts, Weight
 import { HAS_BODY } from '../../edition';
 
 const ymd = (ms: number) => format(ms, 'yyyy-MM-dd');
-const SOURCE: Record<string, string> = { tag: 'Tag', manual: 'In app', backdated: 'Logged later', reminder: 'From a reminder', watch: 'Watch' };
+const SOURCE: Record<string, string> = { tag: 'Tag', manual: 'In app', backdated: 'Logged later', reminder: 'From a reminder', watch: 'Watch', widget: 'Widget' };
 
 /** A print-friendly summary for a chosen date range. Print / Save as PDF uses the browser's print dialog. */
 export function Report() {

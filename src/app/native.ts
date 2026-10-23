@@ -5,7 +5,12 @@ import { liveQuery } from 'dexie';
 import { db } from '../db/db';
 import { getSettings, scheduleSettings, setSetting } from '../db/repos/settings';
 import { dosesForPerson, listPeople, medIsFor, personOf, storedPerson } from '../db/repos/people';
-import { shortcutItems, widgetData } from '../logic/widget';
+import { shortcutItems } from '../logic/widget';
+import { widgetsPayload } from '../logic/widgets';
+import { HAS_BODY, HAS_PEPTIDES } from '../edition';
+import { addIntake } from '../db/repos/training';
+import { addCheckIn } from '../db/repos/checkIns';
+import { dayKey } from '../logic/stats';
 import { autoImportHealth } from './health';
 import { APP_NAME } from '../config';
 import { getExpectedAmount, getRecentDose } from '../logic/schedule';
@@ -20,7 +25,7 @@ import { tagIdFromUrl } from '../nfc/url';
 import { isNative, isNativeAndroid } from '../platform';
 import { MedTapNative } from '../nfc/native';
 import { go } from './router';
-import { requestLog } from './pendingLog';
+import { requestCheckIn, requestLog } from './pendingLog';
 
 const CHANNEL = 'doses';
 const TRAINING_CHANNEL = 'training';
@@ -42,11 +47,14 @@ export async function initNative() {
   await MedTapNative.addListener('tag', (e) => openUrl(e.url));
   if (isNativeAndroid) MedTapNative.nfcListen().catch(() => { /* no NFC on this phone */ });
   await CapApp.addListener('appUrlOpen', (e) => openUrl(e.url));
-  await CapApp.addListener('resume', () => { void syncReminders(); void syncExtras(); void autoImportHealth(); if (isNativeAndroid) void logWatchTaps(); });
+  await CapApp.addListener('resume', () => { void syncReminders(); void syncExtras(); void autoImportHealth(); if (isNativeAndroid) { void logWatchTaps(); void logWidgetTaps(); } });
   // Shortcuts, Siri and the widget ask to log a medicine; Health Connect can open the privacy page.
   await MedTapNative.addListener('logRequest', (e) => { go('/today'); requestLog(e.medId); });
-  await MedTapNative.addListener('route', (e) => go(e.path));
-  if (isNativeAndroid) { await MedTapNative.addListener('watchLog', () => { void logWatchTaps(); }); void logWatchTaps(); }
+  await MedTapNative.addListener('route', (e) => { if (e.path === '/checkin') { go('/today'); requestCheckIn(); } else go(e.path); });
+  if (isNativeAndroid) {
+    await MedTapNative.addListener('watchLog', () => { void logWatchTaps(); }); void logWatchTaps();
+    await MedTapNative.addListener('widgetAction', () => { void logWidgetTaps(); }); void logWidgetTaps();
+  }
   void autoImportHealth();
 
   await LocalNotifications.registerActionTypes({ types: [{ id: ACTIONS, actions: [
@@ -64,6 +72,10 @@ export async function initNative() {
   let timer: ReturnType<typeof setTimeout> | undefined;
   liveQuery(() => Promise.all([db.medications.count(), db.doses.count(), db.doses.orderBy('takenAt').last(), db.settings.toArray(), db.workouts.count()]))
     .subscribe(() => { clearTimeout(timer); timer = setTimeout(() => { void syncReminders(); void syncExtras(); }, 2000); });
+  // Protein, water and check-ins change only some widgets: refresh just those quickly.
+  let quick: ReturnType<typeof setTimeout> | undefined;
+  liveQuery(() => Promise.all([db.daily.count(), db.daily.orderBy('date').last(), db.checkIns.count(), db.bodyEntries.count()]))
+    .subscribe(() => { clearTimeout(quick); quick = setTimeout(() => { void syncExtras(); }, 1500); });
 }
 
 /** Taps on the watch: log each at the time it was tapped, at the planned amount, unless one was logged just before
@@ -71,29 +83,55 @@ export async function initNative() {
 async function logWatchTaps() {
   try {
     const { items } = await MedTapNative.takeWatchLogs();
-    if (!items.length) return;
-    const settings = await getSettings();
-    const s = scheduleSettings(settings);
-    for (const it of items) {
-      const med = await db.medications.get(it.medId);
-      if (!med || med.archived) continue;
-      const doses = (await db.doses.where('medicationId').equals(med.id).toArray()).filter((d) => !d.deletedAt);
-      const at = Number(it.at) || Date.now();
-      if (getRecentDose(doses, med.id, at, settings.guardMinutes)) continue;
-      await logDose({ medicationId: med.id, takenAt: new Date(at).toISOString(), amount: getExpectedAmount(med, doses, at, s), source: 'watch', ...(med.shared ? { personId: storedPerson(settings.activePersonId) } : {}) });
-    }
+    for (const it of items) await logTap(it.medId, it.at, 'watch');
   } catch (e) { console.error('watch', e); }
 }
 
-/** The home-screen widget and the "Log <medicine>" shortcuts, for the person being shown. */
+async function logTap(medId: string, atMs: number, source: 'watch' | 'widget') {
+  const settings = await getSettings();
+  const med = await db.medications.get(medId);
+  if (!med || med.archived) return;
+  const doses = (await db.doses.where('medicationId').equals(med.id).toArray()).filter((d) => !d.deletedAt);
+  const at = Number(atMs) || Date.now();
+  if (getRecentDose(doses, med.id, at, settings.guardMinutes)) return;
+  await logDose({ medicationId: med.id, takenAt: new Date(at).toISOString(), amount: getExpectedAmount(med, doses, at, scheduleSettings(settings)), source, ...(med.shared ? { personId: storedPerson(settings.activePersonId) } : {}) });
+}
+
+/** Taps on the home-screen widgets (as-needed medicines, protein, water, coffee), logged at the time they were tapped
+ *  for the person the widgets show. */
+async function logWidgetTaps() {
+  try {
+    const { items } = await MedTapNative.takeWidgetActions();
+    if (!items.length) return;
+    const settings = await getSettings();
+    const who = settings.activePersonId;
+    for (const a of items) {
+      const at = Number(a.at) || Date.now();
+      if (a.kind === 'dose') await logTap(a.medId, at, 'widget');
+      else if (a.kind === 'intake' && (a.field === 'proteinG' || a.field === 'waterMl')) await addIntake(who, dayKey(at, scheduleSettings(settings)), a.field, Number(a.amount) || 0);
+      else if (a.kind === 'chip') await addCheckIn({ at: new Date(at).toISOString(), chips: [a.chip], personId: storedPerson(who) });
+    }
+    await syncExtras();
+  } catch (e) { console.error('widget taps', e); }
+}
+
+/** The home-screen widgets, the watch's tile and the "Log <medicine>" shortcuts, for the person being shown. */
 async function syncExtras() {
   try {
     const settings = await getSettings();
-    const [meds, doses] = await Promise.all([db.medications.toArray(), db.doses.toArray()]);
-    const mine = meds.filter((m) => medIsFor(m, settings.activePersonId));
+    const who = settings.activePersonId;
+    const [meds, doses, checkIns, body, daily, workouts, events, own, people] = await Promise.all([db.medications.toArray(), db.doses.toArray(), db.checkIns.toArray(),
+      db.bodyEntries.toArray(), db.daily.toArray(), db.workouts.toArray(), db.medEvents.toArray(), db.exercises.toArray(), listPeople()]);
+    const mine = meds.filter((m) => medIsFor(m, who));
     const ids = new Set(mine.map((m) => m.id));
-    const live = dosesForPerson(doses.filter((d) => !d.deletedAt && ids.has(d.medicationId)), mine, settings.activePersonId);
-    await MedTapNative.setWidget({ json: JSON.stringify(widgetData(APP_NAME, mine, live, Date.now(), scheduleSettings(settings))) });
+    const live = dosesForPerson(doses.filter((d) => !d.deletedAt && ids.has(d.medicationId)), mine, who);
+    const theirs = <T extends { personId?: string; deletedAt?: string }>(xs: T[]) => xs.filter((x) => !x.deletedAt && personOf(x) === who);
+    const payload = widgetsPayload({
+      app: APP_NAME, meds: mine, doses: live, checkIns: theirs(checkIns), body: theirs(body), daily: theirs(daily), workouts: theirs(workouts),
+      events: events.filter((e) => ids.has(e.medicationId)), own, goals: people.find((p) => p.id === who)?.goals ?? [], units: settings.units,
+      proteinTarget: settings.proteinTargetG, waterTarget: settings.waterTargetMl, body_: HAS_BODY, training: settings.trainingTools, peptides: HAS_PEPTIDES && settings.peptideTools,
+    }, Date.now(), scheduleSettings(settings));
+    await MedTapNative.setWidget({ json: JSON.stringify(payload) });
     await MedTapNative.setShortcuts({ items: shortcutItems(mine) });
   } catch (e) { console.error('widget/shortcuts', e); }
 }

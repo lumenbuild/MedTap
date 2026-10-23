@@ -33,11 +33,56 @@
                 <data android:scheme="wear" android:host="*" android:pathPrefix="/medtap" />
             </intent-filter>
         </service>
+        <!-- Home-screen widgets (all drawn from one payload the app saves; see WidgetStore). Shot week, protein and water,
+             weight and training are off in TapDose (@bool/mw_body_widgets). -->
         <receiver android:name="app.medtap.nativeplugin.DoseWidget" android:exported="true" android:label="@string/medtap_widget_label">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/medtap_widget_info" />
         </receiver>
+        <receiver android:name="app.medtap.nativeplugin.WearWidget" android:exported="true" android:label="@string/mw_wear_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/mw_wear_info" />
+        </receiver>
+        <receiver android:name="app.medtap.nativeplugin.ShotWidget" android:exported="true" android:enabled="@bool/mw_body_widgets" android:label="@string/mw_shot_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/mw_shot_info" />
+        </receiver>
+        <receiver android:name="app.medtap.nativeplugin.IntakeWidget" android:exported="true" android:enabled="@bool/mw_body_widgets" android:label="@string/mw_intake_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/mw_intake_info" />
+        </receiver>
+        <receiver android:name="app.medtap.nativeplugin.QuickWidget" android:exported="true" android:label="@string/mw_quick_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/mw_quick_info" />
+        </receiver>
+        <receiver android:name="app.medtap.nativeplugin.WeightWidget" android:exported="true" android:enabled="@bool/mw_body_widgets" android:label="@string/mw_weight_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/mw_weight_info" />
+        </receiver>
+        <receiver android:name="app.medtap.nativeplugin.TrainingWidget" android:exported="true" android:enabled="@bool/mw_body_widgets" android:label="@string/mw_training_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/mw_training_info" />
+        </receiver>
+        <receiver android:name="app.medtap.nativeplugin.GlanceWidget" android:exported="true" android:label="@string/mw_glance_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/mw_glance_info" />
+        </receiver>
+        <receiver android:name="app.medtap.nativeplugin.WidgetActionReceiver" android:exported="false" />
     </application>
 </manifest>
