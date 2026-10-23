@@ -10,7 +10,7 @@ import { autoImportHealth } from './health';
 import { APP_NAME } from '../config';
 import { getExpectedAmount, getRecentDose } from '../logic/schedule';
 import { logDose } from '../db/repos/doses';
-import { planReminders } from '../logic/notify';
+import { liveSnoozes, planReminders, snoozeOf, SNOOZE_MIN, withoutSnoozed } from '../logic/notify';
 import { planTrainingReminders } from '../logic/trainingPlan';
 import { trainingVsPeptide } from '../logic/training';
 import { fmtAmount, fmtTime } from '../logic/format';
@@ -48,7 +48,11 @@ export async function initNative() {
   if (isNativeAndroid) { await MedTapNative.addListener('watchLog', () => { void logWatchTaps(); }); void logWatchTaps(); }
   void autoImportHealth();
 
-  await LocalNotifications.registerActionTypes({ types: [{ id: ACTIONS, actions: [{ id: 'log', title: 'Log it', foreground: true }] }] });
+  await LocalNotifications.registerActionTypes({ types: [{ id: ACTIONS, actions: [
+    { id: 'log', title: 'Log it', foreground: true },
+    { id: 'snooze', title: `In ${SNOOZE_MIN} min` },
+    { id: 'skip', title: 'Skip', destructive: true },
+  ] }] });
   if (isNativeAndroid) {
     await LocalNotifications.createChannel({ id: CHANNEL, name: 'Dose reminders', description: 'When a dose is due', importance: 4, vibration: true, visibility: 0 });
     await LocalNotifications.createChannel({ id: TRAINING_CHANNEL, name: 'Training', description: 'Rest timer and training-day reminders', importance: 4, vibration: true, visibility: 1 });
@@ -93,20 +97,34 @@ async function syncExtras() {
   } catch (e) { console.error('widget/shortcuts', e); }
 }
 
-/** "Log it" logs the planned amount straight away; tapping the notification opens Log dose. */
+/** "Log it" logs the planned amount straight away; "In 15 min" reminds again then; "Skip" records the dose as skipped
+ *  (it covers its place in the plan); tapping the notification opens Log dose. */
 async function onAction({ actionId, notification }: ActionPerformed) {
-  const { medId, amount, route } = (notification.extra ?? {}) as { medId?: string; amount?: number; route?: string };
+  const { medId, amount, route, dueAt } = (notification.extra ?? {}) as { medId?: string; amount?: number; route?: string; dueAt?: number };
   // Training reminders open Training; the rest timer just brings the app (and the workout) back.
   if (route) { if (route !== 'back') go(route); return; }
   if (!medId) return;
   const med = await db.medications.get(medId);
   if (!med) return;
+  const settings = await getSettings();
+  const doses = (await db.doses.where('medicationId').equals(medId).toArray()).filter((d) => !d.deletedAt);
+  if (actionId === 'snooze' && amount !== undefined) {
+    const z = snoozeOf({ medId, amount, dueAt: dueAt ?? Date.now() }, Date.now());
+    await setSetting('snoozes', [...liveSnoozes(settings.snoozes, doses, Date.now()).filter((x) => !(x.medId === medId && x.dueAt === z.dueAt)), z]);
+    await syncReminders();
+    return;
+  }
+  if (actionId === 'skip' && !med.shared && amount !== undefined) {
+    // Already logged or skipped just now: nothing more to record.
+    if (getRecentDose(doses, medId, Date.now(), settings.guardMinutes)) return;
+    const at = dueAt && dueAt <= Date.now() + 3_600_000 ? dueAt : Date.now();
+    await logDose({ medicationId: medId, takenAt: new Date(at).toISOString(), amount, source: 'reminder', skipped: true, skipReason: 'Skipped from the reminder' });
+    return;
+  }
   go('/today');
   if (actionId !== 'log' || med.shared || amount === undefined) { requestLog(medId); return; }
-  const settings = await getSettings();
-  const doses = await db.doses.where('medicationId').equals(medId).toArray();
   // Never log twice: if a dose was just logged, open Log dose so the person can see it.
-  if (getRecentDose(doses.filter((d) => !d.deletedAt), medId, Date.now(), settings.guardMinutes)) { requestLog(medId); return; }
+  if (getRecentDose(doses, medId, Date.now(), settings.guardMinutes)) { requestLog(medId); return; }
   await logDose({ medicationId: medId, takenAt: new Date().toISOString(), amount, source: 'reminder' });
 }
 
@@ -167,7 +185,12 @@ async function doSync() {
   if (!settings.remindersEnabled) return;
   const [meds, doses, people] = await Promise.all([db.medications.toArray(), db.doses.toArray(), listPeople()]);
   const live = doses.filter((d) => !d.deletedAt);
-  const plan = planReminders(meds, live, Date.now(), scheduleSettings(settings), undefined, undefined, { nudges: settings.lateNudges });
+  const snoozes = liveSnoozes(settings.snoozes, live, Date.now());
+  if (snoozes.length !== settings.snoozes.length) await setSetting('snoozes', snoozes);
+  const plan = [
+    ...withoutSnoozed(planReminders(meds, live, Date.now(), scheduleSettings(settings), undefined, undefined, { nudges: settings.lateNudges }), snoozes),
+    ...snoozes.filter((z) => meds.some((m) => m.id === z.medId && !m.archived)).map((z) => ({ id: z.id, at: z.at, medId: z.medId, amount: z.amount, kind: 'snooze' as const, dueAt: z.dueAt })),
+  ];
   const byId = new Map(meds.map((m) => [m.id, m]));
   const many = people.length > 1;
   await LocalNotifications.schedule({
@@ -177,11 +200,11 @@ async function doSync() {
       return {
         id: r.id,
         title: `${who}${shownName(med)}`,
-        body: r.kind === 'nudge' ? `Still to take: ${fmtAmount(r.amount, med.unit)}, due at ${fmtTime(r.dueAt)}` : `${fmtAmount(r.amount, med.unit)} due at ${fmtTime(r.dueAt)}`,
+        body: r.kind === 'due' ? `${fmtAmount(r.amount, med.unit)} due at ${fmtTime(r.dueAt)}` : `Still to take: ${fmtAmount(r.amount, med.unit)}, due at ${fmtTime(r.dueAt)}`,
         schedule: { at: new Date(r.at), allowWhileIdle: true },
         channelId: CHANNEL,
         actionTypeId: ACTIONS,
-        extra: { medId: med.id, amount: r.amount },
+        extra: { medId: med.id, amount: r.amount, dueAt: r.dueAt },
         smallIcon: 'ic_stat_medtap',
       };
     }),

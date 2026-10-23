@@ -3,7 +3,9 @@ package app.medtap.wear
 import android.app.Activity
 import android.graphics.Color
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.Gravity
+import android.widget.Chronometer
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
@@ -16,7 +18,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
-/** The next dose with a "Log it" button, and a button for each as-needed medicine. */
+/** During a workout on the phone: the next set with "Done" and the rest countdown. Otherwise (and below it): the next
+ *  dose with a "Log it" button, and a button for each as-needed medicine. */
 class MainActivity : Activity() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private lateinit var list: LinearLayout
@@ -35,8 +38,11 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        WatchState.listener = { runOnUiThread { render(WatchState.load(this)) } }
         scope.launch { WatchState.refresh(this@MainActivity); render(WatchState.load(this@MainActivity)) }
     }
+
+    override fun onPause() { WatchState.listener = null; super.onPause() }
 
     override fun onDestroy() { scope.cancel(); super.onDestroy() }
 
@@ -58,8 +64,48 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun renderWorkout(w: JSONObject) {
+        list.addView(text(w.optString("title", "Workout"), 13f, Color.LTGRAY))
+        val restUntil = w.optLong("restUntil")
+        val left = restUntil - System.currentTimeMillis()
+        if (left > 0) {
+            list.addView(text("Rest", 14f))
+            list.addView(Chronometer(this).apply {
+                base = SystemClock.elapsedRealtime() + left
+                isCountDown = true
+                textSize = 34f
+                setTextColor(Color.WHITE)
+                gravity = Gravity.CENTER
+                setOnChronometerTickListener { c -> if (SystemClock.elapsedRealtime() >= c.base) { c.stop(); c.text = "Go" } }
+                start()
+            })
+        }
+        val next = w.optJSONObject("next")
+        if (next != null) {
+            list.addView(text(next.optString("exercise"), 17f))
+            list.addView(text("${next.optString("label")} · ${next.optString("load")}", 13f, Color.LTGRAY))
+            val setId = next.optString("setId")
+            list.addView(Button(this).apply {
+                text = "Done"
+                isAllCaps = false
+                setOnClickListener { v ->
+                    v.isEnabled = false
+                    scope.launch {
+                        val ok = WatchState.setDone(this@MainActivity, setId)
+                        text = if (ok) "Sent ✓" else "Phone not connected"
+                        announceForAccessibility(text)
+                        if (!ok) v.isEnabled = true
+                    }
+                }
+            })
+        } else list.addView(text("Every set done. Finish the workout on your phone.", 14f))
+        list.addView(text("${w.optInt("done")} of ${w.optInt("total")} sets", 12f, Color.LTGRAY))
+        list.addView(View(this).apply { minimumHeight = 32 })
+    }
+
     private fun render(d: JSONObject) {
         list.removeAllViews()
+        WatchState.workout(this)?.let { renderWorkout(it) }
         val title = d.optString("title", "")
         if (title.isEmpty()) {
             list.addView(text(d.optString("app", getString(R.string.app_name)), 14f, Color.LTGRAY))

@@ -345,7 +345,7 @@ export function Settings() {
       {isNativeAndroid && (
         <Card className="space-y-3">
           <h2 className="text-sm font-medium text-muted">Watch</h2>
-          <p className="text-sm">On a Wear OS watch, {APP_NAME} shows your next dose (as an app and a tile) and logs it, or an as-needed medicine, with one tap. The log is made on this phone, so it needs the phone nearby with {APP_NAME} installed.</p>
+          <p className="text-sm">On a Wear OS watch, {APP_NAME} shows your next dose (as an app, a tile and a watch-face countdown) and logs it, or an as-needed medicine, with one tap.{HAS_BODY ? ' During a workout it shows the next set and the rest countdown, with Done to tick the set.' : ''} Everything is saved on this phone, so it needs the phone nearby with {APP_NAME} installed.</p>
           <details className="text-sm">
             <summary className="cursor-pointer min-h-[44px] flex items-center font-medium">How to install it on the watch</summary>
             <ol className="list-decimal pl-5 space-y-1 text-muted">

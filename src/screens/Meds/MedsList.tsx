@@ -14,6 +14,7 @@ import type { ScheduleSettings } from '../../logic/schedule';
 import { go } from '../../app/router';
 import { fmtSchedule, fmtStock } from '../../logic/format';
 import { overlaps } from '../../logic/ingredients';
+import { interactions } from '../../logic/interactions';
 import { money, monthlyPackCost } from '../../logic/cost';
 import { setSetting } from '../../db/repos/settings';
 import { APP_NAME } from '../../config';
@@ -51,6 +52,14 @@ export function MedsList() {
           <p className="font-semibold">{o.kind === 'same' ? `${shownName(o.a)} and ${shownName(o.b)} both contain ${o.what}` : `${shownName(o.a)} and ${shownName(o.b)} are both ${o.what}`}</p>
           <p className="text-sm">{o.kind === 'same' ? 'Taking both can add up to more than either label allows. ' : ''}Worth checking with your pharmacist or prescriber that taking both is intended.{o.kind === 'same' ? ` When you log either, ${APP_NAME} adds up the ${o.what} from both against your limits.` : ''}</p>
           <Button variant="secondary" onClick={() => setSetting('overlapDismissed', [...settings.overlapDismissed, o.key])}>Got it</Button>
+        </Card>
+      ))}
+
+      {interactions(active, personOf).filter((x) => !settings.overlapDismissed.includes(x.key)).map((x) => (
+        <Card key={x.key} className="bg-caution-soft shadow-none space-y-2">
+          <p className="font-semibold">Worth asking about: {shownName(x.a)} with {shownName(x.b)}</p>
+          <p className="text-sm">{x.why} Your pharmacist or doctor can say whether the pair is intended and what to watch for.</p>
+          <Button variant="secondary" onClick={() => setSetting('overlapDismissed', [...settings.overlapDismissed, x.key])}>Got it</Button>
         </Card>
       ))}
 

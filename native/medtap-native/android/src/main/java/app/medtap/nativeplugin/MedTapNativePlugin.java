@@ -74,7 +74,11 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
     public void load() {
         adapter = NfcAdapter.getDefaultAdapter(getContext());
         // A tap on the watch while the app is open: tell the app to log it now.
-        WearBridge.setListener(() -> { main.post(() -> notifyListeners("watchLog", new JSObject(), true)); return kotlin.Unit.INSTANCE; });
+        WearBridge.setListener((queue) -> {
+            String event = WearBridge.SETS.equals(queue) ? "watchSet" : "watchLog";
+            main.post(() -> notifyListeners(event, new JSObject(), true));
+            return kotlin.Unit.INSTANCE;
+        });
         handleLaunchIntent(getActivity().getIntent());
     }
 
@@ -242,6 +246,68 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
         } catch (IOException | RuntimeException e) {
             call.reject(String.valueOf(e.getMessage()), "io");
         }
+    }
+
+    // ---- App updates ----
+
+    /** Download a newer build of this app and open Android's installer for it (the person confirms there). Rejects
+     *  with 'permission' after opening the "install unknown apps" setting when this app isn't allowed to install yet,
+     *  and with 'mismatch' when the file isn't a newer build of this same app. Sends 'updateProgress' {pct}. */
+    @PluginMethod
+    public void installUpdate(PluginCall call) {
+        String url = call.getString("url");
+        if (url == null || !url.startsWith("https://github.com/lumenbuild/MedTap/releases/download/")) { call.reject("Not an update link", "io"); return; }
+        Context ctx = getContext();
+        if (Build.VERSION.SDK_INT >= 26 && !ctx.getPackageManager().canRequestPackageInstalls()) {
+            Intent allow = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + ctx.getPackageName()));
+            allow.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getActivity().startActivity(allow);
+            call.reject("Allow installs from this app first", "permission");
+            return;
+        }
+        new Thread(() -> {
+            try {
+                File dir = new File(ctx.getCacheDir(), "updates");
+                if (!dir.exists() && !dir.mkdirs()) throw new IOException("Couldn't make a folder");
+                File f = new File(dir, "update.apk");
+                java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+                c.setInstanceFollowRedirects(true);
+                c.setConnectTimeout(20000);
+                c.setReadTimeout(30000);
+                if (c.getResponseCode() != 200) throw new IOException("Download failed (" + c.getResponseCode() + ")");
+                long total = c.getContentLengthLong();
+                try (java.io.InputStream in = c.getInputStream(); FileOutputStream out = new FileOutputStream(f)) {
+                    byte[] buf = new byte[65536];
+                    long got = 0; int lastPct = -1, n;
+                    while ((n = in.read(buf)) > 0) {
+                        out.write(buf, 0, n);
+                        got += n;
+                        int pct = total > 0 ? (int) (got * 100 / total) : -1;
+                        if (pct != lastPct && pct % 5 == 0) { lastPct = pct; JSObject e = new JSObject(); e.put("pct", pct); notifyListeners("updateProgress", e); }
+                    }
+                } finally { c.disconnect(); }
+                // Same app and a newer build, before handing it to the installer (which also checks the signing key).
+                android.content.pm.PackageManager pm = ctx.getPackageManager();
+                android.content.pm.PackageInfo apk = pm.getPackageArchiveInfo(f.getPath(), 0);
+                android.content.pm.PackageInfo self = pm.getPackageInfo(ctx.getPackageName(), 0);
+                long apkVer = apk == null ? -1 : (Build.VERSION.SDK_INT >= 28 ? apk.getLongVersionCode() : apk.versionCode);
+                long selfVer = Build.VERSION.SDK_INT >= 28 ? self.getLongVersionCode() : self.versionCode;
+                if (apk == null || !ctx.getPackageName().equals(apk.packageName) || apkVer <= selfVer) {
+                    //noinspection ResultOfMethodCallIgnored
+                    f.delete();
+                    call.reject("That file isn't a newer build of this app", "mismatch");
+                    return;
+                }
+                Uri uri = FileProvider.getUriForFile(ctx, ctx.getPackageName() + ".fileprovider", f);
+                Intent install = new Intent(Intent.ACTION_VIEW);
+                install.setDataAndType(uri, "application/vnd.android.package-archive");
+                install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+                getActivity().startActivity(install);
+                call.resolve();
+            } catch (Exception e) {
+                call.reject(String.valueOf(e.getMessage()), "io");
+            }
+        }).start();
     }
 
     // ---- Backup folder ----
@@ -599,7 +665,24 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
     public void takeWatchLogs(PluginCall call) {
         try {
             JSObject o = new JSObject();
-            o.put("items", new org.json.JSONArray(WearBridge.take(getContext())));
+            o.put("items", new org.json.JSONArray(WearBridge.take(getContext(), WearBridge.LOGS)));
+            call.resolve(o);
+        } catch (Exception e) { call.reject(e.getMessage(), "io"); }
+    }
+
+    /** What the watch shows during a workout (next set, rest end); "{}" when there's none. */
+    @PluginMethod
+    public void setWatchWorkout(PluginCall call) {
+        WearBridge.pushWorkout(getContext(), call.getString("json", "{}"));
+        call.resolve();
+    }
+
+    /** "Set done" taps from the watch: {items: [{setId, at}]}, cleared. */
+    @PluginMethod
+    public void takeWatchSets(PluginCall call) {
+        try {
+            JSObject o = new JSObject();
+            o.put("items", new org.json.JSONArray(WearBridge.take(getContext(), WearBridge.SETS)));
             call.resolve(o);
         } catch (Exception e) { call.reject(e.getMessage(), "io"); }
     }

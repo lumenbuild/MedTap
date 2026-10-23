@@ -1,4 +1,4 @@
-import { BUILD, checkForUpdate, type Update } from '../../app/updates';
+import { BUILD, checkForUpdate, installUpdate, type Update } from '../../app/updates';
 import { useEffect, useState } from 'react';
 import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { Download, FolderSync, HardDriveDownload, Smile } from 'lucide-react';
@@ -94,18 +94,36 @@ export function AutoBackupPermission({ enabled }: { enabled: boolean }) {
 /** Android app: a newer build is out. Opens the download; "Later" hides this build's card. */
 export function UpdateCard({ dismissed }: { dismissed: number }) {
   const [u, setU] = useState<Update | null>(null);
+  const [pct, setPct] = useState<number | null>(null);
+  const [note, setNote] = useState('');
   useEffect(() => { checkForUpdate().then(setU).catch(() => setU(null)); }, []);
   if (!u || u.build <= dismissed) return null;
+  const install = async () => {
+    setNote(''); setPct(0);
+    const r = await installUpdate(u, setPct);
+    setPct(null);
+    if (r === 'permission') setNote(`Allow "Install unknown apps" for ${APP_NAME} in the screen that opened, then come back and tap Install again.`);
+    else if (r === 'failed') setNote('The download didn’t finish. Check the connection and try again, or use the download link.');
+    else setNote('Confirm in Android’s installer. The app restarts on the new build with your data kept.');
+  };
   return (
     <Card className="flex gap-3">
       <Download className="text-primary shrink-0 mt-0.5" aria-hidden="true" />
       <div className="flex-1">
         <p className="font-semibold">{APP_NAME} build {u.build} is ready</p>
         <p className="text-sm text-muted">You have build {BUILD}.{u.notes ? ` What's new: ${u.notes}.` : ''} It installs over the top and keeps your data.</p>
-        <div className="flex gap-2 mt-3">
-          <a href={u.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center min-h-[48px] px-4 rounded-btn bg-primary text-on-primary font-semibold">Download</a>
+        {pct !== null && (
+          <div className="mt-3" role="status">
+            <div className="h-2 rounded-full bg-border overflow-hidden" aria-hidden="true"><div className="h-full bg-primary transition-[width]" style={{ width: `${Math.max(pct, 3)}%` }} /></div>
+            <p className="text-sm text-muted mt-1">Downloading{pct > 0 ? ` ${pct}%` : '…'}</p>
+          </div>
+        )}
+        {note && <p className="text-sm mt-2" role="status">{note}</p>}
+        <div className="flex flex-wrap gap-2 mt-3">
+          <Button onClick={install} disabled={pct !== null}>Install</Button>
           <Button variant="secondary" onClick={() => setSetting('updateDismissed', u.build)}>Later</Button>
         </div>
+        <a href={u.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center min-h-[44px] text-sm text-muted underline underline-offset-4">Or download it in the browser</a>
       </div>
     </Card>
   );

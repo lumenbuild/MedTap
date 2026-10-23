@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ingredientsOf, ingredientsText, parseIngredients } from '../../logic/ingredients';
 import { shownName } from '../../logic/privacy';
+import { interactions, unstudied } from '../../logic/interactions';
 import { Check, ClipboardList, EyeOff, Plus, X } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Medication, SyringeType } from '../../db/schema';
@@ -311,6 +312,25 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
             <TextInput label="Active ingredients (optional)" value={f.ingredients} onChange={(e) => set('ingredients', e.target.value)} autoComplete="off"
               placeholder={detected.length ? ingredientsText(detected) : 'e.g. paracetamol 500, codeine 8'}
               help={`${detected.length && !f.ingredients.trim() ? `From the name: ${ingredientsText(detected)}. ` : ''}mg in each ${f.form === 'injection' ? 'dose unit' : f.form}. Used to spot the same ingredient in two medicines, and to add them up against your limits.`} />
+          );
+        })()}
+        {(() => {
+          // Pairs with this person's other medicines that are worth raising with a pharmacist (as typed, before saving).
+          const draft: Medication = { ...(existing ?? { id: '__new', color: '', icon: 'pill', schedule: { type: 'prn' }, defaultAmount: 0, createdAt: '', updatedAt: '' }),
+            name: f.name, strength: Number(f.strength) || 0, unit: f.unit, form: f.form, archived: false,
+            ingredients: f.ingredients.trim() ? parseIngredients(f.ingredients) : undefined,
+            shared: f.personId === 'shared', personId: f.personId === 'shared' ? undefined : storedPerson(f.personId) } as Medication;
+          const others = (meds ?? []).filter((m) => m.id !== draft.id);
+          const pairs = f.name.trim() ? interactions([draft, ...others], (m) => personOf(m)).filter((x) => x.a.id === draft.id || x.b.id === draft.id) : [];
+          const note = HAS_PEPTIDES && f.name.trim() && unstudied(draft);
+          if (!pairs.length && !note) return null;
+          return (
+            <div className="space-y-2 pt-1" role="note">
+              {pairs.map((x) => (
+                <p key={x.key} className="text-sm rounded-btn bg-caution-soft p-3"><span className="font-semibold">With {shownName(x.a.id === draft.id ? x.b : x.a)}:</span> {x.why} Worth asking your pharmacist or doctor.</p>
+              ))}
+              {note && <p className="text-sm rounded-btn bg-surface-2 p-3">How {f.name.trim()} mixes with other medicines hasn’t been studied. Tell your doctor and pharmacist you use it, and bring it up before starting anything new.</p>}
+            </div>
           );
         })()}
       </Card>

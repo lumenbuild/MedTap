@@ -471,6 +471,33 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
 - Browser checks: watch tap logged once at tap time, Settings → Watch, warm-ups, PB in reach, strength for body weight;
   fit audit and axe clean; TapDose scan clean.
 
+## Reminders, updates, interactions, watch workouts (owner picked 1, 2, 5 "about peptides too", 6)
+- **Snooze and Skip** on dose reminders (with "Log it"): "In 15 min" reminds again then (kept in settings as
+  `snoozes`, so the resync that replaces every reminder keeps it; dropped once anything is logged for the medicine);
+  "Skip" records the dose as skipped at its due time. `src/logic/notify.ts` (`snoozeOf`, `liveSnoozes`,
+  `withoutSnoozed`). Android opens the app briefly for either action (Capacitor's notification actions).
+- **One-tap update install** (Android): the update card's Install downloads the build in the app (progress bar),
+  checks it's the same app and a newer version code, and opens Android's installer (the person confirms; Android also
+  checks the signing key). First time: Android's "Install unknown apps" setting for the app opens, with a note.
+  `installUpdate` in the native plugin; `REQUEST_INSTALL_PACKAGES`.
+- **Interaction flags** (`src/logic/interactions.ts`): well-known pairs from labels and standard references, worded
+  "worth asking your pharmacist or doctor": serotonin (SSRIs/SNRIs with tramadol, tapentadol, triptans, St John's
+  wort), bleeding (SSRIs or blood thinners with NSAIDs), opioids with sedatives, stimulants with decongestants,
+  ACE/ARB with NSAIDs or spironolactone, lithium, PDE5 with nitrates. Peptides: GLP-1s (incl. retatrutide,
+  survodutide) with insulin or sulfonylureas, tirzepatide with the pill, growth-hormone releasers (ipamorelin,
+  CJC-1295, sermorelin, tesamorelin, MK-677) with diabetes medicines, cagrilintide/pramlintide with insulin, PT-141
+  with naltrexone. Research peptides (BPC-157, TB-500, GHK-Cu, melanotan, etc.) get "how it mixes hasn't been
+  studied" on the editor (MedTap only). Cards on Meds (dismissible), pairs on the medicine's page while typing.
+  Many more brands and generics in `ingredients.ts`; names keep digits now so "PT-141", "BPC-157" match.
+- **Watch extras**: a watch-face complication (short and long text) counting down to the next dose, or the rest
+  left during a workout; during a workout the watch app shows the next set (exercise, set number, load) with Done and
+  the rest countdown, and the tile shows the set. Done is sent to the phone, which ticks the set exactly like a tap
+  (rest timer, auto-adjust); taps queued while the phone slept are marked done together. Phone side:
+  `src/logic/watchWorkout.ts`, `setWatchWorkout` / `takeWatchSets`, `WearBridge` queues per kind.
+- Tests: `tests/interactions.test.ts` (incl. snooze), `tests/watch-workout.test.ts`. Browser (simulated native
+  bridge): snooze, skip, interaction card, research-peptide note, editor pairs, Install + permission path, watch next
+  set and Done → rest. Not yet tried on a real phone or watch.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 
