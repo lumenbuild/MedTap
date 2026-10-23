@@ -40,7 +40,7 @@ npm run build:native:tapdose   # TapDose: the same, Android only
 Then open `android/` in Android Studio and pick the **medtap** or **tapdose** build variant to match the last web
 build (the build stops with a message if they don't match), or open `ios/App/App.xcodeproj` in Xcode (MedTap).
 From the command line: `cd android && ./gradlew assembleMedtapRelease` (or `assembleTapdoseRelease`).
-TapDose's icons: `node scripts/make-icons.mjs tapdose` and `node scripts/make-native-icons.mjs tapdose`.
+Icons (web, Android, watch, iOS, splash) all come from `scripts/make-native-icons.mjs`; TapDose's: `node scripts/make-native-icons.mjs tapdose`.
 
 ## Android
 
