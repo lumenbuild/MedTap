@@ -238,7 +238,8 @@ async function doSync() {
   const byId = new Map(meds.map((m) => [m.id, m]));
   const many = people.length > 1;
   // Lock-screen text: with a privacy PIN set, covered medicines show their cover name and left-out ones say nothing.
-  const title = (med: Medication) => (settings.privacyPinHash ? discreetName(med, settings.privacyHidePeptides, shownName) : shownName(med));
+  // "Discreet reminders" hides every medicine's name and amount.
+  const title = (med: Medication) => (settings.discreetReminders ? null : settings.privacyPinHash ? discreetName(med, settings.privacyHidePeptides, shownName) : shownName(med));
   await LocalNotifications.schedule({
     notifications: plan.map((r) => {
       const med = byId.get(r.medId)!;
@@ -291,7 +292,9 @@ async function scheduleWearOff(settings: Awaited<ReturnType<typeof getSettings>>
     .filter((w): w is NonNullable<typeof w> => !!w && w.at - 30 * 60_000 > now);
   if (!notes.length) return;
   await LocalNotifications.schedule({
-    notifications: notes.map((w, i) => ({ id: 900_400_000 + i, title: `${shownName(w.med)} wearing off soon`, body: `Focus likely drops about ${fmtTime(w.at)}`,
+    notifications: notes.map((w, i) => ({ id: 900_400_000 + i,
+      title: settings.discreetReminders ? 'Heads-up' : `${shownName(w.med)} wearing off soon`,
+      body: settings.discreetReminders ? `About ${fmtTime(w.at)}` : `Focus likely drops about ${fmtTime(w.at)}`,
       schedule: { at: new Date(w.at - 30 * 60_000), allowWhileIdle: true }, channelId: CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/today' } })),
   });
 }

@@ -3,6 +3,7 @@ import { Delete, Lock } from 'lucide-react';
 import { useSettings } from './data';
 import { verifyPin } from '../logic/pin';
 import { setViewMode } from './viewMode';
+import { useHashRoute } from './router';
 import type { ViewMode } from '../logic/privateView';
 import { eraseAll } from '../db/repos/backup';
 import { APP_NAME } from '../config';
@@ -19,6 +20,14 @@ export function LockGate({ children }: { children: ReactNode }) {
   const lastActive = useRef(Date.now());
   const hiddenAt = useRef<number | null>(null);
   const afterMs = (settings?.lockAfterMin ?? 5) * 60_000;
+  // "Ask for the PIN on every tag tap": a tag route asks again unless this very tap was just unlocked. Read from the
+  // address itself so the tag screen (which logs) is never shown first, even for a moment.
+  useHashRoute();
+  const route = window.location.hash.replace(/^#/, '');
+  const onTag = route.startsWith('/tag/');
+  const [tagUnlocked, setTagUnlocked] = useState<string | null>(null);
+  useEffect(() => { if (!onTag) setTagUnlocked(null); }, [onTag]);
+  const tagPin = enabled && !!settings?.tagNeedsPin && onTag && tagUnlocked !== route;
 
   // Lock on first load if enabled; unlock immediately if it gets turned off.
   useEffect(() => {
@@ -44,10 +53,14 @@ export function LockGate({ children }: { children: ReactNode }) {
     };
   }, [enabled, afterMs]);
 
-  const unlock = useCallback((mode: ViewMode) => { setViewMode(mode); lastActive.current = Date.now(); setLocked(false); }, []);
+  const unlock = useCallback((mode: ViewMode) => {
+    setViewMode(mode); lastActive.current = Date.now(); setLocked(false);
+    const r = window.location.hash.replace(/^#/, '');
+    if (r.startsWith('/tag/')) setTagUnlocked(r);
+  }, []);
 
   if (settings === undefined || locked === null) return null;
-  if (enabled && locked) return <LockScreen salt={settings.pinSalt!} hash={settings.pinHash!} length={settings.pinLength} onUnlock={unlock}
+  if (enabled && (locked || tagPin)) return <LockScreen salt={settings.pinSalt!} hash={settings.pinHash!} length={settings.pinLength} onUnlock={unlock}
     privacy={settings.privacyPinHash && settings.privacyPinSalt ? { salt: settings.privacyPinSalt, hash: settings.privacyPinHash } : null} />;
   return <>{children}</>;
 }

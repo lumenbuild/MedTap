@@ -77,6 +77,9 @@ export function Settings({ section }: { section?: string }) {
       <>
         <Suspense fallback={null}><RemindersCard enabled={settings.remindersEnabled} nudges={settings.lateNudges} /></Suspense>
         <Card className="space-y-2">
+          <Switch label="Hide medicine names" checked={settings.discreetReminders} onChange={async (v) => { await setSetting('discreetReminders', v); void syncReminders(); }}>
+            Reminders say only “Reminder” and the time
+          </Switch>
           <Switch label="Weekly summary on Mondays" checked={settings.digestNotify} onChange={async (v) => { const on = await setDigestNotify(v); if (v && !on) notifyOff(); }} />
           <Switch label="Wear-off heads-up" checked={settings.wearOffNotify} onChange={async (v) => { await setSetting('wearOffNotify', v); void syncReminders(); }}>30 min before focus usually drops</Switch>
           {HAS_BODY && settings.trainingTools && (
@@ -184,7 +187,7 @@ export function Settings({ section }: { section?: string }) {
     privacy: () => (
       <>
         <Card className="space-y-3">
-          <h3 className="font-medium flex items-center gap-2"><Lock size={18} aria-hidden="true" /> App lock</h3>
+          <h2 className="font-medium flex items-center gap-2"><Lock size={18} aria-hidden="true" /> App lock</h2>
           {settings.lockEnabled ? (
             <>
               <Pick id="lock-after" label="Lock">
@@ -194,6 +197,7 @@ export function Settings({ section }: { section?: string }) {
                 </select>
               </Pick>
               {/* The private view can't change or turn off the lock (that would open the full view next time). */}
+              {!priv && <Switch label="Ask for the PIN on every tag tap" checked={settings.tagNeedsPin} onChange={(v) => setSetting('tagNeedsPin', v)}>Even if you've just unlocked</Switch>}
               {!priv && (
                 <div className="grid grid-cols-2 gap-2">
                   <Button variant="secondary" onClick={() => setPinSheet('main')}>Change PIN</Button>
@@ -205,7 +209,7 @@ export function Settings({ section }: { section?: string }) {
         </Card>
         {settings.lockEnabled && !priv && (
           <Card className="space-y-3">
-            <h3 className="font-medium flex items-center gap-2"><EyeOff size={18} aria-hidden="true" /> Private view</h3>
+            <h2 className="font-medium flex items-center gap-2"><EyeOff size={18} aria-hidden="true" /> Private view</h2>
             <p className="text-sm">A second PIN that opens the app looking the same, with the medicines you choose under a cover name or left out{HAS_PEPTIDES ? ', and the peptide tools left out' : ''}. Choose for each medicine on its page.</p>
             {settings.privacyPinHash ? (
               <>
@@ -219,7 +223,7 @@ export function Settings({ section }: { section?: string }) {
           </Card>
         )}
         <Card className="space-y-2">
-          <h3 className="font-medium">Your data</h3>
+          <h2 className="font-medium">Your data</h2>
           <p className="text-sm">{sync ? 'This phone, plus an encrypted copy on your family’s phones' : 'This phone only'}</p>
           {!isNative && !persisted && (
             <Button variant="secondary" className="w-full" onClick={async () => {

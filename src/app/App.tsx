@@ -3,6 +3,7 @@ import { Settings as Gear, ArrowLeft } from 'lucide-react';
 import { parseRoute, useHashRoute, type Route } from './router';
 import { ToastProvider } from './toast';
 import { LockGate } from './LockGate';
+import { viewMode } from './viewMode';
 import { useMeds, useSettings } from './data';
 import { TabBar } from '../components/TabBar';
 import { SECTION_TITLE, Settings, type SettingsSection } from '../screens/Settings';
@@ -52,7 +53,7 @@ function title(r: Route, peptides = HAS_PEPTIDES): string {
     case 'med': return 'Medication';
     case 'backup': return 'Backup and restore';
     case 'report': return 'Doctor report';
-    case 'help': return helpTitle(r.topic);
+    case 'help': return helpTitle(r.topic, HAS_PEPTIDES && viewMode() !== 'private');
     case 'sync': return 'Family sync';
     case 'join': return 'Join family sync';
     case 'calc': return peptides ? 'Peptide calculator' : 'Today';
@@ -135,13 +136,13 @@ export function App() {
   const now = useNow(60_000);
   const showTabs = !back && r.name !== 'tag';
   // First run only: no medications yet and never onboarded. Tag taps and help skip it.
-  const onboarding = settings && meds && !settings.onboarded && meds.length === 0 && !['tag', 'help', 'medNew', 'backup', 'join'].includes(r.name);
+  const onboarding = r.name === 'welcome' || (settings && meds && !settings.onboarded && meds.length === 0 && !['tag', 'help', 'medNew', 'backup', 'join'].includes(r.name));
 
   return (
     <ToastProvider raised={showTabs && !onboarding}>
       <LockGate>
         <div className={`mx-auto max-w-[560px] px-6 ${showTabs && !onboarding ? 'pb-28' : 'pb-6'}`} style={{ paddingTop: onboarding ? undefined : 'env(safe-area-inset-top)' }}>
-          {onboarding ? <Onboarding /> : (
+          {onboarding ? <Onboarding again={r.name === 'welcome'} /> : (
             <>
               {r.name !== 'tag' && (back ? (
                 <header className="app-header flex items-center gap-1 h-14">
