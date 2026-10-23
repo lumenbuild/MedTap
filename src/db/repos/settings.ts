@@ -70,6 +70,12 @@ export interface AppSettings {
   barKg: number;
   proteinTargetG: number | null;
   waterTargetMl: number | null;
+  /** Rest time worked out per set (heavy sets longer, small muscles shorter) from `restSeconds`. */
+  smartRest: boolean;
+  /** Reminders on the person's usual training days, and when the week's goal needs a session (app only). */
+  trainingReminders: boolean;
+  /** The "remind me on my usual days?" card on Training was answered. */
+  trainingReminderAsked: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -113,6 +119,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   barKg: 20,
   proteinTargetG: null,
   waterTargetMl: null,
+  smartRest: true,
+  trainingReminders: false,
+  trainingReminderAsked: false,
 };
 
 export async function getSettings(): Promise<AppSettings> {

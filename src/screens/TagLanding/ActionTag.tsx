@@ -11,6 +11,7 @@ import { setSetting } from '../../db/repos/settings';
 import { allExercises } from '../../logic/exercises';
 import { actionTitle, openWorkout, plannedSets } from '../../logic/tagActions';
 import { nextTarget } from '../../logic/training';
+import { fmtLoad } from '../../logic/load';
 import { useNow } from '../../app/useNow';
 import { useToast } from '../../app/toast';
 import { go, replace } from '../../app/router';
@@ -67,15 +68,15 @@ export function ActionTag({ tag, personName }: { tag: Tag; personName?: string }
       if (!def) return <Missing what="exercise" close={close} />;
       const open = openWorkout(ws, now);
       const inIt = open?.sets.some((x) => x.exerciseId === def.id);
-      const t = nextTarget(def, ws);
-      const aim = t.why === 'start' ? 'First time: choose a weight you can lift with good form.' : `Aim: ${t.sets} × ${t.reps}${t.weightKg ? ` at ${t.weightKg} kg` : ''}`;
+      const t = nextTarget(def, ws, undefined, settings.units);
+      const aim = t.why === 'start' ? 'First time: choose a weight you can lift with good form.' : `Aim: ${t.sets} × ${t.reps}${def.timed ? ' s' : ''}${t.weightKg ? ` at ${fmtLoad(t.weightKg, settings.units)}${def.perHand ? ' each' : ''}` : ''}`;
       const label = !open ? 'Start a workout with it' : inIt ? 'Open the workout' : 'Add to my workout';
       return (
         <section>
           {head(open ? `${inIt ? 'Already in' : 'Adds it to'} your workout (started ${Math.round((now - Date.parse(open.startedAt)) / 60_000)} min ago).` : 'No workout in progress, so this starts one.')}
           <p className="text-[15px] tnum mb-5">{aim}</p>
           <Button className="w-full min-h-[56px]" disabled={busy} onClick={() => run(async () => {
-            const r = await addExerciseNow(personId, def, ws, Date.now());
+            const r = await addExerciseNow(personId, def, ws, Date.now(), settings.units);
             if (r.added) toast(r.started ? `Workout started with ${def.name}` : `${def.name} added`);
             try { sessionStorage.setItem('medtap.scrollTo', def.id); } catch { /* not available */ }
             replace(`/training/workout/${r.workout.id}`);
@@ -90,7 +91,7 @@ export function ActionTag({ tag, personName }: { tag: Tag; personName?: string }
       if (!r) return <Missing what="routine" close={close} />;
       const open = openWorkout(ws, now);
       const begin = () => run(async () => {
-        const sets = r.items.flatMap((it) => { const def = defs.find((d) => d.id === it.exerciseId); return def ? plannedSets(def, ws, it, newSetId) : []; });
+        const sets = r.items.flatMap((it) => { const def = defs.find((d) => d.id === it.exerciseId); return def ? plannedSets(def, ws, it, newSetId, settings.units) : []; });
         const w = await startWorkout(personId, { routine: r, sets });
         toast(`${r.name} started`);
         replace(`/training/workout/${w.id}`);

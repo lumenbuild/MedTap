@@ -62,7 +62,7 @@ export function DoseLevelsCards({ meds, doses, body, checkIns, units, now }: { m
           <Card key={m.id} className="space-y-2">
             <h2 className="text-sm font-medium text-muted">Dose levels: {shownName(m)}</h2>
             <p className="text-muted">Weight and check-ins while you were on each dose. What you've recorded, side by side; it doesn't show cause.</p>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0}>
               <table className="w-full text-sm tnum">
                 <thead><tr>{['Dose', 'From', 'Doses', 'Weight', `${u}/week`, 'Appetite', 'Noticed'].map((h) => <th key={h} className="text-left font-semibold py-1.5 pr-3 border-b border-border">{h}</th>)}</tr></thead>
                 <tbody>

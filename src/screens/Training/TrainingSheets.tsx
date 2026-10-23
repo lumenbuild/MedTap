@@ -4,8 +4,10 @@ import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import type { CardioActivity, Exercise, FitnessGoal, MuscleGroup, Routine, Workout } from '../../db/schema';
 import { addExercise, logCardio, newSetId, setFitnessGoal, startWorkout, restoreFitnessGoals } from '../../db/repos/training';
-import { allExercises, MUSCLES, type ExerciseDef } from '../../logic/exercises';
-import { platesFor, PLATES, working } from '../../logic/training';
+import { allExercises, EQUIPMENT, MUSCLES, type Equipment, type ExerciseDef } from '../../logic/exercises';
+import { useSettings } from '../../app/data';
+import { fromLoad, loadUnit, showLoad } from '../../logic/load';
+import { platesFor, platesForUnits, working } from '../../logic/training';
 import { plannedSets } from '../../logic/tagActions';
 import { go } from '../../app/router';
 import { useToast } from '../../app/toast';
@@ -19,6 +21,7 @@ export const ACTIVITIES: { id: CardioActivity; name: string }[] = [
 
 /** Start from a routine (sets laid out at the weights to aim for) or an empty workout. */
 export function StartSheet({ personId, routines, workouts, own, onClose }: { personId: string; routines: Routine[]; workouts: Workout[]; own: Exercise[]; onClose: () => void }) {
+  const units = useSettings()?.units ?? 'metric';
   const defs = allExercises(own);
   // The last 3 different sessions (by name and lifts), each repeatable like a routine.
   const recent: Routine[] = [];
@@ -39,7 +42,7 @@ export function StartSheet({ personId, routines, workouts, own, onClose }: { per
   const begin = async (r?: Routine) => {
     const sets = r ? r.items.flatMap((it) => {
       const def = defs.find((d) => d.id === it.exerciseId) ?? { id: it.exerciseId, name: '', muscles: [], pattern: 'push' as const, increment: 2.5 };
-      return plannedSets(def, workouts, it, newSetId);
+      return plannedSets(def, workouts, it, newSetId, units);
     }) : [];
     const w = await startWorkout(personId, { routine: r?.id ? r : undefined, name: r?.name, sets });
     onClose();
@@ -104,27 +107,37 @@ export function ExercisePicker({ own, personId, onPick, onClose, title = 'Add an
 }
 
 function NewExerciseSheet({ personId, name: initial, onDone, onClose }: { personId: string; name: string; onDone: (d: ExerciseDef) => void; onClose: () => void }) {
+  const units = useSettings()?.units ?? 'metric';
   const [name, setName] = useState(initial);
   const [muscle, setMuscle] = useState<MuscleGroup>('chest');
   const [pattern, setPattern] = useState<'push' | 'pull' | 'legs' | 'core'>('push');
-  const [bodyweight, setBodyweight] = useState(false);
-  const [inc, setInc] = useState('2.5');
+  const [equipment, setEquipment] = useState<Equipment>('machine');
+  const [timed, setTimed] = useState(false);
+  const [inc, setInc] = useState(units === 'imperial' ? '5' : '2.5');
+  const bodyweight = equipment === 'bodyweight';
   return (
     <Sheet open onClose={onClose} title="Your own exercise">
       <div className="space-y-4">
         <TextInput label="Name" value={name} onChange={(e) => setName(e.target.value)} />
-        <Select label="Main muscle" value={muscle} onChange={(e) => setMuscle(e.target.value as MuscleGroup)}>
-          {MUSCLES.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+        <div className="grid grid-cols-2 gap-3">
+          <Select label="Main muscle" value={muscle} onChange={(e) => setMuscle(e.target.value as MuscleGroup)}>
+            {MUSCLES.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </Select>
+          <Select label="Movement" value={pattern} onChange={(e) => setPattern(e.target.value as typeof pattern)}>
+            <option value="push">Push</option><option value="pull">Pull</option><option value="legs">Legs</option><option value="core">Core</option>
+          </Select>
+        </div>
+        <Select label="Equipment" value={equipment} onChange={(e) => setEquipment(e.target.value as Equipment)}>
+          {EQUIPMENT.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
         </Select>
-        <Select label="Movement" value={pattern} onChange={(e) => setPattern(e.target.value as typeof pattern)}>
-          <option value="push">Push</option><option value="pull">Pull</option><option value="legs">Legs</option><option value="core">Core</option>
-        </Select>
-        <TextInput label="Go up by (kg) when it's time" type="number" inputMode="decimal" min="0" step="any" value={inc} onChange={(e) => setInc(e.target.value)} help="0 to add a rep instead." />
-        <label className="flex items-center gap-3 min-h-[48px]"><input type="checkbox" checked={bodyweight} onChange={(e) => setBodyweight(e.target.checked)} className="w-5 h-5 accent-[var(--primary)]" /> Bodyweight (log any added weight)</label>
+        {equipment === 'dumbbell' && <p className="text-sm text-muted -mt-2">Log the weight of one dumbbell.</p>}
+        <TextInput label={`Go up by (${loadUnit(units)}) when it's time`} type="number" inputMode="decimal" min="0" step="any" value={inc} onChange={(e) => setInc(e.target.value)} help={timed ? 'Held for time: 5 seconds more instead.' : '0 to add a rep instead.'} />
+        <label className="flex items-center gap-3 min-h-[48px]"><input type="checkbox" checked={timed} onChange={(e) => setTimed(e.target.checked)} className="w-5 h-5 accent-[var(--primary)]" /> Held for time (log seconds, not reps)</label>
         <SheetActions>
           <Button className="w-full min-h-[56px]" disabled={!name.trim()} onClick={async () => {
-            const e = await addExercise(personId, { name, muscles: [muscle], pattern, bodyweight, increment: Number(inc) || 0 });
-            onDone({ id: e.id, name: e.name, muscles: e.muscles, pattern, bodyweight, increment: e.increment ?? 0 });
+            const increment = Number(inc) > 0 ? fromLoad(Number(inc), units) : 0;
+            const e = await addExercise(personId, { name, muscles: [muscle], pattern, bodyweight, increment, equipment, perHand: equipment === 'dumbbell', timed });
+            onDone({ id: e.id, name: e.name, muscles: e.muscles, pattern, bodyweight, increment, equipment, perHand: equipment === 'dumbbell', timed });
           }}>Add exercise</Button>
         </SheetActions>
       </div>
@@ -162,11 +175,12 @@ export function CardioSheet({ personId, onClose, initial = 'run' }: { personId: 
 
 export function GoalSheet({ personId, own, existing, preset, onClose }: { personId: string; own: Exercise[]; existing?: FitnessGoal; preset?: Partial<FitnessGoal>; onClose: () => void }) {
   const toast = useToast();
+  const units = useSettings()?.units ?? 'metric';
   const defs = allExercises(own).sort((a, b) => a.name.localeCompare(b.name));
   const init = existing ?? preset;
   const [kind, setKind] = useState<FitnessGoal['kind']>(init?.kind ?? 'lift');
   const [exerciseId, setExerciseId] = useState(init?.exerciseId ?? 'squat');
-  const [kg, setKg] = useState(existing?.targetKg ? String(existing.targetKg) : '');
+  const [kg, setKg] = useState(existing?.targetKg ? String(showLoad(existing.targetKg, units)) : '');
   const [reps, setReps] = useState(String(existing?.reps ?? 1));
   const [activity, setActivity] = useState<CardioActivity>(existing?.activity ?? 'run');
   const [km, setKm] = useState(existing?.distanceKm ? String(existing.distanceKm) : '5');
@@ -176,7 +190,7 @@ export function GoalSheet({ personId, own, existing, preset, onClose }: { person
   const valid = kind === 'lift' ? Number(kg) > 0 && Number(reps) >= 1 : kind === 'cardio' ? Number(km) > 0 && Number(min) > 0 : Number(perWeek) >= 1;
   const save = async () => {
     const g: FitnessGoal = { id: existing?.id ?? crypto.randomUUID(), kind, setAt: existing?.setAt ?? new Date().toISOString(), targetDate: date || undefined,
-      ...(kind === 'lift' ? { exerciseId, targetKg: Number(kg), reps: Number(reps) } : kind === 'cardio' ? { activity, distanceKm: Number(km), targetMin: Number(min) } : { perWeek: Number(perWeek) }) };
+      ...(kind === 'lift' ? { exerciseId, targetKg: fromLoad(Number(kg), units), reps: Number(reps) } : kind === 'cardio' ? { activity, distanceKm: Number(km), targetMin: Number(min) } : { perWeek: Number(perWeek) }) };
     const before = await setFitnessGoal(personId, g);
     toast('Goal saved', { onAction: () => restoreFitnessGoals(personId, before) });
     onClose();
@@ -191,7 +205,7 @@ export function GoalSheet({ personId, own, existing, preset, onClose }: { person
           <>
             <Select label="Exercise" value={exerciseId} onChange={(e) => setExerciseId(e.target.value)}>{defs.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</Select>
             <div className="grid grid-cols-2 gap-3">
-              <TextInput label="Weight (kg)" type="number" inputMode="decimal" min="0" step="any" value={kg} onChange={(e) => setKg(e.target.value)} />
+              <TextInput label={`Weight (${loadUnit(units)})`} type="number" inputMode="decimal" min="0" step="any" value={kg} onChange={(e) => setKg(e.target.value)} />
               <TextInput label="For reps" type="number" inputMode="numeric" min="1" step="1" value={reps} onChange={(e) => setReps(e.target.value)} help="1 = a one-rep max" />
             </div>
           </>
@@ -216,23 +230,27 @@ export function GoalSheet({ personId, own, existing, preset, onClose }: { person
   );
 }
 
-/** Which plates go on each side of the bar for a weight. */
+/** Which plates go on each side of the bar for a weight, in the person's units. `initial` and `barKg` are kg. */
 export function PlatesSheet({ initial, barKg, onClose }: { initial?: number; barKg: number; onClose: () => void }) {
-  const [kg, setKg] = useState(initial ? String(initial) : '');
-  const [bar, setBar] = useState(String(barKg));
-  const r = Number(kg) > 0 ? platesFor(Number(kg), Number(bar) || 0, PLATES) : null;
+  const units = useSettings()?.units ?? 'metric';
+  const u = loadUnit(units);
+  const plates = platesForUnits(units);
+  const [total, setTotal] = useState(initial ? String(showLoad(initial, units)) : '');
+  // The bar in the person's unit, snapped to a standard one (20 kg ↔ 45 lb).
+  const [bar, setBar] = useState(String(units === 'imperial' ? Math.round(showLoad(barKg, units) / 5) * 5 : barKg));
+  const r = Number(total) > 0 ? platesFor(Number(total), Number(bar) || 0, plates) : null;
   return (
     <Sheet open onClose={onClose} title="Plates">
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <TextInput label="Total (kg)" type="number" inputMode="decimal" min="0" step="any" value={kg} onChange={(e) => setKg(e.target.value)} />
-          <TextInput label="Bar (kg)" type="number" inputMode="decimal" min="0" step="any" value={bar} onChange={(e) => setBar(e.target.value)} />
+          <TextInput label={`Total (${u})`} type="number" inputMode="decimal" min="0" step="any" value={total} onChange={(e) => setTotal(e.target.value)} />
+          <TextInput label={`Bar (${u})`} type="number" inputMode="decimal" min="0" step="any" value={bar} onChange={(e) => setBar(e.target.value)} />
         </div>
-        {r && (Number(kg) < Number(bar) ? <p>Less than the bar.</p> : (
+        {r && (Number(total) < Number(bar) ? <p>Less than the bar.</p> : (
           <div>
             <p className="text-sm text-muted">Each side</p>
             <p className="text-2xl font-medium tnum">{r.perSide.length ? r.perSide.join(' + ') : 'Just the bar'}</p>
-            {r.leftover > 0 && <p className="text-sm text-caution">{r.leftover} kg can't be made with {PLATES.join(', ')} kg plates.</p>}
+            {r.leftover > 0 && <p className="text-sm text-caution">{r.leftover} {u} can't be made with {plates.join(', ')} {u} plates. Nearest: {Number(total) - r.leftover} {u}.</p>}
           </div>
         ))}
       </div>

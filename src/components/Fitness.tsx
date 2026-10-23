@@ -1,12 +1,14 @@
 // Fitness cards used on Training, Body, Protocol and Today: readiness, lean mass while losing weight, strength against
 // the peptide, and one timeline for every goal.
 import { format } from 'date-fns';
-import type { BodyEntry, BodyGoal, DailyHealth, Dose, FitnessGoal, Medication, Workout } from '../db/schema';
+import type { BodyEntry, BodyGoal, CheckIn, DailyHealth, Dose, FitnessGoal, Medication, Workout } from '../db/schema';
+import { intakeTrend, proteinVsLean, readinessTrend, readinessVsPerformance } from '../logic/fitnessInsights';
 import { addIntake } from '../db/repos/training';
 import { useToast } from '../app/toast';
 import type { Units } from '../db/repos/settings';
 import type { ScheduleSettings } from '../logic/schedule';
-import { muscleWatch, trainingVsPeptide, fitnessGoalStatus, type Readiness } from '../logic/training';
+import { muscleWatch, trainingVsPeptide, fitnessGoalStatus, type Readiness, type TrainingSummary } from '../logic/training';
+import { fmtLoad } from '../logic/load';
 import type { ExerciseDef } from '../logic/exercises';
 import { goalView, valueFmt } from '../screens/Body/Goals';
 import { kgTo, weightUnit } from '../logic/units';
@@ -88,7 +90,7 @@ export function GoalTimeline({ bodyGoals, fitnessGoals, body, workouts, defs, un
     rows.push({ label: name, eta: v.f.eta, early: v.f.etaEarly, late: v.f.etaLate, text: v.f.status === 'reached' ? 'Reached' : v.f.eta ? `About ${format(v.f.eta, 'd MMM yyyy')}` : v.f.status === 'need-data' ? 'Needs more entries' : 'No date while it’s flat' });
   }
   for (const g of fitnessGoals) {
-    const st = fitnessGoalStatus(g, workouts, now, s, defs);
+    const st = fitnessGoalStatus(g, workouts, now, s, defs, units);
     if (g.kind === 'sessions') continue;
     rows.push({ label: st.text.split(':')[0], eta: st.forecast?.eta, early: st.forecast?.etaEarly, late: st.forecast?.etaLate, text: st.done ? 'Reached' : st.forecast?.eta ? `About ${format(st.forecast.eta, 'd MMM yyyy')}` : st.text.split(': ')[1] ?? '' });
   }
@@ -144,5 +146,91 @@ export function IntakeCard({ personId, today, day, proteinTarget, waterTarget, r
       {row('Water', 'waterMl', 'mL', waterTarget, [250, 500])}
       {!proteinTarget && !waterTarget && <p className="text-xs text-muted">Set your own daily targets in Settings → Training.</p>}
     </section>
+  );
+}
+
+/** The doctor report's training and body composition section. */
+export function TrainingReport({ sum, units }: { sum: TrainingSummary; units: Units }) {
+  const L = (kg: number) => fmtLoad(kg, units);
+  return (
+    <section className="border-t border-border pt-5 pb-2 report-block">
+      <h2 className="text-sm font-medium text-muted mb-2">Training and body composition</h2>
+      <dl className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm tnum">
+        <div><dt className="text-muted">Strength sessions</dt><dd className="font-semibold">{sum.sessions}</dd></div>
+        <div><dt className="text-muted">Sessions a week (all)</dt><dd className="font-semibold">{sum.perWeek}</dd></div>
+        {sum.cardio > 0 && <div><dt className="text-muted">Cardio</dt><dd className="font-semibold">{sum.cardio}{sum.km ? ` · ${sum.km} km` : ''}</dd></div>}
+        {sum.protein !== undefined && <div><dt className="text-muted">Protein a day (logged days)</dt><dd className="font-semibold">{sum.protein} g <span className="font-normal text-muted">({sum.proteinDays} days)</span></dd></div>}
+        {sum.water !== undefined && <div><dt className="text-muted">Water a day (logged days)</dt><dd className="font-semibold">{sum.water} mL</dd></div>}
+        {sum.bodyFat && <div><dt className="text-muted">Body fat</dt><dd className="font-semibold">{sum.bodyFat.from}% → {sum.bodyFat.to}%</dd></div>}
+        {sum.lean && <div><dt className="text-muted">Lean mass</dt><dd className="font-semibold">{L(sum.lean.from)} → {L(sum.lean.to)}</dd></div>}
+      </dl>
+      {sum.lifts.length > 0 && (
+        <div className="table-scroll mt-3" tabIndex={0}>
+          <table className="w-full text-sm tnum">
+            <thead><tr className="text-left">{['Exercise', 'Sessions', 'First', 'Last', 'Change'].map((h) => <th key={h} className="py-1 pr-3 border-b border-border font-semibold">{h}</th>)}</tr></thead>
+            <tbody>{sum.lifts.map((l) => (
+              <tr key={l.id}>
+                <td className="py-1 pr-3 border-b border-border">{l.name}</td>
+                <td className="py-1 pr-3 border-b border-border">{l.sessions}</td>
+                <td className="py-1 pr-3 border-b border-border">{l.noLoad ? l.from : L(l.from)}</td>
+                <td className="py-1 pr-3 border-b border-border">{l.noLoad ? l.to : L(l.to)}</td>
+                <td className="py-1 pr-3 border-b border-border">{l.pct > 0 ? '+' : ''}{l.pct}%</td>
+              </tr>
+            ))}</tbody>
+          </table>
+          <p className="text-xs text-muted mt-1">Lifts as an estimated one-rep max from the best set each session; bodyweight and timed exercises as best reps or seconds.</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Bars({ values, max, label, target }: { values: { key: string; v: number }[]; max: number; label: string; target?: number | null }) {
+  return (
+    <div className="relative flex items-end gap-0.5 h-16 mt-2" role="img" aria-label={label}>
+      {target ? <div className="absolute inset-x-0 border-t border-dashed" style={{ bottom: `${Math.min(100, (target / max) * 100)}%`, borderColor: 'var(--border-strong)' }} aria-hidden="true" /> : null}
+      {values.map((x) => <div key={x.key} className="flex-1 rounded-[2px] bg-text" style={{ height: `${Math.max(3, (x.v / max) * 100)}%`, opacity: target && x.v < target ? 0.45 : 1 }} />)}
+    </div>
+  );
+}
+
+/** Trends: protein, water and readiness by day, and what they link to in the person's own records. */
+export function TrainingTrends({ daily, body, checkIns, workouts, start, end, s, targets }: {
+  daily: DailyHealth[]; body: BodyEntry[]; checkIns: CheckIn[]; workouts: Workout[]; start: number; end: number; s: ScheduleSettings; targets: { protein: number | null; water: number | null };
+}) {
+  const intake = intakeTrend(daily, body, start, end, targets);
+  const ready = readinessTrend(daily, checkIns, start, end, s).slice(-31);
+  const pl = proteinVsLean(daily, body);
+  const rp = readinessVsPerformance(workouts, daily, checkIns, s);
+  if (!intake && !ready.length && !pl && !rp) return null;
+  const last = intake?.days.slice(-31) ?? [];
+  return (
+    <>
+      {intake?.protein && (
+        <section className="border-t border-border pt-5 pb-1" aria-labelledby="pr-h">
+          <h2 id="pr-h" className="text-sm font-medium text-muted">Protein</h2>
+          <p className="text-[15px] tnum mt-1">Averaged {intake.protein.avg} g on {intake.protein.days} logged day{intake.protein.days === 1 ? '' : 's'}{intake.protein.perKg ? ` (${intake.protein.perKg} g per kg of body weight)` : ''}.{intake.protein.onTarget !== undefined ? ` At or over your ${targets.protein} g target on ${intake.protein.onTarget}.` : ''}</p>
+          <Bars values={last.filter((d) => d.protein).map((d) => ({ key: d.date, v: d.protein! }))} max={Math.max(...last.map((d) => d.protein ?? 0), targets.protein ?? 0)} target={targets.protein}
+            label={`Protein each logged day: ${last.filter((d) => d.protein).map((d) => `${d.date} ${d.protein} g`).join(', ')}`} />
+          {intake.water && <p className="text-[15px] tnum mt-3">Water averaged {(intake.water.avg / 1000).toFixed(1)} L on {intake.water.days} logged day{intake.water.days === 1 ? '' : 's'}{intake.water.onTarget !== undefined ? `; on target ${intake.water.onTarget}` : ''}.</p>}
+          <p className="text-xs text-muted mt-1">From the Protein and Water buttons on Today (and tags). Days not logged are left out, not counted as zero.</p>
+        </section>
+      )}
+      {ready.length >= 3 && (
+        <section className="border-t border-border pt-5 pb-1" aria-labelledby="rd-h">
+          <h2 id="rd-h" className="text-sm font-medium text-muted">Ready to train</h2>
+          <p className="text-[15px] tnum mt-1">Averaged {Math.round(ready.reduce((n, x) => n + x.score, 0) / ready.length)} over {ready.length} days; {ready.filter((x) => x.score < 55).length} low.</p>
+          <Bars values={ready.map((x) => ({ key: String(x.t), v: x.score }))} max={100} target={55} label={`Readiness by day: ${ready.map((x) => `${format(x.t, 'd MMM')} ${x.score}`).join(', ')}`} />
+        </section>
+      )}
+      {(pl || rp) && (
+        <section className="border-t border-border pt-5 pb-1" aria-labelledby="ln-h">
+          <h2 id="ln-h" className="text-sm font-medium text-muted mb-1">Links in your records</h2>
+          {pl && <p className="text-[15px] tnum">Between scans or weigh-ins with body fat, about <strong>{pl.higher.share}%</strong> of the weight lost was lean mass when protein averaged {pl.higher.protein} g, against <strong>{pl.lower.share}%</strong> at {pl.lower.protein} g ({pl.higher.spans + pl.lower.spans} spans).</p>}
+          {rp && <p className="text-[15px] tnum mt-2">On your better-readiness days (about {rp.higher.score}), your lifts were {rp.higher.pct > 0 ? '+' : ''}{rp.higher.pct}% against your recent level ({rp.higher.sessions} sessions); on lower days (about {rp.lower.score}), {rp.lower.pct > 0 ? '+' : ''}{rp.lower.pct}% ({rp.lower.sessions}).</p>}
+          <p className="text-xs text-muted mt-1">These show what went together in your own records, not what caused what. Talk to your prescriber or dietitian before changing what you eat.</p>
+        </section>
+      )}
+    </>
   );
 }

@@ -3,6 +3,7 @@ import { db } from '../db';
 import { DEFAULT_PERSON, type CardioEntry, type DailyHealth, type Exercise, type FitnessGoal, type Routine, type RoutineItem, type Workout, type WorkoutSet } from '../schema';
 
 import type { ExerciseDef } from '../../logic/exercises';
+import type { Units } from './settings';
 import { openWorkout, plannedSets } from '../../logic/tagActions';
 
 const nowIso = () => new Date().toISOString();
@@ -38,7 +39,7 @@ export async function saveRoutine(personId: string, r: { id?: string; name: stri
 export async function removeRoutine(id: string) { const now = nowIso(); await db.routines.update(id, { deletedAt: now, updatedAt: now }); }
 export async function restoreRoutine(id: string) { await db.routines.update(id, { deletedAt: undefined, updatedAt: nowIso() }); }
 
-export async function addExercise(personId: string, e: Pick<Exercise, 'name' | 'muscles' | 'pattern' | 'bodyweight' | 'increment'>): Promise<Exercise> {
+export async function addExercise(personId: string, e: Pick<Exercise, 'name' | 'muscles' | 'pattern' | 'bodyweight' | 'increment' | 'equipment' | 'perHand' | 'timed'>): Promise<Exercise> {
   const now = nowIso();
   const row: Exercise = { id: crypto.randomUUID(), ...e, name: e.name.trim(), personId: who(personId), createdAt: now, updatedAt: now };
   await db.exercises.add(row);
@@ -75,15 +76,15 @@ export async function addIntake(personId: string, date: string, field: 'proteinG
 
 /** From a tag on a machine: add the exercise to the workout in progress (unless it's already there), or start one with
  *  it. Returns the workout and whether it was started. */
-export async function addExerciseNow(personId: string, def: ExerciseDef, workouts: Workout[], now: number): Promise<{ workout: Workout; started: boolean; added: boolean }> {
+export async function addExerciseNow(personId: string, def: ExerciseDef, workouts: Workout[], now: number, units: Units = 'metric'): Promise<{ workout: Workout; started: boolean; added: boolean }> {
   const open = openWorkout(workouts, now);
   if (open) {
     if (open.sets.some((s) => s.exerciseId === def.id)) return { workout: open, started: false, added: false };
-    const next = { ...open, sets: [...open.sets, ...plannedSets(def, workouts, undefined, newSetId)] };
+    const next = { ...open, sets: [...open.sets, ...plannedSets(def, workouts, undefined, newSetId, units)] };
     await saveWorkout(next);
     return { workout: next, started: false, added: true };
   }
-  const workout = await startWorkout(personId, { sets: plannedSets(def, workouts, undefined, newSetId) });
+  const workout = await startWorkout(personId, { sets: plannedSets(def, workouts, undefined, newSetId, units) });
   return { workout, started: true, added: true };
 }
 

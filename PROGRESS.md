@@ -388,6 +388,36 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
 - Tests `tests/tagActions.test.ts`; browser flow links each kind from the Tags screen and an exercise page and taps
   them (start workout, add to it, water, cardio start/finish, scales, unknown → protein).
 
+## Smarter training, exports, reminders, onboarding, accessibility (owner: "add all but I want it to be smarter")
+- Units: training weights in kg or lb (Settings → Display). Steps up and rounding are done in the unit the person
+  loads, so 135 lb goes to 140 lb and history logged in kg lands on loadable weights after switching; lb plates
+  (45/35/25/10/5/2.5) and bars (45/35/25/15 lb). `src/logic/load.ts`.
+- Exercises: 50 built in, each with equipment, short form cues ("How to"), per-hand weights for dumbbells, timed holds
+  (plank, side plank, dead hang, carries: seconds, +5 s when hit). Bodyweight / timed progress uses best reps or
+  seconds. Own exercises take equipment and "held for time".
+- Workout screen: supersets (rest after each round, 15 s between the pair, "Next: …"); Swap for a busy machine (same
+  main muscle, ones done before first, with what to aim for); smart rest (Settings: at least 3 min after heavy sets of
+  big lifts, up to 1½ min for small muscles, +30 s after RPE 9+), shown with the reason; a notification when rest
+  ends with the phone locked (app), cancelled on Skip / Finish.
+- Training reminders (app, Settings or a card on Training): learns usual days and start times (sessions in at least
+  half of the last 8 weeks), reminds 30 min before, skips days already trained, notes "Day 2 after your shot is
+  usually one of your stronger days", and a morning note when the sessions-a-week goal needs a session every day left.
+  `src/logic/trainingPlan.ts`; notifications in their own Android channel, kept out of the dose reminders' clear-out.
+- Exports: Workouts and cardio (every set, in the person's units), Daily (steps, sleep, heart rate, HRV, protein,
+  water), body CSV with body fat / lean / muscle, check-ins with soreness. Doctor report: training and body composition
+  (sessions a week, main lifts first → last with %, cardio, protein / water, body fat, lean mass) and the lean-mass
+  card; protocol report adds lean mass by dose step and strength by day after the shot.
+- Trends: protein (average, g per kg, days on target) and water; readiness by day; links in the person's records —
+  share of weight lost as lean mass at higher vs lower protein, and lifts on better vs lower readiness days (split at
+  the person's own median). `src/logic/fitnessInsights.ts`.
+- Onboarding: a "What would you like to track?" step (peptides, training, cycle).
+- Accessibility: axe-core (WCAG 2.1 AA + best practice) on every screen and the main sheets, light and dark: 0
+  violations after fixes (chart canvases hidden from screen readers since their numbers are given in words; protocol
+  rows valid definition lists; empty table headers named; scrolling tables focusable).
+- Tests: `tests/training-smart.test.ts`, `tests/fitness-insights.test.ts`; browser flow for lb, cues, superset rest,
+  swap, plates, Trends, reports, CSVs, onboarding; native flow (fake bridge) for training reminders and the rest
+  notification.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 

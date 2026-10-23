@@ -17,6 +17,12 @@ import { Button } from '../../components/ui/Button';
 import { GoalTimeline, MuscleWatchCard, PeptideTrainingCard, ReadinessBlock } from '../../components/Fitness';
 import { ACTIVITIES, CardioSheet, GoalSheet, PlatesSheet, StartSheet } from './TrainingSheets';
 import { finishCardio } from '../../db/repos/training';
+import { fmtLoad } from '../../logic/load';
+import { habitText, trainingHabit } from '../../logic/trainingPlan';
+import { setTrainingReminders } from '../../app/native';
+import { setSetting } from '../../db/repos/settings';
+import { useToast } from '../../app/toast';
+import { isNative } from '../../platform';
 
 const DAY = 86_400_000;
 
@@ -24,6 +30,7 @@ export function Training() {
   const workouts = useWorkouts(); const own = useExercises(); const routines = useRoutines(); const fam = useFamily(); const ss = useScheduleSettings();
   const daily = useDaily(); const checkIns = useCheckIns(); const body = useBodyEntries(); const meds = useMeds(); const doses = useDoses();
   const now = useNow(60_000);
+  const toast = useToast();
   const [sheet, setSheet] = useState<'start' | 'cardio' | 'goal' | 'plates' | null>(null);
   const [editGoal, setEditGoal] = useState<string | null>(null);
   if (!workouts || !own || !routines || !fam || !ss || !daily || !checkIns || !body || !meds || !doses) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
@@ -39,10 +46,11 @@ export function Training() {
   const cal = trainingCalendar(ws, now, s, sessionsGoal?.perWeek ?? 0, 8);
   const bal = weeklyBalance(ws, defs, now);
   const lifted = [...new Set(ws.flatMap((w) => working(w.sets).map((x) => x.exerciseId)))];
-  const recentPBs = ws.filter((w) => Date.parse(w.startedAt) > now - 14 * DAY).flatMap((w) => newPBs(w, ws, defs).map((p) => ({ ...p, t: Date.parse(w.startedAt) })));
+  const recentPBs = ws.filter((w) => Date.parse(w.startedAt) > now - 14 * DAY).flatMap((w) => newPBs(w, ws, defs, settings.units).map((p) => ({ ...p, t: Date.parse(w.startedAt) })));
   const flats = lifted.map((id) => plateau(id, ws, now)).filter(Boolean);
   const peptide = settings.peptideTools ? meds.find((m) => m.peptide && !m.archived && medIsFor(m, fam.personId)) : undefined;
   const cardio = ws.filter((w) => w.cardio);
+  const habit = trainingHabit(ws, now, s);
   const maxCal = Math.max(1, ...cal.weeks.map((x) => x.sessions), sessionsGoal?.perWeek ?? 0);
 
   return (
@@ -64,6 +72,16 @@ export function Training() {
         </div>
       </section>
 
+      {habit && isNative && !settings.trainingReminders && !settings.trainingReminderAsked && (
+        <section className="border-t border-border pt-4 pb-2" aria-label="Training reminders">
+          <p className="text-[15px]">You usually train {habitText(habit)}. Remind you on those days?</p>
+          <div className="flex gap-4">
+            <button type="button" className="min-h-[44px] font-medium underline underline-offset-4" onClick={async () => { const on = await setTrainingReminders(true); toast(on ? 'Reminders on for your usual training days' : 'Notifications are off for this app. Turn them on in your phone’s settings.'); }}>Remind me</button>
+            <button type="button" className="min-h-[44px] text-muted underline underline-offset-4" onClick={() => setSetting('trainingReminderAsked', true)}>No thanks</button>
+          </div>
+        </section>
+      )}
+
       {ready && <section className="border-t border-border pt-5 pb-1"><ReadinessBlock r={ready} /></section>}
 
       <section className="border-t border-border pt-5 pb-1" aria-labelledby="wk-h">
@@ -83,7 +101,7 @@ export function Training() {
         <ul>
           {goals.map((g) => (
             <li key={g.id} className="border-t border-border">
-              <button type="button" className="w-full text-left py-2.5 min-h-[48px] text-[15px] tnum" onClick={() => { setEditGoal(g.id); setSheet('goal'); }}>{fitnessGoalStatus(g, ws, now, s, defs).text}</button>
+              <button type="button" className="w-full text-left py-2.5 min-h-[48px] text-[15px] tnum" onClick={() => { setEditGoal(g.id); setSheet('goal'); }}>{fitnessGoalStatus(g, ws, now, s, defs, settings.units).text}</button>
             </li>
           ))}
         </ul>
@@ -102,7 +120,7 @@ export function Training() {
                 <li key={id} className="border-t border-border">
                   <a href={`#/training/exercise/${id}`} className="flex justify-between gap-3 py-2.5 min-h-[48px]">
                     <span>{defs.find((d) => d.id === id)?.name ?? 'Exercise'}</span>
-                    <span className="text-sm tnum text-muted">{pb.e1rm ? `max ~${pb.e1rm.v} kg` : pb.mostReps ? `${pb.mostReps.reps} reps` : ''}</span>
+                    <span className="text-sm tnum text-muted">{defs.find((d) => d.id === id)?.timed ? (pb.mostReps ? `${pb.mostReps.reps} s` : '') : pb.e1rm ? `max ~${fmtLoad(pb.e1rm.v, settings.units)}` : pb.mostReps ? `${pb.mostReps.reps} reps` : ''}</span>
                   </a>
                 </li>
               );

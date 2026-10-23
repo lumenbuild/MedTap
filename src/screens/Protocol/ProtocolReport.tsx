@@ -1,6 +1,9 @@
 import { format } from 'date-fns';
 import { Printer } from 'lucide-react';
-import { useBodyEntries, useCheckIns, useDoses, useFamily, useMeds, useScheduleSettings } from '../../app/data';
+import { useBodyEntries, useCheckIns, useDoses, useFamily, useMeds, useScheduleSettings, useWorkouts } from '../../app/data';
+import { MuscleWatchCard, PeptideTrainingCard } from '../../components/Fitness';
+import { trainingVsPeptide } from '../../logic/training';
+import { HAS_BODY } from '../../edition';
 import { medIsFor, personOf } from '../../db/repos/people';
 import { printPage } from '../../app/print';
 import { useNow } from '../../app/useNow';
@@ -25,6 +28,7 @@ export function ProtocolReport() {
   const checkIns = useCheckIns();
   const ss = useScheduleSettings();
   const fam = useFamily();
+  const workouts = useWorkouts();
   const now = useNow(60_000);
   if (!meds || !doses || !body || !checkIns || !ss || !fam) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
   const [settings, s] = ss;
@@ -66,7 +70,7 @@ export function ProtocolReport() {
             )}
             <section>
               <h3 className="text-sm font-medium text-muted mb-2">Dose steps</h3>
-              <div className="table-scroll">
+              <div className="table-scroll" tabIndex={0}>
                 <table className="w-full text-sm tnum">
                   <thead><tr className="text-left">{['Dose', 'From', 'Weeks', 'Doses', 'Weight/week', 'Waist/week', 'Appetite (1–5)', 'Side effects (share of check-ins)'].map((h) => <th key={h} className="py-1.5 pr-3 border-b border-border font-medium">{h}</th>)}</tr></thead>
                   <tbody>
@@ -89,7 +93,7 @@ export function ProtocolReport() {
             {lots.length > 0 && (
               <section>
                 <h3 className="text-sm font-medium text-muted mb-2">Batches</h3>
-                <div className="table-scroll">
+                <div className="table-scroll" tabIndex={0}>
                   <table className="w-full text-sm tnum">
                     <thead><tr className="text-left">{['Lot', 'Supplier', 'In use', 'Doses', 'Weight/week', 'Appetite', 'Noticed', 'Flag'].map((h) => <th key={h} className="py-1.5 pr-3 border-b border-border font-medium">{h}</th>)}</tr></thead>
                     <tbody>
@@ -126,6 +130,8 @@ export function ProtocolReport() {
                 </ul>
               </section>
             )}
+            {HAS_BODY && myBody.some((b) => !b.deletedAt && (b.bodyFatPct !== undefined || b.leanKg !== undefined)) && <div className="report-block"><MuscleWatchCard body={myBody} units={units} med={m} doses={doses} now={now} /></div>}
+            {(() => { const pv = trainingVsPeptide(m, doses, (workouts ?? []).filter((w) => personOf(w) === fam.personId)); return pv ? <div className="report-block"><PeptideTrainingCard med={m} doses={doses} workouts={(workouts ?? []).filter((w) => personOf(w) === fam.personId)} /></div> : null; })()}
             <p className="text-xs text-muted">What was recorded on each step and batch, side by side. It doesn't show cause. Doses and plans are the person's own, from their prescriber.</p>
           </article>
         );

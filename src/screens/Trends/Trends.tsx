@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { FileText } from 'lucide-react';
-import { useAppointments, useDaily, useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings, useVitals } from '../../app/data';
+import { useWorkouts, useAppointments, useDaily, useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings, useVitals } from '../../app/data';
 import { CheckInForecastCard, EffectWindowCards, SleepImpactCard } from '../../components/Smart';
+import { TrainingTrends } from '../../components/Fitness';
 import { CycleCard, HeartAfterCards, OnOffCards, StepsWeightCard, SubstanceCard } from '../../components/Lifestyle';
 import { checkInForecast, sleepImpact } from '../../logic/habits';
 import { appointmentsAround } from '../../logic/appointments';
@@ -28,6 +29,7 @@ export function Trends() {
   const allVitals = useVitals();
   const allAppts = useAppointments();
   const allDaily = useDaily();
+  const allWorkouts = useWorkouts();
   const fam = useFamily();
   const ss = useScheduleSettings();
   const now = useNow(60_000);
@@ -36,7 +38,7 @@ export function Trends() {
   });
   const pick = (r: Range | 'appt') => { setRange(r); try { localStorage.setItem('trendsRange', r); } catch { /* per-device preference only */ } };
 
-  if (!allMeds || !allDoses || !allCheckIns || !allBody || !allEvents || !allVitals || !allAppts || !allDaily || !ss || !fam) {
+  if (!allMeds || !allDoses || !allCheckIns || !allBody || !allEvents || !allVitals || !allAppts || !allDaily || !allWorkouts || !ss || !fam) {
     return <div className="space-y-4" aria-busy="true" aria-label="Loading">{[0, 1, 2].map((i) => <div key={i} className="h-60 rounded-card bg-surface-2 animate-pulse" />)}</div>;
   }
   // Only the chosen family member's records.
@@ -101,6 +103,7 @@ export function Trends() {
       {settings.cycleTracking && <CycleCard checkIns={checkIns} now={now} />}
       <HeartAfterCards meds={active} doses={doses} daily={daily} vitals={vitals} now={now} s={s} />
       {HAS_BODY && <StepsWeightCard daily={daily} body={body} units={settings.units} now={now} />}
+      {HAS_BODY && settings.trainingTools && <TrainingTrends daily={daily} body={body} checkIns={checkIns} workouts={allWorkouts.filter((w) => personOf(w) === fam.personId)} start={start} end={end} s={s} targets={{ protein: settings.proteinTargetG, water: settings.waterTargetMl }} />}
       <IntervalCharts meds={active} doses={doses} {...common} />
       {peptideMeds.length > 0 && (
         <>

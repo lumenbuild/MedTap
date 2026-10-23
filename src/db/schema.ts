@@ -275,6 +275,11 @@ export interface Exercise extends Stamped {
   bodyweight?: boolean;
   /** How much to add when it's time to go up (kg). */
   increment?: number;
+  equipment?: 'barbell' | 'dumbbell' | 'machine' | 'cable' | 'bodyweight' | 'kettlebell';
+  /** Weight is for each hand. */
+  perHand?: boolean;
+  /** Held for time: reps are seconds. */
+  timed?: boolean;
   personId?: string; deletedAt?: string;
 }
 
@@ -285,6 +290,8 @@ export interface WorkoutSet {
   /** How hard it felt: reps in reserve as RPE 6–10 (optional). */
   rpe?: number;
   warmup?: boolean; done: boolean;
+  /** Sets with the same group are a superset: done back to back, resting after each round. */
+  group?: string;
 }
 
 export interface CardioEntry { activity: CardioActivity; distanceKm?: number; durationMin: number; title?: string }

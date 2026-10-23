@@ -1,11 +1,13 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { Calculator, CalendarCheck, ChevronRight, Package, HardDriveDownload, HelpCircle, Lock, Plane, RefreshCw, Nfc, X } from 'lucide-react';
 import { useSyncConfig } from '../app/sync';
+import { setTrainingReminders } from '../app/native';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Sheet, SheetActions } from '../components/ui/Sheet';
 import { Segmented, TextInput } from '../components/ui/Field';
 import { Switch } from '../components/ui/Switch';
+import { BARS, fromLoad, loadUnit } from '../logic/load';
 import { getTheme, setTheme, type Theme } from '../app/theme';
 import { APP_NAME, DISCLAIMER } from '../config';
 import { useFamily, useSettings } from '../app/data';
@@ -169,12 +171,21 @@ export function Settings() {
                 </div>
                 <div className="space-y-1.5">
                   <label htmlFor="bar" className="block text-sm font-medium">My barbell weighs</label>
-                  <select id="bar" value={settings.barKg} onChange={(e) => setSetting('barKg', Number(e.target.value))} className={`${selectCls} bg-surface`}>
-                    {[20, 15, 10, 7].map((x) => <option key={x} value={x}>{x} kg</option>)}
+                  <select id="bar" value={String(BARS[settings.units].reduce((b, x) => (Math.abs(fromLoad(x, settings.units) - settings.barKg) < Math.abs(fromLoad(b, settings.units) - settings.barKg) ? x : b)))}
+                    onChange={(e) => setSetting('barKg', fromLoad(Number(e.target.value), settings.units))} className={`${selectCls} bg-surface`}>
+                    {BARS[settings.units].map((x) => <option key={x} value={x}>{x} {loadUnit(settings.units)}</option>)}
                   </select>
                 </div>
               </div>
-              <p className="text-sm text-muted">The rest timer starts when you tick a set. The plate calculator takes off the bar’s weight. Training weights are in kg.</p>
+              <p className="text-sm text-muted">The rest timer starts when you tick a set. The plate calculator takes off the bar’s weight.</p>
+              <Switch label="Work out rest for each set" checked={settings.smartRest} onChange={(v) => setSetting('smartRest', v)}>
+                Starting from your rest timer: at least 3 min after heavy sets (5 reps or fewer) of big lifts, up to 1½ min for smaller muscles, 30 s more after a very hard set, and 15 s between supersets.
+              </Switch>
+              {isNative && (
+                <Switch label="Remind me on my usual training days" checked={settings.trainingReminders} onChange={async (v) => { const on = await setTrainingReminders(v); if (v && !on) toast('Notifications are off for this app. Turn them on in your phone’s settings.'); }}>
+                  Learned from when you train: 30 minutes before your usual time, skipped if you’ve already trained that day. Also a morning note when your sessions-a-week goal needs a session every day left.
+                </Switch>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <TargetInput id="protein" label="Protein a day (g)" value={settings.proteinTargetG} onChange={(v) => setSetting('proteinTargetG', v)} />
                 <TargetInput id="water" label="Water a day (mL)" value={settings.waterTargetMl} onChange={(v) => setSetting('waterTargetMl', v)} />
@@ -231,7 +242,7 @@ export function Settings() {
         <Card className="space-y-5">
           {HAS_BODY && (
             <div className="space-y-1.5">
-              <span className="block text-sm font-medium">Units for weight and measurements</span>
+              <span className="block text-sm font-medium">Units for weight, measurements and training</span>
               <Segmented<Units> label="Units" value={settings.units} onChange={(v) => setSetting('units', v)}
                 options={[{ value: 'metric', label: 'kg and cm' }, { value: 'imperial', label: 'lb and in' }]} />
             </div>

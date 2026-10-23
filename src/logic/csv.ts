@@ -1,6 +1,9 @@
 // Spreadsheet exports. One CSV per kind of record; deleted records are left out.
 import { format } from 'date-fns';
-import type { BodyEntry, CheckIn, Dose, Medication, Vital } from '../db/schema';
+import type { BodyEntry, CheckIn, DailyHealth, Dose, Medication, Vital, Workout } from '../db/schema';
+import type { Units } from '../db/repos/settings';
+import type { ExerciseDef } from './exercises';
+import { loadUnit, showLoad } from './load';
 import { fmtSchedule } from './format';
 import { MEASUREMENTS } from './units';
 
@@ -31,17 +34,17 @@ export function dosesCsv(doses: Dose[], meds: Medication[], person: PersonName =
 
 export function checkInsCsv(rows: CheckIn[], person: PersonName = me): string {
   return toCsv(
-    ['person', 'date', 'time', 'mood', 'energy', 'focus', 'appetite', 'sleep hours', 'sleep quality', 'noticed', 'note'],
+    ['person', 'date', 'time', 'mood', 'energy', 'focus', 'appetite', 'sleep hours', 'sleep quality', 'soreness', 'noticed', 'note'],
     rows.filter((c) => !c.deletedAt).sort((a, b) => a.at.localeCompare(b.at))
-      .map((c) => [person(c.personId), day(c.at), time(c.at), c.mood, c.energy, c.focus, c.appetite, c.sleepHours, c.sleepQuality, c.chips.join('; '), c.note ?? '']),
+      .map((c) => [person(c.personId), day(c.at), time(c.at), c.mood, c.energy, c.focus, c.appetite, c.sleepHours, c.sleepQuality, c.soreness, c.chips.join('; '), c.note ?? '']),
   );
 }
 
 export function bodyCsv(rows: BodyEntry[], person: PersonName = me): string {
   return toCsv(
-    ['person', 'date', 'weight kg', ...MEASUREMENTS.map((m) => `${m.label.toLowerCase()} cm`), 'note'],
+    ['person', 'date', 'weight kg', ...MEASUREMENTS.map((m) => `${m.label.toLowerCase()} cm`), 'body fat %', 'lean mass kg', 'muscle kg', 'measured by', 'note'],
     rows.filter((b) => !b.deletedAt).sort((a, b) => a.date.localeCompare(b.date))
-      .map((b) => [person(b.personId), b.date, b.weightKg, ...MEASUREMENTS.map((m) => b[m.key]), b.note ?? '']),
+      .map((b) => [person(b.personId), b.date, b.weightKg, ...MEASUREMENTS.map((m) => b[m.key]), b.bodyFatPct, b.leanKg, b.muscleKg, b.compSource ?? '', b.note ?? '']),
   );
 }
 
@@ -59,4 +62,28 @@ export function vitalsCsv(rows: Vital[], person: PersonName = me): string {
     rows.filter((v) => !v.deletedAt).sort((a, b) => a.at.localeCompare(b.at))
       .map((v) => [person(v.personId), day(v.at), time(v.at), v.systolic, v.diastolic, v.heartRate, v.note ?? '']),
   );
+}
+
+/** Every set of every workout, and cardio sessions, one row each. Weights in the person's units. */
+export function workoutsCsv(workouts: Workout[], defs: ExerciseDef[], units: Units = 'metric', person: PersonName = me): string {
+  const u = loadUnit(units);
+  const rows: unknown[][] = [];
+  for (const w of workouts.filter((x) => !x.deletedAt).sort((a, b) => a.startedAt.localeCompare(b.startedAt))) {
+    const base = [person(w.personId), day(w.startedAt), time(w.startedAt), w.name ?? (w.cardio ? 'Cardio' : 'Workout')];
+    if (w.cardio) { rows.push([...base, w.cardio.activity, '', '', '', '', w.cardio.durationMin, 'min', w.cardio.distanceKm ?? '', '', '', w.source, w.note ?? '']); continue; }
+    const counts = new Map<string, number>();
+    for (const s of w.sets) {
+      const d = defs.find((x) => x.id === s.exerciseId);
+      const nth = (counts.get(s.exerciseId) ?? 0) + 1; counts.set(s.exerciseId, nth);
+      rows.push([...base, d?.name ?? 'Exercise', nth, s.warmup ? 'yes' : '', s.weightKg ? showLoad(s.weightKg, units) : '', d?.perHand ? 'yes' : '', s.reps, d?.timed ? 's' : 'reps', '', s.rpe ?? '', s.done ? 'yes' : 'no', w.source, w.note ?? '']);
+    }
+  }
+  return toCsv(['person', 'date', 'time', 'workout', 'exercise or activity', 'set', 'warm-up', `weight ${u}`, 'per hand', 'reps / seconds / minutes', 'unit', 'distance km', 'RPE', 'done', 'source', 'note'], rows);
+}
+
+/** One row per day: steps, sleep, heart rate (imported) and protein / water (logged). */
+export function dailyCsv(rows: DailyHealth[], person: PersonName = me): string {
+  return toCsv(['person', 'date', 'steps', 'sleep hours', 'resting heart rate', 'heart rate variability ms', 'exercise minutes', 'protein g', 'water mL'],
+    rows.filter((d) => !d.deletedAt).sort((a, b) => a.date.localeCompare(b.date))
+      .map((d) => [person(d.personId), d.date, d.steps, d.sleepMin !== undefined ? Math.round((d.sleepMin / 60) * 10) / 10 : '', d.restingHr, d.hrvMs, d.exerciseMin, d.proteinG, d.waterMl]));
 }

@@ -8,6 +8,8 @@ import { forecast, seriesOf, type Forecast, type Pt } from './forecast';
 import { dayKey, ymdToMs } from './stats';
 import { MUSCLES, type ExerciseDef } from './exercises';
 import { stepReport, dayStartOffset } from './protocol';
+import type { Units } from '../db/repos/settings';
+import { fmtLoad, fromLoad, loadUnit, PLATES_KG, PLATES_LB, roundLoad, showLoad, stepIn } from './load';
 
 const DAY = 86_400_000;
 const WEEK = 7 * DAY;
@@ -21,7 +23,7 @@ export const working = (sets: WorkoutSet[]) => sets.filter((s) => s.done && !s.w
 /** Estimated one-rep max (Epley). Above 12 reps it's rough, so it's capped there. */
 export const e1rm = (kg: number, reps: number) => (reps <= 0 ? 0 : reps === 1 ? kg : kg * (1 + Math.min(reps, 12) / 30));
 
-/** Round to what can be loaded (the exercise's increment, at least 0.5). */
+/** Round to a multiple of `step` (kg). */
 export const roundTo = (kg: number, step: number) => (step > 0 ? Math.round(kg / step) * step : kg);
 
 export interface Session { workoutId: string; t: number; sets: WorkoutSet[] }
@@ -65,7 +67,8 @@ export function personalBests(exerciseId: string, workouts: Workout[], before = 
 export interface NewPB { exerciseId: string; kind: 'e1rm' | 'heaviest' | 'reps' | 'volume'; text: string }
 
 /** Personal bests set in one workout, against everything before it. */
-export function newPBs(w: Workout, workouts: Workout[], defs: ExerciseDef[]): NewPB[] {
+export function newPBs(w: Workout, workouts: Workout[], defs: ExerciseDef[], units: Units = 'metric'): NewPB[] {
+  const f = (kg: number) => fmtLoad(kg, units);
   const out: NewPB[] = [];
   const ids = [...new Set(working(w.sets).map((s) => s.exerciseId))];
   for (const id of ids) {
@@ -75,14 +78,16 @@ export function newPBs(w: Workout, workouts: Workout[], defs: ExerciseDef[]): Ne
     const def = defs.find((d) => d.id === id);
     const top = sets.reduce((a, b) => (e1rm(b.weightKg, b.reps) > e1rm(a.weightKg, a.reps) ? b : a));
     const heavy = sets.reduce((a, b) => (b.weightKg > a.weightKg ? b : a));
-    if (heavy.weightKg > before.heaviest.kg) out.push({ exerciseId: id, kind: 'heaviest', text: `Heaviest: ${heavy.weightKg} kg × ${heavy.reps}` });
-    else if (before.e1rm && top.weightKg > 0 && e1rm(top.weightKg, top.reps) > before.e1rm.v + 0.05) out.push({ exerciseId: id, kind: 'e1rm', text: `Best estimated max: ${r(e1rm(top.weightKg, top.reps))} kg (${top.weightKg} × ${top.reps})` });
+    if (heavy.weightKg > before.heaviest.kg) out.push({ exerciseId: id, kind: 'heaviest', text: `Heaviest: ${f(heavy.weightKg)} × ${heavy.reps}` });
+    else if (before.e1rm && top.weightKg > 0 && e1rm(top.weightKg, top.reps) > before.e1rm.v + 0.05) out.push({ exerciseId: id, kind: 'e1rm', text: `Best estimated max: ${f(e1rm(top.weightKg, top.reps))} (${showLoad(top.weightKg, units)} × ${top.reps})` });
     for (const x of sets) {
       const prev = before.repsAt.filter((p) => p.kg >= x.weightKg).reduce((m, p) => Math.max(m, p.reps), 0);
-      if (prev > 0 && x.reps > prev && !out.some((o) => o.exerciseId === id && o.kind === 'reps')) out.push({ exerciseId: id, kind: 'reps', text: `Most reps at ${def?.bodyweight && !x.weightKg ? 'bodyweight' : `${x.weightKg} kg`}: ${x.reps}` });
+      if (prev > 0 && x.reps > prev && !out.some((o) => o.exerciseId === id && o.kind === 'reps')) {
+        out.push({ exerciseId: id, kind: 'reps', text: def?.timed ? `Longest: ${x.reps} s${x.weightKg ? ` at ${f(x.weightKg)}` : ''}` : `Most reps at ${!x.weightKg ? 'bodyweight' : f(x.weightKg)}: ${x.reps}` });
+      }
     }
     const vol = sets.reduce((n, x) => n + x.weightKg * x.reps, 0);
-    if (before.volume && vol > before.volume.kg) out.push({ exerciseId: id, kind: 'volume', text: `Most volume: ${r(vol, 0)} kg` });
+    if (!def?.timed && before.volume && vol > before.volume.kg) out.push({ exerciseId: id, kind: 'volume', text: `Most volume: ${showLoad(vol * (def?.perHand ? 2 : 1), units).toLocaleString('en-AU', { maximumFractionDigits: 0 })} ${loadUnit(units)}` });
   }
   return out;
 }
@@ -93,30 +98,54 @@ export interface Target { sets: number; reps: number; weightKg: number; why: 'up
 
 /** What to aim for next time: the routine's sets and reps; go up when every working set hit the reps and none was
  *  very hard (RPE 9+); a rep more when the weight can't go up; ease off 10% after two sessions in a row well short. */
-export function nextTarget(def: ExerciseDef, workouts: Workout[], item?: RoutineItem): Target {
+export function nextTarget(def: ExerciseDef, workouts: Workout[], item?: RoutineItem, units: Units = 'metric'): Target {
   const ss = sessionsOf(def.id, workouts);
   const last = ss[ss.length - 1];
-  if (!last) return { sets: item?.sets ?? 3, reps: item?.reps ?? 8, weightKg: item?.weightKg ?? 0, why: 'start' };
+  if (!last) return { sets: item?.sets ?? 3, reps: item?.reps ?? (def.timed ? 30 : 8), weightKg: item?.weightKg ?? 0, why: 'start' };
   const top = Math.max(...last.sets.map((s) => s.weightKg));
   const atTop = last.sets.filter((s) => s.weightKg === top);
   const reps = item?.reps ?? Math.max(...atTop.map((s) => s.reps));
   const sets = item?.sets ?? atTop.length;
-  const short = (x: Session) => { const t = Math.max(...x.sets.map((s) => s.weightKg)); return x.sets.filter((s) => s.weightKg === t).some((s) => s.reps <= reps - 2); };
+  const short = (x: Session) => { const t = Math.max(...x.sets.map((s) => s.weightKg)); return x.sets.filter((s) => s.weightKg === t).some((s) => s.reps <= reps - (def.timed ? 10 : 2)); };
   const prev = ss[ss.length - 2];
   if (short(last) && prev && short(prev) && Math.max(...prev.sets.map((s) => s.weightKg)) === top) {
-    return { sets, reps, weightKg: roundTo(top * 0.9, def.increment || 0.5), why: 'deload' };
+    if (top > 0) return { sets, reps, weightKg: roundLoad(top * 0.9, def, units), why: 'deload' };
+    return { sets, reps: Math.max(1, Math.round(reps * 0.8)), weightKg: 0, why: 'deload' };
   }
   const hit = atTop.length >= sets && atTop.every((s) => s.reps >= reps);
   const hard = atTop.some((s) => (s.rpe ?? 0) >= 9);
-  if (hit && !hard) return def.increment > 0 ? { sets, reps, weightKg: r(top + def.increment, 2), why: 'up' } : { sets, reps: reps + 1, weightKg: top, why: 'reps' };
+  if (hit && !hard) {
+    // Held for time: 5 seconds more. Weighted: one step up, in the unit the person loads, onto a loadable weight (so
+    // history logged in kg still lands on whole lb steps after switching). Otherwise a rep more.
+    if (def.timed) return { sets, reps: reps + 5, weightKg: top, why: 'reps' };
+    if (stepIn(def, units) > 0 && (top > 0 || !def.bodyweight)) return { sets, reps, weightKg: roundLoad(fromLoad(showLoad(top, units) + stepIn(def, units), units), def, units), why: 'up' };
+    return { sets, reps: reps + 1, weightKg: top, why: 'reps' };
+  }
   return { sets, reps, weightKg: top, why: 'same' };
+}
+
+/** How long to rest after a set, starting from the person's own setting: longer after heavy sets of big lifts and
+ *  very hard sets, shorter for small muscles, and almost none between the two halves of a superset. */
+export function restFor(def: Pick<ExerciseDef, 'compound' | 'timed'>, set: Pick<WorkoutSet, 'reps' | 'rpe' | 'weightKg'>, base: number, supersetNext = false): { seconds: number; why: string } {
+  if (base <= 0) return { seconds: 0, why: '' };
+  if (supersetNext) return { seconds: 15, why: 'superset: straight to the next one' };
+  let s = base, why = '';
+  if (def.compound && !def.timed && set.weightKg > 0 && set.reps <= 5) { s = Math.max(base, 180); why = 'heavy set'; }
+  else if (!def.compound) { s = Math.min(base, 90); why = 'smaller muscle'; }
+  if ((set.rpe ?? 0) >= 9) { s += 30; why = why ? `${why}, very hard` : 'very hard set'; }
+  else if (set.rpe !== undefined && set.rpe <= 7) { s = Math.max(45, s - 15); why = why || 'felt easy'; }
+  return { seconds: s, why };
 }
 
 // ── Plateaus and forecasts ──────────────────────────────────────────────────────────────────────────
 
 /** Best estimated max each session. */
 export const e1rmSeries = (exerciseId: string, workouts: Workout[]): Pt[] =>
-  sessionsOf(exerciseId, workouts).map((s) => ({ t: s.t, v: r(Math.max(...s.sets.map((x) => e1rm(x.weightKg, x.reps)))) })).filter((p) => p.v > 0);
+  sessionsOf(exerciseId, workouts).map((s) => {
+    // With no weight (push-ups, a plank) the best reps or seconds stand in for strength.
+    const e = Math.max(...s.sets.map((x) => e1rm(x.weightKg, x.reps)));
+    return { t: s.t, v: r(e > 0 ? e : Math.max(...s.sets.map((x) => x.reps))) };
+  }).filter((p) => p.v > 0);
 
 export interface Plateau { exerciseId: string; weeks: number; best: number; harder: boolean }
 
@@ -277,15 +306,16 @@ export function trainingVsPeptide(med: Medication, doses: Dose[], workouts: Work
 
 // ── Plates ──────────────────────────────────────────────────────────────────────────────────────────
 
-export const PLATES = [25, 20, 15, 10, 5, 2.5, 1.25];
+export const PLATES = PLATES_KG;
 
-/** Plates for each side to make `targetKg` on a `barKg` bar, and anything that can't be made. */
-export function platesFor(targetKg: number, barKg = 20, plates = PLATES): { perSide: number[]; leftover: number } {
-  let side = Math.max(0, (targetKg - barKg) / 2);
+/** Plates for each side to make `target` on a `bar`, and anything that can't be made. In the person's unit. */
+export function platesFor(target: number, bar = 20, plates: number[] = PLATES_KG): { perSide: number[]; leftover: number } {
+  let side = Math.max(0, (target - bar) / 2);
   const perSide: number[] = [];
   for (const p of [...plates].sort((a, b) => b - a)) while (side + 1e-9 >= p) { perSide.push(p); side -= p; }
   return { perSide, leftover: r(side * 2, 2) };
 }
+export const platesForUnits = (u: Units) => (u === 'imperial' ? PLATES_LB : PLATES_KG);
 
 // ── Cardio ──────────────────────────────────────────────────────────────────────────────────────────
 
@@ -308,7 +338,7 @@ export function cardioBests(workouts: Workout[], activity: CardioActivity) {
 
 export interface GoalStatus { goal: FitnessGoal; now?: number; text: string; forecast?: Forecast; done: boolean }
 
-export function fitnessGoalStatus(g: FitnessGoal, workouts: Workout[], now: number, s: ScheduleSettings, defs: ExerciseDef[]): GoalStatus {
+export function fitnessGoalStatus(g: FitnessGoal, workouts: Workout[], now: number, s: ScheduleSettings, defs: ExerciseDef[], units: Units = 'metric'): GoalStatus {
   if (g.kind === 'sessions') {
     const c = trainingCalendar(workouts, now, s, g.perWeek ?? 3, 12);
     return { goal: g, now: c.thisWeek, text: `${c.thisWeek} of ${g.perWeek} this week${c.streak ? ` · ${c.streak} week${c.streak === 1 ? '' : 's'} in a row` : ''}`, done: c.thisWeek >= (g.perWeek ?? 3) };
@@ -322,7 +352,7 @@ export function fitnessGoalStatus(g: FitnessGoal, workouts: Workout[], now: numb
     const best = pts.length ? Math.max(...pts.map((p) => p.v)) : undefined;
     const f = strengthForecast(g.exerciseId, workouts, target, now);
     const done = best !== undefined && best >= target - 0.05;
-    return { goal: g, now: best, forecast: f, done, text: `${name} ${g.targetKg} kg${reps > 1 ? ` × ${reps}` : ''}: ${done ? 'reached' : best !== undefined ? `best estimated max ${r(best)} kg (need ${r(target)})` : 'no sessions yet'}` };
+    return { goal: g, now: best, forecast: f, done, text: `${name} ${fmtLoad(g.targetKg, units)}${reps > 1 ? ` × ${reps}` : ''}: ${done ? 'reached' : best !== undefined ? `best estimated max ${fmtLoad(best, units)} (need ${fmtLoad(target, units)})` : 'no sessions yet'}` };
   }
   if (g.kind === 'cardio' && g.distanceKm && g.targetMin) {
     const b = cardioBests(workouts, g.activity ?? 'run').find((x) => Math.abs(x.km - g.distanceKm!) < 0.01)
@@ -339,3 +369,41 @@ export const compSeries = (body: BodyEntry[], metric: 'leanKg' | 'bodyFatPct'): 
   if (metric === 'bodyFatPct') return seriesOf(body, 'bodyFatPct');
   return leanPoints(body).map((p) => ({ t: p.t, v: r(p.lean, 2) }));
 };
+
+// ── Report ──────────────────────────────────────────────────────────────────────────────────────────
+
+export interface TrainingSummary {
+  sessions: number; perWeek: number; cardio: number; km: number;
+  lifts: { id: string; name: string; from: number; to: number; pct: number; sessions: number; noLoad: boolean }[];
+  protein?: number; water?: number; proteinDays: number;
+  bodyFat?: { from: number; to: number }; lean?: { from: number; to: number };
+}
+
+/** A range's training for the doctor report: sessions a week, how the main lifts changed (first to last session in the
+ *  range), cardio, protein and water averages, and body fat / lean mass at each end. */
+export function trainingSummary(workouts: Workout[], defs: ExerciseDef[], start: number, end: number, daily: DailyHealth[], body: BodyEntry[]): TrainingSummary | null {
+  const ws = workouts.filter((w) => live(w) && t0(w) >= start && t0(w) <= end);
+  const strength = ws.filter((w) => !w.cardio && working(w.sets).length);
+  const cardio = ws.filter((w) => w.cardio && w.endedAt);
+  const ymdIn = (d: string) => { const t = ymdToMs(d); return t >= start - DAY / 2 && t <= end + DAY / 2; };
+  const days = daily.filter((d) => live(d) && ymdIn(d.date));
+  const prot = days.map((d) => d.proteinG).filter((x): x is number => !!x);
+  const water = days.map((d) => d.waterMl).filter((x): x is number => !!x);
+  const comp = leanPoints(body.filter((b) => live(b) && ymdIn(b.date)));
+  const bf = body.filter((b) => live(b) && ymdIn(b.date) && typeof b.bodyFatPct === 'number').sort((a, b) => a.date.localeCompare(b.date));
+  if (!strength.length && !cardio.length && !prot.length && comp.length < 2 && bf.length < 2) return null;
+  const ids = [...new Set(strength.flatMap((w) => working(w.sets).map((s) => s.exerciseId)))];
+  const lifts = ids.map((id) => {
+    const pts = e1rmSeries(id, strength);
+    const d = defs.find((x) => x.id === id);
+    const noLoad = !!d?.timed || !strength.some((w) => w.sets.some((s) => s.exerciseId === id && s.weightKg > 0));
+    return { id, name: d?.name ?? 'Exercise', from: pts[0]?.v ?? 0, to: pts[pts.length - 1]?.v ?? 0, pct: pts.length >= 2 && pts[0].v ? Math.round(((pts[pts.length - 1].v - pts[0].v) / pts[0].v) * 100) : 0, sessions: pts.length, noLoad };
+  }).filter((l) => l.sessions >= 2).sort((a, b) => b.sessions - a.sessions).slice(0, 6);
+  return {
+    sessions: strength.length, perWeek: r((strength.length + cardio.length) / Math.max(1, (end - start) / WEEK)), cardio: cardio.length,
+    km: r(cardio.reduce((n, w) => n + (w.cardio!.distanceKm ?? 0), 0)), lifts,
+    protein: avg(prot) !== undefined ? Math.round(avg(prot)!) : undefined, water: avg(water) !== undefined ? Math.round(avg(water)!) : undefined, proteinDays: prot.length,
+    bodyFat: bf.length >= 2 ? { from: bf[0].bodyFatPct!, to: bf[bf.length - 1].bodyFatPct! } : undefined,
+    lean: comp.length >= 2 ? { from: r(comp[0].lean), to: r(comp[comp.length - 1].lean) } : undefined,
+  };
+}

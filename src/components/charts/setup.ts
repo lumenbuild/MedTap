@@ -120,3 +120,10 @@ export function timeAxis(th: ChartTheme, start: number, end: number) {
     time: { unit: span > 120 ? ('month' as const) : span > 21 ? ('week' as const) : ('day' as const), displayFormats: { day: 'd MMM', week: 'd MMM', month: 'MMM yy' }, tooltipFormat: 'EEE d MMM yyyy' },
   };
 }
+
+/** The canvas is a picture of numbers that are always given in words nearby (the card's summary, a labelled wrapper
+ *  or a "Show as table"), so screen readers skip the canvas itself rather than meet an unlabelled image. */
+Chart.register({
+  id: 'a11yCanvas',
+  afterInit(chart: Chart) { chart.canvas.removeAttribute('role'); chart.canvas.setAttribute('aria-hidden', 'true'); },
+});

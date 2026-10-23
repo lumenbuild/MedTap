@@ -2,17 +2,18 @@
 import type { Routine, RoutineItem, TagAction, Workout, WorkoutSet } from '../db/schema';
 import type { ExerciseDef } from './exercises';
 import { nextTarget } from './training';
+import type { Units } from '../db/repos/settings';
 
 const SIX_HOURS = 6 * 3_600_000;
 
 /** The workout in progress (started in the last 6 hours, not finished), if there is one. */
 export const openWorkout = (workouts: Workout[], now: number): Workout | undefined =>
-  workouts.filter((w) => !w.deletedAt && !w.endedAt && !w.cardio && now - Date.parse(w.startedAt) < SIX_HOURS && Date.parse(w.startedAt) <= now)
+  workouts.filter((w) => !w.deletedAt && !w.endedAt && !w.cardio && now - Date.parse(w.startedAt) < SIX_HOURS && Date.parse(w.startedAt) <= now + 60_000)
     .sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
 
 /** An exercise's sets laid out at the weight and reps to aim for (from last time, or the routine's numbers). */
-export function plannedSets(def: ExerciseDef, workouts: Workout[], item?: RoutineItem, newId: () => string = () => crypto.randomUUID()): WorkoutSet[] {
-  const t = nextTarget(def, workouts, item);
+export function plannedSets(def: ExerciseDef, workouts: Workout[], item?: RoutineItem, newId: () => string = () => crypto.randomUUID(), units: Units = 'metric'): WorkoutSet[] {
+  const t = nextTarget(def, workouts, item, units);
   return Array.from({ length: t.sets }, () => ({ id: newId(), exerciseId: def.id, weightKg: t.weightKg || item?.weightKg || 0, reps: t.reps, done: false }));
 }
 
