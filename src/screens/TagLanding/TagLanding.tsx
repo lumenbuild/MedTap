@@ -26,6 +26,7 @@ import { Success } from './Success';
 import { UnknownTag } from './UnknownTag';
 import { ArchivedTag } from './ArchivedTag';
 import { ActionTag } from './ActionTag';
+import { useViewMode } from '../../app/viewMode';
 
 /** Opened by tapping a tag (https://APP_DOMAIN/?t=ID is rewritten to #/tag/ID on boot). */
 export function TagLanding({ id }: { id: string }) {
@@ -39,6 +40,7 @@ export function TagLanding({ id }: { id: string }) {
   const [logged, setLogged] = useState<{ dose: Dose; at: number } | null>(null);
   const [reassign, setReassign] = useState(false);
   const scanned = useRef(false);
+  const priv = useViewMode() === 'private';
 
   useEffect(() => {
     if (tag && !scanned.current) { scanned.current = true; markScanned(tag.id); }
@@ -77,6 +79,14 @@ export function TagLanding({ id }: { id: string }) {
   const [, s] = ss;
   if (tag?.action && !reassign) return shell(<ActionTag tag={tag} personName={fam.many ? fam.nameOf(personOf(tag)) : undefined} />);
   const med = tag ? meds.find((m) => m.id === tag.medicationId) : undefined;
+  // A left-out medicine's tag in the private view: nothing to show, and no offer to link it to something else.
+  if (priv && tag?.medicationId && !med) return shell(
+    <Card className="text-center">
+      <h1 className="text-2xl font-semibold">Nothing to log</h1>
+      <p className="text-muted mt-2">This tag has nothing to log right now.</p>
+      <Button className="w-full mt-5" onClick={close}>Go to Today</Button>
+    </Card>,
+  );
 
   if (!med || reassign) return shell(<UnknownTag id={id} meds={meds.filter((m) => !m.archived)} relinking={!!med} onLinked={() => setReassign(false)}
     personName={fam.many ? (m) => (m.shared ? 'anyone (shared)' : fam.nameOf(personOf(m))) : undefined} />);

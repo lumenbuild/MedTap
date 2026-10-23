@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Download, FileSpreadsheet, FolderSync, Upload } from 'lucide-react';
 import { db } from '../../db/db';
 import { useLive } from '../../db/live';
-import { useSettings } from '../../app/data';
+import { inView, useSettings } from '../../app/data';
+import { useViewMode } from '../../app/viewMode';
+import { viewMeds } from '../../logic/privateView';
 import { useToast } from '../../app/toast';
 import { useNow } from '../../app/useNow';
 import { go } from '../../app/router';
@@ -33,6 +35,8 @@ const LABELS: Record<string, string> = {
 
 export function Backup() {
   const settings = useSettings();
+  // The private view backs up only what it shows, and can't restore (that would overwrite what it leaves out).
+  const priv = useViewMode() === 'private';
   const now = useNow(60_000);
   const toast = useToast();
   const photoCount = useLive(() => db.photos.count()) ?? 0;
@@ -56,7 +60,7 @@ export function Backup() {
   const doExport = async () => {
     setBusy(true);
     try {
-      const blob = new Blob([await backupText(includePhotos && photoCount > 0)], { type: 'application/json' });
+      const blob = new Blob([await backupText(includePhotos && photoCount > 0, priv)], { type: 'application/json' });
       if (await shareOrDownload(backupFilename(), blob, `${APP_NAME} backup`)) {
         await markBackedUp();
         toast('Backup saved. Keep the file somewhere safe, like your cloud drive or email.');
@@ -83,10 +87,10 @@ export function Backup() {
   };
 
   const exportCsv = async (kind: 'doses' | 'checkIns' | 'body' | 'vitals' | 'meds' | 'workouts' | 'daily') => {
-    const meds = await db.medications.toArray();
+    const meds = priv ? viewMeds(await db.medications.toArray(), (await getSettings()).privacyHidePeptides) : await db.medications.toArray();
     const people = await listPeople();
     const person = (id?: string) => people.find((p) => p.id === (id ?? DEFAULT_PERSON))?.name ?? 'Me';
-    const csv = kind === 'doses' ? dosesCsv(await db.doses.toArray(), meds, person)
+    const csv = kind === 'doses' ? dosesCsv(await inView(await db.doses.toArray()), meds, person)
       : kind === 'checkIns' ? checkInsCsv(await db.checkIns.toArray(), person)
       : kind === 'body' ? bodyCsv(await db.bodyEntries.toArray(), person)
       : kind === 'vitals' ? vitalsCsv(await db.vitals.toArray(), person)
@@ -159,6 +163,7 @@ export function Backup() {
         <p className="text-sm text-muted">Backup files are scrambled, so opening one shows nothing readable. But any copy of {APP_NAME} can restore them without a password, so keep them somewhere private, like your own cloud drive.</p>
       </Card>
 
+      {!priv && (
       <Card className="space-y-3">
         <h2 className="text-sm font-medium text-muted flex items-center gap-2"><FolderSync size={20} className="text-primary" aria-hidden="true" /> Automatic backups</h2>
         {auto === 'unsupported' ? (
@@ -205,8 +210,9 @@ export function Backup() {
           </select>
         </label>
       </Card>
+      )}
 
-      <Card className="space-y-3">
+      {!priv && <Card className="space-y-3">
         <h2 className="text-sm font-medium text-muted">Restore from a file</h2>
         <p className="text-sm">Choose a backup file. You'll see what's in it before anything changes.</p>
         <input ref={fileRef} type="file" accept="application/json,.json" className="sr-only" aria-label="Backup file"
@@ -215,7 +221,7 @@ export function Backup() {
           <Upload size={20} aria-hidden="true" /> Choose backup file
         </Button>
         {error && <p role="alert" className="text-sm rounded-btn bg-caution-soft p-3">{error}</p>}
-      </Card>
+      </Card>}
 
       <Card className="space-y-2">
         <h2 className="text-sm font-medium text-muted">Spreadsheets</h2>

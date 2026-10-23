@@ -8,6 +8,9 @@ import type { Medication, SyringeType } from '../../db/schema';
 import { db } from '../../db/db';
 import { useLive } from '../../db/live';
 import { useFamily, useMeds, useSettings } from '../../app/data';
+import { useViewMode } from '../../app/viewMode';
+import { disguise, privateRule } from '../../logic/privateView';
+import { getSettings } from '../../db/repos/settings';
 import { personOf, storedPerson } from '../../db/repos/people';
 import { DEFAULT_PERSON } from '../../db/schema';
 import { addBottle, createMed, deleteMedForever, setArchived, updateMed, type MedInput } from '../../db/repos/meds';
@@ -45,7 +48,7 @@ interface Form extends ScheduleForm {
   name: string; strength: string; unit: string; form: string;
   color: string; icon: string; stockCount: string; lowStockAt: string; scriptNotes: string;
   repeatsLeft: string; scriptExpiry: string;
-  instructions: string; instructionsBy: string; nickname: string;
+  instructions: string; instructionsBy: string; nickname: string; privateView: '' | 'show' | 'cover' | 'hide'; coverName: string;
   /** Mixed from a powder vial (peptide tools). */
   mixed: boolean; kind: 'vial' | 'pen'; waterMl: string; syringe: SyringeType; syringeUnits: string; useWithinDays: string;
   amountPerClick: string; blend: { name: string; amount: string; unit: string }[]; halfLife: string; halfLifeUnit: 'hours' | 'days';
@@ -59,7 +62,7 @@ const blank: Form = {
   ...blankSchedule(),
   name: '', strength: '', unit: 'mg', form: 'tablet',
   color: MED_COLOURS[0].value, icon: 'pill', stockCount: '', lowStockAt: '', scriptNotes: '',
-  repeatsLeft: '', scriptExpiry: '', instructions: '', instructionsBy: '', nickname: '', personId: '',
+  repeatsLeft: '', scriptExpiry: '', instructions: '', instructionsBy: '', nickname: '', privateView: '', coverName: '', personId: '',
   mixed: false, kind: 'vial', waterMl: '', syringe: 'U-100', syringeUnits: '30', useWithinDays: '',
   amountPerClick: '', blend: [], halfLife: '', halfLifeUnit: 'days', ingredients: '', cost: '',
 };
@@ -73,7 +76,7 @@ function fromMed(m: Medication): Form {
     name: m.name, strength: str(m.strength), unit: m.unit, form: m.form,
     color: m.color, icon: m.icon, stockCount: str(m.stockCount), lowStockAt: str(m.lowStockAt), scriptNotes: m.scriptNotes ?? '',
     repeatsLeft: str(m.repeatsLeft), scriptExpiry: m.scriptExpiry ?? '',
-    instructions: m.instructions ?? '', instructionsBy: m.instructionsBy ?? '', nickname: m.nickname ?? '',
+    instructions: m.instructions ?? '', instructionsBy: m.instructionsBy ?? '', nickname: m.nickname ?? '', privateView: m.privateView ?? '', coverName: m.coverName ?? '',
     personId: m.shared ? 'shared' : personOf(m),
     mixed: !!m.peptide, kind: m.peptide?.kind ?? 'vial', waterMl: str(m.peptide?.waterMl), syringe: m.peptide?.syringe ?? 'U-100',
     syringeUnits: str(m.peptide?.syringeUnits) || '30', useWithinDays: str(m.peptide?.useWithinDays),
@@ -91,7 +94,7 @@ function toInput(f: Form, before?: Medication): MedInput {
   return {
     shared: f.personId === 'shared' || undefined,
     personId: f.personId === 'shared' ? undefined : storedPerson(f.personId || DEFAULT_PERSON),
-    name: f.name.trim(), nickname: f.nickname.trim() || undefined, strength: Number(f.strength) || 0, unit: f.unit, form: f.form,
+    name: f.name.trim(), nickname: f.nickname.trim() || undefined, privateView: f.privateView || undefined, coverName: f.privateView === 'cover' ? f.coverName.trim() || undefined : undefined, strength: Number(f.strength) || 0, unit: f.unit, form: f.form,
     defaultAmount, schedule, color: f.color, icon: f.icon,
     stockCount: num(f.stockCount), lowStockAt: num(f.lowStockAt), scriptNotes: f.scriptNotes.trim() || undefined,
     repeatsLeft: num(f.repeatsLeft), scriptExpiry: f.scriptExpiry || undefined,
@@ -171,7 +174,16 @@ function fromLabel(p: Form, d: LabelDetails): Form {
 }
 
 export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
-  const existing = useLive(() => (id ? db.medications.get(id).then((m) => m ?? null) : null), [id]);
+  // In the private view a left-out medicine doesn't exist here, and a covered one is edited under its cover name.
+  const view = useViewMode();
+  const priv = view === 'private';
+  const existing = useLive(async () => {
+    if (!id) return null;
+    const m = await db.medications.get(id);
+    if (!m || !priv) return m ?? null;
+    const rule = privateRule(m, (await getSettings()).privacyHidePeptides);
+    return rule === 'hide' ? null : rule === 'cover' ? disguise(m) : m;
+  }, [id, view]);
   const toast = useToast();
   const [f, setF] = useState<Form>(blank);
   const [tried, setTried] = useState(false);
@@ -211,7 +223,16 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
   const errors: Errors = tried ? validate(f) : {};
 
   const save = async (record?: { date: string; lines: string[] }) => {
-    const input = toInput(f, existing ?? undefined);
+    let input = toInput(f, existing ?? undefined);
+    if (priv && existing) {
+      // Covered: the name typed is the cover name; everything that would identify it stays as it was.
+      const real = await db.medications.get(existing.id);
+      if (real && privateRule(real, (await getSettings()).privacyHidePeptides) === 'cover') {
+        input = { ...input, name: real.name, coverName: f.name.trim() || real.coverName, nickname: real.nickname, privateView: real.privateView, form: real.form,
+          ingredients: real.ingredients, instructions: real.instructions, instructionsBy: real.instructionsBy, instructionsUpdatedAt: real.instructionsUpdatedAt,
+          scriptNotes: real.scriptNotes, peptide: real.peptide };
+      } else if (real) input = { ...input, privateView: real.privateView, coverName: real.coverName };
+    }
     if (existing) {
       const at = record ? new Date(`${record.date}T${format(Date.now(), 'HH:mm')}`).toISOString() : undefined;
       await updateMed(existing.id, input, record && at ? {
@@ -337,6 +358,17 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
         <TextInput label="Nickname (optional)" value={f.nickname} onChange={(e) => set('nickname', e.target.value)} autoComplete="off"
           placeholder="e.g. Morning tablet"
           help="Shown instead of the name" />
+        {!priv && settings?.privacyPinHash && (
+          <>
+            <Select label="In the private view" value={f.privateView || (f.mixed && settings.privacyHidePeptides ? 'hide' : 'show')}
+              onChange={(e) => set('privateView', e.target.value as Form['privateView'])}>
+              <option value="show">Shown as it is</option>
+              <option value="cover">Under a cover name</option>
+              <option value="hide">Left out, with its doses and history</option>
+            </Select>
+            {f.privateView === 'cover' && <TextInput label="Cover name" value={f.coverName} onChange={(e) => set('coverName', e.target.value)} autoComplete="off" placeholder="e.g. Vitamin D" />}
+          </>
+        )}
         {f.nickname.trim() && (
           <div className="flex items-center gap-3 rounded-btn bg-surface-2 p-3" aria-label="Preview">
             <MedBadge color="private" icon={f.icon} />

@@ -30,6 +30,11 @@ export interface AppSettings {
   pinSalt: string | null;
   pinLength: number;
   lockAfterMin: number;
+  /** A second PIN that opens the private view (see logic/privateView.ts). Same length as the main PIN. */
+  privacyPinHash: string | null;
+  privacyPinSalt: string | null;
+  /** In the private view, also leave out the peptide tools (Protocol, calculator, supplies). */
+  privacyHidePeptides: boolean;
   /** Show the backup reminder when the last backup is older than this. */
   backupReminderDays: number;
   autoBackupEnabled: boolean;
@@ -122,6 +127,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pinSalt: null,
   pinLength: 4,
   lockAfterMin: 5,
+  privacyPinHash: null,
+  privacyPinSalt: null,
+  privacyHidePeptides: true,
   backupReminderDays: 7,
   autoBackupEnabled: false,
   autoBackupKeep: 7,

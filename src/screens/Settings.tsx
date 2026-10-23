@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
-import { Bell, Calculator, CalendarCheck, Check, ChevronRight, Clock, Download, Droplet, Dumbbell, HardDriveDownload, HeartPulse, HelpCircle, Info, Lock, Nfc, Package, Palette, Pill, Plane, RefreshCw, Smile, Syringe, Timer, Users, Watch, X, type LucideIcon } from 'lucide-react';
+import { Bell, Calculator, CalendarCheck, Check, ChevronRight, Clock, Download, Droplet, Dumbbell, EyeOff, HardDriveDownload, HeartPulse, HelpCircle, Info, Lock, Nfc, Package, Palette, Pill, Plane, RefreshCw, Smile, Syringe, Timer, Users, Watch, X, type LucideIcon } from 'lucide-react';
 import { IconRow } from '../components/ui/Visual';
 import { useSyncConfig } from '../app/sync';
 import { setDigestNotify, setRemindersEnabled, setTrainingReminders, syncReminders } from '../app/native';
@@ -18,7 +18,8 @@ import { go } from '../app/router';
 import { DEFAULT_CHIPS, setSetting, type Units } from '../db/repos/settings';
 import { eraseAll } from '../db/repos/backup';
 import { fmtAgo, fmtHHmm } from '../logic/format';
-import { hashPin, isValidPin, newSalt } from '../logic/pin';
+import { hashPin, isValidPin, newSalt, verifyPin } from '../logic/pin';
+import { useViewMode } from '../app/viewMode';
 import { FamilyCard } from './Family';
 import { placeName } from '../components/TravelBanner';
 import { isNative, isNativeAndroid } from '../platform';
@@ -52,7 +53,8 @@ export function Settings({ section }: { section?: string }) {
   const toast = useToast();
   const [persisted, setPersisted] = useState<boolean | null>(null);
   const [newChip, setNewChip] = useState('');
-  const [pinSheet, setPinSheet] = useState(false);
+  const [pinSheet, setPinSheet] = useState<false | 'main' | 'privacy'>(false);
+  const priv = useViewMode() === 'private';
   const [eraseSheet, setEraseSheet] = useState(false);
   const [typed, setTyped] = useState('');
 
@@ -191,13 +193,31 @@ export function Settings({ section }: { section?: string }) {
                   {[1, 5, 15, 60].map((m) => <option key={m} value={m}>After {m === 60 ? '1 hour' : `${m} minute${m === 1 ? '' : 's'}`}</option>)}
                 </select>
               </Pick>
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="secondary" onClick={() => setPinSheet(true)}>Change PIN</Button>
-                <Button variant="secondary" onClick={async () => { await setSetting('lockEnabled', false); toast('App lock off'); }}>Turn off</Button>
-              </div>
+              {/* The private view can't change or turn off the lock (that would open the full view next time). */}
+              {!priv && (
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="secondary" onClick={() => setPinSheet('main')}>Change PIN</Button>
+                  <Button variant="secondary" onClick={async () => { await setSetting('lockEnabled', false); await setSetting('privacyPinHash', null); await setSetting('privacyPinSalt', null); toast('App lock off'); }}>Turn off</Button>
+                </div>
+              )}
             </>
-          ) : <Button className="w-full" onClick={() => setPinSheet(true)}>Set a PIN</Button>}
+          ) : <Button className="w-full" onClick={() => setPinSheet('main')}>Set a PIN</Button>}
         </Card>
+        {settings.lockEnabled && !priv && (
+          <Card className="space-y-3">
+            <h3 className="font-medium flex items-center gap-2"><EyeOff size={18} aria-hidden="true" /> Private view</h3>
+            <p className="text-sm">A second PIN that opens the app looking the same, with the medicines you choose under a cover name or left out{HAS_PEPTIDES ? ', and the peptide tools left out' : ''}. Choose for each medicine on its page.</p>
+            {settings.privacyPinHash ? (
+              <>
+                {HAS_PEPTIDES && <Switch label="Leave out peptide tools" checked={settings.privacyHidePeptides} onChange={(v) => setSetting('privacyHidePeptides', v)} />}
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="secondary" onClick={() => setPinSheet('privacy')}>Change privacy PIN</Button>
+                  <Button variant="secondary" onClick={async () => { await setSetting('privacyPinHash', null); await setSetting('privacyPinSalt', null); toast('Privacy PIN removed'); }}>Remove</Button>
+                </div>
+              </>
+            ) : <Button variant="secondary" className="w-full" onClick={() => setPinSheet('privacy')}>Set a privacy PIN</Button>}
+          </Card>
+        )}
         <Card className="space-y-2">
           <h3 className="font-medium">Your data</h3>
           <p className="text-sm">{sync ? 'This phone, plus an encrypted copy on your family’s phones' : 'This phone only'}</p>
@@ -269,7 +289,7 @@ export function Settings({ section }: { section?: string }) {
     <div className="space-y-6">
       <section aria-label="Features" className="space-y-1">
         <h2 className="text-sm font-medium text-muted mb-1">Features</h2>
-        {HAS_PEPTIDES && <Toggle Icon={Syringe} label="Peptides and injections" checked={settings.peptideTools} onChange={(v) => setSetting('peptideTools', v)} />}
+        {HAS_PEPTIDES && !priv && <Toggle Icon={Syringe} label="Peptides and injections" checked={settings.peptideTools} onChange={(v) => setSetting('peptideTools', v)} />}
         {HAS_BODY && <Toggle Icon={Dumbbell} label="Training" checked={settings.trainingTools} onChange={(v) => setSetting('trainingTools', v)} />}
         <Toggle Icon={Droplet} label="Cycle tracking" checked={settings.cycleTracking} onChange={(v) => setSetting('cycleTracking', v)} />
         {isNative && <Toggle Icon={Bell} label="Dose reminders" checked={settings.remindersEnabled} onChange={async (v) => { const on = await setRemindersEnabled(v); if (v && !on) notifyOff(); }} />}
@@ -302,7 +322,7 @@ export function Settings({ section }: { section?: string }) {
   return (
     <>
       {body}
-      <PinSheet open={pinSheet} onClose={() => setPinSheet(false)} />
+      <PinSheet open={!!pinSheet} kind={pinSheet || 'main'} onClose={() => setPinSheet(false)} />
       <Sheet open={eraseSheet} onClose={() => setEraseSheet(false)} title="Erase all data?">
         <div className="space-y-4">
           <p>Removes everything on this phone. It can't be undone.</p>
@@ -373,34 +393,51 @@ function TargetInput({ id, label, value, onChange }: { id: string; label: string
   );
 }
 
-function PinSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+function PinSheet({ open, kind, onClose }: { open: boolean; kind: 'main' | 'privacy'; onClose: () => void }) {
   const toast = useToast();
+  const settings = useSettings();
+  const [clash, setClash] = useState(false);
   const [pin, setPin] = useState('');
   const [confirm, setConfirm] = useState('');
   const [tried, setTried] = useState(false);
   useEffect(() => { if (open) { setPin(''); setConfirm(''); setTried(false); } }, [open]);
 
-  const err = !isValidPin(pin) ? 'Use 4 to 6 digits.' : pin !== confirm ? "The PINs don't match." : '';
+  // The privacy PIN has the main PIN's length (the pad unlocks at that length) and must differ from it.
+  const len = settings?.pinLength ?? 4;
+  const err = kind === 'privacy' && pin.length !== len ? `Use ${len} digits, like your PIN.` : !isValidPin(pin) ? 'Use 4 to 6 digits.'
+    : pin !== confirm ? "The PINs don't match." : clash ? (kind === 'privacy' ? 'Use a different PIN from your main one.' : "That's your privacy PIN. Use a different one.") : '';
+  useEffect(() => { setClash(false); }, [pin]);
   const save = async () => {
     setTried(true);
-    if (err) return;
+    if (err || !settings) return;
+    const other = kind === 'privacy' ? [settings.pinSalt, settings.pinHash] : [settings.privacyPinSalt, settings.privacyPinHash];
+    if (other[0] && other[1] && await verifyPin(pin, other[0], other[1])) { setClash(true); return; }
     const salt = newSalt();
+    if (kind === 'privacy') {
+      await setSetting('privacyPinSalt', salt);
+      await setSetting('privacyPinHash', await hashPin(pin, salt));
+      toast('Privacy PIN set');
+      onClose();
+      return;
+    }
     await setSetting('pinSalt', salt);
     await setSetting('pinHash', await hashPin(pin, salt));
+    // A new length would make the privacy PIN unusable on the pad, so it has to be set again.
+    if (settings.privacyPinHash && pin.length !== settings.pinLength) { await setSetting('privacyPinHash', null); await setSetting('privacyPinSalt', null); }
     await setSetting('pinLength', pin.length);
     await setSetting('lockEnabled', true);
-    toast('App lock is on');
+    toast(settings.privacyPinHash && pin.length !== settings.pinLength ? 'PIN changed. Set your privacy PIN again.' : 'App lock is on');
     onClose();
   };
   const pinProps = { type: 'password', inputMode: 'numeric' as const, pattern: '[0-9]*', maxLength: 6, autoComplete: 'off' };
   return (
-    <Sheet open={open} onClose={onClose} title="Set a PIN">
+    <Sheet open={open} onClose={onClose} title={kind === 'privacy' ? 'Set a privacy PIN' : 'Set a PIN'}>
       <div className="space-y-4">
-        <TextInput label="New PIN (4 to 6 digits)" {...pinProps} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} autoFocus />
+        <TextInput label={kind === 'privacy' ? `Privacy PIN (${len} digits)` : 'New PIN (4 to 6 digits)'} {...pinProps} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} autoFocus />
         <TextInput label="Enter it again" {...pinProps} value={confirm} onChange={(e) => setConfirm(e.target.value.replace(/\D/g, ''))} error={tried ? err : undefined} />
-        <p className="text-sm text-muted">Forgot it? Only erasing and restoring a backup gets you back in.</p>
+        <p className="text-sm text-muted">{kind === 'privacy' ? 'Enter it on the lock screen instead of your PIN to open the private view.' : 'Forgot it? Only erasing and restoring a backup gets you back in.'}</p>
         <SheetActions>
-          <Button className="w-full min-h-[56px]" onClick={save}>Turn on app lock</Button>
+          <Button className="w-full min-h-[56px]" onClick={save}>{kind === 'privacy' ? 'Save privacy PIN' : 'Turn on app lock'}</Button>
         </SheetActions>
       </div>
     </Sheet>

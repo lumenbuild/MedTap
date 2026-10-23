@@ -41,7 +41,7 @@ const ChartsLoading = () => <div className="space-y-4" aria-busy="true" aria-lab
 
 const DATE_LINE = new Intl.DateTimeFormat('en-AU', { weekday: 'long', day: 'numeric', month: 'long' });
 
-function title(r: Route): string {
+function title(r: Route, peptides = HAS_PEPTIDES): string {
   switch (r.name) {
     case 'today': return 'Today';
     case 'trends': return 'Trends';
@@ -55,10 +55,10 @@ function title(r: Route): string {
     case 'help': return helpTitle(r.topic);
     case 'sync': return 'Family sync';
     case 'join': return 'Join family sync';
-    case 'calc': return HAS_PEPTIDES ? 'Peptide calculator' : 'Today';
-    case 'supplies': return HAS_PEPTIDES ? 'Supplies' : 'Today';
-    case 'protocol': return 'Protocol';
-    case 'protocolReport': return 'Protocol report';
+    case 'calc': return peptides ? 'Peptide calculator' : 'Today';
+    case 'supplies': return peptides ? 'Supplies' : 'Today';
+    case 'protocol': return peptides ? 'Protocol' : 'Today';
+    case 'protocolReport': return peptides ? 'Protocol report' : 'Today';
     case 'progress': return 'Progress';
     case 'training': return 'Training';
     case 'workout': return 'Workout';
@@ -90,6 +90,8 @@ function backTo(r: Route, protocol: boolean): string | undefined {
 }
 
 function Screen({ r }: { r: Route }) {
+  // Peptide screens only while the peptide tools are on (they're off in the private view too).
+  const peptides = HAS_PEPTIDES && !!useSettings()?.peptideTools;
   switch (r.name) {
     case 'settings': return <Settings section={r.section} />;
     case 'trends': return <Suspense fallback={<ChartsLoading />}><Trends /></Suspense>;
@@ -103,10 +105,10 @@ function Screen({ r }: { r: Route }) {
     case 'help': return <Help topic={r.topic} />;
     case 'sync': return <Sync />;
     case 'join': return <JoinSync code={r.code} />;
-    case 'calc': return HAS_PEPTIDES ? <PeptideCalc /> : <Today />;
-    case 'supplies': return HAS_PEPTIDES ? <Supplies /> : <Today />;
-    case 'protocol': return HAS_PEPTIDES ? <Protocol /> : <Today />;
-    case 'protocolReport': return HAS_PEPTIDES ? <Suspense fallback={<ChartsLoading />}><ProtocolReport /></Suspense> : <Today />;
+    case 'calc': return peptides ? <PeptideCalc /> : <Today />;
+    case 'supplies': return peptides ? <Supplies /> : <Today />;
+    case 'protocol': return peptides ? <Protocol /> : <Today />;
+    case 'protocolReport': return peptides ? <Suspense fallback={<ChartsLoading />}><ProtocolReport /></Suspense> : <Today />;
     case 'progress': return <Progress />;
     case 'training': return HAS_BODY ? <Suspense fallback={<ChartsLoading />}><Training /></Suspense> : <Today />;
     case 'workout': return HAS_BODY ? <Suspense fallback={<ChartsLoading />}><WorkoutScreen key={r.id} id={r.id} /></Suspense> : <Today />;
@@ -144,7 +146,7 @@ export function App() {
               {r.name !== 'tag' && (back ? (
                 <header className="app-header flex items-center gap-1 h-14">
                   <a href={back} aria-label="Back" className="w-11 h-11 -ml-3 flex items-center justify-center"><ArrowLeft size={22} strokeWidth={1.5} aria-hidden="true" /></a>
-                  <h1 className="text-xl font-medium truncate">{title(r)}</h1>
+                  <h1 className="text-xl font-medium truncate">{title(r, protocol)}</h1>
                 </header>
               ) : (
                 // B2: the date (Today) or nothing in a slim top row, then a large light title. On Today the next dose is the
@@ -159,7 +161,7 @@ export function App() {
                       )}
                     </div>
                   </div>
-                  <h1 className={r.name === 'today' ? 'sr-only' : 'text-[44px] leading-[48px] font-light tracking-[-0.04em] mt-4 mb-6'}>{title(r)}</h1>
+                  <h1 className={r.name === 'today' ? 'sr-only' : 'text-[44px] leading-[48px] font-light tracking-[-0.04em] mt-4 mb-6'}>{title(r, protocol)}</h1>
                 </header>
               ))}
               <main><Screen r={r} /></main>
