@@ -24,6 +24,7 @@ import { FamilyCard } from './Family';
 import { placeName } from '../components/TravelBanner';
 import { isNative, isNativeAndroid } from '../platform';
 import { BUILD, checkForUpdate } from '../app/updates';
+import { lockNow } from '../app/LockGate';
 import { HAS_BODY, HAS_PEPTIDES, HAS_VISITS, edition, watchDownload } from '../edition';
 import { SIDE_EFFECT_CHIPS } from '../logic/peptide';
 
@@ -196,6 +197,7 @@ export function Settings({ section }: { section?: string }) {
                   {[1, 5, 15, 60].map((m) => <option key={m} value={m}>After {m === 60 ? '1 hour' : `${m} minute${m === 1 ? '' : 's'}`}</option>)}
                 </select>
               </Pick>
+              <Button variant="secondary" className="w-full flex items-center justify-center gap-2" onClick={lockNow}><Lock size={18} aria-hidden="true" /> Lock now</Button>
               {/* The private view can't change or turn off the lock (that would open the full view next time). */}
               {!priv && <Switch label="Ask for the PIN on every tag tap" checked={settings.tagNeedsPin} onChange={(v) => setSetting('tagNeedsPin', v)}>Even if you've just unlocked</Switch>}
               {!priv && (
@@ -310,7 +312,7 @@ export function Settings({ section }: { section?: string }) {
         <Row href="#/settings/checkins" Icon={Smile} title="Check-ins" value={settings.checkInDelayMin ? 'Asks after doses' : 'Off'} />
         <Row href="#/settings/people" Icon={Users} title="People and sync" value={`${fam?.people.length ?? 1} ${fam && fam.people.length > 1 ? 'people' : 'person'} · sync ${sync ? 'on' : 'off'}`} />
         {isNative && <Row href="#/settings/health" Icon={HeartPulse} title="Health data" value={settings.healthImport ? 'On' : 'Off'} />}
-        <Row href="#/backup" Icon={HardDriveDownload} title="Backup" value={last ? fmtAgo(now - last) : 'None yet'} />
+        <Row href="#/backup" Icon={HardDriveDownload} title="Backup and restore" value={last ? fmtAgo(now - last) : 'None yet'} />
         <Row href="#/settings/privacy" Icon={Lock} title="Privacy" value={settings.lockEnabled ? 'PIN on' : 'PIN off'} />
         <Row href="#/settings/display" Icon={Palette} title="Display" value={THEMES.find(([t]) => t === theme)?.[1] ?? ''} />
         {isNativeAndroid && <Row href="#/settings/watch" Icon={Watch} title="Watch" value="Wear OS" />}
@@ -318,7 +320,7 @@ export function Settings({ section }: { section?: string }) {
       <section aria-label="Tools">
         <h2 className="text-sm font-medium text-muted mb-1">Tools</h2>
         <Row href="#/tags" Icon={Nfc} title="Tags" />
-        <Row href={HAS_VISITS ? '#/appointments' : '#/labs'} Icon={CalendarCheck} title={HAS_VISITS ? 'Appointments and labs' : 'Lab results'} />
+        <Row href={HAS_VISITS ? '#/appointments' : '#/labs'} Icon={CalendarCheck} title={HAS_VISITS ? 'Appointments and lab results' : 'Lab results'} />
         {HAS_VISITS && <Row href="#/travel" Icon={Plane} title="Plan a trip" />}
         {HAS_PEPTIDES && settings.peptideTools && <Row href="#/calc" Icon={Calculator} title="Peptide calculator" />}
         {HAS_PEPTIDES && settings.peptideTools && <Row href="#/supplies" Icon={Package} title="Supplies" />}

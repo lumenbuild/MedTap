@@ -739,3 +739,17 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
 - Spacing: switches line up with their labels (On/Off beside the switch), the gap under Today's next dose, the
   readiness list, Logged today names no longer wrap early, the goal button, Supplies' intro, and the About page
   (was empty on the web) now says what the app keeps where, with Help and the welcome.
+
+## Every feature reachable sensibly
+
+- A crawl from the tabs and Settings, in MedTap (peptide tools on, and peptide and training tools off) and TapDose,
+  reaches every screen; the rest open from buttons (Routines, sheets) or from outside (tags, invite links).
+- Back goes to the screen you came from (the Doctor report from Meds returns to Meds; Settings returns to whichever
+  tab opened it). A screen opened straight from a tag, link or notification falls back to its usual parent.
+- Earlier days: "Logged today" on Today steps back day by day, so a dose or check-in from last week can be fixed or
+  removed (before, only today's could).
+- Settings → Privacy → Lock now, to lock before handing the phone over or to switch between the full and private views.
+- Links to Progress (Today's insights, Body's weight chart, Protocol) open Trends; without peptide tools there's no
+  Progress tab, so they go to the Trends tab.
+- Help and hints name the real menus: Settings → People and sync (family members, family sync), Protocol →
+  Calculator and Supplies, and the Settings row is now "Backup and restore" like the page and every mention of it.

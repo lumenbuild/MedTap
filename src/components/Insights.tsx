@@ -56,7 +56,7 @@ function WearOffRow({ w, now }: { w: WearOff; now: number }) {
 
 export function StallLine({ stall }: { stall: Stall }) {
   return (
-    <IconRow Icon={stall.likelyWater ? Droplet : TrendingDown} tone="watch" href="#/progress">
+    <IconRow Icon={stall.likelyWater ? Droplet : TrendingDown} tone="watch" href="#/progress/trends">
       {stall.likelyWater ? `Weight steady ${stall.days} days, probably water` : `Weight steady for ${stall.days} days`}
       {!stall.likelyWater && stall.diffs.length > 0 && <span className="block text-sm text-muted">{stall.diffs.slice(0, 2).map((d) => `${d.label} ${d.before} → ${d.during}`).join(' · ')}</span>}
     </IconRow>
@@ -84,7 +84,7 @@ export function StallBlock({ stall }: { stall: Stall }) {
 
 export function CycleLine({ f }: { f: CycleForecast }) {
   if (!f.today?.notes.length || f.day === undefined) return null;
-  return <IconRow Icon={Droplet} tone="primary" href="#/progress">Cycle day {f.day}<span className="block text-sm text-muted">{f.today.notes.join(' · ')}</span></IconRow>;
+  return <IconRow Icon={Droplet} tone="primary" href="#/progress/trends">Cycle day {f.day}<span className="block text-sm text-muted">{f.today.notes.join(' · ')}</span></IconRow>;
 }
 
 /** The next five weeks by phase, each with what usually differs. */
@@ -110,7 +110,7 @@ const toneOf = (c: Change) => (c.good === undefined ? 'var(--text-muted)' : c.go
 
 export function ChangeLine({ c }: { c: Change }) {
   return (
-    <IconRow Icon={c.after > c.before ? ArrowUpRight : ArrowDownRight} tone={c.good === undefined ? 'plain' : c.good ? 'good' : 'watch'} href="#/progress">
+    <IconRow Icon={c.after > c.before ? ArrowUpRight : ArrowDownRight} tone={c.good === undefined ? 'plain' : c.good ? 'good' : 'watch'} href="#/progress/trends">
       {c.label} {c.after > c.before ? 'up' : 'down'}: {fmtChangeValue(c, c.before)} → {fmtChangeValue(c, c.after)}
       {c.event && <span className="block text-sm text-muted">After {c.event.text}</span>}
     </IconRow>

@@ -1,6 +1,6 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Settings as Gear, ArrowLeft } from 'lucide-react';
-import { parseRoute, useHashRoute, type Route } from './router';
+import { goBack, parseRoute, replace, useHashRoute, type Route } from './router';
 import { ToastProvider } from './toast';
 import { LockGate } from './LockGate';
 import { viewMode } from './viewMode';
@@ -110,7 +110,7 @@ function Screen({ r }: { r: Route }) {
     case 'supplies': return peptides ? <Supplies /> : <Today />;
     case 'protocol': return peptides ? <Protocol /> : <Today />;
     case 'protocolReport': return peptides ? <Suspense fallback={<ChartsLoading />}><ProtocolReport /></Suspense> : <Today />;
-    case 'progress': return <Progress />;
+    case 'progress': return <Progress view={r.view} />;
     case 'training': return HAS_BODY ? <Suspense fallback={<ChartsLoading />}><Training /></Suspense> : <Today />;
     case 'workout': return HAS_BODY ? <Suspense fallback={<ChartsLoading />}><WorkoutScreen key={r.id} id={r.id} /></Suspense> : <Today />;
     case 'exercise': return HAS_BODY ? <Suspense fallback={<ChartsLoading />}><ExerciseScreen key={r.id} id={r.id} /></Suspense> : <Today />;
@@ -135,6 +135,10 @@ export function App() {
   const back = backTo(r, protocol);
   const now = useNow(60_000);
   const showTabs = !back && r.name !== 'tag';
+  // Progress is Trends and Body together, for the peptide layout. Without it they're separate tabs, so a link to
+  // Progress opens the matching one.
+  const loose = r.name === 'progress' && settings !== undefined && !protocol;
+  useEffect(() => { if (loose) replace(r.view === 'body' ? '/body' : '/trends'); }, [loose, r]);
   // First run only: no medications yet and never onboarded. Tag taps and help skip it.
   const onboarding = r.name === 'welcome' || (settings && meds && !settings.onboarded && meds.length === 0 && !['tag', 'help', 'medNew', 'backup', 'join'].includes(r.name));
 
@@ -146,7 +150,7 @@ export function App() {
             <>
               {r.name !== 'tag' && (back ? (
                 <header className="app-header flex items-center gap-1 h-14">
-                  <a href={back} aria-label="Back" className="w-11 h-11 -ml-3 flex items-center justify-center"><ArrowLeft size={22} strokeWidth={1.5} aria-hidden="true" /></a>
+                  <a href={back} aria-label="Back" className="w-11 h-11 -ml-3 flex items-center justify-center" onClick={(e) => { e.preventDefault(); goBack(back); }}><ArrowLeft size={22} strokeWidth={1.5} aria-hidden="true" /></a>
                   <h1 className="text-xl font-medium truncate">{title(r, protocol)}</h1>
                 </header>
               ) : (

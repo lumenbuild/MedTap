@@ -13,6 +13,10 @@ import { TextInput } from '../components/ui/Field';
 
 /** Covers the app with a PIN pad when app lock is on: at start, after leaving the app, or after being idle. The main
  *  PIN opens everything; the privacy PIN (if set) opens the private view, which looks the same. */
+const LOCK_NOW = 'app-lock-now';
+/** Lock straight away (Settings → Privacy → Lock now), e.g. before handing the phone over or to switch views. */
+export const lockNow = () => window.dispatchEvent(new Event(LOCK_NOW));
+
 export function LockGate({ children }: { children: ReactNode }) {
   const settings = useSettings();
   const enabled = !!settings?.lockEnabled && !!settings.pinHash && !!settings.pinSalt;
@@ -46,8 +50,11 @@ export function LockGate({ children }: { children: ReactNode }) {
     const idle = setInterval(() => { if (Date.now() - lastActive.current >= Math.max(afterMs, 60_000)) setLocked(true); }, 15_000);
     ['pointerdown', 'keydown', 'scroll'].forEach((e) => window.addEventListener(e, touch, { passive: true }));
     document.addEventListener('visibilitychange', onVis);
+    const now = () => setLocked(true);
+    window.addEventListener(LOCK_NOW, now);
     return () => {
       clearInterval(idle);
+      window.removeEventListener(LOCK_NOW, now);
       ['pointerdown', 'keydown', 'scroll'].forEach((e) => window.removeEventListener(e, touch));
       document.removeEventListener('visibilitychange', onVis);
     };

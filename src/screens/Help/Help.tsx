@@ -86,6 +86,7 @@ const CONTENT: Record<string, ReactNode> = {
       <Step n={5} title="Read Today">
         <p>The big number is your next dose. Below it: each medicine and whether it's done, as-needed medicines with when you last had them, and quick buttons for a check-in, blood pressure{HAS_BODY ? ', weight' : ''} and more.</p>
         <p>Notes appear only when they matter: stock running low, a script to renew, a pattern worth knowing.</p>
+        <p>At the bottom, <strong>Logged today</strong> lists everything you logged. Tap a row to change or remove it; the arrows step back to earlier days.</p>
       </Step>
       <Step n={6} title="Check in">
         <p>A few taps on mood, focus, energy and anything you noticed. {APP_NAME} asks a while after a dose, and Trends sets them against your doses, sleep and more. The more check-ins, the sharper the patterns.</p>
@@ -222,7 +223,7 @@ const CONTENT: Record<string, ReactNode> = {
       <H>Stock and batches</H>
       <p>On the medication's page, <strong>Add</strong> vials or pens to stock with their lot, expiry, supplier and purity. Mixing a new vial takes the one that expires soonest. Tap any vial to add photos of its label or certificate of analysis, and to see the doses taken from it, so you can trace a batch.</p>
       <H>Supplies</H>
-      <p>Settings → Peptides and injections → <strong>Supplies</strong>. Enter how many syringes, pen needles and swabs you have, and your water. They count down as you log injections and mix vials. The sharps container counts up, and Today reminds you when it's nearly full.</p>
+      <p>Protocol → <strong>Supplies</strong> (also in Settings, under Tools). Enter how many syringes, pen needles and swabs you have, and your water. They count down as you log injections and mix vials. The sharps container counts up, and Today reminds you when it's nearly full.</p>
       <H>On and off cycles</H>
       <p>In a medication's schedule, tick <strong>On and off cycles</strong>, e.g. 8 weeks on, 4 off, or 5 days on, 2 off. Off days aren't scheduled, and Today shows “Week 3 of 8 on” or “Off until …”.</p>
       <H>Titration</H>
@@ -246,7 +247,7 @@ const CONTENT: Record<string, ReactNode> = {
       </ul>
       <p>Each says what it's based on. They're estimates from your own records, not advice: they show links, not causes, and never suggest a dose.</p>
       <H>Calculator</H>
-      <p>Settings → Peptides and injections → <strong>Peptide calculator</strong>: units for a dose, the dose for a number of units, or the water that makes your dose an easy number of units.</p>
+      <p>Protocol → <strong>Calculator</strong> (also in Settings, under Tools): units for a dose, the dose for a number of units, or the water that makes your dose an easy number of units.</p>
       <H>Check your numbers</H>
       <p>{APP_NAME} only does sums on the numbers you enter; it doesn't suggest doses. Check against the label, your prescriber's directions or your pharmacist, especially the first time. Under 2 units is hard to measure accurately.</p>
     </>
@@ -273,7 +274,7 @@ const CONTENT: Record<string, ReactNode> = {
       <p>Family sync shares {APP_NAME}'s records between your phones and your family's: medications, doses, check-ins, {HAS_BODY ? 'weight, ' : ''}blood pressure and tags. A dose logged on one phone shows on the others, and stock counts include doses logged on every phone. {HAS_BODY ? 'Photos and settings stay' : 'Settings stay'} on each phone.</p>
       <H>Setting it up</H>
       <ol className="list-decimal pl-5 space-y-1">
-        <li>On one phone: Settings → Family sync. Enter your name and tap <strong>Start family sync</strong>.</li>
+        <li>On one phone: Settings → People and sync → <strong>Family sync</strong>. Enter your name and tap <strong>Start family sync</strong>.</li>
         <li>Tap <strong>Invite a phone</strong>. On the other phone, scan the QR code with the camera (or send the invite privately and open it there).</li>
         <li>On the other phone, enter your name and tap <strong>Join</strong>. Anything already on that phone is kept, under that name.</li>
       </ol>
@@ -287,7 +288,7 @@ const CONTENT: Record<string, ReactNode> = {
   family: (
     <>
       <H>Tracking for more than one person</H>
-      <p>Go to Settings → Family members → <strong>Add a family member</strong>. You start as “Me”, which you can rename.</p>
+      <p>Go to Settings → People and sync → <strong>Add a family member</strong>. You start as “Me”, which you can rename.</p>
       <p>Each person has their own medications, check-ins, {HAS_BODY ? 'weight, measurements, blood pressure, photos' : 'blood pressure'}, charts and doctor report. Choose who to show with the names at the top of Today, Trends, {HAS_BODY ? 'Body' : 'Vitals'} and Meds.</p>
       <p>On Today, <strong>Everyone</strong> shows every person's medications at once, each card labelled with whose it is. Handy when you're giving doses to several people.</p>
       <H>Tags</H>
@@ -435,6 +436,7 @@ const CONTENT: Record<string, ReactNode> = {
     <>
       <H>App lock</H>
       <p>The PIN is a privacy screen. It stops casual access on an unlocked phone. It doesn't encrypt the data on the phone.</p>
+      <p>Settings → Privacy: choose how soon it locks after you leave the app, or tap <strong>Lock now</strong> before handing the phone over.</p>
       <p>If you forget your PIN, the only way back in is to erase this phone's data and restore from a backup.</p>
     </>
   ),
