@@ -541,6 +541,36 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
     tiles dropped from the 7-day stats since Protocol shows both. The Supplies header links that repeated the tools
     tiles are gone.
 
+## Smarter insights (owner picked 2, 3, 4, 5, 6, 8)
+- **Wear-off forecast** (`src/logic/wearOff.ts`): for a dose taken today, when focus is likely to drop, from the
+  person's effect window, shifted by what moved it for them before (short night under 6.5 h, caffeine after the dose,
+  a bigger or smaller dose; each only with 2+ past doses either side and 15+ min of difference). Pulled earlier when
+  today's heart rate is already back near resting. Today shows a bar from the dose to the likely drop (with its usual
+  spread) and the reasons; the app sends a heads-up 30 min before (Settings → Reminders → Wear-off heads-up). Calendar
+  clashes aren't checked (the app doesn't read the calendar).
+- **Stall detector** (`src/logic/stall.ts`): the longest recent flat stretch (under 0.15 kg/wk down) after losing
+  0.3+ kg/wk, on cycle-adjusted weigh-ins when there's a cycle effect. "Probably water" when it's under 2 weeks and
+  there's alcohol, the days around a period or a big session. What's different from the 5 weeks before: protein,
+  steps, sleep, alcohol, training, days between shots, skipped shots, batch, appetite. One line on Today; the detail
+  under the weight chart.
+- **Step-up checklist** (`src/logic/stepUp.ts`, `Medication.stepUp`): criteria set per medicine (starting point: 4+
+  weeks on the dose, side effects in ≤30% of check-ins over 2 weeks, losing ≤0.5 kg/wk over 3 weeks, no missed shots
+  in 4 weeks; appetite optional), each ticked from the records on Protocol. Edit sheet; facts against their criteria.
+- **Cycle-aware** (`src/logic/cycle.ts`): weight above/below trend by phase (water, when phases differ by 0.3+ kg),
+  check-in differences by phase, focus on a stimulant (1–8 h after a dose) by phase; weigh-ins with the water taken
+  out for the stall detector; the next five weeks by phase in the cycle card, and today's phase notes on Today.
+- **What changed?** (`src/logic/changes.ts`): for resting HR, HRV, sleep, steps, mood, focus, appetite and side
+  effects, the strongest shift in the last 3 months (medians before/after, located with means, |z| ≥ 3, a minimum
+  meaningful size, still holding this week), next to the event in the 10 days before (dose change, new medicine, new
+  batch, dose step, skipped doses). A timeline on Trends; the newest (10 days) on Today. Readings no longer repeats
+  resting heart rate.
+- **Ask your data** (`src/logic/ask.ts`): on-device questions at the top of Trends with suggestions from the person's
+  data: a measure (sleep, weight, mood, focus, energy, appetite, any check-in option, side effects, resting HR, HRV,
+  steps, protein, water, BP), a span ("since 7.5 mg", "since starting X", "since 3 Oct", "last 2 weeks") and a
+  grouping (batch, weekday, dose, alcohol/caffeine days, cycle phase). Answer in one line with a chart or bars.
+- Tests `tests/smart-f.test.ts` (8). Browser: What changed, Ask (suggestion and typed), step-up criteria saved, Today
+  lines. Not yet tried on a real phone.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 

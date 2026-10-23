@@ -23,16 +23,13 @@ import { useNow } from '../app/useNow';
 import { personOf } from '../db/repos/people';
 import { Button } from './ui/Button';
 import { IconRow } from './ui/Visual';
-import { FileText, HeartPulse, SearchCheck, Zap } from 'lucide-react';
+import { FileText, HeartPulse, SearchCheck } from 'lucide-react';
 import { Sheet } from './ui/Sheet';
 
-const HOUR = 3_600_000;
 const DAY = 86_400_000;
 const day = (ms: number) => format(ms, 'EEE d MMM');
 const LONG = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
 const hours = (h: number) => { const whole = Math.floor(h); const half = h - whole >= 0.25 && h - whole < 0.75; return `${whole}${half ? '½' : ''} h`; };
-/** An estimated time, to the nearest quarter hour. */
-const clock = (ms: number) => format(Math.round(ms / 900_000) * 900_000, 'h:mm a').toLowerCase();
 
 // ── Medication page ─────────────────────────────────────────────────────────────────────────────────
 
@@ -139,27 +136,6 @@ export function windowText(w: EffectWindow): string {
 // ── Today ───────────────────────────────────────────────────────────────────────────────────────────
 
 /** "Vyvanse: focus likely until about 4:30 pm" for medicines taken today with a known effect window. */
-export function EffectToday({ meds, doses, checkIns, now }: { meds: Medication[]; doses: Dose[]; checkIns: CheckIn[]; now: number }) {
-  const lines = meds.filter((m) => !m.archived && !m.peptide).map((m) => {
-    const last = doses.filter((d) => d.medicationId === m.id && !d.deletedAt && !d.skipped && Date.parse(d.takenAt) <= now).sort((a, b) => b.takenAt.localeCompare(a.takenAt))[0];
-    if (!last) return null;
-    const t = Date.parse(last.takenAt);
-    if (now - t > 14 * HOUR) return null;
-    const w = effectWindow(m, doses, checkIns, now);
-    if (!w || w.wearOffH === undefined) return null;
-    const off = t + w.wearOffH * HOUR;
-    const on = w.onsetH !== undefined ? t + w.onsetH * HOUR : undefined;
-    if (off < now) return { m, text: `wearing off since ${clock(off)}`, on: false };
-    return { m, text: on && on > now ? `working ${clock(on)} – ${clock(off)}` : `working until ${clock(off)}`, on: true };
-  }).filter(Boolean) as { m: Medication; text: string; on: boolean }[];
-  if (!lines.length) return null;
-  return (
-    <ul aria-label="Effect window">
-      {lines.map(({ m, text, on }) => <li key={m.id}><IconRow Icon={Zap} tone={on ? 'good' : 'plain'}><span className="font-medium">{shownName(m)}</span> · {text}</IconRow></li>)}
-    </ul>
-  );
-}
-
 /** "Book a doctor for a new Vyvanse script by Mon 14 Sep" when that's within 3 weeks; scripts needed close together
  *  are put on one visit ("one visit by … for Vyvanse and Dexamfetamine"). */
 export function ScriptToday({ meds, doses, s, now }: { meds: Medication[]; doses: Dose[]; s: ScheduleSettings; now: number }) {

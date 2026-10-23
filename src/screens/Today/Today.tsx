@@ -4,7 +4,7 @@ import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { CalendarDays, CalendarPlus, Coffee, Droplet, HeartPulse, Lock, Nfc, Pill, Ruler, Scale, Smile, Wine } from 'lucide-react';
 import { IconRow, MiniRing, Tile } from '../../components/ui/Visual';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
-import { useBodyEntries, useCheckIns, useDaily, useDoses, useExercises, useWorkouts, useFamily, useMeds, useScheduleSettings, useSupplies, useVitals } from '../../app/data';
+import { useBodyEntries, useCheckIns, useDaily, useDoses, useExercises, useWorkouts, useFamily, useMedEvents, useMeds, useScheduleSettings, useSupplies, useVitals } from '../../app/data';
 import { VitalsSheet, type VitalsSheetState } from '../../components/VitalsSheet';
 import { dosesForPerson, medIsFor, personOf, storedPerson } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
@@ -31,7 +31,11 @@ import { CheckInSheet, type CheckInSeed } from '../../components/CheckInSheet';
 import { BodySheet, type BodySheetState } from '../../components/BodySheets';
 import { HeroCard } from './HeroCard';
 import { TodayRow } from './TodayRow';
-import { EffectToday, MentionsLine, OddRecordsLine, ScriptToday } from '../../components/Smart';
+import { MentionsLine, OddRecordsLine, ScriptToday } from '../../components/Smart';
+import { ChangeLine, CycleLine, StallLine, WearOffLines } from '../../components/Insights';
+import { weightStall } from '../../logic/stall';
+import { cycleForecast } from '../../logic/cycle';
+import { whatChanged } from '../../logic/changes';
 import { appointmentsAround } from '../../logic/appointments';
 import { ALCOHOL, CAFFEINE, PERIOD } from '../../logic/lifestyle';
 import { addCheckIn, removeCheckIn } from '../../db/repos/checkIns';
@@ -62,6 +66,7 @@ export function Today() {
   const workouts = useWorkouts();
   const own = useExercises();
   const appointments = useAppointments();
+  const events = useMedEvents();
   const [vitalSheet, setVitalSheet] = useState<VitalsSheetState>(null);
   const ss = useScheduleSettings();
   const fam = useFamily();
@@ -73,6 +78,22 @@ export function Today() {
   const [bodySheet, setBodySheet] = useState<BodySheetState>(null);
 
   const medMap = useMemo(() => new Map((meds ?? []).map((m) => [m.id, m])), [meds]);
+  // The heavier detectors run once a minute (or when the records change), not on every clock tick.
+  const minute = Math.floor(now / 60_000);
+  const insights = useMemo(() => {
+    if (!meds || !doses || !checkIns || !body || !fam || fam.everyone || !ss) return null;
+    const t = minute * 60_000;
+    const me = <T extends { personId?: string }>(r: T) => personOf(r) === fam.personId;
+    const pm = meds.filter((m) => medIsFor(m, fam.personId));
+    const ids = new Set(pm.map((m) => m.id));
+    const pd = dosesForPerson(doses.filter((d) => ids.has(d.medicationId)), pm, fam.personId);
+    const pc = checkIns.filter(me), pb = body.filter(me), daily1 = (daily ?? []).filter(me);
+    return {
+      stall: HAS_BODY && workouts ? weightStall({ body: pb, checkIns: pc, daily: daily1, doses: pd, meds: pm, workouts: workouts.filter(me) }, t) : null,
+      cyc: ss[0].cycleTracking ? cycleForecast(pc, HAS_BODY ? pb : [], pm, pd, t) : null,
+      recent: whatChanged({ meds: pm, doses: pd, checkIns: pc, daily: daily1, events: (events ?? []).filter((e) => ids.has(e.medicationId)) }, t).filter((c) => t - c.at < 10 * 86_400_000)[0],
+    };
+  }, [minute, meds, doses, checkIns, body, daily, workouts, events, fam, ss]);
   // A tapped reminder notification opens Log dose for that medication.
   useEffect(() => onLogRequest((id) => {
     const m = medMap.get(id);
@@ -190,8 +211,13 @@ export function Today() {
 
       {!fam.everyone && (() => {
         const visit = HAS_VISITS && appointments ? appointmentsAround(appointments.filter(mine), dayKey(now, s)).next : undefined;
+        const mineDaily = (daily ?? []).filter((d) => personOf(d) === fam.personId);
+        const { stall, cyc, recent } = insights ?? {};
         const lines = [
-          <EffectToday key="e" meds={viewMeds} doses={viewDoses} checkIns={viewCheckIns} now={now} />,
+          <WearOffLines key="w" meds={viewMeds} doses={viewDoses} checkIns={viewCheckIns} daily={mineDaily} now={now} s={s} />,
+          stall ? <StallLine key="st" stall={stall} /> : null,
+          cyc ? <CycleLine key="cy" f={cyc} /> : null,
+          recent ? <ChangeLine key="ch" c={recent} /> : null,
           <ScriptToday key="s" meds={viewMeds} doses={viewDoses} s={s} now={now} />,
           <MentionsLine key="m" vitals={viewVitals} daily={(daily ?? []).filter((d) => personOf(d) === fam.personId)} dismissed={settings.mentionsDismissed} now={now} />,
           <OddRecordsLine key="o" meds={viewMeds} doses={viewDoses} body={HAS_BODY ? viewBody : []} checkIns={viewCheckIns} vitals={viewVitals} dismissed={settings.oddDismissed} now={now} />,

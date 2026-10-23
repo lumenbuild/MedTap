@@ -90,6 +90,6 @@ describe('readings worth mentioning', () => {
     expect(readingsWorthMentioning([...usual, v(1, 145, 92), v(3, 142, 91), v(5, 141, 90)], [], now)[0].kind).toBe('bp-high');
     expect(readingsWorthMentioning([...usual, v(1, 120, 77), v(3, 119, 75), v(5, 121, 76)], [], now)).toEqual([]);
     const daily: DailyHealth[] = Array.from({ length: 30 }, (_, i) => ({ id: `d${i}`, date: ymd(now - i * DAY), restingHr: i < 6 ? 70 : 60, ...stamp }));
-    expect(readingsWorthMentioning([], daily, now).map((m) => m.kind)).toEqual(['hr']);
+    expect(readingsWorthMentioning([], daily, now)).toEqual([]); // heart rate shifts are in What changed
   });
 });

@@ -2,6 +2,7 @@
 // everywhere: one y-axis; a single series in ink (no legend, the title names it); 2+ series in fixed categorical slots
 // with a legend and labels at the line ends; 2px lines, 8px dots with a surface ring; forecasts dashed, likely ranges as
 // a light wash, goals as a dotted ink line; a crosshair on hover; and the same data as a table.
+import type { ReactNode } from 'react';
 import { Line } from 'react-chartjs-2';
 import type { Plugin } from 'chart.js';
 import { format } from 'date-fns';
@@ -33,6 +34,8 @@ export interface TrendChartProps {
   height?: number;
   /** Only the chart (no card, title or table): for a figure inside another section. */
   bare?: boolean;
+  /** Shown under the chart (e.g. what's different during a stall). */
+  extra?: ReactNode;
 }
 
 const fmtDay = (t: number) => format(t, 'EEE d MMM');
@@ -139,20 +142,24 @@ export function TrendChart(p: TrendChartProps) {
           // @ts-expect-error custom plugin options
           endLabels: { enabled: true, text: th.text, surface: th.surface },
           crosshair: { color: th.muted },
-          vlines: { lines: marks.map((m, i) => ({ x: m.at, label: String(i + 1) })), color: th.muted, text: th.text } },
+          // Numbered when the list under the chart explains them; a plain line in a compact chart.
+          vlines: { lines: marks.map((m, i) => ({ x: m.at, label: p.bare ? undefined : String(i + 1) })), color: th.muted, text: th.text } },
         scales: { x: timeAxis(th, p.start, p.end),
           y: { ...o.scales.y, min: p.yMin, max: p.yMax, grace: p.yMin === undefined ? '5%' : 0,
-            ticks: { ...o.scales.y.ticks, maxTicksLimit: 5, stepSize: p.step, callback: (v) => `${v}${p.unit && !p.step ? ` ${p.unit}` : ''}` } } } }}
+            ticks: { ...o.scales.y.ticks, maxTicksLimit: 5, stepSize: p.step, callback: (v) => `${Number(Number(v).toFixed(2))}${p.unit && !p.step ? ` ${p.unit}` : ''}` } } } }}
     />
   );
   if (p.bare) return <div style={{ height: p.height ?? 170 }} key={th.key}>{chart}</div>;
   return (
     <ChartCard title={p.title} key={th.key} height={p.height ?? 220} empty={any ? null : p.empty ?? 'Nothing logged in this range.'} summary={p.summary} table={table}
-      footer={marks.length > 0 && (
-        <ol className="mt-3 space-y-1 text-sm">
-          {marks.map((m, i) => <li key={i} className="flex gap-2"><span className="font-semibold tnum w-4">{i + 1}</span><span className="text-muted tnum">{format(m.at, 'd MMM')}</span><span>{m.text}</span></li>)}
-        </ol>
-      )}>
+      footer={<>
+        {marks.length > 0 && (
+          <ol className="mt-3 space-y-1 text-sm">
+            {marks.map((m, i) => <li key={i} className="flex gap-2"><span className="font-semibold tnum w-4">{i + 1}</span><span className="text-muted tnum">{format(m.at, 'd MMM')}</span><span>{m.text}</span></li>)}
+          </ol>
+        )}
+        {p.extra}
+      </>}>
       {chart}
     </ChartCard>
   );

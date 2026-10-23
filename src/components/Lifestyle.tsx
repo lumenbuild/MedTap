@@ -7,6 +7,8 @@ import type { Units } from '../db/repos/settings';
 import { cycleView, heartAfterDose, onOffDays, stepsVsWeight, substanceFindings, type Side } from '../logic/lifestyle';
 import { shownName } from '../logic/privacy';
 import { kgTo, weightUnit } from '../logic/units';
+import type { CycleForecast } from '../logic/cycle';
+import { CycleStrip } from './Insights';
 
 const Section = ({ id, title, children }: { id: string; title: string; children: React.ReactNode }) => (
   <section className="border-t border-border pt-5 pb-1" aria-labelledby={id}>
@@ -69,7 +71,7 @@ export function SubstanceCard({ checkIns, now, s }: { checkIns: CheckIn[]; now: 
   );
 }
 
-export function CycleCard({ checkIns, now }: { checkIns: CheckIn[]; now: number }) {
+export function CycleCard({ checkIns, now, forecast }: { checkIns: CheckIn[]; now: number; forecast?: CycleForecast | null }) {
   const v = cycleView(checkIns, now);
   if (!v) return <Section id="cycle-h" title="Your cycle"><p className="text-[15px] text-muted">Tap Period on Today when one starts.</p></Section>;
   return (
@@ -81,7 +83,7 @@ export function CycleCard({ checkIns, now }: { checkIns: CheckIn[]; now: number 
           <tbody>{v.phases.map((p) => <tr key={p.name} className="border-t border-border"><td className="py-1.5 pr-3">{p.name}</td><td className="py-1.5 pr-2">{cell(p.mood)}</td><td className="py-1.5 pr-2">{cell(p.focus)}</td><td className="py-1.5 pr-2">{cell(p.appetite)}</td><td className="py-1.5 pr-2">{cell(p.effectPct, '%')}</td></tr>)}</tbody>
         </table>
       </div>
-      <p className="text-xs text-muted mt-1">Check-in averages by day of the cycle, counted from each period start.</p>
+      {forecast && forecast.upcoming.length > 0 && <CycleStrip f={forecast} now={now} />}
     </Section>
   );
 }
@@ -128,3 +130,4 @@ export function HeartAfterCards({ meds, doses, daily, vitals, now, s }: { meds: 
     </Section>
   );
 }
+

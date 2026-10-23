@@ -9,6 +9,10 @@ import { appointmentsAround } from '../../logic/appointments';
 import { dayKey } from '../../logic/stats';
 import { dosesForPerson, medIsFor, personOf } from '../../db/repos/people';
 import { JumpBar } from '../../components/ui/JumpBar';
+import { AskBox, ChangesCard, StallBlock } from '../../components/Insights';
+import { whatChanged } from '../../logic/changes';
+import { weightStall } from '../../logic/stall';
+import { cycleForecast } from '../../logic/cycle';
 import { Tile } from '../../components/ui/Visual';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
@@ -81,6 +85,7 @@ export function Trends() {
   return (
     <div className="space-y-4">
       <PersonSwitcher />
+      <AskBox data={{ meds, doses, checkIns, body, daily, vitals, events }} now={now} />
       <div className="sticky top-0 z-10 -mx-4 px-4 py-2 bg-bg">
         <Segmented<Range | 'appt'> label="Date range" value={r} onChange={pick}
           options={[{ value: '7d', label: '7D' }, { value: '30d', label: '30D' }, { value: '90d', label: '90D' }, { value: 'all', label: 'All' },
@@ -88,6 +93,7 @@ export function Trends() {
         <JumpBar inline deps={[r, fam.personId]} />
         {r === 'appt' && <p className="text-xs text-muted mt-1">Since your appointment on {new Date(`${lastAppt!.date}T12:00`).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}, compared with the {days} days before it.</p>}
       </div>
+      <ChangesCard changes={whatChanged({ meds, doses, checkIns, daily, events }, now)} />
       {HAS_BODY && (
         <>
           {(() => {
@@ -104,9 +110,11 @@ export function Trends() {
               ? { points: ahead, text: `About ${fmtWeight(last.v, settings.units)} in ${path.points.length - 1} weeks through your plan` }
               : gv && gv.f.level !== undefined && gv.f.eta ? { points: [{ t: now, v: gv.f.level }, { t: gv.f.eta, v: wGoal!.target }], text: goalLine(gv, settings.units) } : null;
             const others = goals.filter((g) => g.metric !== 'weightKg');
+            const stall = weightStall({ body, checkIns, daily, doses, meds, workouts: allWorkouts.filter((w) => personOf(w) === fam.personId) }, now);
             return (
               <>
-                <WeightChart entries={body} units={settings.units} {...common} marks={weightMarks} goalKg={wGoal?.target} forecast={forecast} />
+                <WeightChart entries={body} units={settings.units} {...common} marks={weightMarks} goalKg={wGoal?.target} forecast={forecast}
+                  extra={stall ? <StallBlock stall={stall} /> : null} />
                 <GoalForecastCharts goals={others} entries={body} units={settings.units} now={now} />
                 <MeasurementCharts entries={body} units={settings.units} {...common} skip={others.map((g) => g.metric)} />
               </>
@@ -124,7 +132,7 @@ export function Trends() {
       {sleep && <SleepImpactCard r={sleep} />}
       <OnOffCards meds={active} doses={doses} checkIns={checkIns} now={now} s={s} />
       <SubstanceCard checkIns={checkIns} now={now} s={s} />
-      {settings.cycleTracking && <CycleCard checkIns={checkIns} now={now} />}
+      {settings.cycleTracking && <CycleCard checkIns={checkIns} now={now} forecast={cycleForecast(checkIns, HAS_BODY ? body : [], meds, doses, now)} />}
       <HeartAfterCards meds={active} doses={doses} daily={daily} vitals={vitals} now={now} s={s} />
       {HAS_BODY && <StepsWeightCard daily={daily} body={body} units={settings.units} now={now} />}
       {HAS_BODY && settings.trainingTools && <TrainingTrends daily={daily} body={body} checkIns={checkIns} workouts={allWorkouts.filter((w) => personOf(w) === fam.personId)} start={start} end={end} s={s} targets={{ protein: settings.proteinTargetG, water: settings.waterTargetMl }} />}
