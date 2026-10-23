@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Bar, Line, Scatter } from 'react-chartjs-2';
 import { format } from 'date-fns';
 import type { BodyEntry, CheckIn, Dose, MedEvent, Medication, Vital } from '../../db/schema';
@@ -28,7 +29,7 @@ const point = (th: ChartTheme, color: string) => ({ pointRadius: 4, pointHoverRa
 // 1. Weight, the one weight chart: weigh-ins, the 7-day average, the goal, and where it's heading (through the dose
 // plan when there is one, else towards the goal) with its likely range.
 export interface WeightForecast { points: { t: number; v: number; low?: number; high?: number }[]; text?: string }
-export function WeightChart({ entries, start, end, units, marks = [], goalKg, forecast }: RangeProps & { entries: BodyEntry[]; units: Units;
+export function WeightChart({ entries, start, end, units, marks = [], goalKg, forecast, extra }: RangeProps & { entries: BodyEntry[]; units: Units; extra?: ReactNode;
   /** Dose changes to mark on the chart (peptide tools: titration steps). */
   marks?: { at: number; text: string }[]; goalKg?: number; forecast?: WeightForecast | null }) {
   const all = bodySeries(entries, 'weightKg', -Infinity, Infinity);
@@ -47,7 +48,7 @@ export function WeightChart({ entries, start, end, units, marks = [], goalKg, fo
     ...(goalKg !== undefined ? [{ label: 'Goal', style: 'goal' as const, points: [{ t: start, v: k(goalKg) }, { t: to, v: k(goalKg) }] }] : []),
   ];
   const summary = [changeSummary(avg, (v) => fmtWeight(v, units)) ?? (pts.length === 1 ? `One weigh-in: ${fmtWeight(pts[0].v, units)}` : null), fc?.text].filter(Boolean).join('. ') || null;
-  return <TrendChart title="Weight" series={series} start={start} end={to} unit={u} marks={marks} summary={summary}
+  return <TrendChart title="Weight" series={series} start={start} end={to} unit={u} marks={marks} summary={summary} extra={extra}
     empty={pts.length ? null : 'No weigh-ins in this range.'} />;
 }
 

@@ -98,6 +98,8 @@ export interface AppSettings {
   pharmacyContact: string;
   /** Reminders put off from the notification ("In 15 min"), kept until they go off or the dose is logged. */
   snoozes: Snooze[];
+  /** A notification 30 minutes before a medicine's forecast wear-off (app). */
+  wearOffNotify: boolean;
 }
 
 export interface Snooze { id: number; medId: string; amount: number; dueAt: number; at: number; made: number }
@@ -160,6 +162,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   digestNotify: false,
   pharmacyContact: '',
   snoozes: [],
+  wearOffNotify: true,
 };
 
 export async function getSettings(): Promise<AppSettings> {

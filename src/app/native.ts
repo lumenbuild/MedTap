@@ -13,6 +13,7 @@ import { logDose } from '../db/repos/doses';
 import { liveSnoozes, planReminders, snoozeOf, SNOOZE_MIN, withoutSnoozed } from '../logic/notify';
 import { planTrainingReminders } from '../logic/trainingPlan';
 import { trainingVsPeptide } from '../logic/training';
+import { wearOffToday } from '../logic/wearOff';
 import { fmtAmount, fmtTime } from '../logic/format';
 import { shownName } from '../logic/privacy';
 import { tagIdFromUrl } from '../nfc/url';
@@ -182,6 +183,7 @@ async function doSync() {
   if ((await reminderPermission()) !== 'granted') return;
   if (settings.trainingTools && settings.trainingReminders) await scheduleTraining(settings);
   if (settings.digestNotify) await scheduleDigest();
+  if (settings.wearOffNotify) await scheduleWearOff(settings);
   if (!settings.remindersEnabled) return;
   const [meds, doses, people] = await Promise.all([db.medications.toArray(), db.doses.toArray(), listPeople()]);
   const live = doses.filter((d) => !d.deletedAt);
@@ -228,6 +230,22 @@ async function scheduleTraining(settings: Awaited<ReturnType<typeof getSettings>
   if (!plan.length) return;
   await LocalNotifications.schedule({
     notifications: plan.map((r) => ({ id: r.id, title: r.title, body: r.body, schedule: { at: new Date(r.at), allowWhileIdle: true }, channelId: TRAINING_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/training' } })),
+  });
+}
+
+/** 30 minutes before each medicine's forecast wear-off today (learned effect window, adjusted for today). */
+async function scheduleWearOff(settings: Awaited<ReturnType<typeof getSettings>>) {
+  const me = settings.healthPersonId;
+  const [meds, doses, checkIns, daily] = await Promise.all([db.medications.toArray(), db.doses.toArray(), db.checkIns.toArray(), db.daily.toArray()]);
+  const now = Date.now();
+  const s = scheduleSettings(settings);
+  const mine = meds.filter((m) => !m.archived && !m.peptide && medIsFor(m, me));
+  const notes = mine.map((m) => wearOffToday(m, doses, checkIns.filter((c) => personOf(c) === me), daily.filter((d) => personOf(d) === me), now, s))
+    .filter((w): w is NonNullable<typeof w> => !!w && w.at - 30 * 60_000 > now);
+  if (!notes.length) return;
+  await LocalNotifications.schedule({
+    notifications: notes.map((w, i) => ({ id: 900_400_000 + i, title: `${shownName(w.med)} wearing off soon`, body: `Focus likely drops about ${fmtTime(w.at)}`,
+      schedule: { at: new Date(w.at - 30 * 60_000), allowWhileIdle: true }, channelId: CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/today' } })),
   });
 }
 

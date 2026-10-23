@@ -2,7 +2,6 @@
 // blood pressure averaging 140/90 or more (where Australian guidelines start calling it high). A flag to raise with a
 // doctor, never advice. Pure.
 import type { DailyHealth, Vital } from '../db/schema';
-import { ymdToMs } from './stats';
 
 const DAY = 86_400_000;
 const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
@@ -25,12 +24,6 @@ export function readingsWorthMentioning(vitals: Vital[], daily: DailyHealth[], n
       if (s - bs >= 10 || d - bd >= 6) out.push({ key: `bp:${week}`, kind: 'bp', text: `Blood pressure ${s}/${d} this week, usually ${bs}/${bd}` });
     }
   }
-  const hr = daily.filter((x) => !x.deletedAt && x.restingHr);
-  const hrRecent = hr.filter((x) => ymdToMs(x.date) > now - 7 * DAY && ymdToMs(x.date) <= now);
-  const hrBase = hr.filter((x) => ymdToMs(x.date) <= now - 8 * DAY && ymdToMs(x.date) > now - 36 * DAY);
-  if (hrRecent.length >= 5 && hrBase.length >= 10) {
-    const r = Math.round(avg(hrRecent.map((x) => x.restingHr!))), b = Math.round(median(hrBase.map((x) => x.restingHr!)));
-    if (r - b >= 7) out.push({ key: `hr:${week}`, kind: 'hr', text: `Resting heart rate ${r} bpm this week, usually ${b}` });
-  }
+  // Resting heart rate shifts are in "What changed" (changes.ts), with what happened just before.
   return out;
 }

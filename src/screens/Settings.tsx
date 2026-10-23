@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { Bell, Calculator, CalendarCheck, Check, ChevronRight, Clock, Download, Droplet, Dumbbell, HardDriveDownload, HeartPulse, HelpCircle, Info, Lock, Nfc, Package, Palette, Pill, Plane, RefreshCw, Smile, Syringe, Timer, Users, Watch, X, type LucideIcon } from 'lucide-react';
 import { IconRow } from '../components/ui/Visual';
 import { useSyncConfig } from '../app/sync';
-import { setDigestNotify, setRemindersEnabled, setTrainingReminders } from '../app/native';
+import { setDigestNotify, setRemindersEnabled, setTrainingReminders, syncReminders } from '../app/native';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Sheet, SheetActions } from '../components/ui/Sheet';
@@ -76,6 +76,7 @@ export function Settings({ section }: { section?: string }) {
         <Suspense fallback={null}><RemindersCard enabled={settings.remindersEnabled} nudges={settings.lateNudges} /></Suspense>
         <Card className="space-y-2">
           <Switch label="Weekly summary on Mondays" checked={settings.digestNotify} onChange={async (v) => { const on = await setDigestNotify(v); if (v && !on) notifyOff(); }} />
+          <Switch label="Wear-off heads-up" checked={settings.wearOffNotify} onChange={async (v) => { await setSetting('wearOffNotify', v); void syncReminders(); }}>30 min before focus usually drops</Switch>
           {HAS_BODY && settings.trainingTools && (
             <Switch label="Training-day reminders" checked={settings.trainingReminders} onChange={async (v) => { const on = await setTrainingReminders(v); if (v && !on) notifyOff(); }}>
               30 min before you usually train

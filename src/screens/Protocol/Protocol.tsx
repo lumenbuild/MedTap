@@ -24,6 +24,7 @@ import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { Button } from '../../components/ui/Button';
 import { WeekStrip } from './WeekStrip';
 import { Tile } from '../../components/ui/Visual';
+import { StepUpCard } from '../../components/Insights';
 import { Calculator, CalendarRange, ChevronRight, FileText, Package, TrendingDown } from 'lucide-react';
 import { LeadTimeSheet, LotSheet } from './ProtocolSheets';
 
@@ -233,6 +234,8 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal 
           <span className="block text-xs text-muted">{weeksWithCheckIns} week{weeksWithCheckIns === 1 ? '' : 's'} with check-ins</span>
         </Row>
       </dl>
+
+      <StepUpCard med={med} doses={doses} checkIns={checkIns} body={HAS_BODY ? body : []} now={now} s={s} />
 
       {(fc || curve) && (
         <div className="mt-5 space-y-5">

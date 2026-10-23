@@ -68,6 +68,19 @@ export interface Person extends Stamped {
 export const DEFAULT_PERSON = 'me';
 
 /** A schedule that takes over on a future date (dose change or taper step). Applied automatically on that day. */
+/** What "ready for the next step" means for this person; each is optional. */
+export interface StepUpCriteria {
+  minWeeks?: number;
+  /** Side effects in at most this % of check-ins over the last 2 weeks. */
+  maxEffectPct?: number;
+  /** Losing no more than this (kg a week) over the last 3 weeks: loss has slowed. */
+  maxLossKgWeek?: number;
+  /** Appetite averaging at least this (1–5) over the last 2 weeks. */
+  minAppetite?: number;
+  /** No missed or skipped shots in this many weeks. */
+  noMissedWeeks?: number;
+}
+
 export interface PlannedChange {
   id: string;
   from: string; // 'YYYY-MM-DD', the first user day it applies
@@ -150,6 +163,8 @@ export interface Medication extends Stamped {
   packSize?: number;
   /** Mixed from a powder vial, or a pre-filled pen: syringe units are worked out from this (peptide tools). */
   peptide?: PeptideSetup;
+  /** Step-up checklist: the person's (or prescriber's) criteria for being ready for the next dose step. */
+  stepUp?: StepUpCriteria;
   /** Vials or pens: in stock, in use and finished, each with its own water, lot and expiry. */
   vials?: PeptideVial[];
   /** Batches flagged by the person (peptide tools). */
