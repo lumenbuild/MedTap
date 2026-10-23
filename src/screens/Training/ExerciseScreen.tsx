@@ -1,6 +1,7 @@
 // One exercise: personal bests, the estimated max over time (with a goal and its forecast), reps at each weight, what
 // to aim for next time, and every session.
 import { lazy, Suspense, useState } from 'react';
+import { ActionTagsCard } from '../Tags/ActionTagsCard';
 import { format } from 'date-fns';
 import { useExercises, useFamily, useWorkouts } from '../../app/data';
 import { personOf } from '../../db/repos/people';
@@ -79,6 +80,7 @@ export function ExerciseScreen({ id }: { id: string }) {
           ))}
         </ul>
       </section>
+      <ActionTagsCard action={{ kind: 'exercise', exerciseId: id }} name={def.name} hint="Stick a tag on the machine or rack. Tapping it adds this exercise to your workout, with what to aim for." />
       {goal && <GoalSheet personId={fam.personId} own={own} existing={g} preset={{ kind: 'lift', exerciseId: id }} onClose={() => setGoal(false)} />}
     </div>
   );

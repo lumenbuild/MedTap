@@ -159,7 +159,19 @@ export interface Medication extends Stamped {
 export interface ReminderTime { slot: string; weekday?: string; weekend?: string }
 /** `vialId`: a tag stuck on a vial (peptide tools). Tapping it logs from that vial; mixing a new vial can move the tag to
  *  it, so the same sticker is reused. */
-export interface Tag { id: string; medicationId: string; label?: string; createdAt: string; lastScannedAt?: string; vialId?: string }
+/** What a tap does when the tag isn't for a medication (`medicationId` is then ''). */
+export type TagAction =
+  | { kind: 'exercise'; exerciseId: string } // on a machine or rack: add it to the workout (or start one)
+  | { kind: 'routine'; routineId: string } // start that routine
+  | { kind: 'water'; ml: number } | { kind: 'protein'; g: number } // a bottle or shaker: add that much to today
+  | { kind: 'cardio'; activity: CardioActivity } // treadmill, bike: log a session
+  | { kind: 'weight' } | { kind: 'bp' } | { kind: 'checkin' }; // scales, blood pressure cuff, bedside
+export interface Tag {
+  id: string; medicationId: string; label?: string; createdAt: string; lastScannedAt?: string; vialId?: string;
+  action?: TagAction;
+  /** Whose records an action tag logs to (medication tags follow the medication). */
+  personId?: string;
+}
 export interface Dose extends Stamped {
   medicationId: string; takenAt: string; amount: number;
   source: 'tag' | 'manual' | 'backdated' | 'reminder'; tagId?: string; note?: string; deletedAt?: string;

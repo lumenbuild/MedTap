@@ -2,6 +2,9 @@
 import { db } from '../db';
 import { DEFAULT_PERSON, type CardioEntry, type DailyHealth, type Exercise, type FitnessGoal, type Routine, type RoutineItem, type Workout, type WorkoutSet } from '../schema';
 
+import type { ExerciseDef } from '../../logic/exercises';
+import { openWorkout, plannedSets } from '../../logic/tagActions';
+
 const nowIso = () => new Date().toISOString();
 const who = (personId: string) => (personId === DEFAULT_PERSON ? undefined : personId);
 export const newSetId = () => crypto.randomUUID();
@@ -68,4 +71,31 @@ export async function addIntake(personId: string, date: string, field: 'proteinG
     await db.daily.put(row);
     return total;
   });
+}
+
+/** From a tag on a machine: add the exercise to the workout in progress (unless it's already there), or start one with
+ *  it. Returns the workout and whether it was started. */
+export async function addExerciseNow(personId: string, def: ExerciseDef, workouts: Workout[], now: number): Promise<{ workout: Workout; started: boolean; added: boolean }> {
+  const open = openWorkout(workouts, now);
+  if (open) {
+    if (open.sets.some((s) => s.exerciseId === def.id)) return { workout: open, started: false, added: false };
+    const next = { ...open, sets: [...open.sets, ...plannedSets(def, workouts, undefined, newSetId)] };
+    await saveWorkout(next);
+    return { workout: next, started: false, added: true };
+  }
+  const workout = await startWorkout(personId, { sets: plannedSets(def, workouts, undefined, newSetId) });
+  return { workout, started: true, added: true };
+}
+
+/** A cardio session timed by tapping its tag at the start and again at the end. */
+export async function startCardio(personId: string, activity: CardioEntry['activity']): Promise<Workout> {
+  const now = nowIso();
+  const w: Workout = { id: crypto.randomUUID(), startedAt: now, sets: [], cardio: { activity, durationMin: 0 }, source: 'manual', personId: who(personId), createdAt: now, updatedAt: now };
+  await db.workouts.add(w);
+  return w;
+}
+export async function finishCardio(w: Workout, distanceKm?: number) {
+  const end = Date.now();
+  await db.workouts.put({ ...w, endedAt: new Date(end).toISOString(), updatedAt: nowIso(),
+    cardio: { ...w.cardio!, durationMin: Math.max(1, Math.round((end - Date.parse(w.startedAt)) / 60_000)), ...(distanceKm ? { distanceKm } : {}) } });
 }

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
-import { Calculator, CalendarCheck, ChevronRight, Package, HardDriveDownload, HelpCircle, Lock, Plane, RefreshCw, X } from 'lucide-react';
+import { Calculator, CalendarCheck, ChevronRight, Package, HardDriveDownload, HelpCircle, Lock, Plane, RefreshCw, Nfc, X } from 'lucide-react';
 import { useSyncConfig } from '../app/sync';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -306,6 +306,7 @@ export function Settings() {
       </Group>
 
       <Group title="Tools">
+        <ToolLink href="#/tags" Icon={Nfc} title="Tags" sub={HAS_BODY ? 'Every tag: medications, gym machines, water bottle, scales' : 'Every tag: medications, blood pressure cuff, check-in'} />
         <ToolLink href={HAS_VISITS ? '#/appointments' : '#/labs'} Icon={CalendarCheck} title={HAS_VISITS ? 'Appointments and lab results' : 'Lab results'}
           sub={HAS_VISITS ? 'Questions to ask, and what’s changed since the last one' : 'Blood tests and others, typed in or from a photo'} />
         {HAS_VISITS && <ToolLink href="#/travel" Icon={Plane} title="Plan a trip" sub="Dose times across time zones" />}

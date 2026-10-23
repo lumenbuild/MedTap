@@ -34,6 +34,7 @@ const Report = lazy(() => import('../screens/Report/Report').then((m) => ({ defa
 const Training = lazy(() => import('../screens/Training/Training').then((m) => ({ default: m.Training })));
 const WorkoutScreen = lazy(() => import('../screens/Training/WorkoutScreen').then((m) => ({ default: m.WorkoutScreen })));
 const ExerciseScreen = lazy(() => import('../screens/Training/ExerciseScreen').then((m) => ({ default: m.ExerciseScreen })));
+const Tags = lazy(() => import('../screens/Tags/Tags').then((m) => ({ default: m.Tags })));
 const Routines = lazy(() => import('../screens/Training/Routines').then((m) => ({ default: m.Routines })));
 const ProtocolReport = lazy(() => import('../screens/Protocol/ProtocolReport').then((m) => ({ default: m.ProtocolReport })));
 const ChartsLoading = () => <div className="space-y-4" aria-busy="true" aria-label="Loading">{[0, 1].map((i) => <div key={i} className="h-60 rounded-card bg-surface-2 animate-pulse" />)}</div>;
@@ -63,6 +64,7 @@ function title(r: Route): string {
     case 'workout': return 'Workout';
     case 'exercise': return 'Exercise';
     case 'routines': return 'Routines';
+    case 'tags': return 'Tags';
     case 'appointments': return HAS_VISITS ? 'Appointments' : 'Today';
     case 'appointmentSummary': return HAS_VISITS ? 'Since your last appointment' : 'Today';
     case 'labs': return 'Lab results';
@@ -75,7 +77,7 @@ function backTo(r: Route, protocol: boolean): string | undefined {
   switch (r.name) {
     case 'protocolReport': return '#/protocol';
     case 'workout': case 'exercise': case 'routines': return '#/training';
-    case 'appointments': case 'travel': return '#/settings';
+    case 'appointments': case 'travel': case 'tags': return '#/settings';
     case 'appointmentSummary': return '#/appointments';
     case 'labs': return HAS_VISITS ? '#/appointments' : '#/settings';
     case 'settings': return '#/today';
@@ -109,6 +111,7 @@ function Screen({ r }: { r: Route }) {
     case 'training': return HAS_BODY ? <Suspense fallback={<ChartsLoading />}><Training /></Suspense> : <Today />;
     case 'workout': return HAS_BODY ? <Suspense fallback={<ChartsLoading />}><WorkoutScreen key={r.id} id={r.id} /></Suspense> : <Today />;
     case 'exercise': return HAS_BODY ? <Suspense fallback={<ChartsLoading />}><ExerciseScreen key={r.id} id={r.id} /></Suspense> : <Today />;
+    case 'tags': return <Suspense fallback={<ChartsLoading />}><Tags /></Suspense>;
     case 'routines': return HAS_BODY ? <Suspense fallback={<ChartsLoading />}><Routines /></Suspense> : <Today />;
     case 'appointments': return HAS_VISITS ? <Appointments /> : <Today />;
     case 'appointmentSummary': return HAS_VISITS ? <AppointmentSummary /> : <Today />;

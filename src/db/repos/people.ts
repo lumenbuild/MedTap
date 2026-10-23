@@ -57,6 +57,8 @@ export async function personRecordCount(id: string): Promise<number> {
 export async function removePerson(id: string): Promise<boolean> {
   if (id === DEFAULT_PERSON || (await personRecordCount(id)) > 0) return false;
   await db.people.delete(id);
+  // Their tags for exercises, water and so on would log to nobody: unlink them (the stickers show "New tag found").
+  await db.tags.filter((t) => !!t.action && t.personId === id).delete();
   return true;
 }
 

@@ -26,7 +26,7 @@ export type Route =
   | { name: 'tag'; id: string } | { name: 'sync' } | { name: 'join'; code: string } | { name: 'calc' } | { name: 'supplies' }
   | { name: 'protocol' } | { name: 'protocolReport' } | { name: 'progress' }
   | { name: 'appointments' } | { name: 'appointmentSummary' } | { name: 'labs' } | { name: 'travel' }
-  | { name: 'training' } | { name: 'workout'; id: string } | { name: 'exercise'; id: string } | { name: 'routines' };
+  | { name: 'training' } | { name: 'workout'; id: string } | { name: 'exercise'; id: string } | { name: 'routines' } | { name: 'tags' };
 
 export function parseRoute(path: string): Route {
   const [, a, b, c, d] = path.split('/').map(decodeURIComponent);
@@ -45,6 +45,7 @@ export function parseRoute(path: string): Route {
     case 'progress': return { name: 'progress' };
     case 'appointments': return b === 'summary' ? { name: 'appointmentSummary' } : { name: 'appointments' };
     case 'labs': return { name: 'labs' };
+    case 'tags': return { name: 'tags' };
     case 'travel': return { name: 'travel' };
     case 'training':
       if (b === 'workout' && c) return { name: 'workout', id: c };

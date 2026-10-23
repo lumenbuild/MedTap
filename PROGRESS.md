@@ -375,6 +375,19 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
   the goal button names all four goal types; Help → Reminders covers nudges and the reminder check.
 - Follow-up worth doing: training weights in lb for people who use lb.
 
+## Tags for training and everyday logging (owner request: "add nfc to the exercises etc")
+- A tag can now be for an exercise or machine (adds it to the workout in progress with what to aim for, or starts one),
+  a routine (starts it), cardio (tap to start, tap again to finish: the time fills in), a water bottle or protein
+  shaker (adds that amount, with Undo), scales (Log weight), a blood pressure cuff (Log blood pressure) or a check-in.
+  Training kinds need the Training tab; TapDose gets blood pressure and check-in only.
+- Like medication tags, a tap shows what it will do with one button; nothing is logged by the tap alone.
+- Linked from: Settings → Tags (every tag in one place, rename / test / QR / change / unlink), an exercise's page, a
+  routine, or a new tag's "Or use it for something else". `Tag.action` + `Tag.personId` (`medicationId` is '');
+  relinking to a medication clears the action. Removing a person unlinks their action tags; joining sync moves them
+  with "Me".
+- Tests `tests/tagActions.test.ts`; browser flow links each kind from the Tags screen and an exercise page and taps
+  them (start workout, add to it, water, cardio start/finish, scales, unknown → protein).
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 

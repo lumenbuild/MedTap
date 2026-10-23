@@ -288,6 +288,8 @@ const CONTENT: Record<string, ReactNode> = {
         <li>⚠️ <strong>Foil blister packs and metal tins</strong> block the signal. Use tags sold as <em>anti-metal</em> or <em>on-metal</em> there.</li>
         <li>⚠️ Tags must be <strong>blank or rewritable</strong>. Locked or pre-programmed tags can't be used. Only lock a tag (in NFC Tools) after you've written and tested it, if at all.</li>
       </ul>
+      <H>Not just medications</H>
+      <p>A tag can also {HAS_BODY ? <>add an exercise to your workout (stick it on the machine), start a routine, time cardio (tap at the start and again at the end), add water or protein, open Log weight, </> : null}open Log blood pressure or open a check-in. Link one from Settings → <strong>Tags</strong>{HAS_BODY ? <>, an exercise’s page, or a routine</> : null}; or tap a new tag and choose under <strong>Or use it for something else</strong>. Each tap shows what it will do with one button, so nothing is logged by accident.</p>
       <H>Writing a tag on Android</H>
       <p>Open a medication in Meds, tap <strong>Link a tag</strong>, then <strong>Write to tag</strong>, and hold the tag flat against the back of your phone until it says it's done.</p>
       <H>Writing a tag on iPhone</H>

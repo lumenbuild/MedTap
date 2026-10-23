@@ -16,6 +16,7 @@ import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { Button } from '../../components/ui/Button';
 import { GoalTimeline, MuscleWatchCard, PeptideTrainingCard, ReadinessBlock } from '../../components/Fitness';
 import { ACTIVITIES, CardioSheet, GoalSheet, PlatesSheet, StartSheet } from './TrainingSheets';
+import { finishCardio } from '../../db/repos/training';
 
 const DAY = 86_400_000;
 
@@ -50,8 +51,14 @@ export function Training() {
       <section className="border-t border-border pt-5 pb-3 space-y-2">
         {open ? <Button className="w-full min-h-[56px]" onClick={() => go(`/training/workout/${open.id}`)}>Continue workout ({Math.round((now - Date.parse(open.startedAt)) / 60_000)} min)</Button>
           : <Button className="w-full min-h-[56px]" onClick={() => setSheet('start')}>Start a workout</Button>}
+        {ws.filter((w) => w.cardio && !w.endedAt && now - Date.parse(w.startedAt) < 6 * 3_600_000).map((w) => (
+          <p key={w.id} className="text-[15px] rounded-btn bg-surface-2 p-3 tnum">
+            {ACTIVITIES.find((a) => a.id === w.cardio!.activity)?.name} in progress · {Math.round((now - Date.parse(w.startedAt)) / 60_000)} min. Tap its tag again to finish.
+            <button type="button" className="block mt-1 underline min-h-[44px]" onClick={() => finishCardio(w)}>Finish now</button>
+          </p>
+        ))}
         <div className="flex flex-wrap gap-x-6">
-          {[['Log cardio', () => setSheet('cardio')], ['Routines', () => go('/training/routines')], ['Plates', () => setSheet('plates')]].map(([l, f]) => (
+          {[['Log cardio', () => setSheet('cardio')], ['Routines', () => go('/training/routines')], ['Plates', () => setSheet('plates')], ['Tags', () => go('/tags')]].map(([l, f]) => (
             <button key={l as string} type="button" onClick={f as () => void} className="min-h-[44px] text-[15px] font-medium underline underline-offset-4 decoration-border-strong">{l as string}</button>
           ))}
         </div>
@@ -135,7 +142,7 @@ export function Training() {
           <ul className="mt-1">
             {cardio.slice(0, 5).map((w) => (
               <li key={w.id} className="border-t border-border py-2 text-[15px] tnum">
-                {format(Date.parse(w.startedAt), 'EEE d MMM')} · {ACTIVITIES.find((a) => a.id === w.cardio!.activity)?.name} {w.cardio!.distanceKm ? `${w.cardio!.distanceKm} km · ` : ''}{timeText(w.cardio!.durationMin)}{w.cardio!.distanceKm ? ` · ${paceText(w.cardio!.durationMin / w.cardio!.distanceKm)}` : ''}{w.source === 'health' ? ' · from Health' : ''}
+                {format(Date.parse(w.startedAt), 'EEE d MMM')} · {ACTIVITIES.find((a) => a.id === w.cardio!.activity)?.name} {!w.endedAt ? 'in progress' : ''}{w.cardio!.distanceKm ? `${w.cardio!.distanceKm} km · ` : ''}{w.endedAt ? timeText(w.cardio!.durationMin) : ''}{w.cardio!.distanceKm ? ` · ${paceText(w.cardio!.durationMin / w.cardio!.distanceKm)}` : ''}{w.source === 'health' ? ' · from Health' : ''}
               </li>
             ))}
           </ul>

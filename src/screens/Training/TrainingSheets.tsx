@@ -5,7 +5,8 @@ import { format } from 'date-fns';
 import type { CardioActivity, Exercise, FitnessGoal, MuscleGroup, Routine, Workout } from '../../db/schema';
 import { addExercise, logCardio, newSetId, setFitnessGoal, startWorkout, restoreFitnessGoals } from '../../db/repos/training';
 import { allExercises, MUSCLES, type ExerciseDef } from '../../logic/exercises';
-import { nextTarget, platesFor, PLATES, working } from '../../logic/training';
+import { platesFor, PLATES, working } from '../../logic/training';
+import { plannedSets } from '../../logic/tagActions';
 import { go } from '../../app/router';
 import { useToast } from '../../app/toast';
 import { Sheet, SheetActions } from '../../components/ui/Sheet';
@@ -37,9 +38,8 @@ export function StartSheet({ personId, routines, workouts, own, onClose }: { per
   }
   const begin = async (r?: Routine) => {
     const sets = r ? r.items.flatMap((it) => {
-      const def = defs.find((d) => d.id === it.exerciseId);
-      const t = def ? nextTarget(def, workouts, it) : { sets: it.sets, reps: it.reps, weightKg: it.weightKg ?? 0 };
-      return Array.from({ length: t.sets }, () => ({ id: newSetId(), exerciseId: it.exerciseId, weightKg: t.weightKg || it.weightKg || 0, reps: t.reps, done: false }));
+      const def = defs.find((d) => d.id === it.exerciseId) ?? { id: it.exerciseId, name: '', muscles: [], pattern: 'push' as const, increment: 2.5 };
+      return plannedSets(def, workouts, it, newSetId);
     }) : [];
     const w = await startWorkout(personId, { routine: r?.id ? r : undefined, name: r?.name, sets });
     onClose();
@@ -79,14 +79,14 @@ export function StartSheet({ personId, routines, workouts, own, onClose }: { per
 }
 
 /** Search the exercises, or add one of your own. */
-export function ExercisePicker({ own, personId, onPick, onClose }: { own: Exercise[]; personId: string; onPick: (d: ExerciseDef) => void; onClose: () => void }) {
+export function ExercisePicker({ own, personId, onPick, onClose, title = 'Add an exercise' }: { own: Exercise[]; personId: string; onPick: (d: ExerciseDef) => void; onClose: () => void; title?: string }) {
   const [q, setQ] = useState('');
   const [adding, setAdding] = useState(false);
   const defs = useMemo(() => allExercises(own).sort((a, b) => a.name.localeCompare(b.name)), [own]);
   const shown = defs.filter((d) => d.name.toLowerCase().includes(q.trim().toLowerCase()));
   if (adding) return <NewExerciseSheet personId={personId} name={q} onDone={(d) => { onPick(d); onClose(); }} onClose={() => setAdding(false)} />;
   return (
-    <Sheet open onClose={onClose} title="Add an exercise">
+    <Sheet open onClose={onClose} title={title}>
       <TextInput label="Search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="e.g. squat" />
       <ul className="mt-2">
         {shown.map((d) => (
@@ -132,9 +132,9 @@ function NewExerciseSheet({ personId, name: initial, onDone, onClose }: { person
   );
 }
 
-export function CardioSheet({ personId, onClose }: { personId: string; onClose: () => void }) {
+export function CardioSheet({ personId, onClose, initial = 'run' }: { personId: string; onClose: () => void; initial?: CardioActivity }) {
   const toast = useToast();
-  const [activity, setActivity] = useState<CardioActivity>('run');
+  const [activity, setActivity] = useState<CardioActivity>(initial);
   const [km, setKm] = useState('');
   const [min, setMin] = useState('');
   const [when, setWhen] = useState(format(Date.now(), "yyyy-MM-dd'T'HH:mm"));

@@ -12,6 +12,7 @@ import { Button } from '../../components/ui/Button';
 import { TextInput } from '../../components/ui/Field';
 import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { ExercisePicker } from './TrainingSheets';
+import { ActionTagsCard } from '../Tags/ActionTagsCard';
 
 export function Routines() {
   const routines = useRoutines();
@@ -67,6 +68,7 @@ function RoutineSheet({ routine, personId, onClose }: { routine?: Routine; perso
         ))}
         <Button variant="secondary" onClick={() => setPicking(true)}>Add exercise</Button>
         <p className="text-xs text-muted">After the first time, each session aims from what you did last: up when every set hits its reps.</p>
+        {routine && <ActionTagsCard action={{ kind: 'routine', routineId: routine.id }} name={routine.name} hint="A tag on your gym bag or locker starts this routine with one tap." />}
         <SheetActions>
           <Button className="w-full min-h-[56px]" disabled={!name.trim() || !items.length} onClick={async () => { await saveRoutine(personId, { id: routine?.id, name, items }); toast(`Saved ${name.trim()}`); onClose(); }}>Save routine</Button>
         </SheetActions>

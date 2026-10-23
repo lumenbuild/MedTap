@@ -37,6 +37,13 @@ export function WorkoutScreen({ id }: { id: string }) {
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   const loaded = workouts?.find((x) => x.id === id);
   useEffect(() => { if (loaded && !w) setW(loaded); }, [loaded, w]);
+  // Opened from an exercise's tag: scroll to that exercise.
+  useEffect(() => {
+    if (!w) return;
+    let target: string | null = null;
+    try { target = sessionStorage.getItem('medtap.scrollTo'); sessionStorage.removeItem('medtap.scrollTo'); } catch { /* not available */ }
+    if (target) requestAnimationFrame(() => document.getElementById(`ex-${target}`)?.scrollIntoView({ block: 'start' }));
+  }, [!!w]);
   useEffect(() => {
     if (rest && now >= rest.until) { setRest(null); try { navigator.vibrate?.([200, 100, 200]); } catch { /* not supported */ } }
   }, [now, rest]);
@@ -61,7 +68,7 @@ export function WorkoutScreen({ id }: { id: string }) {
         const t = nextTarget(def, others, routines?.find((r) => r.id === w.routineId)?.items.find((i) => i.exerciseId === exId));
         const pb = personalBests(exId, others);
         return (
-          <section key={exId} className="border-t border-border pt-4 pb-2" aria-label={def.name}>
+          <section key={exId} id={`ex-${exId}`} className="border-t border-border pt-4 pb-2 scroll-mt-16" aria-label={def.name}>
             <div className="flex items-baseline justify-between gap-3">
               <a href={`#/training/exercise/${exId}`} className="text-[19px] font-medium">{def.name}</a>
               {pb.e1rm && <span className="text-xs text-muted tnum">Best est. max {pb.e1rm.v} kg</span>}
