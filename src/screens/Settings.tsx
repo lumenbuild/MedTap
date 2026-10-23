@@ -77,6 +77,9 @@ export function Settings({ section }: { section?: string }) {
       <>
         <Suspense fallback={null}><RemindersCard enabled={settings.remindersEnabled} nudges={settings.lateNudges} /></Suspense>
         <Card className="space-y-2">
+          <Switch label="Hide medicine names" checked={settings.discreetReminders} onChange={async (v) => { await setSetting('discreetReminders', v); void syncReminders(); }}>
+            Reminders say only “Reminder” and the time
+          </Switch>
           <Switch label="Weekly summary on Mondays" checked={settings.digestNotify} onChange={async (v) => { const on = await setDigestNotify(v); if (v && !on) notifyOff(); }} />
           <Switch label="Wear-off heads-up" checked={settings.wearOffNotify} onChange={async (v) => { await setSetting('wearOffNotify', v); void syncReminders(); }}>30 min before focus usually drops</Switch>
           {HAS_BODY && settings.trainingTools && (
@@ -194,6 +197,7 @@ export function Settings({ section }: { section?: string }) {
                 </select>
               </Pick>
               {/* The private view can't change or turn off the lock (that would open the full view next time). */}
+              {!priv && <Switch label="Ask for the PIN on every tag tap" checked={settings.tagNeedsPin} onChange={(v) => setSetting('tagNeedsPin', v)}>Even if you've just unlocked</Switch>}
               {!priv && (
                 <div className="grid grid-cols-2 gap-2">
                   <Button variant="secondary" onClick={() => setPinSheet('main')}>Change PIN</Button>

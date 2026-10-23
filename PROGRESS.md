@@ -656,6 +656,15 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
   - the cover name is shown and editable without touching the real one;
   - the main PIN brings everything back.
 
+## Discreet reminders and a PIN on every tag tap
+- **Settings → Reminders → Hide medicine names** (`discreetReminders`): every reminder says only "Reminder" and the
+  time ("Due at 8:00 am"); the wear-off heads-up says "Heads-up · About 3:30 pm". Fake-native check: the scheduled
+  notification has no name or amount.
+- **Settings → Privacy → Ask for the PIN on every tag tap** (`tagNeedsPin`, with app lock on): a tag tap shows the PIN
+  pad even just after unlocking, before the tag screen can log. Which PIN is typed decides the view, so a tap in
+  front of others can open the private view. `LockGate` reads the address directly so the tag screen never shows
+  first. Browser check: nothing logged before the PIN, logged after, the same tag asks again.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 

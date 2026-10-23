@@ -35,6 +35,10 @@ export interface AppSettings {
   privacyPinSalt: string | null;
   /** In the private view, also leave out the peptide tools (Protocol, calculator, supplies). */
   privacyHidePeptides: boolean;
+  /** Reminders say only "Reminder" and the time: no medicine names or amounts on the lock screen. */
+  discreetReminders: boolean;
+  /** With app lock on, every tag tap asks for the PIN before it shows or logs anything. */
+  tagNeedsPin: boolean;
   /** Show the backup reminder when the last backup is older than this. */
   backupReminderDays: number;
   autoBackupEnabled: boolean;
@@ -130,6 +134,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   privacyPinHash: null,
   privacyPinSalt: null,
   privacyHidePeptides: true,
+  discreetReminders: false,
+  tagNeedsPin: false,
   backupReminderDays: 7,
   autoBackupEnabled: false,
   autoBackupKeep: 7,
