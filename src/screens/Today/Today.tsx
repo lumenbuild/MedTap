@@ -4,7 +4,7 @@ import { shownMedName, shownName } from '../../logic/privacy';
 import { CalendarDays, CalendarPlus, Coffee, Droplet, HeartPulse, Lock, Nfc, Pill, Ruler, Scale, Smile, Wine } from 'lucide-react';
 import { IconRow, MiniRing, Tile } from '../../components/ui/Visual';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
-import { useBodyEntries, useCheckIns, useDaily, useDoses, useExercises, useWorkouts, useFamily, useMedEvents, useMeds, useScheduleSettings, useSupplies, useVitals } from '../../app/data';
+import { useBodyEntries, useCheckIns, useDaily, useDoses, useExercises, useWorkouts, useFamily, useMedEvents, useMeds, useScheduleSettings, useSupplies, useTags, useVitals } from '../../app/data';
 import { VitalsSheet, type VitalsSheetState } from '../../components/VitalsSheet';
 import { dosesForPerson, medIsFor, personOf, storedPerson } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
@@ -53,12 +53,15 @@ import { allExercises } from '../../logic/exercises';
 import { setDigestNotify } from '../../app/native';
 import { isNative } from '../../platform';
 import { setSetting } from '../../db/repos/settings';
+import { gettingStarted, showGettingStarted } from '../../logic/gettingStarted';
+import { GettingStartedCard } from '../../components/GettingStarted';
 import { readiness } from '../../logic/training';
 
 export function Today() {
   const meds = useMeds();
   const doses = useDoses();
   const checkIns = useCheckIns();
+  const tags = useTags();
   const body = useBodyEntries();
   const vitals = useVitals();
   const supplies = useSupplies();
@@ -191,6 +194,22 @@ export function Today() {
           <Button className="mt-4" onClick={() => go('/meds/new')}>Add medication</Button>
         </Card>
       )}
+
+      {tags && (() => {
+        const items = gettingStarted({ meds: viewMeds, tags, doses: viewDoses, checkIns: viewCheckIns, remindersEnabled: settings.remindersEnabled,
+          lockEnabled: settings.lockEnabled, lastBackupAt: settings.lastBackupAt, native: isNative });
+        if (!showGettingStarted(items, settings.gettingStartedDismissed)) return null;
+        const first = viewMeds.find((m) => !m.archived);
+        return <GettingStartedCard items={items} onHide={() => setSetting('gettingStartedDismissed', true)} onStep={(id) => {
+          if (id === 'med') go('/meds/new');
+          else if (id === 'tag') go(first ? `/meds/${first.id}` : '/meds/new');
+          else if (id === 'dose') { if (first) setLogFor(first); else go('/meds/new'); }
+          else if (id === 'checkin') setCheckIn({});
+          else if (id === 'reminders') go('/settings/reminders');
+          else if (id === 'lock') go('/settings/privacy');
+          else go('/backup');
+        }} />;
+      })()}
 
       {/* B2: the most urgent dose is the headline; every scheduled medicine is then one line, tap to log. */}
       {headline && hero(headline)}

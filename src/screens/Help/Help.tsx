@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { BellRing, Sparkles, CalendarClock, ChevronRight, Info, Lock, Nfc, RefreshCw, ScanText, ShieldCheck, Smartphone, Syringe, Target, Users, Dumbbell } from 'lucide-react';
-import { isNative } from '../../platform';
+import { BellRing, Sparkles, CalendarClock, ChevronRight, Compass, Info, Lock, Nfc, RefreshCw, ScanText, ShieldCheck, Smartphone, Syringe, Target, Users, Dumbbell } from 'lucide-react';
+import { isNative, isNativeIOS } from '../../platform';
 import { APP_NAME, DISCLAIMER } from '../../config';
 import { tagBase } from '../../nfc/url';
 import { Card } from '../../components/ui/Card';
@@ -8,6 +8,7 @@ import { apkDownload, edition, HAS_BODY, HAS_PEPTIDES, HAS_VISITS } from '../../
 import { useViewMode } from '../../app/viewMode';
 
 const TOPICS = [
+  { id: 'start', title: 'Getting started', Icon: Compass },
   { id: 'schedules', title: 'Setting up a schedule', Icon: CalendarClock },
   { id: 'scan', title: 'Scanning a pharmacy label', Icon: ScanText },
   ...(HAS_BODY ? [{ id: 'goals', title: 'Goals and forecasts', Icon: Target }] as const : []),
@@ -24,7 +25,7 @@ const TOPICS = [
   { id: 'about', title: `About ${APP_NAME}`, Icon: Info },
 ] as const;
 
-export const helpTitle = (topic?: string) => TOPICS.find((t) => t.id === topic)?.title ?? 'Help';
+export const helpTitle = (topic?: string, peptides = HAS_PEPTIDES) => TOPICS.filter((t) => !('peptides' in t) || peptides).find((t) => t.id === topic)?.title ?? 'Help';
 
 /** Peptide help only where the peptide tools can be shown (MedTap, and not in the private view). */
 const usePeptideHelp = () => { const v = useViewMode(); return HAS_PEPTIDES && v !== 'private'; };
@@ -54,7 +55,65 @@ export function Help({ topic }: { topic?: string }) {
 
 const H = ({ children }: { children: ReactNode }) => <h2 className="text-sm font-medium text-muted">{children}</h2>;
 
+/** Only in the full view (the private view never mentions itself). */
+const FullView = ({ children }: { children: ReactNode }) => (useViewMode() === 'private' ? null : <>{children}</>);
+const Step = ({ n, title, children }: { n: number; title: string; children: ReactNode }) => (
+  <section className="flex gap-3">
+    <span aria-hidden="true" className="w-8 h-8 rounded-full bg-primary text-on-primary font-semibold flex items-center justify-center shrink-0 tnum">{n}</span>
+    <div className="flex-1 min-w-0 space-y-2"><h2 className="font-semibold text-[17px] leading-8">{title}</h2>{children}</div>
+  </section>
+);
+
 const CONTENT: Record<string, ReactNode> = {
+  start: (
+    <>
+      <p>{APP_NAME} in ten steps, from your first medicine to backups. Each takes a minute or two; do them in any order.</p>
+      <Step n={1} title="Add a medicine">
+        <p>Meds → <strong>Add medication</strong>. Its name and strength, how much you usually take, and when: set times, every few hours, or as needed. Or tap <strong>Take photo</strong> to fill it in from the pharmacy label, then check it.</p>
+        <p>Not every day? Choose certain days or every few days. A dose that changes over time? Use <strong>Plan a change</strong> on its page.</p>
+      </Step>
+      <Step n={2} title="Get tags and stick one on">
+        <p>Any NTAG213 or NTAG215 NFC sticker works; they're cheap online. Stick one on the box, bottle or pen. On foil packs or metal tins, use tags sold as <em>on-metal</em>.</p>
+      </Step>
+      <Step n={3} title="Link the tag">
+        <p>On the medicine's page, tap <strong>Link a tag</strong> and hold your phone on it.{isNativeIOS ? ' On iPhone, hold the top of the phone near the tag.' : ' On Android, the back of the phone, near the middle.'}</p>
+        <p>One tag per medicine. A tag can also log a coffee, water, a check-in or a gym machine: Settings → Tags.</p>
+      </Step>
+      <Step n={4} title="Log a dose">
+        <p>Tap the tag: the dose is logged at your usual amount, with <strong>Undo</strong> for a few seconds. Tapped twice by mistake? {APP_NAME} asks before logging the same medicine again within a few minutes.</p>
+        <p>No tag to hand? Tap <strong>Log dose</strong> on Today. Took it earlier? Change the time before saving. Missed it? Use <strong>Skip this dose</strong> so the plan stays right.</p>
+      </Step>
+      <Step n={5} title="Read Today">
+        <p>The big number is your next dose. Below it: each medicine and whether it's done, as-needed medicines with when you last had them, and quick buttons for a check-in, blood pressure{HAS_BODY ? ', weight' : ''} and more.</p>
+        <p>Notes appear only when they matter: stock running low, a script to renew, a pattern worth knowing.</p>
+      </Step>
+      <Step n={6} title="Check in">
+        <p>A few taps on mood, focus, energy and anything you noticed. {APP_NAME} asks a while after a dose, and Trends sets them against your doses, sleep and more. The more check-ins, the sharper the patterns.</p>
+      </Step>
+      <Step n={7} title="Reminders">
+        {isNative
+          ? <p>Settings → <strong>Reminders</strong>. Each reminder has Log it, In 15 min and Skip. <strong>Hide medicine names</strong> makes them say only “Reminder” and the time. <strong>Send a test reminder</strong> there checks your phone delivers them on time.</p>
+          : <p>Reminders come with the Android and iPhone apps. In the browser, add a dose to your calendar from Today.</p>}
+      </Step>
+      <Step n={8} title="Privacy">
+        <p>Settings → <strong>Privacy</strong> → <strong>Set a PIN</strong> to lock the app. A medicine can have a nickname, shown instead of its name wherever someone might glance.</p>
+        <FullView><p>With a PIN set, a second <strong>privacy PIN</strong> can open the app with chosen medicines under a cover name or left out. Choose for each medicine on its page.</p></FullView>
+      </Step>
+      <Step n={9} title="Back up">
+        <p>Your records live only on this phone. Settings → <strong>Backup and restore</strong> makes a file to keep in your cloud drive or email{isNative ? ', or picks a folder for automatic backups' : ''}. Today reminds you after a week.</p>
+      </Step>
+      <Step n={10} title="Make it yours">
+        <ul className="list-disc pl-5 space-y-1">
+          <Pep><li><strong>Peptides and injections</strong>: vials, pens, syringe units, titration plans, supplies.</li></Pep>
+          {HAS_BODY && <li><strong>Training</strong>: workouts, bests, what to aim for next, protein and water.</li>}
+          <li><strong>Family</strong>: track medicines for others on this phone, and sync with their phones, encrypted.</li>
+          {isNative && <li><strong>Widgets and the watch</strong>: the next dose on your home screen, and a tap to log from your wrist.</li>}
+          <li><strong>Doctor report</strong>: at the bottom of Trends, to print or send.</li>
+        </ul>
+      </Step>
+      <p className="pt-2"><a href="#/welcome" className="text-primary font-semibold underline underline-offset-4">Show the welcome again</a></p>
+    </>
+  ),
   training: (
     <>
       <H>Turning it on</H>

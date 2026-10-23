@@ -39,6 +39,8 @@ export interface AppSettings {
   discreetReminders: boolean;
   /** With app lock on, every tag tap asks for the PIN before it shows or logs anything. */
   tagNeedsPin: boolean;
+  /** The "Get set up" card on Today was hidden. */
+  gettingStartedDismissed: boolean;
   /** Show the backup reminder when the last backup is older than this. */
   backupReminderDays: number;
   autoBackupEnabled: boolean;
@@ -136,6 +138,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   privacyHidePeptides: true,
   discreetReminders: false,
   tagNeedsPin: false,
+  gettingStartedDismissed: false,
   backupReminderDays: 7,
   autoBackupEnabled: false,
   autoBackupKeep: 7,

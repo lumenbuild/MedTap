@@ -665,6 +665,34 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
   front of others can open the private view. `LockGate` reads the address directly so the tag screen never shows
   first. Browser check: nothing logged before the PIN, logged after, the same tag asks again.
 
+## Onboarding and the getting started guide
+- **First run** (`src/screens/Onboarding/Onboarding.tsx`): seven short steps with Back, Skip and progress dots.
+  1. Welcome: tap to log, know what's next, see what works; data stays on the phone.
+  2. This phone: how tags work in the app or browser, and installing.
+  3. What to track: peptides, training, cycle, per edition.
+  4. Reminders: turn on now and hide names (app); calendar instead (browser).
+  5. Privacy: set a PIN right there; nicknames.
+  6. Backups: why, and where.
+  7. First medicine: what happens next (add, link a tag, test it), and the guide.
+  Every choice is the same setting as in Settings. Shown again from Help (`#/welcome`).
+- **"Get set up" on Today** (`src/logic/gettingStarted.ts`, `GettingStartedCard`): add a medicine, link a tag, log a
+  dose, do a check-in, then (optional) reminders, a PIN, a backup. Each is ticked from the records, opens where it's
+  done, and has the guide one tap away and Hide. It stays only until the four essentials are done, so existing
+  users don't see it.
+- **Help → Getting started**: ten numbered steps:
+  - adding a medicine, tags (which, where, linking);
+  - logging (tap, by hand, earlier, skip, the double-tap guard), reading Today, check-ins;
+  - reminders, privacy (the privacy PIN mentioned only in the full view), backups;
+  - features to turn on.
+  Labels checked against the screens; follows the edition.
+- Also: Privacy settings headings fixed (axe), and a peptide Help topic's title no longer shows by direct link in TapDose
+  or the private view.
+- Tests `tests/getting-started.test.ts`. Browser:
+  - seven distinct steps, Back works, PIN set in onboarding;
+  - the card ticks and hides, steps open where they're done;
+  - the guide renders, the welcome shows again;
+  - TapDose has no peptide, training or weight wording; axe clean.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 

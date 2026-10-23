@@ -187,7 +187,7 @@ export function Settings({ section }: { section?: string }) {
     privacy: () => (
       <>
         <Card className="space-y-3">
-          <h3 className="font-medium flex items-center gap-2"><Lock size={18} aria-hidden="true" /> App lock</h3>
+          <h2 className="font-medium flex items-center gap-2"><Lock size={18} aria-hidden="true" /> App lock</h2>
           {settings.lockEnabled ? (
             <>
               <Pick id="lock-after" label="Lock">
@@ -209,7 +209,7 @@ export function Settings({ section }: { section?: string }) {
         </Card>
         {settings.lockEnabled && !priv && (
           <Card className="space-y-3">
-            <h3 className="font-medium flex items-center gap-2"><EyeOff size={18} aria-hidden="true" /> Private view</h3>
+            <h2 className="font-medium flex items-center gap-2"><EyeOff size={18} aria-hidden="true" /> Private view</h2>
             <p className="text-sm">A second PIN that opens the app looking the same, with the medicines you choose under a cover name or left out{HAS_PEPTIDES ? ', and the peptide tools left out' : ''}. Choose for each medicine on its page.</p>
             {settings.privacyPinHash ? (
               <>
@@ -223,7 +223,7 @@ export function Settings({ section }: { section?: string }) {
           </Card>
         )}
         <Card className="space-y-2">
-          <h3 className="font-medium">Your data</h3>
+          <h2 className="font-medium">Your data</h2>
           <p className="text-sm">{sync ? 'This phone, plus an encrypted copy on your family’s phones' : 'This phone only'}</p>
           {!isNative && !persisted && (
             <Button variant="secondary" className="w-full" onClick={async () => {
