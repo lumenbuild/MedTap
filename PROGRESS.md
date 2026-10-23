@@ -418,6 +418,28 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
   swap, plates, Trends, reports, CSVs, onboarding; native flow (fake bridge) for training reminders and the rest
   notification.
 
+## Smart progression (owner: "smart predict increases in exercises to ensure we are pushing ourselves")
+- `src/logic/progression.ts`. Today's target starts from the simple rule (up a step when every set hit its reps) and
+  then uses the person's evidence: an RPE-aware estimated max per session (RPE 8 at 5 reps counts as 7 reps to
+  failure), its robust trend (capped at +1.5%/week for planning, never below the last two sessions), and the load that
+  leaves about 2 reps in reserve at the target reps (rounded to the nearest loadable step).
+  - Push: more than one step (at most 2 steps or 5%) when sets felt easy (RPE ≤ 7), target reps were beaten by 2+, or
+    the trend says there's room. Timed / bodyweight: +5 s or +1 rep extra.
+  - Hold: on a low-readiness day (< 55), or a usual weaker day after the shot (4%+ below their level), match last time.
+  - Same with a note when every set got there at RPE 9+.
+  - No effort logged in the last two sessions: "Last set: as many good reps as you can, stopping 1 short" to tune.
+- In a workout (Settings → "Adjust the next sets as I go", on): after a set at RPE ≤ 7 that hit its reps, the
+  exercise's remaining sets go up a step; RPE 9.5+ or 2+ reps short, down a step; toast with Undo. Works when RPE is
+  chosen after ticking too.
+- Exercise page: Push / Hold / Aim with the reason and the usual step when it differs; "If each session goes to plan"
+  (next 4 sessions, dated by how often the lift is done, starting from today's target) and the weekly trend %.
+- Effort check: "Room to push" on Training (60%+ of sets in 3 weeks at RPE ≤ 7) and "progress has slowed from x% to
+  y% a week" on the exercise page.
+- Start a workout, repeat a session, routines and machine tags lay sets out at the smart target.
+- Tests `tests/progression.test.ts` (10); browser flow: room to push, push weight, laid-out sets, auto-adjust + Undo.
+- Emulator: without hardware acceleration the Android system itself crashed (DeadSystemException) shortly after
+  install, so there's still no on-device result; a real phone is needed.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 

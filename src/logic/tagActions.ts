@@ -2,6 +2,7 @@
 import type { Routine, RoutineItem, TagAction, Workout, WorkoutSet } from '../db/schema';
 import type { ExerciseDef } from './exercises';
 import { nextTarget } from './training';
+import { smartTarget } from './progression';
 import type { Units } from '../db/repos/settings';
 
 const SIX_HOURS = 6 * 3_600_000;
@@ -11,9 +12,12 @@ export const openWorkout = (workouts: Workout[], now: number): Workout | undefin
   workouts.filter((w) => !w.deletedAt && !w.endedAt && !w.cardio && now - Date.parse(w.startedAt) < SIX_HOURS && Date.parse(w.startedAt) <= now + 60_000)
     .sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
 
-/** An exercise's sets laid out at the weight and reps to aim for (from last time, or the routine's numbers). */
-export function plannedSets(def: ExerciseDef, workouts: Workout[], item?: RoutineItem, newId: () => string = () => crypto.randomUUID(), units: Units = 'metric'): WorkoutSet[] {
-  const t = nextTarget(def, workouts, item, units);
+/** An exercise's sets laid out at the weight and reps to aim for (from last time, the routine's numbers, and with
+ *  `today`, how hard recent sets felt and how ready the person is). */
+export function plannedSets(def: ExerciseDef, workouts: Workout[], item?: RoutineItem, newId: () => string = () => crypto.randomUUID(), units: Units = 'metric',
+  today?: { readiness: number | null; weakDay: boolean; now: number }): WorkoutSet[] {
+  // With today's context, the smart target (pushes when there's room, holds on a low day); otherwise the simple rule.
+  const t = today ? smartTarget(def, workouts, { item, units, readiness: today.readiness, weakDay: today.weakDay, now: today.now }) : nextTarget(def, workouts, item, units);
   return Array.from({ length: t.sets }, () => ({ id: newId(), exerciseId: def.id, weightKg: t.weightKg || item?.weightKg || 0, reps: t.reps, done: false }));
 }
 

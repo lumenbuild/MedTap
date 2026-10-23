@@ -76,15 +76,15 @@ export async function addIntake(personId: string, date: string, field: 'proteinG
 
 /** From a tag on a machine: add the exercise to the workout in progress (unless it's already there), or start one with
  *  it. Returns the workout and whether it was started. */
-export async function addExerciseNow(personId: string, def: ExerciseDef, workouts: Workout[], now: number, units: Units = 'metric'): Promise<{ workout: Workout; started: boolean; added: boolean }> {
+export async function addExerciseNow(personId: string, def: ExerciseDef, workouts: Workout[], now: number, units: Units = 'metric', today?: { readiness: number | null; weakDay: boolean }): Promise<{ workout: Workout; started: boolean; added: boolean }> {
   const open = openWorkout(workouts, now);
   if (open) {
     if (open.sets.some((s) => s.exerciseId === def.id)) return { workout: open, started: false, added: false };
-    const next = { ...open, sets: [...open.sets, ...plannedSets(def, workouts, undefined, newSetId, units)] };
+    const next = { ...open, sets: [...open.sets, ...plannedSets(def, workouts, undefined, newSetId, units, today && { ...today, now })] };
     await saveWorkout(next);
     return { workout: next, started: false, added: true };
   }
-  const workout = await startWorkout(personId, { sets: plannedSets(def, workouts, undefined, newSetId, units) });
+  const workout = await startWorkout(personId, { sets: plannedSets(def, workouts, undefined, newSetId, units, today && { ...today, now }) });
   return { workout, started: true, added: true };
 }
 

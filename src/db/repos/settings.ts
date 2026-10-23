@@ -72,6 +72,8 @@ export interface AppSettings {
   waterTargetMl: number | null;
   /** Rest time worked out per set (heavy sets longer, small muscles shorter) from `restSeconds`. */
   smartRest: boolean;
+  /** After a set that was clearly too easy or too hard, change the weight of that exercise's remaining sets. */
+  autoAdjust: boolean;
   /** Reminders on the person's usual training days, and when the week's goal needs a session (app only). */
   trainingReminders: boolean;
   /** The "remind me on my usual days?" card on Training was answered. */
@@ -120,6 +122,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   proteinTargetG: null,
   waterTargetMl: null,
   smartRest: true,
+  autoAdjust: true,
   trainingReminders: false,
   trainingReminderAsked: false,
 };

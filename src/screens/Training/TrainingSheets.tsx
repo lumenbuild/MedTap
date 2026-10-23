@@ -9,6 +9,7 @@ import { useSettings } from '../../app/data';
 import { fromLoad, loadUnit, showLoad } from '../../logic/load';
 import { platesFor, platesForUnits, working } from '../../logic/training';
 import { plannedSets } from '../../logic/tagActions';
+import { useTrainingContext } from './useTrainingContext';
 import { go } from '../../app/router';
 import { useToast } from '../../app/toast';
 import { Sheet, SheetActions } from '../../components/ui/Sheet';
@@ -22,6 +23,8 @@ export const ACTIVITIES: { id: CardioActivity; name: string }[] = [
 /** Start from a routine (sets laid out at the weights to aim for) or an empty workout. */
 export function StartSheet({ personId, routines, workouts, own, onClose }: { personId: string; routines: Routine[]; workouts: Workout[]; own: Exercise[]; onClose: () => void }) {
   const units = useSettings()?.units ?? 'metric';
+  const now = Date.now();
+  const ctx = useTrainingContext(personId, now);
   const defs = allExercises(own);
   // The last 3 different sessions (by name and lifts), each repeatable like a routine.
   const recent: Routine[] = [];
@@ -42,7 +45,7 @@ export function StartSheet({ personId, routines, workouts, own, onClose }: { per
   const begin = async (r?: Routine) => {
     const sets = r ? r.items.flatMap((it) => {
       const def = defs.find((d) => d.id === it.exerciseId) ?? { id: it.exerciseId, name: '', muscles: [], pattern: 'push' as const, increment: 2.5 };
-      return plannedSets(def, workouts, it, newSetId, units);
+      return plannedSets(def, workouts, it, newSetId, units, ctx ? { ...ctx, now } : undefined);
     }) : [];
     const w = await startWorkout(personId, { routine: r?.id ? r : undefined, name: r?.name, sets });
     onClose();
@@ -72,7 +75,7 @@ export function StartSheet({ personId, routines, workouts, own, onClose }: { per
           </li>
         ))}
       </ul>
-      {(routines.length > 0 || recent.length > 0) && <p className="text-xs text-muted mt-2">Sets are laid out at the weights to aim for, from what you did last time.</p>}
+      {(routines.length > 0 || recent.length > 0) && <p className="text-xs text-muted mt-2">Sets are laid out at the weights to aim for: from last time, how hard it felt{ctx?.readiness != null ? ` and today’s readiness (${ctx.readiness})` : ''}.</p>}
       <SheetActions>
         <Button className="w-full min-h-[56px]" onClick={() => begin()}>Empty workout</Button>
         <Button variant="secondary" className="w-full" onClick={() => { onClose(); go('/training/routines'); }}>Routines</Button>

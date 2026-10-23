@@ -8,7 +8,9 @@ import type { Workout, WorkoutSet } from '../../db/schema';
 import { useExercises, useFamily, useRoutines, useSettings, useWorkouts } from '../../app/data';
 import { finishWorkout, newSetId, removeWorkout, restoreWorkout, saveRoutine, saveWorkout } from '../../db/repos/training';
 import { allExercises, swapsFor, type ExerciseDef } from '../../logic/exercises';
-import { newPBs, nextTarget, personalBests, restFor, working, type Target } from '../../logic/training';
+import { newPBs, nextTarget, personalBests, restFor, working } from '../../logic/training';
+import { adjustAfterSet, smartTarget, type SmartTarget } from '../../logic/progression';
+import { useTrainingContext } from './useTrainingContext';
 import { plannedSets } from '../../logic/tagActions';
 import { fmtLoad, fromLoad, loadUnit, showLoad } from '../../logic/load';
 import type { Units } from '../../db/repos/settings';
@@ -21,10 +23,7 @@ import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { TextInput } from '../../components/ui/Field';
 import { ExercisePicker, PlatesSheet } from './TrainingSheets';
 
-const WHY: Record<Target['why'], string> = {
-  up: 'up from last time: every set hit its target', reps: 'a little more than last time', same: 'same as last time: build up to every set hitting its target',
-  deload: 'about 10% easier: two sessions in a row were well short, so build back up', start: 'first time: pick a weight you can do with a couple of reps to spare',
-};
+const loadedPerson = (ws: Workout[] | undefined, id: string) => { const w = ws?.find((x) => x.id === id); return w ? (w.personId ?? 'me') : undefined; };
 const FALLBACK = (id: string): ExerciseDef => ({ id, name: 'Exercise', muscles: [], pattern: 'push', increment: 2.5 });
 const LETTERS = 'ABCDEFGH';
 
@@ -43,6 +42,7 @@ export function WorkoutScreen({ id }: { id: string }) {
   const [cues, setCues] = useState<string | null>(null);
   const [swapping, setSwapping] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const today = useTrainingContext(loadedPerson(workouts, id), Date.now());
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   const loaded = workouts?.find((x) => x.id === id);
   useEffect(() => { if (loaded && !w) setW(loaded); }, [loaded, w]);
@@ -72,11 +72,25 @@ export function WorkoutScreen({ id }: { id: string }) {
   const mins = Math.round(((w.endedAt ? Date.parse(w.endedAt) : now) - Date.parse(w.startedAt)) / 60_000);
   const pbs = newPBs(w, [...others, w], defs, units);
   const routineItem = (exId: string) => routines?.find((r) => r.id === w.routineId)?.items.find((i) => i.exerciseId === exId);
+  // Today's aim for each exercise: the smart target, judged as at the start of this workout.
+  const aimFor = (def: ExerciseDef): SmartTarget => smartTarget(def, others, { item: routineItem(def.id), units, readiness: today?.readiness, weakDay: today?.weakDay, now: Date.parse(w.startedAt) });
+
+  /** Clearly too easy or too hard: change the weight of this exercise's remaining sets at that weight (with Undo). */
+  const adjustFrom = (cur: Workout, s: WorkoutSet, def: ExerciseDef): Workout => {
+    if (finished || !settings.autoAdjust) return cur;
+    const adj = adjustAfterSet(def, s, aimFor(def).reps, units);
+    const later = cur.sets.filter((x) => x.exerciseId === s.exerciseId && !x.done && !x.warmup && Math.abs(x.weightKg - s.weightKg) < 0.01);
+    if (!adj || !later.length) return cur;
+    const ids = new Set(later.map((x) => x.id));
+    toast(`${adj.text}: next ${later.length === 1 ? 'set' : `${later.length} sets`} ${adj.weightKg > s.weightKg ? 'up' : 'down'} to ${fmtLoad(adj.weightKg, units)}`, { onAction: () => update(cur) });
+    return { ...cur, sets: cur.sets.map((x) => (ids.has(x.id) ? { ...x, weightKg: adj.weightKg } : x)) };
+  };
 
   /** Tick a set: start the rest worked out for it, or (in a superset) go straight to the partner's next set. */
   const tick = (s: WorkoutSet, def: ExerciseDef) => {
     const nowDone = !s.done;
-    const next = { ...w, sets: w.sets.map((x) => (x.id === s.id ? { ...x, done: nowDone } : x)) };
+    let next = { ...w, sets: w.sets.map((x) => (x.id === s.id ? { ...x, done: nowDone } : x)) };
+    if (nowDone) next = adjustFrom(next, { ...s, done: true }, def);
     update(next);
     if (!nowDone || finished || settings.restSeconds <= 0) return;
     const partner = s.group ? next.sets.find((x) => x.group === s.group && x.exerciseId !== s.exerciseId && !x.done) : undefined;
@@ -117,7 +131,7 @@ export function WorkoutScreen({ id }: { id: string }) {
         const def = defOf(exId);
         const sets = w.sets.filter((s) => s.exerciseId === exId);
         // The same aim the sets were laid out from: the routine's sets and reps when started from one.
-        const t = nextTarget(def, others, routineItem(exId), units);
+        const t = aimFor(def);
         const pb = personalBests(exId, others);
         const g = groupOf(exId);
         const gi = g ? groups.indexOf(g) : -1;
@@ -132,16 +146,21 @@ export function WorkoutScreen({ id }: { id: string }) {
               <a href={`#/training/exercise/${exId}`} className="text-[19px] font-medium">{def.name}</a>
               {best && <span className="text-xs text-muted tnum">{best}</span>}
             </div>
-            {!finished && t.why !== 'start' && <p className="text-sm text-muted tnum">Aim: {t.sets} × {t.reps}{def.timed ? ' s' : ''}{aimLoad} ({WHY[t.why]})</p>}
-            {!finished && t.why === 'start' && <p className="text-sm text-muted">{WHY.start}</p>}
+            {!finished && t.why !== 'start' && <p className={`text-sm tnum ${t.why === 'push' ? 'font-medium' : 'text-muted'}`}>{t.why === 'push' ? 'Push: ' : t.why === 'hold' ? 'Hold: ' : 'Aim: '}{t.sets} × {t.reps}{def.timed ? ' s' : ''}{aimLoad}</p>}
+            {!finished && <p className="text-sm text-muted">{t.reason}{t.plain && t.plain.weightKg !== t.weightKg ? ` (Usual step: ${fmtLoad(t.plain.weightKg, units)}.)` : ''}</p>}
             {cues === exId && def.cues && <ul className="text-sm list-disc pl-5 mt-1">{def.cues.map((c) => <li key={c}>{c}</li>)}</ul>}
             <div className="grid grid-cols-[2rem_1fr_1fr_4.5rem_3rem] gap-2 items-center mt-2 text-xs text-muted">
               <span>Set</span><span>{def.bodyweight ? `+${u}` : def.perHand ? `${u} each` : u}</span><span>{repsLabel}</span><span>RPE</span><span className="sr-only">Done</span>
             </div>
             {sets.map((s, i) => (
               <SetRow key={s.id} s={s} n={i + 1 - sets.slice(0, i).filter((x) => x.warmup).length} units={units} repsLabel={repsLabel}
-                onChange={(patch) => setSet(s.id, patch)} onTick={() => tick(s, def)} onPlates={() => setPlates(s.weightKg)} />
+                onChange={(patch) => {
+                  // How hard it felt, logged after ticking: adjust the remaining sets then.
+                  if (patch.rpe !== undefined && s.done) { const cur = { ...w, sets: w.sets.map((x) => (x.id === s.id ? { ...x, ...patch } : x)) }; update(adjustFrom(cur, { ...s, ...patch }, def)); }
+                  else setSet(s.id, patch);
+                }} onTick={() => tick(s, def)} onPlates={() => setPlates(s.weightKg)} />
             ))}
+            {!finished && t.lastSetMax && sets.length > 1 && !sets[sets.length - 1].done && <p className="text-xs text-muted mt-1">Last set: as many good reps as you can, stopping 1 short. Log how hard it felt (RPE).</p>}
             <div className="flex flex-wrap gap-x-4 mt-2">
               <button type="button" className="min-h-[44px] text-sm font-medium underline underline-offset-4" onClick={() => {
                 const last = sets[sets.length - 1];

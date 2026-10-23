@@ -8,7 +8,9 @@ import { fmtLoad, showLoad } from '../../logic/load';
 import { swapsFor } from '../../logic/exercises';
 import { personOf } from '../../db/repos/people';
 import { allExercises, MUSCLES } from '../../logic/exercises';
-import { e1rm, e1rmSeries, nextTarget, personalBests, plateau, sessionsOf, strengthForecast } from '../../logic/training';
+import { e1rm, e1rmSeries, personalBests, plateau, sessionsOf, strengthForecast } from '../../logic/training';
+import { effortCheck, progressionPlan, smartTarget } from '../../logic/progression';
+import { useTrainingContext } from './useTrainingContext';
 import { useNow } from '../../app/useNow';
 import { Button } from '../../components/ui/Button';
 import { GoalSheet } from './TrainingSheets';
@@ -22,6 +24,7 @@ export function ExerciseScreen({ id }: { id: string }) {
   const fam = useFamily();
   const settings = useSettings();
   const now = useNow(60_000);
+  const today = useTrainingContext(fam?.personId, now);
   const [goal, setGoal] = useState(false);
   if (!workouts || !own || !fam || !settings) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
   const def = allExercises(own).find((x) => x.id === id);
@@ -32,7 +35,9 @@ export function ExerciseScreen({ id }: { id: string }) {
   const units = settings.units;
   const L = (kg: number) => fmtLoad(kg, units);
   const each = def.perHand ? ' each' : '';
-  const t = nextTarget(def, mine, undefined, units);
+  const t = smartTarget(def, mine, { units, readiness: today?.readiness, weakDay: today?.weakDay, now });
+  const plan = progressionPlan(def, mine, now, units, 4, t.why === 'start' ? undefined : t);
+  const effort = effortCheck(id, mine, now);
   // No weight used (a plank, plain push-ups): progress is reps or seconds, not an estimated max.
   const noLoad = !!def.timed || (!!def.bodyweight && !mine.some((w) => w.sets.some((x) => x.exerciseId === id && x.weightKg > 0)));
   const swaps = swapsFor(def, allExercises(own), new Map(), 4);
@@ -73,8 +78,19 @@ export function ExerciseScreen({ id }: { id: string }) {
       )}
       <section className="border-t border-border pt-4 pb-2">
         <h3 className="text-sm font-medium text-muted mb-1">Next time</h3>
-        <p className="text-[17px] tnum">{t.sets} × {t.reps}{def.timed ? ' s' : ''}{t.weightKg ? ` at ${L(t.weightKg)}${each}` : ''}</p>
+        <p className="text-[17px] tnum">{t.why === 'push' ? 'Push: ' : t.why === 'hold' ? 'Hold: ' : ''}{t.sets} × {t.reps}{def.timed ? ' s' : ''}{t.weightKg ? ` at ${L(t.weightKg)}${each}` : ''}</p>
+        <p className="text-[15px] text-muted">{t.reason}</p>
+        {effort.text && <p className={`text-[15px] mt-1 ${effort.status === 'room' ? 'font-medium' : ''}`}>{effort.text}</p>}
         {flat && <p className="text-[15px] mt-1">{flat.harder ? 'Feeling harder at the same weight lately.' : 'No improvement for about 3 weeks.'} A lighter week (about 10% less) and then building back up often helps.</p>}
+        {plan.steps.length > 0 && t.why !== 'start' && !noLoad && (
+          <div className="mt-3">
+            <p className="text-sm font-medium text-muted">If each session goes to plan</p>
+            <ol className="text-[15px] tnum">
+              {plan.steps.map((p) => <li key={p.n}>{p.at ? format(p.at, 'EEE d MMM') : `Session ${p.n}`}: {p.sets} × {p.reps}{p.weightKg ? ` at ${L(p.weightKg)}${each}` : ''}</li>)}
+            </ol>
+            <p className="text-xs text-muted">{plan.everyDays ? `You do this about every ${plan.everyDays} days. ` : ''}Each step needs every set to hit its reps first; a stall or a hard week resets it.{plan.perWeekPct !== undefined ? ` Your trend: ${plan.perWeekPct > 0 ? '+' : ''}${plan.perWeekPct}% a week.` : ''}</p>
+          </div>
+        )}
         <Button variant="secondary" className="mt-2" onClick={() => setGoal(true)}>{g ? 'Edit goal' : 'Set a goal'}</Button>
       </section>
       {pb.repsAt.length > 0 && !def.timed && pb.repsAt.some((x) => x.kg > 0) && (

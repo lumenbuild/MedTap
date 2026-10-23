@@ -10,7 +10,8 @@ import { addExerciseNow, addIntake, finishCardio, startCardio, startWorkout, new
 import { setSetting } from '../../db/repos/settings';
 import { allExercises } from '../../logic/exercises';
 import { actionTitle, openWorkout, plannedSets } from '../../logic/tagActions';
-import { nextTarget } from '../../logic/training';
+import { smartTarget } from '../../logic/progression';
+import { useTrainingContext } from '../Training/useTrainingContext';
 import { fmtLoad } from '../../logic/load';
 import { useNow } from '../../app/useNow';
 import { useToast } from '../../app/toast';
@@ -31,6 +32,7 @@ export function ActionTag({ tag, personName }: { tag: Tag; personName?: string }
   const workouts = useWorkouts(); const own = useExercises(); const routines = useRoutines(); const daily = useDaily();
   const ss = useScheduleSettings(); const checkIns = useCheckIns(); const doses = useDoses(); const meds = useMeds();
   const now = useNow(1000);
+  const today = useTrainingContext(tag.personId ?? DEFAULT_PERSON, now);
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [km, setKm] = useState('');
@@ -68,15 +70,15 @@ export function ActionTag({ tag, personName }: { tag: Tag; personName?: string }
       if (!def) return <Missing what="exercise" close={close} />;
       const open = openWorkout(ws, now);
       const inIt = open?.sets.some((x) => x.exerciseId === def.id);
-      const t = nextTarget(def, ws, undefined, settings.units);
-      const aim = t.why === 'start' ? 'First time: choose a weight you can lift with good form.' : `Aim: ${t.sets} × ${t.reps}${def.timed ? ' s' : ''}${t.weightKg ? ` at ${fmtLoad(t.weightKg, settings.units)}${def.perHand ? ' each' : ''}` : ''}`;
+      const t = smartTarget(def, ws, { units: settings.units, readiness: today?.readiness, weakDay: today?.weakDay, now });
+      const aim = t.why === 'start' ? t.reason : `${t.reason} Aim: ${t.sets} × ${t.reps}${def.timed ? ' s' : ''}${t.weightKg ? ` at ${fmtLoad(t.weightKg, settings.units)}${def.perHand ? ' each' : ''}` : ''}`;
       const label = !open ? 'Start a workout with it' : inIt ? 'Open the workout' : 'Add to my workout';
       return (
         <section>
           {head(open ? `${inIt ? 'Already in' : 'Adds it to'} your workout (started ${Math.round((now - Date.parse(open.startedAt)) / 60_000)} min ago).` : 'No workout in progress, so this starts one.')}
           <p className="text-[15px] tnum mb-5">{aim}</p>
           <Button className="w-full min-h-[56px]" disabled={busy} onClick={() => run(async () => {
-            const r = await addExerciseNow(personId, def, ws, Date.now(), settings.units);
+            const r = await addExerciseNow(personId, def, ws, Date.now(), settings.units, today ?? undefined);
             if (r.added) toast(r.started ? `Workout started with ${def.name}` : `${def.name} added`);
             try { sessionStorage.setItem('medtap.scrollTo', def.id); } catch { /* not available */ }
             replace(`/training/workout/${r.workout.id}`);
@@ -91,7 +93,7 @@ export function ActionTag({ tag, personName }: { tag: Tag; personName?: string }
       if (!r) return <Missing what="routine" close={close} />;
       const open = openWorkout(ws, now);
       const begin = () => run(async () => {
-        const sets = r.items.flatMap((it) => { const def = defs.find((d) => d.id === it.exerciseId); return def ? plannedSets(def, ws, it, newSetId, settings.units) : []; });
+        const sets = r.items.flatMap((it) => { const def = defs.find((d) => d.id === it.exerciseId); return def ? plannedSets(def, ws, it, newSetId, settings.units, today ? { ...today, now } : undefined) : []; });
         const w = await startWorkout(personId, { routine: r, sets });
         toast(`${r.name} started`);
         replace(`/training/workout/${w.id}`);

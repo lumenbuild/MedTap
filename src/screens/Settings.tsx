@@ -181,6 +181,9 @@ export function Settings() {
               <Switch label="Work out rest for each set" checked={settings.smartRest} onChange={(v) => setSetting('smartRest', v)}>
                 Starting from your rest timer: at least 3 min after heavy sets (5 reps or fewer) of big lifts, up to 1½ min for smaller muscles, 30 s more after a very hard set, and 15 s between supersets.
               </Switch>
+              <Switch label="Adjust the next sets as I go" checked={settings.autoAdjust} onChange={(v) => setSetting('autoAdjust', v)}>
+                After a set at RPE 7 or easier that hit its reps, the rest of that exercise goes up a step; after RPE 9.5+ or 2 reps short, down a step. Undo is on the message.
+              </Switch>
               {isNative && (
                 <Switch label="Remind me on my usual training days" checked={settings.trainingReminders} onChange={async (v) => { const on = await setTrainingReminders(v); if (v && !on) toast('Notifications are off for this app. Turn them on in your phone’s settings.'); }}>
                   Learned from when you train: 30 minutes before your usual time, skipped if you’ve already trained that day. Also a morning note when your sessions-a-week goal needs a session every day left.

@@ -19,6 +19,7 @@ import { ACTIVITIES, CardioSheet, GoalSheet, PlatesSheet, StartSheet } from './T
 import { finishCardio } from '../../db/repos/training';
 import { fmtLoad } from '../../logic/load';
 import { habitText, trainingHabit } from '../../logic/trainingPlan';
+import { effortCheck } from '../../logic/progression';
 import { setTrainingReminders } from '../../app/native';
 import { setSetting } from '../../db/repos/settings';
 import { useToast } from '../../app/toast';
@@ -51,6 +52,7 @@ export function Training() {
   const peptide = settings.peptideTools ? meds.find((m) => m.peptide && !m.archived && medIsFor(m, fam.personId)) : undefined;
   const cardio = ws.filter((w) => w.cardio);
   const habit = trainingHabit(ws, now, s);
+  const pushable = lifted.map((id) => effortCheck(id, ws, now)).filter((e) => e.status === 'room');
   const maxCal = Math.max(1, ...cal.weeks.map((x) => x.sessions), sessionsGoal?.perWeek ?? 0);
 
   return (
@@ -126,6 +128,14 @@ export function Training() {
               );
             })}
           </ul>
+        </section>
+      )}
+
+      {pushable.length > 0 && (
+        <section className="border-t border-border pt-5 pb-1" aria-labelledby="push-h">
+          <h2 id="push-h" className="text-sm font-medium text-muted mb-1">Room to push</h2>
+          <ul className="text-[15px] space-y-1">{pushable.map((e) => <li key={e.exerciseId}><a className="font-medium underline underline-offset-4" href={`#/training/exercise/${e.exerciseId}`}>{defs.find((d) => d.id === e.exerciseId)?.name}</a>: {e.text}</li>)}</ul>
+          <p className="text-xs text-muted mt-1">From how hard your sets felt (RPE) and your trend. Next session’s targets already allow for it.</p>
         </section>
       )}
 
