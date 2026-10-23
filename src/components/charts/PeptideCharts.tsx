@@ -1,9 +1,9 @@
 // Peptide tools charts: estimated level, what happened at each dose, and blend amounts.
-import { Bar, Line } from 'react-chartjs-2';
+import { Bar } from 'react-chartjs-2';
 import { format } from 'date-fns';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
 import type { Units } from '../../db/repos/settings';
-import { blendAmounts, doseLevels, estimatedLevel } from '../../logic/peptide';
+import { blendAmounts, doseLevels } from '../../logic/peptide';
 import { fmtAmount } from '../../logic/format';
 import { fmtWeight, kgTo, weightUnit } from '../../logic/units';
 import { ymdToMs } from '../../logic/stats';
@@ -13,41 +13,7 @@ import { ChartCard } from './ChartCard';
 import { baseOptions, timeAxis, useChartTheme } from './setup';
 import type { RangeProps } from './Charts';
 
-const DAY = 86_400_000;
 const fmtDay = (t: number) => format(t, 'EEE d MMM');
-const fmtHalfLife = (h: number) => (h >= 24 ? `${Math.round((h / 24) * 10) / 10} days` : `${h} hours`);
-
-/** Estimated amount in the body over the range, one chart per medication with a half-life entered. */
-export function EstimatedLevelCharts({ meds, doses, start, end }: RangeProps & { meds: Medication[]; doses: Dose[] }) {
-  const th = useChartTheme();
-  const withHalfLife = meds.filter((m) => m.peptide?.halfLifeHours && doses.some((d) => d.medicationId === m.id));
-  return (
-    <>
-      {withHalfLife.map((m) => {
-        const h = m.peptide!.halfLifeHours!;
-        const pts = estimatedLevel(doses.filter((d) => d.medicationId === m.id), h, start, end);
-        const r3 = (v: number) => (v >= 10 ? Math.round(v * 10) / 10 : v >= 1 ? Math.round(v * 100) / 100 : Math.round(v * 1000) / 1000);
-        // The value now (the range can run to the end of today), as on the Protocol tab.
-        const nowV = [...pts].reverse().find((p) => p.t <= Date.now())?.v ?? pts[pts.length - 1]?.v ?? 0;
-        const peak = Math.max(0, ...pts.map((p) => p.v));
-        const daily = pts.filter((_, i) => i % Math.max(1, Math.round(pts.length / ((end - start) / DAY))) === 0);
-        return (
-          <ChartCard key={`${m.id}-${th.key}`} title={`Estimated level: ${shownName(m)}`}
-            empty={peak > 0 ? null : 'No doses in this range.'}
-            summary={`About ${fmtAmount(r3(nowV), m.unit)} now, from your half-life figure of ${fmtHalfLife(h)}.`}
-            table={{ head: ['Date', `Estimated (${m.unit})`], rows: daily.map((p) => [fmtDay(p.t), Math.round(p.v * 1000) / 1000]).reverse() }}>
-            <Line
-              data={{ datasets: [{ label: 'Estimated level', data: pts.map((p) => ({ x: p.t, y: p.v })), borderColor: th.series[0], backgroundColor: th.series[0], borderWidth: 2, pointRadius: 0, pointHitRadius: 8, tension: 0.2, fill: false }] }}
-              options={{ ...baseOptions(th),
-                plugins: { ...baseOptions(th).plugins, tooltip: { ...baseOptions(th).plugins.tooltip, callbacks: { label: (c) => `About ${(c.parsed.y as number).toFixed(3)} ${m.unit}` } } },
-                scales: { x: timeAxis(th, start, end), y: { ...baseOptions(th).scales.y, min: 0, ticks: { ...baseOptions(th).scales.y.ticks, callback: (v) => `${v} ${m.unit}` } } } }}
-            />
-          </ChartCard>
-        );
-      })}
-    </>
-  );
-}
 
 /** For each injected medication: each dose level, how weight changed and what check-ins noted. */
 export function DoseLevelsCards({ meds, doses, body, checkIns, units, now }: { meds: Medication[]; doses: Dose[]; body: BodyEntry[]; checkIns: CheckIn[]; units: Units; now: number }) {

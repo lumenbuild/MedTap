@@ -12,22 +12,22 @@ import { dayKey } from '../../logic/stats';
 import { fmtAmount, fmtSchedule, fmtWhen } from '../../logic/format';
 import { guideText, isPen, stockVials, SUPPLY_LABELS, vialStatus } from '../../logic/peptide';
 import { DEFAULT_LEAD_DAYS, lotStats, stockPlan, supplyPlans } from '../../logic/protocol';
-import { appetiteCurve, bestShotDay, changeFlags, lateShots, sideEffectForecast, vialRest, weekFindings, weekRecords, weightPath, basisText } from '../../logic/predict';
+import { appetiteCurve, bestShotDay, changeFlags, lateShots, sideEffectForecast, vialRest, weekFindings, weekRecords, weightPath } from '../../logic/predict';
 import type { Units } from '../../db/repos/settings';
 import { HAS_BODY } from '../../edition';
 import { kgTo } from '../../logic/units';
-import { AppetiteStrip, Basis, ComingWeek, FlagList, LateShotsSheet, NeedsSheet, PatternsSheet, ShotDaySheet, vialRestText } from './Predictions';
+import { AppetiteStrip, ComingWeek, FlagList, LateShotsSheet, NeedsSheet, PatternsSheet, ShotDaySheet, vialRestText, WeeklySummaryBlock } from './Predictions';
+import { weeklySummary } from '../../logic/predict';
 import { shownColour, shownName } from '../../logic/privacy';
 import { MedBadge } from '../../components/MedBadge';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { Button } from '../../components/ui/Button';
 import { WeekStrip } from './WeekStrip';
 import { Tile } from '../../components/ui/Visual';
-import { Calculator, CalendarRange, FileText, Package } from 'lucide-react';
+import { Calculator, CalendarRange, ChevronRight, FileText, Package, TrendingDown } from 'lucide-react';
 import { LeadTimeSheet, LotSheet } from './ProtocolSheets';
 
 const LevelProjection = lazy(() => import('../../components/charts/LevelProjection'));
-const WeightPathChart = lazy(() => import('../../components/charts/WeightPath'));
 const DAY = 86_400_000;
 const day = (ms: number) => format(ms, 'EEE d MMM');
 const ymdDay = (ymd: string) => format(new Date(`${ymd}T12:00`), 'EEE d MMM');
@@ -67,13 +67,7 @@ export function Protocol() {
 
       {sup.length > 0 && (
         <section aria-labelledby="sup-h" className="border-t border-border pt-5">
-          <div className="flex items-baseline justify-between">
-            <h2 id="sup-h" className="text-sm font-medium text-muted">Supplies</h2>
-            <span className="flex gap-4">
-              <button type="button" onClick={() => setNeeds(true)} className="text-sm font-medium underline underline-offset-4">Enough until…</button>
-              <a href="#/supplies" className="text-sm font-medium underline underline-offset-4">Update counts</a>
-            </span>
-          </div>
+          <h2 id="sup-h" className="text-sm font-medium text-muted">Supplies</h2>
           <dl className="mt-1">
             {sup.map(({ supply, count, runOutAt, orderBy }) => {
               const label = SUPPLY_LABELS[supply.kind];
@@ -164,6 +158,7 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal 
       <p className="ml-5 text-[15px] text-muted">{fmtSchedule(med.schedule, med.unit)}</p>
 
       <div className="my-5"><WeekStrip med={med} doses={doses} s={s} now={now} label={false} /></div>
+      <div className="mb-5"><WeeklySummaryBlock w={weeklySummary(med, doses, checkIns, HAS_BODY ? body : [], now, s)} med={med} units={units} /></div>
       <FlagList flags={flags} />
 
       <dl>
@@ -248,14 +243,17 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal 
 
       {HAS_BODY && (
         <div className="mt-5">
-          <p className="text-sm font-medium text-muted mb-2">Weight path</p>
           {path ? (
-            <>
-              <Suspense fallback={<div className="h-[170px]" />}><WeightPathChart path={path} body={body} units={units} now={now} /></Suspense>
-              <p className="text-[15px] mt-2 tnum">{pathSummary(path, units, med.unit)}</p>
-              <Basis text={`${basisText(path.basis)}. If the trend continues${path.segments.length > 1 ? ', following your planned changes' : ''}.`} />
-            </>
-          ) : <p className="text-sm text-muted">Log your weight 5 times over a week or more to see where it's heading through your plan.</p>}
+            <a href="#/progress" onClick={() => { try { localStorage.setItem('progressView', 'trends'); } catch { /* preference only */ } }}
+              className="flex items-center gap-3 rounded-card bg-surface-2 p-3">
+              <TrendingDown aria-hidden="true" className="shrink-0" />
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm text-muted">Weight in {path.points.length - 1} weeks</span>
+                <span className="block tnum"><span className="text-[22px] font-semibold">{kgTo(path.points[path.points.length - 1].v, units)}</span> <span className="text-sm text-muted">{units === 'imperial' ? 'lb' : 'kg'} · likely {kgTo(path.points[path.points.length - 1].low, units)}–{kgTo(path.points[path.points.length - 1].high, units)}</span></span>
+              </span>
+              <span className="text-sm font-medium flex items-center gap-1">Chart <ChevronRight size={16} aria-hidden="true" /></span>
+            </a>
+          ) : <p className="text-sm text-muted">Log weight 5 times to see where it's heading.</p>}
         </div>
       )}
 
@@ -277,15 +275,3 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal 
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-function pathSummary(p: NonNullable<ReturnType<typeof weightPath>>, units: Units, unit: string): string {
-  const u = units === 'imperial' ? 'lb' : 'kg';
-  const k = (kg: number) => kgTo(kg, units);
-  const end = p.points[p.points.length - 1];
-  const weeks = p.points.length - 1;
-  let out = `About ${k(end.v)} ${u} in ${weeks} weeks (likely ${k(end.low)}–${k(end.high)}), at ${k(p.perWeek)} ${u} a week now.`;
-  const later = p.segments.slice(1).filter((x) => x.basis === 'this-dose');
-  if (later.length) out += ` From ${format(later[0].from, 'd MMM')} uses your own rate on ${fmtAmount(later[0].amount, unit)}.`;
-  if (p.goal?.eta) out += ` Reaches your goal around ${format(p.goal.eta, 'd MMM')}${p.goal.early && p.goal.late ? ` (likely ${format(p.goal.early, 'd MMM')}–${format(p.goal.late, 'd MMM')})` : ''}.`;
-  else if (p.goal) out += ' Your goal is beyond these weeks.';
-  return out;
-}

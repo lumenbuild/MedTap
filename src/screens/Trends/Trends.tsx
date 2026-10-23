@@ -15,10 +15,13 @@ import { useNow } from '../../app/useNow';
 import { RANGE_DAYS, rangeStart, type Range } from '../../logic/stats';
 import { Segmented } from '../../components/ui/Field';
 import {
-  AdherenceHeatmap, AppetiteWeight, VitalsCharts, DoseTimingCharts, FeelingsChart, IntervalCharts, MeasurementCharts, NoticedMost, WeightChart,
+  AdherenceHeatmap, VitalsCharts, DoseTimingCharts, FeelingsChart, IntervalCharts, MeasurementCharts, NoticedMost, WeightChart,
 } from '../../components/charts/Charts';
 import { GoalForecastCharts } from '../../components/charts/GoalCharts';
-import { BlendCharts, DoseLevelsCards, EstimatedLevelCharts } from '../../components/charts/PeptideCharts';
+import { BlendCharts, DoseLevelsCards } from '../../components/charts/PeptideCharts';
+import { weightPath } from '../../logic/predict';
+import { goalLine, goalView } from '../Body/Goals';
+import { fmtWeight } from '../../logic/units';
 import { shownName } from '../../logic/privacy';
 import { HAS_BODY, HAS_VISITS } from '../../edition';
 
@@ -87,16 +90,34 @@ export function Trends() {
       </div>
       {HAS_BODY && (
         <>
-          <GoalForecastCharts goals={fam.people.find((p) => p.id === fam.personId)?.goals ?? []} entries={body} units={settings.units} now={now} />
-          <WeightChart entries={body} units={settings.units} {...common} marks={weightMarks} />
-          <MeasurementCharts entries={body} units={settings.units} {...common} />
+          {(() => {
+            // One chart per measure: weight carries its goal and forecast; other goals get their own chart, which then
+            // stands in for that measurement's small chart.
+            const goals = fam.people.find((p) => p.id === fam.personId)?.goals ?? [];
+            const wGoal = goals.find((g) => g.metric === 'weightKg');
+            const path = peptideMeds[0] ? weightPath(peptideMeds[0], doses, body, now, 12, wGoal?.target) : null;
+            const gv = wGoal ? goalView(wGoal, body, now) : null;
+            const last = path?.points[path.points.length - 1];
+            // Look as far ahead as the range looks back, so history keeps its room.
+            const ahead = path ? path.points.filter((p) => p.t <= end + (end - start)) : [];
+            const forecast = path && last && ahead.length > 1
+              ? { points: ahead, text: `About ${fmtWeight(last.v, settings.units)} in ${path.points.length - 1} weeks through your plan` }
+              : gv && gv.f.level !== undefined && gv.f.eta ? { points: [{ t: now, v: gv.f.level }, { t: gv.f.eta, v: wGoal!.target }], text: goalLine(gv, settings.units) } : null;
+            const others = goals.filter((g) => g.metric !== 'weightKg');
+            return (
+              <>
+                <WeightChart entries={body} units={settings.units} {...common} marks={weightMarks} goalKg={wGoal?.target} forecast={forecast} />
+                <GoalForecastCharts goals={others} entries={body} units={settings.units} now={now} />
+                <MeasurementCharts entries={body} units={settings.units} {...common} skip={others.map((g) => g.metric)} />
+              </>
+            );
+          })()}
         </>
       )}
       {ciForecast && <CheckInForecastCard f={ciForecast} />}
       <AdherenceHeatmap meds={active} doses={doses} {...common} />
       <DoseTimingCharts meds={active} doses={doses} {...common} />
       <FeelingsChart checkIns={checkIns} events={events} meds={meds} prevStart={prevStart} {...common} />
-      <AppetiteWeight checkIns={checkIns} entries={body} units={settings.units} weight={HAS_BODY} {...common} />
       <VitalsCharts vitals={vitals} {...common} />
       <NoticedMost checkIns={checkIns} {...common} />
       <EffectWindowCards meds={active} doses={doses} checkIns={checkIns} now={now} />
@@ -110,7 +131,6 @@ export function Trends() {
       <IntervalCharts meds={active} doses={doses} {...common} />
       {peptideMeds.length > 0 && (
         <>
-          <EstimatedLevelCharts meds={peptideMeds} doses={doses} {...common} />
           <BlendCharts meds={peptideMeds} doses={doses} {...common} />
           <DoseLevelsCards meds={peptideMeds} doses={doses} body={body} checkIns={checkIns} units={settings.units} now={now} />
         </>

@@ -14,6 +14,7 @@ import { medColour, resolveColour } from '../../logic/palette';
 import { MedBadge } from '../MedBadge';
 import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { ChartCard } from './ChartCard';
+import { METRIC_SLOT, TrendChart, type TrendSeries } from './TrendChart';
 import { baseOptions, timeAxis, useChartTheme, type ChartTheme } from './setup';
 
 const DAY = 86_400_000;
@@ -24,47 +25,36 @@ const fmtDay = (t: number) => format(t, 'EEE d MMM');
 const hourLabel = (h: number) => fmtHHmm(`${String(Math.floor(h) % 24).padStart(2, '0')}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`);
 const point = (th: ChartTheme, color: string) => ({ pointRadius: 4, pointHoverRadius: 6, pointBackgroundColor: color, pointBorderColor: th.surface, pointBorderWidth: 2, pointHitRadius: 12 });
 
-// 1. Weight: daily weigh-ins plus a 7-day rolling average.
-export function WeightChart({ entries, start, end, units, marks = [] }: RangeProps & { entries: BodyEntry[]; units: Units;
+// 1. Weight, the one weight chart: weigh-ins, the 7-day average, the goal, and where it's heading (through the dose
+// plan when there is one, else towards the goal) with its likely range.
+export interface WeightForecast { points: { t: number; v: number; low?: number; high?: number }[]; text?: string }
+export function WeightChart({ entries, start, end, units, marks = [], goalKg, forecast }: RangeProps & { entries: BodyEntry[]; units: Units;
   /** Dose changes to mark on the chart (peptide tools: titration steps). */
-  marks?: { at: number; text: string }[] }) {
-  const shown = marks.filter((m) => m.at >= start && m.at <= end).sort((a, b) => a.at - b.at);
-  const th = useChartTheme();
+  marks?: { at: number; text: string }[]; goalKg?: number; forecast?: WeightForecast | null }) {
   const all = bodySeries(entries, 'weightKg', -Infinity, Infinity);
   const inRange = (p: Pt) => p.t >= start - DAY / 2 && p.t <= end + DAY / 2;
   const pts = all.filter(inRange);
   const avg = rollingAverage(all).filter(inRange);
   const u = weightUnit(units);
-  return (
-    <ChartCard title="Weight" key={th.key}
-      empty={pts.length ? null : 'No weigh-ins in this range. Log your weight from Body or Today.'}
-      summary={changeSummary(avg, (v) => fmtWeight(v, units)) ?? (pts.length === 1 ? `One weigh-in: ${fmtWeight(pts[0].v, units)}` : null)}
-      table={{ head: ['Date', `Weight (${u})`, `7-day average (${u})`], rows: pts.map((p, i) => [fmtDay(p.t), kgTo(p.v, units), kgTo(avg[i].v, units)]).reverse() }}
-      footer={shown.length > 0 && (
-        <ol className="mt-3 space-y-1 text-sm">
-          {shown.map((m, i) => <li key={i} className="flex gap-2"><span className="font-semibold tnum w-4">{i + 1}</span><span className="text-muted tnum">{format(m.at, 'd MMM')}</span><span>{m.text}</span></li>)}
-        </ol>
-      )}>
-      <Line
-        data={{ datasets: [
-          { label: '7-day average', data: avg.map((p) => ({ x: p.t, y: kgTo(p.v, units) })), borderColor: th.series[0], backgroundColor: th.series[0], pointStyle: 'line', borderWidth: 2, pointRadius: 0, pointHitRadius: 0, tension: 0.3 },
-          { label: 'Weigh-ins', data: pts.map((p) => ({ x: p.t, y: kgTo(p.v, units) })), showLine: false, ...point(th, th.muted) },
-        ] }}
-        options={{ ...baseOptions(th),
-          plugins: { ...baseOptions(th).plugins, legend: { ...baseOptions(th).plugins.legend, display: true, position: 'top', align: 'start' },
-            tooltip: { ...baseOptions(th).plugins.tooltip, callbacks: { label: (c) => `${c.dataset.label}: ${(c.parsed.y as number).toFixed(1)} ${u}` } },
-            // @ts-expect-error custom plugin options
-            vlines: { lines: shown.map((m, i) => ({ x: m.at, label: String(i + 1) })), color: th.muted, text: th.text } },
-          scales: { x: timeAxis(th, start, end), y: { ...baseOptions(th).scales.y, grace: '5%', ticks: { ...baseOptions(th).scales.y.ticks, callback: (v) => `${v} ${u}` } } } }}
-      />
-    </ChartCard>
-  );
+  const k = (v: number) => kgTo(v, units);
+  const fc = forecast?.points.length ? forecast : null;
+  const to = fc ? Math.max(end, fc.points[fc.points.length - 1].t) : end;
+  const series: TrendSeries[] = [
+    { label: 'Weigh-ins', style: 'dots', points: pts.map((p) => ({ t: p.t, v: k(p.v) })) },
+    { label: '7-day average', style: 'line', points: avg.map((p) => ({ t: p.t, v: k(p.v) })) },
+    ...(fc ? [{ label: 'Forecast', style: 'forecast' as const, noTable: true, points: fc.points.map((p) => ({ t: p.t, v: k(p.v) })),
+      band: fc.points.filter((p) => p.low !== undefined && p.high !== undefined).map((p) => ({ t: p.t, low: k(p.low!), high: k(p.high!) })) }] : []),
+    ...(goalKg !== undefined ? [{ label: 'Goal', style: 'goal' as const, points: [{ t: start, v: k(goalKg) }, { t: to, v: k(goalKg) }] }] : []),
+  ];
+  const summary = [changeSummary(avg, (v) => fmtWeight(v, units)) ?? (pts.length === 1 ? `One weigh-in: ${fmtWeight(pts[0].v, units)}` : null), fc?.text].filter(Boolean).join('. ') || null;
+  return <TrendChart title="Weight" series={series} start={start} end={to} unit={u} marks={marks} summary={summary}
+    empty={pts.length ? null : 'No weigh-ins in this range.'} />;
 }
 
 // 2. Measurements: one small chart per measurement logged.
-export function MeasurementCharts({ entries, start, end, units }: RangeProps & { entries: BodyEntry[]; units: Units }) {
+export function MeasurementCharts({ entries, start, end, units, skip = [] }: RangeProps & { entries: BodyEntry[]; units: Units; skip?: string[] }) {
   const th = useChartTheme();
-  const series = MEASUREMENTS.map((m) => ({ ...m, pts: bodySeries(entries, m.key, start, end) })).filter((m) => m.pts.length);
+  const series = MEASUREMENTS.filter((m) => !skip.includes(m.key)).map((m) => ({ ...m, pts: bodySeries(entries, m.key, start, end) })).filter((m) => m.pts.length);
   const u = lengthUnit(units);
   return (
     <ChartCard title="Measurements" height={null} key={th.key}
@@ -79,7 +69,7 @@ export function MeasurementCharts({ entries, start, end, units }: RangeProps & {
               <p className="text-sm font-semibold">{m.label}</p>
               <p className="text-xs text-muted tnum">{fmtLength(last.v, units)}{m.pts.length > 1 && Math.abs(diff) >= 0.1 ? ` · ${diff > 0 ? '+' : '−'}${Math.abs(diff).toFixed(1)}` : ''}</p>
               <div style={{ height: 90 }} className="mt-1">
-                <Line data={{ datasets: [{ data: m.pts.map((p) => ({ x: p.t, y: cmTo(p.v, units) })), borderColor: th.series[0], borderWidth: 2, tension: 0.3, ...point(th, th.series[0]), pointRadius: m.pts.length > 12 ? 0 : 4 }] }}
+                <Line data={{ datasets: [{ data: m.pts.map((p) => ({ x: p.t, y: cmTo(p.v, units) })), borderColor: th.text, borderWidth: 2, tension: 0.3, ...point(th, th.text), pointRadius: m.pts.length > 12 ? 0 : 4 }] }}
                   options={{ ...baseOptions(th), plugins: { ...baseOptions(th).plugins, tooltip: { ...baseOptions(th).plugins.tooltip, callbacks: { label: (c) => `${c.parsed.y} ${u}` } } },
                     scales: { x: { ...timeAxis(th, start, end), display: false }, y: { ...baseOptions(th).scales.y, grace: '10%', ticks: { ...baseOptions(th).scales.y.ticks, maxTicksLimit: 3 } } } }} />
               </div>
@@ -185,77 +175,20 @@ export function DoseTimingCharts({ meds, doses, start, end, s, realNames }: Rang
 // 5. How you've felt: mood, energy, focus with markers for medication changes.
 export function FeelingsChart({ checkIns, events, meds, start, end, s, prevStart, realNames }: RangeProps & { checkIns: CheckIn[]; events: MedEvent[]; meds: Medication[]; prevStart: number | null }) {
   const nameOf = nameFor(realNames);
-  const th = useChartTheme();
-  const fields = [['mood', 'Mood'], ['energy', 'Energy'], ['focus', 'Focus']] as const;
-  const series = fields.map(([f, label], i) => ({ f, label, color: th.series[i], pts: dailyAverages(checkIns, f, start, end, s) }));
+  const fields = [['mood', 'Mood'], ['energy', 'Energy'], ['focus', 'Focus'], ['appetite', 'Appetite']] as const;
   const marks = events.filter((e) => Date.parse(e.at) >= start && Date.parse(e.at) <= end).sort((a, b) => a.at.localeCompare(b.at));
   const periodDays = prevStart === null ? null : Math.round((end - start) / DAY);
   const cur = average(checkIns, 'mood', start, end);
   const prev = prevStart === null ? null : average(checkIns, 'mood', prevStart, start);
-  const any = series.some((x) => x.pts.length);
   const medName = (id: string) => { const m = meds.find((x) => x.id === id); return m ? nameOf(m) : 'Medication'; };
   // Started/stopped summaries were written with the real name, so rebuild them with the name being shown.
   const markText = (e: MedEvent) => e.kind === 'changed' ? `${medName(e.medicationId)}: ${e.summary}`
     : `${e.kind === 'stopped' ? 'Stopped' : e.summary.startsWith('Restarted') ? 'Restarted' : 'Started'} ${medName(e.medicationId)}`;
-  return (
-    <ChartCard title="How you've felt" key={th.key}
-      empty={any ? null : 'No check-ins in this range. A check-in takes about 20 seconds.'}
-      summary={averageSummary('Mood', cur, prev, periodDays)}
-      table={{ head: ['Date', 'Mood', 'Energy', 'Focus'], rows: [...new Set(series.flatMap((x) => x.pts.map((p) => p.t)))].sort((a, b) => b - a)
-        .map((t) => [fmtDay(t), ...series.map((x) => x.pts.find((p) => p.t === t)?.v.toFixed(1) ?? '–')]) }}
-      footer={marks.length > 0 && (
-        <ol className="mt-3 space-y-1 text-sm">
-          {marks.map((e, i) => <li key={e.id} className="flex gap-2"><span className="font-semibold tnum w-4">{i + 1}</span><span className="text-muted tnum">{format(Date.parse(e.at), 'd MMM')}</span><span>{markText(e)}</span></li>)}
-        </ol>
-      )}>
-      <Line
-        data={{ datasets: series.map((x) => ({ label: x.label, data: x.pts.map((p) => ({ x: p.t, y: p.v })), borderColor: x.color, borderWidth: 2, tension: 0.3, ...point(th, x.color), pointRadius: x.pts.length > 30 ? 0 : 4 })) }}
-        options={{ ...baseOptions(th),
-          plugins: { ...baseOptions(th).plugins, legend: { ...baseOptions(th).plugins.legend, display: true, position: 'top', align: 'start' },
-            tooltip: { ...baseOptions(th).plugins.tooltip, mode: 'index', callbacks: { label: (c) => `${c.dataset.label}: ${(c.parsed.y as number).toFixed(1)}` } },
-            // @ts-expect-error custom plugin options
-            vlines: { lines: marks.map((e, i) => ({ x: Date.parse(e.at), label: String(i + 1) })), color: th.muted, text: th.text } },
-          scales: { x: timeAxis(th, start, end), y: { ...baseOptions(th).scales.y, min: 1, max: 5, ticks: { ...baseOptions(th).scales.y.ticks, stepSize: 1 } } } }}
-      />
-    </ChartCard>
-  );
-}
-
-// 6. Appetite and weight: two charts on the same dates (never one chart with two scales).
-/** Appetite from check-ins beside the weight trend. `weight={false}` (TapDose) shows appetite alone. */
-export function AppetiteWeight({ checkIns, entries, start, end, s, units, weight = true }: RangeProps & { checkIns: CheckIn[]; entries: BodyEntry[]; units: Units; weight?: boolean }) {
-  const th = useChartTheme();
-  const app = dailyAverages(checkIns, 'appetite', start, end, s);
-  const all = weight ? bodySeries(entries, 'weightKg', -Infinity, Infinity) : [];
-  const w = rollingAverage(all).filter((p) => p.t >= start - DAY / 2 && p.t <= end + DAY / 2);
-  const appAvg = average(checkIns, 'appetite', start, end);
-  const summary = [appAvg !== null ? `Appetite averaged ${appAvg.toFixed(1)}` : null, changeSummary(w, (v) => fmtWeight(v, units))].filter(Boolean).join('. ');
-  const mini = (label: string, pts: Pt[], color: string, y: object, fmt: (v: number) => string) => (
-    <div>
-      <p className="text-sm font-semibold">{label}</p>
-      <div style={{ height: 120 }} className="mt-1">
-        {pts.length ? (
-          <Line data={{ datasets: [{ label, data: pts.map((p) => ({ x: p.t, y: p.v })), borderColor: color, borderWidth: 2, tension: 0.3, ...point(th, color), pointRadius: pts.length > 30 ? 0 : 4 }] }}
-            options={{ ...baseOptions(th), plugins: { ...baseOptions(th).plugins, tooltip: { ...baseOptions(th).plugins.tooltip, callbacks: { label: (c) => fmt(c.parsed.y as number) } } },
-              scales: { x: timeAxis(th, start, end), y: { ...baseOptions(th).scales.y, ...y } } }} />
-        ) : <p className="text-sm text-muted">Nothing logged in this range.</p>}
-      </div>
-    </div>
-  );
-  return (
-    <ChartCard title={weight ? 'Appetite and weight' : 'Appetite'} height={null} key={th.key}
-      empty={app.length || w.length ? null : weight ? 'Log appetite in a check-in and your weight to compare them here.' : 'Log appetite in a check-in to see it here.'}
-      summary={summary || null}
-      table={weight
-        ? { head: ['Date', 'Appetite (avg)', `Weight 7-day avg (${weightUnit(units)})`],
-          rows: [...new Set([...app, ...w].map((p) => p.t))].sort((a, b) => b - a).map((t) => [fmtDay(t), app.find((p) => p.t === t)?.v.toFixed(1) ?? '–', w.find((p) => p.t === t) ? kgTo(w.find((p) => p.t === t)!.v, units) : '–']) }
-        : { head: ['Date', 'Appetite (avg)'], rows: [...app].sort((a, b) => b.t - a.t).map((p) => [fmtDay(p.t), p.v.toFixed(1)]) }}>
-      <div className="space-y-4">
-        {mini('Appetite (daily average, 1–5)', app, th.series[1], { min: 1, max: 5, ticks: { ...baseOptions(th).scales.y.ticks, stepSize: 1 } }, (v) => `Appetite ${v.toFixed(1)}`)}
-        {weight && mini(`Weight (7-day average, ${weightUnit(units)})`, w.map((p) => ({ t: p.t, v: kgTo(p.v, units) })), th.series[0], { grace: '5%' }, (v) => `${v.toFixed(1)} ${weightUnit(units)}`)}
-      </div>
-    </ChartCard>
-  );
+  const series: TrendSeries[] = fields.map(([f, label]) => ({ label, style: 'line' as const, slot: METRIC_SLOT[f], points: dailyAverages(checkIns, f, start, end, s) }))
+    .filter((x) => x.points.length);
+  return <TrendChart title="How you've felt" series={series} start={start} end={end} yMin={1} yMax={5} step={1}
+    fmt={(v) => v.toFixed(1)} marks={marks.map((e) => ({ at: Date.parse(e.at), text: markText(e) }))}
+    summary={averageSummary('Mood', cur, prev, periodDays)} empty="No check-ins in this range." />;
 }
 
 // 7. Noticed most: the most frequent check-in chips.
@@ -323,11 +256,10 @@ export function VitalsCharts({ vitals, start, end }: RangeProps & { vitals: Vita
     bp.length ? `Blood pressure averaged ${avg(bp.map((v) => v.systolic!))}/${avg(bp.map((v) => v.diastolic!))} mmHg over ${bp.length} reading${bp.length === 1 ? '' : 's'}` : '',
     hr.length ? `heart rate averaged ${avg(hr.map((v) => v.heartRate!))} bpm` : '',
   ].filter(Boolean).join('; ');
-  const line = (label: string, pts: { x: number; y: number }[], color: string) =>
-    ({ label, data: pts, borderColor: color, backgroundColor: color, borderWidth: 2, tension: 0.2, ...point(th, color), pointRadius: pts.length > 40 ? 0 : 4 });
+  const at = (v: Vital) => Date.parse(v.at);
   return (
     <ChartCard title="Blood pressure and heart rate" height={null} key={th.key}
-      empty={inRange.length ? null : 'No readings in this range. Log one from Today or Body.'}
+      empty={inRange.length ? null : 'No readings in this range.'}
       summary={summary ? summary[0].toUpperCase() + summary.slice(1) : null}
       table={{ head: ['When', 'Blood pressure (mmHg)', 'Heart rate (bpm)'], rows: [...inRange].reverse().map((v) =>
         [format(Date.parse(v.at), 'EEE d MMM, h:mm a'), v.systolic ? `${v.systolic}/${v.diastolic}` : '–', v.heartRate ?? '–']) }}>
@@ -335,26 +267,18 @@ export function VitalsCharts({ vitals, start, end }: RangeProps & { vitals: Vita
         {bp.length > 0 && (
           <div>
             <p className="text-sm font-semibold">Blood pressure (mmHg)</p>
-            <div style={{ height: 170 }} className="mt-1">
-              <Line data={{ datasets: [
-                line('Top (systolic)', bp.map((v) => ({ x: Date.parse(v.at), y: v.systolic! })), th.series[0]),
-                line('Bottom (diastolic)', bp.map((v) => ({ x: Date.parse(v.at), y: v.diastolic! })), th.series[1]),
-              ] }}
-                options={{ ...baseOptions(th),
-                  plugins: { ...baseOptions(th).plugins, legend: { ...baseOptions(th).plugins.legend, display: true, position: 'top', align: 'start' },
-                    tooltip: { ...baseOptions(th).plugins.tooltip, mode: 'index', callbacks: { label: (c) => `${c.dataset.label}: ${c.parsed.y}` } } },
-                  scales: { x: timeAxis(th, start, end), y: { ...baseOptions(th).scales.y, grace: '10%' } } }} />
-            </div>
+            <TrendChart bare height={170} title="Blood pressure" start={start} end={end} fmt={(v) => `${Math.round(v)} mmHg`}
+              series={[
+                { label: 'Systolic', style: 'line', slot: METRIC_SLOT.systolic, points: bp.map((v) => ({ t: at(v), v: v.systolic! })) },
+                { label: 'Diastolic', style: 'line', slot: METRIC_SLOT.diastolic, points: bp.map((v) => ({ t: at(v), v: v.diastolic! })) },
+              ]} />
           </div>
         )}
         {hr.length > 0 && (
           <div>
             <p className="text-sm font-semibold">Heart rate (bpm)</p>
-            <div style={{ height: 130 }} className="mt-1">
-              <Line data={{ datasets: [line('Heart rate', hr.map((v) => ({ x: Date.parse(v.at), y: v.heartRate! })), th.series[2])] }}
-                options={{ ...baseOptions(th), plugins: { ...baseOptions(th).plugins, tooltip: { ...baseOptions(th).plugins.tooltip, callbacks: { label: (c) => `${c.parsed.y} bpm` } } },
-                  scales: { x: timeAxis(th, start, end), y: { ...baseOptions(th).scales.y, grace: '10%' } } }} />
-            </div>
+            <TrendChart bare height={130} title="Heart rate" start={start} end={end} fmt={(v) => `${Math.round(v)} bpm`}
+              series={[{ label: 'Heart rate', style: 'line', points: hr.map((v) => ({ t: at(v), v: v.heartRate! })) }]} />
           </div>
         )}
       </div>

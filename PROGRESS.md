@@ -520,6 +520,27 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
 - Help text cut across the medicine editor, schedules, tags, vials, training, sync and charts; chart footnotes
   are a few words ("3 shots · 81 check-ins").
 
+## Charts: one system, one home per measure (owner: "better systems for data visualisation without doubling up")
+- `src/components/charts/TrendChart.tsx` is the one over-time chart: one y-axis; a single series in ink (no legend;
+  the title names it), 2+ series in fixed categorical slots (`METRIC_SLOT`: mood, energy, focus, appetite, systolic,
+  diastolic) with a legend and labels at the line ends (skipped when they'd collide); 2px lines, 8px dots with a 2px
+  surface ring, raw readings lighter than the line; forecasts dashed with the likely range as a light wash; goals as
+  a dotted ink line; a crosshair on hover; and an automatic table. Weight, goals, feelings, vitals, estimated level
+  and strength all use it.
+- Palette checked with the dataviz validator: light and dark both pass (CVD worst adjacent ΔE 9.1 / 8.4). Three
+  light hues are under 3:1 against white, so every chart keeps a table and multi-series charts label their lines.
+- One home for each measure:
+  - Weight: the Trends weight chart, which now carries the goal line and the forecast (through the dose plan when
+    there is one, else towards the goal), looking as far ahead as the range looks back. Removed: the separate weight
+    goal chart, "Appetite and weight", and the Protocol weight-path chart (Protocol shows one figure, "Weight in 12
+    weeks", that links to the chart).
+  - Appetite: a line in "How you've felt" (with mood, energy and focus).
+  - Estimated level: Protocol only (taken + plan); the Trends copy is gone.
+  - A goal for waist, body fat or lean mass gets its chart, which replaces that measurement's small chart.
+  - The peptide week strip and 7-day stats live on Protocol only (Today keeps the next-dose hero). Stock and level
+    tiles dropped from the 7-day stats since Protocol shows both. The Supplies header links that repeated the tools
+    tiles are gone.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 

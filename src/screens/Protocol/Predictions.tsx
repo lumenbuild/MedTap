@@ -19,7 +19,7 @@ import { HAS_BODY } from '../../edition';
 import { Sheet } from '../../components/ui/Sheet';
 import { TextInput } from '../../components/ui/Field';
 import { Bar, Stat } from '../../components/ui/Visual';
-import { Activity, Frown, Package, Scale, Syringe } from 'lucide-react';
+import { Frown, Scale, Syringe } from 'lucide-react';
 
 const day = (ms: number) => format(ms, 'EEE d MMM');
 const LONG_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -110,7 +110,6 @@ export function vialRestText(v: VialRest, unit: string, pen: boolean): string {
 /** The last 7 days in a few lines. */
 export function WeeklySummaryBlock({ w, med, units, title = 'Last 7 days' }: { w: WeeklySummary; med: Medication; units: Units; title?: string }) {
   const u = weightUnit(units);
-  const r2 = (n: number) => Math.round(n * 100) / 100;
   return (
     <div>
       <p className="text-sm font-medium text-muted mb-2">{title}</p>
@@ -119,12 +118,10 @@ export function WeeklySummaryBlock({ w, med, units, title = 'Last 7 days' }: { w
           tone={w.planned && w.shots >= w.planned ? 'good' : 'watch'}>
           {w.planned ? <Bar value={w.shots} max={w.planned} tone={w.shots >= w.planned ? 'good' : 'watch'} label={`${w.shots} of ${w.planned} shots`} /> : null}
         </Stat>
-        {w.level && <Stat Icon={Activity} label="Level (est.)" value={`${r2(w.level.min)}–${r2(w.level.max)}`} unit={med.unit} />}
         {HAS_BODY && w.weightPerWeek !== undefined && <Stat Icon={Scale} label="Weight a week" value={signed(kgTo(w.weightPerWeek, units))} unit={u} tone={w.weightPerWeek <= 0 ? 'good' : 'plain'} />}
         {w.effectPct !== undefined && <Stat Icon={Frown} label="Side effects" value={`${w.effectPct}%`} unit={w.effectPctBefore !== undefined ? `was ${w.effectPctBefore}%` : undefined}>
           <Bar value={w.effectPct} max={100} tone={w.effectPct > 50 ? 'watch' : 'plain'} label={`Side effects in ${w.effectPct}% of check-ins`} />
         </Stat>}
-        {w.stock?.runOutAt && <Stat Icon={Package} label={w.stock.orderBy ? `Stock · order by ${day(w.stock.orderBy)}` : 'Stock lasts to'} value={day(w.stock.runOutAt)} />}
       </div>
     </div>
   );
