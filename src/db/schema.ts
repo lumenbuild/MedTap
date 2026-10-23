@@ -296,7 +296,7 @@ export interface Exercise extends Stamped {
   bodyweight?: boolean;
   /** How much to add when it's time to go up (kg). */
   increment?: number;
-  equipment?: 'barbell' | 'dumbbell' | 'machine' | 'cable' | 'bodyweight' | 'kettlebell';
+  equipment?: 'barbell' | 'dumbbell' | 'machine' | 'cable' | 'bodyweight' | 'kettlebell' | 'none';
   /** Weight is for each hand. */
   perHand?: boolean;
   /** Held for time: reps are seconds. */

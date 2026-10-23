@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import type { CardioActivity, Exercise, FitnessGoal, MuscleGroup, Routine, Workout } from '../../db/schema';
 import { addExercise, logCardio, newSetId, setFitnessGoal, startWorkout, restoreFitnessGoals } from '../../db/repos/training';
-import { allExercises, EQUIPMENT, MUSCLES, type Equipment, type ExerciseDef } from '../../logic/exercises';
+import { allExercises, EQUIPMENT, MUSCLES, NO_KIT_SESSIONS, type Equipment, type ExerciseDef } from '../../logic/exercises';
 import { useSettings } from '../../app/data';
 import { fromLoad, loadUnit, showLoad } from '../../logic/load';
 import { platesFor, platesForUnits, working } from '../../logic/training';
@@ -14,7 +14,7 @@ import { go } from '../../app/router';
 import { useToast } from '../../app/toast';
 import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
-import { Select, TextInput } from '../../components/ui/Field';
+import { Segmented, Select, TextInput } from '../../components/ui/Field';
 
 export const ACTIVITIES: { id: CardioActivity; name: string }[] = [
   { id: 'run', name: 'Run' }, { id: 'walk', name: 'Walk' }, { id: 'ride', name: 'Ride' }, { id: 'swim', name: 'Swim' }, { id: 'row', name: 'Row' }, { id: 'other', name: 'Other' },
@@ -75,6 +75,17 @@ export function StartSheet({ personId, routines, workouts, own, onClose }: { per
           </li>
         ))}
       </ul>
+      <h3 className="text-sm font-medium text-muted mt-4 mb-1">No equipment</h3>
+      <ul>
+        {NO_KIT_SESSIONS.map((r) => (
+          <li key={r.name} className="border-t border-border">
+            <button type="button" className="w-full text-left py-3 min-h-[56px]" onClick={() => begin({ id: '', name: r.name, createdAt: '', updatedAt: '', items: r.items })}>
+              <span className="block font-medium">{r.name}</span>
+              <span className="block text-sm text-muted">{r.items.map((i) => defs.find((d) => d.id === i.exerciseId)?.name).filter(Boolean).join(', ')}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
       {(routines.length > 0 || recent.length > 0) && <p className="text-xs text-muted mt-2">Sets are laid out at the weights to aim for: from last time, how hard it felt{ctx?.readiness != null ? ` and today’s readiness (${ctx.readiness})` : ''}.</p>}
       <SheetActions>
         <Button className="w-full min-h-[56px]" onClick={() => begin()}>Empty workout</Button>
@@ -87,23 +98,40 @@ export function StartSheet({ personId, routines, workouts, own, onClose }: { per
 /** Search the exercises, or add one of your own. */
 export function ExercisePicker({ own, personId, onPick, onClose, title = 'Add an exercise' }: { own: Exercise[]; personId: string; onPick: (d: ExerciseDef) => void; onClose: () => void; title?: string }) {
   const [q, setQ] = useState('');
+  const [kit, setKit] = useState<'all' | 'none' | 'gym'>(() => { try { return (localStorage.getItem('medtap.kit') as 'all' | 'none' | 'gym') || 'all'; } catch { return 'all'; } });
+  const pickKit = (k: typeof kit) => { setKit(k); try { localStorage.setItem('medtap.kit', k); } catch { /* not kept */ } };
   const [adding, setAdding] = useState(false);
   const defs = useMemo(() => allExercises(own).sort((a, b) => a.name.localeCompare(b.name)), [own]);
-  const shown = defs.filter((d) => d.name.toLowerCase().includes(q.trim().toLowerCase()));
+  const shown = defs.filter((d) => d.name.toLowerCase().includes(q.trim().toLowerCase())
+    && (kit === 'all' || (kit === 'none' ? d.equipment === 'none' : d.equipment !== 'none')));
+  // No equipment: grouped by movement so a whole session can be built from one list.
+  const groups = kit === 'none' && !q.trim()
+    ? (['legs', 'push', 'pull', 'core'] as const).map((p) => ({ title: { legs: 'Legs', push: 'Push', pull: 'Pull', core: 'Core' }[p], items: shown.filter((d) => d.pattern === p) })).filter((g) => g.items.length)
+    : [{ title: '', items: shown }];
   if (adding) return <NewExerciseSheet personId={personId} name={q} onDone={(d) => { onPick(d); onClose(); }} onClose={() => setAdding(false)} />;
   return (
     <Sheet open onClose={onClose} title={title}>
       <TextInput label="Search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="e.g. squat" />
-      <ul className="mt-2">
-        {shown.map((d) => (
-          <li key={d.id} className="border-t border-border">
-            <button type="button" className="w-full text-left py-3 min-h-[48px]" onClick={() => { onPick(d); onClose(); }}>
-              <span className="block">{d.name}</span>
-              <span className="block text-xs text-muted">{d.muscles.map((m) => MUSCLES.find((x) => x.id === m)?.name).join(', ')}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
+      <div className="mt-3">
+        <Segmented<'all' | 'none' | 'gym'> label="Equipment" value={kit} onChange={pickKit}
+          options={[{ value: 'all', label: 'All' }, { value: 'none', label: 'No equipment' }, { value: 'gym', label: 'Gym' }]} />
+      </div>
+      {kit === 'none' && <p className="text-sm text-muted mt-2">Floor, a wall, a chair or stairs at most. They go up by reps; the tips say how to make each harder.</p>}
+      {groups.map((g) => (
+        <div key={g.title || 'all'}>
+          {g.title && <h3 className="text-sm font-medium text-muted mt-4 mb-1">{g.title}</h3>}
+          <ul className={g.title ? '' : 'mt-2'}>
+            {g.items.map((d) => (
+              <li key={d.id} className="border-t border-border">
+                <button type="button" className="w-full text-left py-3 min-h-[48px]" onClick={() => { onPick(d); onClose(); }}>
+                  <span className="block">{d.name}</span>
+                  <span className="block text-xs text-muted">{d.muscles.map((m) => MUSCLES.find((x) => x.id === m)?.name).join(', ')}{d.timed ? ' · held for time' : ''}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
       <SheetActions><Button variant="secondary" className="w-full" onClick={() => setAdding(true)}>{q.trim() ? `Add “${q.trim()}”` : 'Add your own exercise'}</Button></SheetActions>
     </Sheet>
   );
@@ -117,7 +145,7 @@ function NewExerciseSheet({ personId, name: initial, onDone, onClose }: { person
   const [equipment, setEquipment] = useState<Equipment>('machine');
   const [timed, setTimed] = useState(false);
   const [inc, setInc] = useState(units === 'imperial' ? '5' : '2.5');
-  const bodyweight = equipment === 'bodyweight';
+  const bodyweight = equipment === 'bodyweight' || equipment === 'none';
   return (
     <Sheet open onClose={onClose} title="Your own exercise">
       <div className="space-y-4">

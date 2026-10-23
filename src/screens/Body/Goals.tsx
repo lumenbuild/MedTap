@@ -11,10 +11,11 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { Select, TextInput } from '../../components/ui/Field';
+import { fmtDay } from '../../logic/format';
 
 const DAY = 86_400_000;
 const fmtD = (ms: number) => format(ms, 'EEE d MMM');
-const fmtDY = (ms: number) => format(ms, new Date(ms).getFullYear() === new Date().getFullYear() ? 'EEE d MMM' : 'd MMM yyyy');
+const fmtDY = (ms: number) => fmtDay(ms);
 const todayYmd = () => format(Date.now(), 'yyyy-MM-dd');
 
 /** Show and enter values in the person's units (kg/lb, cm/in). */
@@ -75,7 +76,6 @@ export function GoalsSection({ personId, goals, entries, units, now }: { personI
 function GoalCard({ view, units, now, onEdit }: { view: GoalView; units: Units; now: number; onEdit: () => void }) {
   const { goal: g, points, f, weekAgo, last } = view;
   const u = valueFmt(g.metric, units);
-  const down = g.target < g.start;
   const rate = (w: number) => `${w < 0 ? 'down' : 'up'} ${u.fmt(Math.abs(w))} a week`;
   const ms = f.status === 'need-data' ? [] : milestones(points, g, f, now);
   const moved = f.eta && weekAgo.eta ? Math.round((weekAgo.eta - f.eta) / DAY) : null;

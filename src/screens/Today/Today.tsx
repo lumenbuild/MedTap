@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { clearCheckInRequest, clearLogRequest, onCheckInRequest, onLogRequest } from '../../app/pendingLog';
-import { shownColour, shownMedName, shownName } from '../../logic/privacy';
+import { shownMedName, shownName } from '../../logic/privacy';
 import { CalendarDays, CalendarPlus, Coffee, Droplet, HeartPulse, Lock, Nfc, Pill, Ruler, Scale, Smile, Wine } from 'lucide-react';
 import { IconRow, MiniRing, Tile } from '../../components/ui/Visual';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';

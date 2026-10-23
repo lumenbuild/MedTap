@@ -1,6 +1,6 @@
 import { BUILD, checkForUpdate, installUpdate, type Update } from '../../app/updates';
 import { useEffect, useState } from 'react';
-import { shownColour, shownMedName, shownName } from '../../logic/privacy';
+import { shownName } from '../../logic/privacy';
 import { Annoyed, Download, Frown, FolderSync, HardDriveDownload, Laugh, Meh, Smile, X } from 'lucide-react';
 import { IconRow } from '../../components/ui/Visual';
 import { autoBackupState, BackupError, regainPermission } from '../../app/autoBackup';

@@ -75,7 +75,9 @@ export function smartTarget(def: ExerciseDef, workouts: Workout[], ctx: Context)
   const out: SmartTarget = { ...base, reason: '' };
   const ss = sessionsOf(def.id, workouts);
   const last = ss[ss.length - 1];
-  if (!last || base.why === 'start') return { ...out, reason: 'First time: pick a weight you could do for a couple more reps than the target.' };
+  if (!last || base.why === 'start') return { ...out, reason: def.timed ? 'First time: hold for as long as you can with good form, up to the target.'
+    : def.bodyweight && !def.increment ? 'First time: do the target reps with good form, or as many as you can.'
+    : 'First time: pick a weight you could do for a couple more reps than the target.' };
   const top = Math.max(...last.sets.map((s) => s.weightKg));
   const atTop = last.sets.filter((s) => s.weightKg === top);
   const rpes = atTop.map((s) => s.rpe).filter((x): x is number => x !== undefined);

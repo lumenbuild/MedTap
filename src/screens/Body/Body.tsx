@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Sparkline } from '../../components/ui/Visual';
 import { format } from 'date-fns';
 import { ChevronRight, Ruler, Scale } from 'lucide-react';
 import { useBodyEntries, useDoses, useFamily, useMeds, useSettings } from '../../app/data';
@@ -15,8 +16,9 @@ import { VitalsCard } from './VitalsCard';
 import { GoalsSection } from './Goals';
 import { useNow } from '../../app/useNow';
 import { HAS_BODY } from '../../edition';
+import { fmtYmdDay } from '../../logic/format';
 
-const fmtYmd = (ymd: string) => (ymd === todayYmd() ? 'Today' : format(new Date(`${ymd}T12:00`), 'EEE d MMM yyyy'));
+const fmtYmd = (ymd: string) => (ymd === todayYmd() ? 'Today' : fmtYmdDay(ymd));
 
 export function Body() {
   const settings = useSettings();
@@ -38,6 +40,7 @@ export function Body() {
   const units = settings.units;
   const entries = all.filter((b) => !b.deletedAt && personOf(b) === fam.personId).sort((a, b) => b.date.localeCompare(a.date));
   const latestWeight = entries.find((e) => e.weightKg !== undefined);
+  const weights = entries.filter((e) => e.weightKg !== undefined && Date.parse(`${e.date}T12:00`) > now - 60 * 86_400_000).map((e) => ({ t: Date.parse(`${e.date}T12:00`), v: e.weightKg! })).reverse();
   const latestOf = (k: (typeof MEASUREMENTS)[number]['key']) => entries.find((e) => e[k] !== undefined);
   const measured = MEASUREMENTS.map((m) => ({ ...m, entry: latestOf(m.key) })).filter((m) => m.entry);
   const latestComp = entries.find((e) => e.bodyFatPct !== undefined || e.leanKg !== undefined || e.muscleKg !== undefined);
@@ -49,8 +52,16 @@ export function Body() {
       <Card>
         <div className="flex items-center gap-2 text-muted"><Scale size={18} aria-hidden="true" /><h2 className="text-sm font-medium text-muted">Weight</h2></div>
         {latestWeight ? (
-          <p className="mt-2"><span className="text-[40px] leading-[44px] font-semibold tnum">{fmtWeight(latestWeight.weightKg!, units)}</span>
-            <span className="block text-muted">{fmtYmd(latestWeight.date)}</span></p>
+          <>
+            <p className="mt-2"><span className="text-[40px] leading-[44px] font-semibold tnum">{fmtWeight(latestWeight.weightKg!, units)}</span>
+              <span className="block text-muted">{fmtYmd(latestWeight.date)}</span></p>
+            {weights.length >= 3 && (
+              <a href="#/progress" className="block mt-3" aria-label="Weight over the last 60 days, open the chart">
+                <Sparkline points={weights} height={44} label={`Weight over the last 60 days: ${fmtWeight(weights[0].v, units)} to ${fmtWeight(weights[weights.length - 1].v, units)}`} />
+                <span className="flex justify-between text-xs text-muted tnum mt-0.5" aria-hidden="true"><span>{format(weights[0].t, 'd MMM')}: {fmtWeight(weights[0].v, units)}</span><span>Today</span></span>
+              </a>
+            )}
+          </>
         ) : <p className="mt-1">No weight logged yet. It takes a few seconds.</p>}
         <Button className="w-full min-h-[56px] mt-4" onClick={() => setSheet({ kind: 'weight' })}>Log weight</Button>
       </Card>

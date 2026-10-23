@@ -1,6 +1,6 @@
 import { ChevronRight, HeartPulse, Nfc, Ruler, Scale, Smile } from 'lucide-react';
 import { fmtVital } from '../../components/VitalsSheet';
-import { shownColour, shownMedName, shownName } from '../../logic/privacy';
+import { shownColour, shownName } from '../../logic/privacy';
 import { format } from 'date-fns';
 import type { BodyEntry, CheckIn, Dose, Medication, Vital } from '../../db/schema';
 import type { Units } from '../../db/repos/settings';

@@ -4,7 +4,7 @@ import { TrendingUp } from 'lucide-react';
 import type { Medication } from '../../db/schema';
 import { addPlannedChanges, removePlannedChanges } from '../../db/repos/meds';
 import { useToast } from '../../app/toast';
-import { fmtAmount } from '../../logic/format';
+import { fmtAmount, fmtYmdDay } from '../../logic/format';
 import { medOn } from '../../logic/plans';
 import { scheduleAtDose, titrationSteps } from '../../logic/peptide';
 import { Card } from '../../components/ui/Card';
@@ -73,7 +73,7 @@ function TitrationSheet({ med, onClose }: { med: Medication; onClose: () => void
           <div className="rounded-btn bg-surface-2 p-3">
             <p className="font-semibold mb-1">{steps.length} step{steps.length === 1 ? '' : 's'}</p>
             <ol className="text-sm space-y-0.5 tnum">
-              {steps.map((x) => <li key={x.from}>{format(new Date(`${x.from}T12:00`), 'EEE d MMM yyyy')}: {fmtAmount(x.dose, med.unit)}</li>)}
+              {steps.map((x) => <li key={x.from}>{fmtYmdDay(x.from)}: {fmtAmount(x.dose, med.unit)}</li>)}
             </ol>
           </div>
         )}

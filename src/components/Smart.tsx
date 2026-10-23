@@ -22,7 +22,7 @@ import { useCheckIns, useDoses, useScheduleSettings } from '../app/data';
 import { useNow } from '../app/useNow';
 import { personOf } from '../db/repos/people';
 import { Button } from './ui/Button';
-import { IconRow } from './ui/Visual';
+import { HeatTable, IconRow } from './ui/Visual';
 import { FileText, HeartPulse, SearchCheck } from 'lucide-react';
 import { Sheet } from './ui/Sheet';
 
@@ -39,7 +39,8 @@ export function HabitsSection({ med, doses, checkIns, s, now }: { med: Medicatio
   const habits = med.schedule.type === 'fixed' ? slotHabits(med, doses, now, s) : [];
   const suggestion = med.schedule.type === 'fixed' ? reminderSuggestion(med, doses, now, s) : null;
   const risky = med.schedule.type === 'fixed' ? riskySlots(med, doses, now, s) : [];
-  const win = effectWindow(med, doses, checkIns, now);
+  // Focus-based, so not for injections (the same rule as Trends and the wear-off forecast).
+  const win = med.peptide ? null : effectWindow(med, doses, checkIns, now);
   const script = scriptPlan(med, doses, now, s);
   const rows: React.ReactNode[] = [];
   const usual = habits.filter((h) => (h.weekday?.n ?? 0) >= 3 || (h.weekend?.n ?? 0) >= 3);
@@ -220,21 +221,12 @@ export function CheckInForecastCard({ f }: { f: CheckInForecast }) {
   return (
     <section className="border-t border-border pt-5 pb-1" aria-labelledby="ciforecast-h">
       <h2 id="ciforecast-h" className="text-sm font-medium text-muted mb-2">The coming days</h2>
-      <div className="table-scroll" tabIndex={0}>
-        <table className="w-full text-sm tnum">
-          <thead><tr className="text-left"><th className="py-1 pr-3 font-medium"><span className="sr-only">Measure</span></th>{f.days.map((d) => <th key={d.start} className="py-1 px-1 font-medium text-center">{format(d.start, 'EEE')}</th>)}</tr></thead>
-          <tbody>
-            {fields.map((k) => (
-              <tr key={k} className="border-t border-border">
-                <td className="py-1.5 pr-3 capitalize text-muted">{k}</td>
-                {f.days.map((d) => <td key={d.start} className="py-1.5 px-1 text-center">{d.values[k]?.toFixed(1) ?? '–'}</td>)}
-              </tr>
-            ))}
-            <tr className="border-t border-border"><td className="py-1.5 pr-3 text-muted">Dose</td>{f.days.map((d) => <td key={d.start} className="py-1.5 px-1 text-center">{d.dose ? '•' : ''}</td>)}</tr>
-          </tbody>
-        </table>
-      </div>
-      
+      <HeatTable columns={f.days.map((d) => format(d.start, 'EEE'))} highlight={0}
+        rows={[
+          ...fields.map((k) => ({ label: k[0].toUpperCase() + k.slice(1), values: f.days.map((d) => d.values[k] ?? null), fmt: (v: number) => v.toFixed(1) })),
+          { label: 'Dose', values: f.days.map(() => null), text: f.days.map((d) => (d.dose ? '●' : '')) },
+        ]} />
+      <p className="text-xs text-muted mt-1">Likely check-ins, 1 to 5, from your usual pattern. Stronger colour is higher.</p>
     </section>
   );
 }

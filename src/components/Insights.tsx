@@ -8,13 +8,13 @@ import type { ScheduleSettings } from '../logic/schedule';
 import { wearOffToday, type WearOff } from '../logic/wearOff';
 import type { Stall } from '../logic/stall';
 import type { CycleForecast } from '../logic/cycle';
-import { fmtChangeValue, type Change } from '../logic/changes';
+import { fmtChangeValue, type Change, type SignalKey } from '../logic/changes';
 import { ask, askSuggestions, type AskData } from '../logic/ask';
 import { DEFAULT_STEP_UP, stepUpChecklist } from '../logic/stepUp';
 import { shownName } from '../logic/privacy';
 import { fmtTime } from '../logic/format';
 import { db } from '../db/db';
-import { Bar, IconRow } from './ui/Visual';
+import { Bar, IconRow, Sparkline } from './ui/Visual';
 import { Button } from './ui/Button';
 import { Sheet, SheetActions } from './ui/Sheet';
 import { TextInput } from './ui/Field';
@@ -118,7 +118,7 @@ export function ChangeLine({ c }: { c: Change }) {
 }
 
 /** A timeline of genuine shifts, newest first, each beside what happened just before. */
-export function ChangesCard({ changes }: { changes: Change[] }) {
+export function ChangesCard({ changes, series }: { changes: Change[]; series?: Partial<Record<SignalKey, { t: number; v: number }[]>> }) {
   return (
     <section className="border-t border-border pt-5 pb-2 chart-card" aria-label="What changed">
       <h2 className="text-sm font-medium text-muted">What changed</h2>
@@ -130,6 +130,12 @@ export function ChangesCard({ changes }: { changes: Change[] }) {
               <span aria-hidden="true" className="absolute left-0 top-1 w-[19px] h-[19px] rounded-full border-2 border-bg" style={{ background: toneOf(c) }} />
               <p className="text-sm text-muted tnum">{day(c.at)}</p>
               <p className="font-medium tnum">{c.label}: {fmtChangeValue(c, c.before)} → {fmtChangeValue(c, c.after)}</p>
+              {series?.[c.key] && (
+                <div className="my-1.5 max-w-[280px]">
+                  <Sparkline points={series[c.key]!.filter((p) => p.t >= c.at - 28 * 86_400_000)} height={34} step={{ at: c.at, before: c.before, after: c.after }}
+                    tone={c.good === undefined ? 'plain' : c.good ? 'good' : 'watch'} label={`${c.label} by day, with the level before and after ${day(c.at)}`} />
+                </div>
+              )}
               {c.event ? <p className="text-sm">After {c.event.text} <span className="text-muted tnum">({day(c.event.at)})</span></p> : <p className="text-sm text-muted">No logged change just before</p>}
             </li>
           ))}

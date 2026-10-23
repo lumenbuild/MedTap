@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import { useState } from 'react';
 import { ChevronRight, HeartPulse } from 'lucide-react';
 import { useVitals } from '../../app/data';
@@ -28,8 +29,8 @@ export function VitalsCard({ personId }: { personId: string }) {
           {readings.slice(1, 8).map((v) => (
             <li key={v.id}>
               <button onClick={() => setSheet({ editing: v })} className="w-full min-h-[48px] flex items-center gap-3 px-2 rounded-btn text-left hover:bg-surface-2">
-                <span className="flex-1 tnum">{fmtVital(v)}</span>
-                <span className="text-sm text-muted tnum">{fmtWhen(Date.parse(v.at), now)}</span>
+                <span className="flex-1 min-w-0 tnum whitespace-nowrap overflow-hidden text-ellipsis">{fmtVital(v)}</span>
+                <span className="text-sm text-muted tnum whitespace-nowrap">{format(Date.parse(v.at), 'EEE d MMM')}</span>
                 <ChevronRight size={18} className="text-muted" aria-hidden="true" />
               </button>
             </li>

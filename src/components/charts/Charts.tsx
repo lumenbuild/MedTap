@@ -1,21 +1,21 @@
-import type { ReactNode } from 'react';
-import { Bar, Line, Scatter } from 'react-chartjs-2';
+import type { CSSProperties, ReactNode } from 'react';
+import { Bar, Scatter } from 'react-chartjs-2';
 import { format } from 'date-fns';
 import type { BodyEntry, CheckIn, Dose, MedEvent, Medication, Vital } from '../../db/schema';
 import type { Units } from '../../db/repos/settings';
 import type { ScheduleSettings } from '../../logic/schedule';
 import { getDailyTarget } from '../../logic/schedule';
 import {
-  adherenceByDay, average, averageSummary, bodySeries, changeSummary, chipCounts, dailyAverages, daysBetween, doseIntervals, doseTimes, histogram,
+  adherenceByDay, average, bodySeries, chipCounts, dailyAverages, daysBetween, doseIntervals, doseTimes, histogram,
   median, rollingAverage, ymdToMs, type Pt,
 } from '../../logic/stats';
-import { cmTo, fmtLength, fmtWeight, kgTo, lengthUnit, MEASUREMENTS, weightUnit } from '../../logic/units';
+import { cmTo, fmtLength, kgTo, lengthUnit, MEASUREMENTS, weightUnit } from '../../logic/units';
 import { fmtDuration, fmtHHmm, fmtMedName } from '../../logic/format';
 import { medColour, resolveColour } from '../../logic/palette';
 import { MedBadge } from '../MedBadge';
 import { shownColour, shownMedName, shownName } from '../../logic/privacy';
-import { ChartCard } from './ChartCard';
-import { METRIC_SLOT, TrendChart, type TrendSeries } from './TrendChart';
+import { ChartCard, type Headline } from './ChartCard';
+import { TrendChart, type TrendSeries } from './TrendChart';
 import { baseOptions, timeAxis, useChartTheme, type ChartTheme } from './setup';
 
 const DAY = 86_400_000;
@@ -47,9 +47,20 @@ export function WeightChart({ entries, start, end, units, marks = [], goalKg, fo
       band: fc.points.filter((p) => p.low !== undefined && p.high !== undefined).map((p) => ({ t: p.t, low: k(p.low!), high: k(p.high!) })) }] : []),
     ...(goalKg !== undefined ? [{ label: 'Goal', style: 'goal' as const, points: [{ t: start, v: k(goalKg) }, { t: to, v: k(goalKg) }] }] : []),
   ];
-  const summary = [changeSummary(avg, (v) => fmtWeight(v, units)) ?? (pts.length === 1 ? `One weigh-in: ${fmtWeight(pts[0].v, units)}` : null), fc?.text].filter(Boolean).join('. ') || null;
-  return <TrendChart title="Weight" series={series} start={start} end={to} unit={u} marks={marks} summary={summary} extra={extra}
+  const headline = trendHeadline(avg.length ? avg : pts, (v) => String(k(v)), u, start, end);
+  return <TrendChart title="Weight" series={series} start={start} end={to} unit={u} marks={marks} summary={fc?.text ?? null} extra={extra} headline={headline}
     empty={pts.length ? null : 'No weigh-ins in this range.'} />;
+}
+
+/** The latest value, and how far it moved over the range shown ("−2.9 kg in 30 days"). */
+export function trendHeadline(pts: Pt[], show: (v: number) => string, unit: string, start: number, end: number): Headline | null {
+  if (!pts.length) return null;
+  const last = pts[pts.length - 1], first = pts[0];
+  const days = Math.max(1, Math.round((Math.min(end, last.t) - Math.max(start, first.t)) / DAY));
+  const diff = Number(show(last.v)) - Number(show(first.v));
+  if (pts.length < 2) return { value: show(last.v), unit };
+  const r = Math.round(Math.abs(diff) * 10) / 10;
+  return { value: show(last.v), unit, dir: r === 0 ? 'flat' : diff < 0 ? 'down' : 'up', delta: r === 0 ? `same as ${days} days ago` : `${diff < 0 ? '−' : '+'}${r} ${unit} in ${days} day${days === 1 ? '' : 's'}` };
 }
 
 // 2. Measurements: one small chart per measurement logged.
@@ -61,7 +72,7 @@ export function MeasurementCharts({ entries, start, end, units, skip = [] }: Ran
     <ChartCard title="Measurements" height={null} key={th.key}
       empty={series.length ? null : 'No measurements in this range.'}
       table={{ head: ['Date', 'Measurement', `Value (${u})`], rows: series.flatMap((m) => m.pts.map((p) => [fmtDay(p.t), m.label, cmTo(p.v, units)])) }}>
-      <div className="grid grid-cols-2 gap-4">
+      <div className={`grid gap-4 ${series.length > 1 ? 'grid-cols-2' : ''}`}>
         {series.map((m) => {
           const first = m.pts[0], last = m.pts[m.pts.length - 1];
           const diff = cmTo(last.v, units) - cmTo(first.v, units);
@@ -69,10 +80,9 @@ export function MeasurementCharts({ entries, start, end, units, skip = [] }: Ran
             <div key={m.key}>
               <p className="text-sm font-semibold">{m.label}</p>
               <p className="text-xs text-muted tnum">{fmtLength(last.v, units)}{m.pts.length > 1 && Math.abs(diff) >= 0.1 ? ` · ${diff > 0 ? '+' : '−'}${Math.abs(diff).toFixed(1)}` : ''}</p>
-              <div style={{ height: 90 }} className="mt-1">
-                <Line data={{ datasets: [{ data: m.pts.map((p) => ({ x: p.t, y: cmTo(p.v, units) })), borderColor: th.text, borderWidth: 2, tension: 0.3, ...point(th, th.text), pointRadius: m.pts.length > 12 ? 0 : 4 }] }}
-                  options={{ ...baseOptions(th), plugins: { ...baseOptions(th).plugins, tooltip: { ...baseOptions(th).plugins.tooltip, callbacks: { label: (c) => `${c.parsed.y} ${u}` } } },
-                    scales: { x: { ...timeAxis(th, start, end), display: false }, y: { ...baseOptions(th).scales.y, grace: '10%', ticks: { ...baseOptions(th).scales.y.ticks, maxTicksLimit: 3 } } } }} />
+              <div className="mt-1">
+                <TrendChart bare noLegend hideX height={96} title={m.label} start={start} end={end} fmt={(v) => `${v} ${u}`}
+                  series={[{ label: m.label, style: 'line', points: m.pts.map((p) => ({ t: p.t, v: cmTo(p.v, units) })) }]} />
               </div>
             </div>
           );
@@ -82,13 +92,44 @@ export function MeasurementCharts({ entries, start, end, units, skip = [] }: Ran
   );
 }
 
+/** A calendar of days as weeks (rows) by weekday (Monday to Sunday), full width, with weekday letters on top and the
+ *  month beside the week it starts in. Cells get shorter for long ranges so 26 weeks still fit. */
+export function WeekGrid({ days, cell, label }: { days: string[]; label: string;
+  cell: (i: number) => { title: string; className?: string; style?: CSSProperties; inner?: ReactNode } }) {
+  if (!days.length) return null;
+  const lead = (new Date(`${days[0]}T12:00`).getDay() + 6) % 7; // Monday first
+  const slots: (number | null)[] = [...Array.from({ length: lead }, () => null), ...days.map((_, i) => i)];
+  while (slots.length % 7) slots.push(null);
+  const weeks = Array.from({ length: slots.length / 7 }, (_, w) => slots.slice(w * 7, w * 7 + 7));
+  const h = weeks.length <= 6 ? 30 : weeks.length <= 14 ? 20 : 12;
+  let lastMonth = '';
+  return (
+    <div role="img" aria-label={label} className="grid gap-[3px]" style={{ gridTemplateColumns: '30px repeat(7, minmax(0, 1fr))' }}>
+      <span />
+      {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => <span key={i} aria-hidden="true" className="text-[11px] text-muted text-center leading-4">{d}</span>)}
+      {weeks.map((wk, w) => {
+        const firstDay = wk.find((x) => x !== null);
+        const m = firstDay != null ? format(ymdToMs(days[firstDay]), 'MMM') : '';
+        const showM = m !== lastMonth; if (showM) lastMonth = m;
+        return [
+          <span key={`m${w}`} aria-hidden="true" className="text-[11px] text-muted leading-none self-center">{showM ? m : ''}</span>,
+          ...wk.map((x, d) => {
+            if (x === null) return <span key={`${w}-${d}`} />;
+            const c = cell(x);
+            return <span key={`${w}-${d}`} title={c.title} className={`rounded-[4px] relative ${c.className ?? ''}`} style={{ height: h, ...c.style }}>{c.inner}</span>;
+          }),
+        ];
+      })}
+    </div>
+  );
+}
+
 // 3. Adherence heatmap: a calendar grid of doses per day vs the user's own daily target.
 export function AdherenceHeatmap({ meds, doses, start, end, s, realNames }: RangeProps & { meds: Medication[]; doses: Dose[] }) {
   const nameOf = nameFor(realNames);
   const capStart = Math.max(start, end - 182 * DAY); // at most 26 weeks so cells stay tappable
   const days = daysBetween(capStart, end, s);
   const rows = meds.map((m) => ({ med: m, cells: adherenceByDay(doses, m, days, s) })).filter((r) => r.cells.some((c) => c.count));
-  const lead = (new Date(`${days[0]}T12:00`).getDay() + 6) % 7; // Monday-first offset
   return (
     <ChartCard title="Doses per day" height={null}
       empty={rows.length ? null : 'No doses in this range.'}
@@ -107,23 +148,20 @@ export function AdherenceHeatmap({ meds, doses, start, end, s, realNames }: Rang
                 <span className="font-medium">{nameOf(med)}</span>
               </div>
               {full !== null && <p className="text-sm text-muted mb-2 tnum">All logged on {full} of {scheduled.length} scheduled day{scheduled.length === 1 ? '' : 's'}</p>}
-              <div className="grid gap-[3px] w-max max-w-full overflow-x-auto" style={{ gridTemplateRows: 'repeat(7, 18px)', gridAutoFlow: 'column', gridAutoColumns: '18px' }} role="img"
-                aria-label={`${nameOf(med)}: ${full !== null ? `all doses logged on ${full} of ${scheduled.length} scheduled days` : `doses on ${cells.filter((c) => c.count).length} of ${cells.length} days`}`}>
-                {Array.from({ length: lead }, (_, i) => <span key={`pad${i}`} />)}
-                {cells.map((c) => {
+              <WeekGrid days={cells.map((c) => c.day)} label={`${nameOf(med)}: ${full !== null ? `all doses logged on ${full} of ${scheduled.length} scheduled days` : `doses on ${cells.filter((c) => c.count).length} of ${cells.length} days`}`}
+                cell={(i) => {
+                  const c = cells[i];
                   const t = c.target;
                   const off = t === 0 && c.count === 0; // not a scheduled day
                   const level = c.count === 0 ? 0 : t ? (c.count >= t ? 1 : 0.45) : 0.35 + 0.65 * (c.count / max);
                   const over = !!t && c.count > t;
-                  return (
-                    <span key={c.day} title={`${fmtDay(ymdToMs(c.day))}: ${off ? 'not scheduled' : `${c.count}${t ? ` of ${t}` : ''}`}`}
-                      className={`rounded-[4px] relative ${off ? 'border border-dashed border-border' : ''}`}
-                      style={{ background: off ? 'transparent' : level ? medColour(med.color) : 'var(--surface-2)', opacity: level ? level : 1 }}>
-                      {over && <span className="absolute inset-[5px] rounded-full" style={{ background: 'var(--surface)' }} />}
-                    </span>
-                  );
-                })}
-              </div>
+                  return {
+                    title: `${fmtDay(ymdToMs(c.day))}: ${off ? 'not scheduled' : `${c.count}${t ? ` of ${t}` : ''}`}`,
+                    className: off ? 'border border-dashed border-border' : '',
+                    style: { background: off ? 'transparent' : level ? medColour(med.color) : 'var(--surface-2)', opacity: level ? level : 1 },
+                    inner: over ? <span className="absolute left-1/2 top-1/2 w-2 h-2 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: 'var(--surface)' }} /> : null,
+                  };
+                }} />
             </div>
           );
         })}
@@ -139,7 +177,9 @@ export function AdherenceHeatmap({ meds, doses, start, end, s, realNames }: Rang
   );
 }
 
-// 4. Dose timing: time of day each dose was taken, one small chart per medication.
+// 4. Dose timing: time of day each dose was taken, one small chart per medication, zoomed to the hours used, with a
+// dotted line at the usual time of the first dose.
+const shortHour = (h: number) => { const hh = ((Math.round(h) % 24) + 24) % 24; return `${hh % 12 || 12} ${hh < 12 ? 'am' : 'pm'}`; };
 export function DoseTimingCharts({ meds, doses, start, end, s, realNames }: RangeProps & { meds: Medication[]; doses: Dose[] }) {
   const nameOf = nameFor(realNames);
   const th = useChartTheme();
@@ -155,15 +195,27 @@ export function DoseTimingCharts({ meds, doses, start, end, s, realNames }: Rang
           for (const p of pts) firsts.set(p.t, Math.min(firsts.get(p.t) ?? 99, p.hour));
           const med1 = median([...firsts.values()]);
           const color = resolveColour(medColour(med.color));
+          const hs = pts.map((p) => p.hour);
+          const raw = Math.max(4, Math.ceil(Math.max(...hs)) - Math.floor(Math.min(...hs)) + 2);
+          const step = raw <= 6 ? 1 : raw <= 12 ? 2 : raw <= 18 ? 3 : 6;
+          // Whole steps either side of the doses (so ticks fall on 6 am, 9 am, …), at least 4 hours tall.
+          let lo = Math.max(0, Math.floor((Math.min(...hs) - 0.5) / step) * step), hi = Math.min(24, Math.ceil((Math.max(...hs) + 0.5) / step) * step);
+          while (hi - lo < 4) { if (lo > 0) lo -= step; else hi += step; }
+          const span = hi - lo;
           return (
             <div key={med.id}>
-              <p className="font-medium">{nameOf(med)}</p>
-              {med1 !== null && <p className="text-sm text-muted">First dose usually around {hourLabel(med1)}</p>}
-              <div style={{ height: 170 }} className="mt-2">
-                <Scatter data={{ datasets: [{ label: nameOf(med), data: pts.map((p) => ({ x: p.t, y: p.hour })), ...point(th, color) }] }}
+              <p className="flex items-baseline justify-between gap-3">
+                <span className="font-medium flex items-center gap-2"><MedBadge color={realNames ? med.color : shownColour(med)} icon={med.icon} size={22} />{nameOf(med)}</span>
+                {med1 !== null && <span className="text-sm text-muted tnum">usually <span className="font-semibold text-text">{hourLabel(med1)}</span></span>}
+              </p>
+              <div style={{ height: Math.min(180, 70 + span * 9) }} className="mt-2">
+                <Scatter data={{ datasets: [
+                  { label: nameOf(med), data: pts.map((p) => ({ x: p.t, y: p.hour })), ...point(th, color), pointRadius: 4.5 },
+                  ...(med1 !== null ? [{ label: 'Usual', data: [{ x: start, y: med1 }, { x: end, y: med1 }], showLine: true, borderColor: th.text, borderWidth: 1.5, borderDash: [2, 4], pointRadius: 0, pointHitRadius: 0 }] : []),
+                ] }}
                   options={{ ...baseOptions(th), interaction: { mode: 'nearest', intersect: true },
-                    plugins: { ...baseOptions(th).plugins, tooltip: { ...baseOptions(th).plugins.tooltip, callbacks: { label: (c) => `${hourLabel(c.parsed.y as number)}` } } },
-                    scales: { x: timeAxis(th, start, end), y: { ...baseOptions(th).scales.y, min: 0, max: 24, reverse: true, ticks: { ...baseOptions(th).scales.y.ticks, stepSize: 6, callback: (v) => hourLabel(Number(v)) } } } }} />
+                    plugins: { ...baseOptions(th).plugins, tooltip: { ...baseOptions(th).plugins.tooltip, filter: (i) => i.dataset.label !== 'Usual', callbacks: { title: (c) => fmtDay(c[0].parsed.x as number), label: (c) => `${hourLabel(c.parsed.y as number)}` } } },
+                    scales: { x: timeAxis(th, start, end), y: { ...baseOptions(th).scales.y, min: lo, max: hi, reverse: true, ticks: { ...baseOptions(th).scales.y.ticks, stepSize: step, callback: (v) => shortHour(Number(v)) } } } }} />
               </div>
             </div>
           );
@@ -173,23 +225,57 @@ export function DoseTimingCharts({ meds, doses, start, end, s, realNames }: Rang
   );
 }
 
-// 5. How you've felt: mood, energy, focus with markers for medication changes.
+// 5. How you've felt: one small chart per measure (mood, energy, focus, appetite), on the same dates, each with its
+// daily averages as dots and the 7-day average as a line; medication changes marked in every row and listed below.
 export function FeelingsChart({ checkIns, events, meds, start, end, s, prevStart, realNames }: RangeProps & { checkIns: CheckIn[]; events: MedEvent[]; meds: Medication[]; prevStart: number | null }) {
+  const th = useChartTheme();
   const nameOf = nameFor(realNames);
   const fields = [['mood', 'Mood'], ['energy', 'Energy'], ['focus', 'Focus'], ['appetite', 'Appetite']] as const;
   const marks = events.filter((e) => Date.parse(e.at) >= start && Date.parse(e.at) <= end).sort((a, b) => a.at.localeCompare(b.at));
   const periodDays = prevStart === null ? null : Math.round((end - start) / DAY);
-  const cur = average(checkIns, 'mood', start, end);
-  const prev = prevStart === null ? null : average(checkIns, 'mood', prevStart, start);
   const medName = (id: string) => { const m = meds.find((x) => x.id === id); return m ? nameOf(m) : 'Medication'; };
   // Started/stopped summaries were written with the real name, so rebuild them with the name being shown.
   const markText = (e: MedEvent) => e.kind === 'changed' ? `${medName(e.medicationId)}: ${e.summary}`
     : `${e.kind === 'stopped' ? 'Stopped' : e.summary.startsWith('Restarted') ? 'Restarted' : 'Started'} ${medName(e.medicationId)}`;
-  const series: TrendSeries[] = fields.map(([f, label]) => ({ label, style: 'line' as const, slot: METRIC_SLOT[f], points: dailyAverages(checkIns, f, start, end, s) }))
-    .filter((x) => x.points.length);
-  return <TrendChart title="How you've felt" series={series} start={start} end={end} yMin={1} yMax={5} step={1}
-    fmt={(v) => v.toFixed(1)} marks={marks.map((e) => ({ at: Date.parse(e.at), text: markText(e) }))}
-    summary={averageSummary('Mood', cur, prev, periodDays)} empty="No check-ins in this range." />;
+  const rows = fields.map(([f, label]) => {
+    const pts = dailyAverages(checkIns, f, start, end, s);
+    const cur = average(checkIns, f, start, end);
+    const prev = prevStart === null ? null : average(checkIns, f, prevStart, start);
+    return { f, label, pts, cur, prev };
+  }).filter((r) => r.pts.length);
+  const days = [...new Set(rows.flatMap((r) => r.pts.map((p) => p.t)))].sort((a, b) => b - a);
+  const markAt = marks.map((e) => ({ at: Date.parse(e.at), text: markText(e) }));
+  return (
+    <ChartCard title="How you've felt" height={null} key={th.key} empty={rows.length ? null : 'No check-ins in this range.'}
+      summary={rows.length ? `Average of your check-ins each day, 1 (low) to 5 (high)${periodDays ? `, against the ${periodDays} days before` : ''}.` : null}
+      table={{ head: ['Date', ...rows.map((r) => r.label)], rows: days.map((t) => [fmtDay(t), ...rows.map((r) => { const x = r.pts.find((p) => p.t === t); return x ? Math.round(x.v * 10) / 10 : '–'; })]) }}
+      footer={markAt.length > 0 && (
+        <ol className="mt-3 space-y-1 text-sm">
+          {markAt.map((m, i) => <li key={i} className="flex gap-2"><span className="font-semibold tnum w-4">{i + 1}</span><span className="text-muted tnum">{format(m.at, 'd MMM')}</span><span>{m.text}</span></li>)}
+        </ol>
+      )}>
+      <div className="space-y-1">
+        {rows.map((r, i) => {
+          const d = r.cur !== null && r.prev !== null ? Math.round((r.cur - r.prev) * 10) / 10 : null;
+          return (
+            <div key={r.f}>
+              <p className="flex items-baseline gap-2 tnum">
+                <span className="font-medium w-[76px]">{r.label}</span>
+                <span className="text-[20px] font-semibold">{r.cur !== null ? r.cur.toFixed(1) : '–'}</span>
+                {d !== null && <span className="text-sm text-muted">{d === 0 ? 'same as before' : `${d > 0 ? 'up' : 'down'} ${Math.abs(d).toFixed(1)}`}</span>}
+              </p>
+              <TrendChart bare noLegend labelFmt={(v) => v.toFixed(1)} hideX={i < rows.length - 1} height={i < rows.length - 1 ? 78 : 104} title={r.label} start={start} end={end} yMin={1} yMax={5} step={2}
+                fmt={(v) => v.toFixed(1)} marks={i === 0 ? markAt : markAt.map((m) => ({ ...m }))}
+                series={[
+                  { label: `${r.label} each day`, style: 'dots', points: r.pts },
+                  { label: `${r.label}, 7-day average`, style: 'line', points: rollingAverage(r.pts) },
+                ]} />
+            </div>
+          );
+        })}
+      </div>
+    </ChartCard>
+  );
 }
 
 // 7. Noticed most: the most frequent check-in chips.
@@ -231,12 +317,12 @@ export function IntervalCharts({ meds, doses, start, end, s, realNames }: RangeP
             <div key={med.id}>
               <p className="font-medium">{realNames ? fmtMedName(med) : shownMedName(med)}</p>
               <p className="text-sm text-muted tnum">Usually {fmtDuration(med1 * 3_600_000).replace(/(\d)([dhm])\b/g, (_, n, u) => `${n} ${u === 'd' ? 'd' : u === 'h' ? 'h' : 'min'}`)} between doses ({gaps.length} gap{gaps.length === 1 ? '' : 's'}).{sched}</p>
-              <div style={{ height: 150 }} className="mt-2">
+              {gaps.length >= 4 && <div style={{ height: 150 }} className="mt-2">
                 <Bar data={{ labels: bins.map((b) => `${b.from}–${b.to}h`), datasets: [{ label: nameOf(med), data: bins.map((b) => b.count), backgroundColor: color, borderRadius: 4, borderSkipped: 'start', maxBarThickness: 24 }] }}
                   options={{ ...baseOptions(th), interaction: { mode: 'nearest', intersect: true },
                     plugins: { ...baseOptions(th).plugins, tooltip: { ...baseOptions(th).plugins.tooltip, callbacks: { label: (c) => `${c.parsed.y} time${c.parsed.y === 1 ? '' : 's'}` } } },
                     scales: { x: { ...baseOptions(th).scales.x, grid: { display: false } }, y: { ...baseOptions(th).scales.y, beginAtZero: true, ticks: { ...baseOptions(th).scales.y.ticks, precision: 0 } } } }} />
-              </div>
+              </div>}
             </div>
           );
         })}
@@ -254,13 +340,14 @@ export function VitalsCharts({ vitals, start, end }: RangeProps & { vitals: Vita
   const hr = inRange.filter((v) => v.heartRate);
   const avg = (xs: number[]) => Math.round(xs.reduce((a, b) => a + b, 0) / xs.length);
   const summary = [
-    bp.length ? `Blood pressure averaged ${avg(bp.map((v) => v.systolic!))}/${avg(bp.map((v) => v.diastolic!))} mmHg over ${bp.length} reading${bp.length === 1 ? '' : 's'}` : '',
-    hr.length ? `heart rate averaged ${avg(hr.map((v) => v.heartRate!))} bpm` : '',
-  ].filter(Boolean).join('; ');
+    bp.length ? `${bp.length} blood pressure reading${bp.length === 1 ? '' : 's'}` : '',
+    hr.length ? `${hr.length} heart rate` : '',
+  ].filter(Boolean).join(', ');
   const at = (v: Vital) => Date.parse(v.at);
   return (
     <ChartCard title="Blood pressure and heart rate" height={null} key={th.key}
       empty={inRange.length ? null : 'No readings in this range.'}
+      headline={bp.length ? { value: `${avg(bp.map((v) => v.systolic!))}/${avg(bp.map((v) => v.diastolic!))}`, unit: 'mmHg average', delta: hr.length ? `heart rate ${avg(hr.map((v) => v.heartRate!))} bpm` : undefined } : null}
       summary={summary ? summary[0].toUpperCase() + summary.slice(1) : null}
       table={{ head: ['When', 'Blood pressure (mmHg)', 'Heart rate (bpm)'], rows: [...inRange].reverse().map((v) =>
         [format(Date.parse(v.at), 'EEE d MMM, h:mm a'), v.systolic ? `${v.systolic}/${v.diastolic}` : '–', v.heartRate ?? '–']) }}>
@@ -268,11 +355,15 @@ export function VitalsCharts({ vitals, start, end }: RangeProps & { vitals: Vita
         {bp.length > 0 && (
           <div>
             <p className="text-sm font-semibold">Blood pressure (mmHg)</p>
-            <TrendChart bare height={170} title="Blood pressure" start={start} end={end} fmt={(v) => `${Math.round(v)} mmHg`}
-              series={[
-                { label: 'Systolic', style: 'line', slot: METRIC_SLOT.systolic, points: bp.map((v) => ({ t: at(v), v: v.systolic! })) },
-                { label: 'Diastolic', style: 'line', slot: METRIC_SLOT.diastolic, points: bp.map((v) => ({ t: at(v), v: v.diastolic! })) },
-              ]} />
+            <div style={{ height: 170 }}>
+              <Bar data={{ datasets: [{ label: 'Blood pressure', data: bp.map((v) => ({ x: at(v), y: [v.diastolic!, v.systolic!] })) as never, backgroundColor: th.text, borderRadius: 3, borderSkipped: false, barThickness: 6 }] }}
+                options={{ ...baseOptions(th), interaction: { mode: 'nearest', intersect: false, axis: 'x' },
+                  plugins: { ...baseOptions(th).plugins, tooltip: { ...baseOptions(th).plugins.tooltip, displayColors: false, callbacks: {
+                    title: (c) => format(c[0].parsed.x as number, 'EEE d MMM, h:mm a'),
+                    label: (c) => { const r = (c.raw as { y: [number, number] }).y; return `${r[1]}/${r[0]} mmHg`; } } } },
+                  scales: { x: { ...timeAxis(th, start, end), offset: false }, y: { ...baseOptions(th).scales.y, beginAtZero: false, grace: '8%', ticks: { ...baseOptions(th).scales.y.ticks, maxTicksLimit: 5 } } } }} />
+            </div>
+            <p className="text-xs text-muted mt-1">Each bar runs from the lower number to the upper.</p>
           </div>
         )}
         {hr.length > 0 && (

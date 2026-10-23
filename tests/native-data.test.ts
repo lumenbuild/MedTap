@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { BodyEntry, DailyHealth, Dose, Medication, Vital, Workout } from '../src/db/schema';
+import type { BodyEntry, DailyHealth, Medication, Vital, Workout } from '../src/db/schema';
 import { shortcutItems, widgetData } from '../src/logic/widget';
 import { planHealthImport } from '../src/logic/healthImport';
 import type { ScheduleSettings } from '../src/logic/schedule';

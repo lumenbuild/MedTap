@@ -27,31 +27,43 @@ export function DoseLevelsCards({ meds, doses, body, checkIns, units, now }: { m
         return (
           <Card key={m.id} className="space-y-2">
             <h2 className="text-sm font-medium text-muted">Dose levels: {shownName(m)}</h2>
-            <p className="text-muted">Weight and check-ins while you were on each dose. What you've recorded, side by side; it doesn't show cause.</p>
-            <div className="overflow-x-auto" tabIndex={0}>
-              <table className="w-full text-sm tnum">
-                <thead><tr>{['Dose', 'From', 'Doses', 'Weight', `${u}/week`, 'Appetite', 'Noticed'].map((h) => <th key={h} className="text-left font-semibold py-1.5 pr-3 border-b border-border">{h}</th>)}</tr></thead>
-                <tbody>
-                  {[...levels].reverse().map((l) => (
-                    <tr key={l.from}>
-                      <td className="py-1.5 pr-3 border-b border-border font-semibold whitespace-nowrap">{fmtAmount(l.dose, m.unit)}</td>
-                      <td className="py-1.5 pr-3 border-b border-border whitespace-nowrap">{format(l.from, 'd MMM')}</td>
-                      <td className="py-1.5 pr-3 border-b border-border">{l.doses}</td>
-                      <td className="py-1.5 pr-3 border-b border-border whitespace-nowrap">{l.weightStart !== undefined ? `${fmtWeight(l.weightStart, units)} → ${fmtWeight(l.weightEnd!, units)}` : '–'}</td>
-                      <td className="py-1.5 pr-3 border-b border-border">{l.perWeek !== undefined ? `${l.perWeek > 0 ? '+' : ''}${kgTo(l.perWeek, units)}` : '–'}</td>
-                      <td className="py-1.5 pr-3 border-b border-border">{l.appetite ?? '–'}</td>
-                      <td className="py-1.5 pr-3 border-b border-border">{l.noticed.map((x) => `${x.chip} (${x.n})`).join(', ') || '–'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="text-xs text-muted">Appetite: check-in average, 1–5</p>
+            <p className="text-sm text-muted">Weight and check-ins on each dose, newest first.</p>
+            <ul className="space-y-3">
+              {[...levels].reverse().map((l) => {
+                const maxRate = Math.max(0.1, ...levels.map((x) => Math.abs(x.perWeek ?? 0)));
+                return (
+                  <li key={l.from} className="rounded-card bg-surface-2 p-3 tnum">
+                    <p className="flex items-baseline justify-between gap-2">
+                      <span className="text-[17px] font-semibold">{fmtAmount(l.dose, m.unit)}</span>
+                      <span className="text-sm text-muted">from {format(l.from, 'd MMM')} · {l.doses} dose{l.doses === 1 ? '' : 's'}</span>
+                    </p>
+                    {l.weightStart !== undefined && (
+                      <div className="mt-2">
+                        <p className="flex justify-between text-sm"><span>{fmtWeight(l.weightStart, units)} → {fmtWeight(l.weightEnd!, units)}</span>
+                          {l.perWeek !== undefined && <span className="font-medium">{l.perWeek > 0 ? '+' : l.perWeek < 0 ? '−' : ''}{Math.abs(kgTo(l.perWeek, units))} {u} a week</span>}</p>
+                        {l.perWeek !== undefined && <div className="h-2 rounded-full bg-surface mt-1" aria-hidden="true"><div className="h-full rounded-full" style={{ width: `${(Math.abs(l.perWeek) / maxRate) * 100}%`, background: l.perWeek <= 0 ? 'var(--text)' : 'var(--border-strong)' }} /></div>}
+                      </div>
+                    )}
+                    {(l.appetite !== undefined || l.noticed.length > 0) && (
+                      <p className="text-sm mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                        {l.appetite !== undefined && <span className="inline-flex items-center gap-1.5">Appetite <Dots v={l.appetite} /> <span className="text-muted">{l.appetite}</span></span>}
+                        {l.noticed.map((x) => <span key={x.chip} className="text-muted">{x.chip} ×{x.n}</span>)}
+                      </p>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
           </Card>
         );
       })}
     </>
   );
+}
+
+/** A 1–5 average as five dots, filled up to the value. */
+function Dots({ v }: { v: number }) {
+  return <span role="img" aria-label={`${v} of 5`} className="inline-flex gap-0.5">{[1, 2, 3, 4, 5].map((i) => <span key={i} className="w-2 h-2 rounded-full" style={{ background: v >= i - 0.25 ? 'var(--text)' : 'var(--border-strong)' }} />)}</span>;
 }
 
 /** Blends: how much of each peptide was taken each day. */

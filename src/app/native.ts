@@ -31,7 +31,6 @@ const CHANNEL = 'doses';
 const TRAINING_CHANNEL = 'training';
 /** The rest timer's notification, and the range used by training reminders: kept out of the dose reminders' clear-out. */
 const REST_ID = 900_000_001;
-const isTrainingId = (id: number) => id >= 900_000_000 && id < 901_000_000;
 const ACTIONS = 'dose';
 
 /** A tag or link opened the app: go to that tag's screen. */

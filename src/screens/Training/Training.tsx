@@ -1,5 +1,5 @@
 import { BellRing, Disc, Flame, Footprints, ListChecks, Nfc, Plus } from 'lucide-react';
-import { MiniRing, Tile } from '../../components/ui/Visual';
+import { MiniRing, Sparkline, Tile } from '../../components/ui/Visual';
 // The Training tab (MedTap): start or continue a workout, readiness, the week, goals, personal bests, plateaus,
 // strength against the peptide, lean mass, muscle balance, cardio and the history.
 import { useState } from 'react';
@@ -10,7 +10,7 @@ import {
 import { medIsFor, personOf } from '../../db/repos/people';
 import { allExercises } from '../../logic/exercises';
 import {
-  cardioBests, fitnessGoalStatus, newPBs, personalBests, plateau, readiness, timeText, trainingCalendar, weeklyBalance, working, paceText,
+  cardioBests, e1rmSeries, fitnessGoalStatus, newPBs, personalBests, plateau, readiness, timeText, trainingCalendar, weeklyBalance, working, paceText,
 } from '../../logic/training';
 import { useNow } from '../../app/useNow';
 import { go } from '../../app/router';
@@ -27,6 +27,8 @@ import { setTrainingReminders } from '../../app/native';
 import { setSetting } from '../../db/repos/settings';
 import { useToast } from '../../app/toast';
 import { isNative } from '../../platform';
+import type { Workout } from '../../db/schema';
+import { TrendChart } from '../../components/charts/TrendChart';
 
 const DAY = 86_400_000;
 
@@ -100,9 +102,21 @@ export function Training() {
           <MiniRing value={cal.thisWeek} max={sessionsGoal?.perWeek ?? Math.max(cal.thisWeek, 3)} size={52} tone={sessionsGoal && cal.thisWeek >= sessionsGoal.perWeek! ? 'good' : 'primary'}
             label={`${cal.thisWeek} this week${sessionsGoal ? ` of ${sessionsGoal.perWeek}` : ''}`}>{sessionsGoal ? `${cal.thisWeek}/${sessionsGoal.perWeek}` : cal.thisWeek}</MiniRing>
         </div>
-        {cal.weeks.some((x) => x.sessions) && <div className="flex items-end gap-1.5 h-14 mt-2" role="img" aria-label={`Sessions in each of the last 8 weeks: ${cal.weeks.map((x) => x.sessions).join(', ')}`}>
-          {cal.weeks.map((x, i) => <div key={x.start} className="flex-1 rounded-[3px]" style={{ height: `${(x.sessions / maxCal) * 100}%`, minHeight: x.sessions ? 3 : 0, background: i === cal.weeks.length - 1 ? 'var(--text)' : sessionsGoal && x.sessions >= sessionsGoal.perWeek! ? 'var(--border-strong)' : 'var(--border)' }} />)}
-        </div>}
+        {cal.weeks.some((x) => x.sessions) && (
+          <div className="mt-2" role="img" aria-label={`Sessions in each of the last ${cal.weeks.length} weeks: ${cal.weeks.map((x) => x.sessions).join(', ')}`}>
+            <div className="relative flex items-end gap-1.5 h-16" aria-hidden="true">
+              {sessionsGoal && <div className="absolute inset-x-0 border-t border-dashed" style={{ bottom: `${(sessionsGoal.perWeek! / maxCal) * 100 * 0.8}%`, borderColor: 'var(--border-strong)' }} />}
+              {cal.weeks.map((x, i) => (
+                <div key={x.start} className="flex-1 flex flex-col items-center justify-end h-full">
+                  <span className="text-[11px] tnum text-muted">{x.sessions || ''}</span>
+                  <div className="w-full rounded-[3px]" style={{ height: `${(x.sessions / maxCal) * 80}%`, minHeight: x.sessions ? 3 : 0,
+                    background: i === cal.weeks.length - 1 ? 'var(--text)' : 'var(--border-strong)' }} />
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-between text-[11px] text-muted mt-1" aria-hidden="true"><span>{cal.weeks.length} weeks ago</span><span>This week</span></div>
+          </div>
+        )}
         {!sessionsGoal && <button type="button" className="text-sm underline underline-offset-4 min-h-[44px]" onClick={() => { setEditGoal(null); setSheet('goal'); }}>Set a weekly goal</button>}
       </section>
 
@@ -128,9 +142,10 @@ export function Training() {
               const pb = personalBests(id, ws);
               return (
                 <li key={id} className="border-t border-border">
-                  <a href={`#/training/exercise/${id}`} className="flex justify-between gap-3 py-2.5 min-h-[48px]">
-                    <span>{defs.find((d) => d.id === id)?.name ?? 'Exercise'}</span>
-                    <span className="text-sm tnum text-muted">{defs.find((d) => d.id === id)?.timed ? (pb.mostReps ? `${pb.mostReps.reps} s` : '') : pb.e1rm ? `max ~${fmtLoad(pb.e1rm.v, settings.units)}` : pb.mostReps ? `${pb.mostReps.reps} reps` : ''}</span>
+                  <a href={`#/training/exercise/${id}`} className="flex items-center justify-between gap-3 py-2.5 min-h-[48px]">
+                    <span className="min-w-0 flex-1">{defs.find((d) => d.id === id)?.name ?? 'Exercise'}</span>
+                    {!defs.find((d) => d.id === id)?.timed && <span className="w-[56px] shrink-0"><Sparkline points={e1rmSeries(id, ws).slice(-12)} height={24} label={`Estimated max over recent sessions`} /></span>}
+                    <span className="text-sm tnum text-muted text-right shrink-0 whitespace-nowrap">{defs.find((d) => d.id === id)?.timed ? (pb.mostReps ? `${pb.mostReps.reps} s` : '') : pb.e1rm ? `max ~${fmtLoad(pb.e1rm.v, settings.units)}` : pb.mostReps ? `${pb.mostReps.reps} reps` : ''}</span>
                   </a>
                 </li>
               );
@@ -177,10 +192,21 @@ export function Training() {
       {bal.sessions > 0 && (
         <section className="border-t border-border pt-5 pb-1" aria-labelledby="bal-h">
           <h2 id="bal-h" className="text-sm font-medium text-muted mb-2">Sets per muscle, last 7 days</h2>
-          <ul className="grid grid-cols-2 gap-x-6 gap-y-1 text-[15px] tnum">
-            {bal.byMuscle.map((m) => <li key={m.id} className="flex justify-between"><span className={m.sets ? '' : 'text-muted'}>{m.name}</span><span>{m.sets}</span></li>)}
+          <ul className="grid grid-cols-2 gap-x-5 gap-y-1.5 text-[15px] tnum">
+            {bal.byMuscle.map((m) => {
+              const max = Math.max(1, ...bal.byMuscle.map((x) => x.sets));
+              return (
+                <li key={m.id} aria-label={`${m.name}: ${m.sets} sets`}>
+                  <span className="flex justify-between" aria-hidden="true"><span className={m.sets ? '' : 'text-muted'}>{m.name}</span><span className={m.sets ? 'font-medium' : 'text-muted'}>{m.sets}</span></span>
+                  <span className="block h-1.5 rounded-full bg-surface-2 mt-0.5" aria-hidden="true"><span className="block h-full rounded-full bg-text" style={{ width: `${(m.sets / max) * 100}%` }} /></span>
+                </li>
+              );
+            })}
           </ul>
-          <p className="text-[15px] mt-2 tnum">Push {bal.push} · pull {bal.pull} sets{bal.push && bal.pull && (bal.push / bal.pull > 1.5 || bal.pull / bal.push > 1.5) ? ` (${bal.push > bal.pull ? 'more pushing' : 'more pulling'})` : ''} · upper {bal.upper} · lower {bal.lower}</p>
+          <div className="mt-4 space-y-2">
+            <SplitBar left="Push" right="Pull" a={bal.push} b={bal.pull} />
+            <SplitBar left="Upper" right="Lower" a={bal.upper} b={bal.lower} />
+          </div>
           <p className="text-xs text-muted mt-1">Working sets: 1 for the main muscle, ½ for the others.</p>
         </section>
       )}
@@ -192,6 +218,7 @@ export function Training() {
             const bests = cardioBests(cardio, a.id).filter((b) => b.best);
             return bests.length ? <p key={a.id} className="text-[15px] tnum"><span className="font-medium">{a.name} bests</span>: {bests.map((b) => `${b.name} ${timeText(b.best!.min)}`).join(' · ')}</p> : null;
           })}
+          <PaceChart cardio={cardio} now={now} />
           <ul className="mt-1">
             {cardio.slice(0, 5).map((w) => (
               <li key={w.id} className="border-t border-border py-2 text-[15px] tnum">
@@ -224,6 +251,39 @@ export function Training() {
       {sheet === 'cardio' && <CardioSheet personId={fam.personId} onClose={() => setSheet(null)} />}
       {sheet === 'goal' && <GoalSheet personId={fam.personId} own={own} existing={goals.find((g) => g.id === editGoal)} onClose={() => setSheet(null)} />}
       {sheet === 'plates' && <PlatesSheet barKg={settings.barKg} onClose={() => setSheet(null)} />}
+    </div>
+  );
+}
+
+/** Two sides of a whole (push against pull, upper against lower) as one bar split where they meet. */
+function SplitBar({ left, right, a, b }: { left: string; right: string; a: number; b: number }) {
+  const t = a + b;
+  if (!t) return null;
+  return (
+    <div role="img" aria-label={`${left} ${a} sets, ${right.toLowerCase()} ${b}`}>
+      <div className="flex justify-between text-sm tnum" aria-hidden="true"><span>{left} <span className="font-semibold">{a}</span></span><span><span className="font-semibold">{b}</span> {right.toLowerCase()}</span></div>
+      <div className="flex h-2.5 rounded-full overflow-hidden mt-1 gap-[2px]" aria-hidden="true">
+        <span className="h-full bg-text" style={{ width: `${(a / t) * 100}%` }} />
+        <span className="h-full" style={{ width: `${(b / t) * 100}%`, background: 'var(--border-strong)' }} />
+      </div>
+    </div>
+  );
+}
+
+/** Pace over time for the activity done most (lower is faster). */
+function PaceChart({ cardio, now }: { cardio: Workout[]; now: number }) {
+  const runs = cardio.filter((w) => w.endedAt && w.cardio?.distanceKm && w.cardio.durationMin);
+  const counts = new Map<string, number>();
+  for (const w of runs) counts.set(w.cardio!.activity, (counts.get(w.cardio!.activity) ?? 0) + 1);
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+  if (!top || top[1] < 3) return null;
+  const pts = runs.filter((w) => w.cardio!.activity === top[0]).map((w) => ({ t: Date.parse(w.startedAt), v: w.cardio!.durationMin / w.cardio!.distanceKm! })).sort((a, b) => a.t - b.t);
+  const name = ACTIVITIES.find((a) => a.id === top[0])?.name ?? 'Cardio';
+  return (
+    <div className="mt-3">
+      <p className="text-sm text-muted">{name} pace, minutes per km (lower is faster)</p>
+      <TrendChart bare noLegend height={120} title={`${name} pace`} start={pts[0].t - 86_400_000} end={now} labelFmt={(v) => paceText(v).replace(' /km', '')}
+        fmt={(v) => paceText(v)} series={[{ label: 'Pace', style: 'line', points: pts }]} />
     </div>
   );
 }

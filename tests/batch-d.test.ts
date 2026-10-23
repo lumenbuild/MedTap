@@ -41,7 +41,7 @@ describe('scripts', () => {
 describe('weekly digest', () => {
   it('last week against the week before', () => {
     const now = syd('2026-09-02', '09:00'); // Wednesday
-    const { start, end } = lastWeek(now, S);
+    const { start } = lastWeek(now, S);
     expect(new Date(start).toLocaleDateString('en-AU', { timeZone: TZ, weekday: 'short' })).toBe('Mon');
     const m = med({});
     const doses: Dose[] = []; const body: BodyEntry[] = []; const checkIns: CheckIn[] = [];
