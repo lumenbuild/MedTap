@@ -1,8 +1,8 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
-import { Bell, Calculator, CalendarCheck, Check, ChevronRight, Clock, Download, Dumbbell, EyeOff, HardDriveDownload, HeartPulse, HelpCircle, Info, Lock, Nfc, Package, Palette, Pill, Plane, RefreshCw, Smile, Syringe, Timer, Users, Utensils, Watch, X, type LucideIcon } from 'lucide-react';
+import { Bell, Calculator, CalendarCheck, Check, ChevronRight, Clock, Coffee, Download, Dumbbell, EyeOff, HardDriveDownload, HeartPulse, HelpCircle, Info, Lock, Nfc, Package, Palette, Pill, Plane, RefreshCw, Smile, Syringe, Timer, Users, Utensils, Watch, X, type LucideIcon } from 'lucide-react';
 import { IconRow } from '../components/ui/Visual';
 import { useSyncConfig } from '../app/sync';
-import { setCheckInNotify, setDigestNotify, setRemindersEnabled, setTrainingReminders, syncReminders } from '../app/native';
+import { allowCheckInNotes, allowExactReminders, checkInNoteStatus, setCheckInNotify, setDigestNotify, setRemindersEnabled, setTrainingReminders, syncReminders, testCheckInNote, type CheckInNoteStatus } from '../app/native';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Sheet, SheetActions } from '../components/ui/Sheet';
@@ -17,7 +17,7 @@ import { useToast } from '../app/toast';
 import { go } from '../app/router';
 import { DEFAULT_CHIPS, setSetting, type Units } from '../db/repos/settings';
 import { eraseAll } from '../db/repos/backup';
-import { fmtAgo, fmtHHmm } from '../logic/format';
+import { fmtAgo, fmtHHmm, fmtWhen } from '../logic/format';
 import { hashPin, isValidPin, newSalt, verifyPin } from '../logic/pin';
 import { useViewMode } from '../app/viewMode';
 import { FamilyCard } from './Family';
@@ -27,6 +27,7 @@ import { BUILD, checkForUpdate } from '../app/updates';
 import { lockNow } from '../app/LockGate';
 import { HAS_WATCH, HAS_MEDS, HAS_BODY, HAS_TRAINING, HAS_FOOD, FOCUS, PLAY, HAS_PEPTIDES, HAS_VISITS, edition, watchDownload } from '../edition';
 import { SIDE_EFFECT_CHIPS } from '../logic/peptide';
+import { HALF_LIVES, LOW_MG } from '../logic/caffeine';
 
 const RemindersCard = lazy(() => import('./RemindersCard'));
 const HealthCard = lazy(() => import('./HealthCard'));
@@ -35,9 +36,9 @@ const HealthCard = lazy(() => import('./HealthCard'));
 
 const selectCls = 'w-full min-h-[48px] rounded-btn bg-surface-2 border border-border px-3';
 
-export type SettingsSection = 'reminders' | 'doses' | 'training' | 'checkins' | 'people' | 'health' | 'privacy' | 'display' | 'watch' | 'about';
+export type SettingsSection = 'reminders' | 'doses' | 'training' | 'checkins' | 'caffeine' | 'people' | 'health' | 'privacy' | 'display' | 'watch' | 'about';
 export const SECTION_TITLE: Record<SettingsSection, string> = {
-  reminders: 'Reminders', doses: 'Doses', training: 'Training', checkins: 'Check-ins', people: 'People and sync', health: 'Health data',
+  reminders: 'Reminders', doses: 'Doses', training: 'Training', checkins: 'Check-ins', caffeine: 'Caffeine', people: 'People and sync', health: 'Health data',
   privacy: 'Privacy', display: 'Display', watch: 'Watch', about: `About ${APP_NAME}`,
 };
 
@@ -141,6 +142,29 @@ export function Settings({ section }: { section?: string }) {
         </div>
       </Card>
     ),
+    caffeine: () => (
+      <Card className="space-y-5">
+        <div className="grid grid-cols-2 gap-3">
+          <TargetInput id="caf-limit" label="Your daily limit (mg)" value={settings.caffeineLimitMg} onChange={(v) => setSetting('caffeineLimitMg', v)} />
+          <Pick id="bedtime" label="Usual bedtime">
+            <input id="bedtime" type="time" value={settings.bedtime} className={`${selectCls} tnum`}
+              onChange={(e) => { if (/^\d{2}:\d{2}$/.test(e.target.value)) void setSetting('bedtime', e.target.value); }} />
+          </Pick>
+        </div>
+        <Pick id="caf-hl" label="How fast you clear caffeine" hint="Half of it is gone in about this long. It varies a lot from person to person; if Today's estimate feels off, try another.">
+          <select id="caf-hl" value={settings.caffeineHalfLifeH} onChange={(e) => setSetting('caffeineHalfLifeH', Number(e.target.value))} className={selectCls}>
+            {HALF_LIVES.map((x) => <option key={x.h} value={x.h}>{x.label}</option>)}
+          </select>
+        </Pick>
+        <Pick id="caf-cut" label="Your cut-off" hint="The latest you want caffeine. Today marks it, and a drink logged after it says so. Leave empty for none.">
+          <input id="caf-cut" type="time" value={settings.caffeineCutoff ?? ''} className={`${selectCls} tnum`}
+            onChange={(e) => void setSetting('caffeineCutoff', /^\d{2}:\d{2}$/.test(e.target.value) ? e.target.value : null)} />
+        </Pick>
+        <Switch label="Same as usual?" checked={settings.usualAsk} onChange={(v) => setSetting('usualAsk', v)}>For a drink you have at about the same time most days: ask once with a Yes button{isNative ? ' (on Today and as a notification)' : ' on Today'} instead of you logging it</Switch>
+        <Button variant="secondary" className="w-full" onClick={() => go('/caffeine')}>Find your cut-off and limit</Button>
+        <p className="text-sm text-muted">Today shows the day's caffeine against your limit, about how much is still in you, and when it drops under {LOW_MG} mg. Trends compares your sleep on nights with {LOW_MG} mg or more still in you at bedtime against the others.</p>
+      </Card>
+    ),
     checkins: () => (
       <Card className="space-y-5">
         {HAS_MEDS && <Pick id="ci-delay" label="Ask how I feel after a dose">
@@ -171,6 +195,7 @@ export function Settings({ section }: { section?: string }) {
         </div>
         <Switch label="Open the check-in by itself" checked={settings.checkInPopup} onChange={(v) => setSetting('checkInPopup', v)}>When one is due and the app is open, once each</Switch>
         {isNative && <Switch label="Check-in notifications" checked={settings.checkInNotify} onChange={async (v) => { const on = await setCheckInNotify(v); if (v && !on) notifyOff(); }}>{HAS_MEDS ? 'After a dose and at your daily times. They never name a medicine.' : 'At your daily times.'}</Switch>}
+        {isNative && settings.checkInNotify && <CheckInNoteHealth times={settings.checkInTimes.join(',')} />}
         <div>
           <span className="block text-sm font-medium mb-2">What you can tick</span>
           <ul className="flex flex-wrap gap-2">
@@ -335,6 +360,7 @@ export function Settings({ section }: { section?: string }) {
         {HAS_MEDS && <Row href="#/settings/doses" Icon={Pill} title="Doses" value={`Day starts ${fmtHHmm(settings.dayStartsAt)}`} />}
         {HAS_TRAINING && settings.trainingTools && <Row href="#/settings/training" Icon={Dumbbell} title="Training" value={`Rest ${restLabel(settings.restSeconds)}`} />}
         <Row href="#/settings/checkins" Icon={Smile} title="Check-ins" value={[HAS_MEDS && settings.checkInDelayMin ? 'after doses' : null, settings.checkInTimes.length ? settings.checkInTimes.map(fmtHHmm).join(', ') : null].filter(Boolean).join(' · ').replace(/^./, (c) => c.toUpperCase()) || 'Off'} />
+        <Row href="#/settings/caffeine" Icon={Coffee} title="Caffeine" value={[settings.caffeineLimitMg ? `${settings.caffeineLimitMg} mg a day` : null, settings.caffeineCutoff ? `until ${fmtHHmm(settings.caffeineCutoff)}` : `bed ${fmtHHmm(settings.bedtime)}`].filter(Boolean).join(' · ')} />
         <Row href="#/settings/people" Icon={Users} title="People and sync" value={`${fam?.people.length ?? 1} ${fam && fam.people.length > 1 ? 'people' : 'person'} · sync ${sync ? 'on' : 'off'}`} />
         {isNative && <Row href="#/settings/health" Icon={HeartPulse} title="Health data" value={settings.healthImport ? 'On' : 'Off'} />}
         <Row href="#/backup" Icon={HardDriveDownload} title="Backup and restore" value={last ? fmtAgo(now - last) : 'None yet'} />
@@ -413,6 +439,29 @@ function SettingText({ id, label, value, placeholder, onSave }: { id: string; la
     <div className="space-y-1.5">
       <label htmlFor={id} className="block text-sm font-medium">{label}</label>
       <input id={id} value={text} placeholder={placeholder} onChange={(e) => setText(e.target.value)} onBlur={() => text.trim() !== value && onSave(text.trim())} className={selectCls} autoComplete="off" />
+    </div>
+  );
+}
+
+/** Whether check-in notifications can actually arrive: the phone's permission, exact times, the next one booked, and
+ *  a test. */
+function CheckInNoteHealth({ times }: { times: string }) {
+  const toast = useToast();
+  const [st, setSt] = useState<CheckInNoteStatus | null>(null);
+  const [n, setN] = useState(0);
+  useEffect(() => { let live = true; const t = setTimeout(() => { void checkInNoteStatus().then((x) => { if (live) setSt(x); }); }, 2500); return () => { live = false; clearTimeout(t); }; }, [times, n]);
+  if (!st) return null;
+  const refresh = () => setN((x) => x + 1);
+  if (st.permission !== 'granted') return (
+    <IconRow Icon={Bell} tone="watch" action={<Button variant="secondary" onClick={async () => { const ok = await allowCheckInNotes(); if (!ok) toast('Turn notifications on for this app in your phone’s settings'); refresh(); }}>Allow</Button>}>
+      The phone hasn't allowed notifications for this app, so none can arrive.
+    </IconRow>
+  );
+  return (
+    <div className="space-y-2">
+      <p className="text-sm text-muted tnum">{st.next ? `Next: ${fmtWhen(st.next, Date.now())} (${st.pending} booked)` : 'None booked: add a daily time above.'}</p>
+      {!st.exact && <IconRow Icon={Clock} tone="watch" action={<Button variant="secondary" onClick={() => { void allowExactReminders(); }}>Allow</Button>}>Without “Alarms and reminders”, the phone may hold them back a while.</IconRow>}
+      <Button variant="secondary" className="w-full" onClick={async () => { toast((await testCheckInNote()) ? 'A test check-in arrives in about 10 seconds' : 'Notifications aren’t allowed'); }}>Send a test</Button>
     </div>
   );
 }

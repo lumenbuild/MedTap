@@ -30,6 +30,7 @@ import { Protocol } from '../screens/Protocol/Protocol';
 import { Progress } from '../screens/Progress';
 
 // Charts are the heaviest code; load them only when Trends or the report is opened, so tag taps stay fast.
+const CaffeineFinder = lazy(() => import('../screens/CaffeineFinder').then((m) => ({ default: m.CaffeineFinder })));
 const Trends = lazy(() => import('../screens/Trends/Trends').then((m) => ({ default: m.Trends })));
 const Report = lazy(() => import('../screens/Report/Report').then((m) => ({ default: m.Report })));
 const Training = lazy(() => import('../screens/Training/Training').then((m) => ({ default: m.Training })));
@@ -72,6 +73,7 @@ function title(r: Route, peptides = HAS_PEPTIDES): string {
     case 'appointmentSummary': return HAS_VISITS ? 'Since your last appointment' : 'Today';
     case 'labs': return HAS_MEDS ? 'Lab results' : 'Today';
     case 'food': return HAS_FOOD ? 'Food' : 'Today';
+    case 'caffeine': return 'Caffeine cut-off and limit';
     case 'travel': return HAS_VISITS ? 'Plan a trip' : 'Today';
     default: return '';
   }
@@ -84,6 +86,7 @@ function backTo(r: Route, protocol: boolean): string | undefined {
     case 'appointments': case 'travel': case 'tags': return '#/settings';
     case 'appointmentSummary': return '#/appointments';
     case 'food': return FOCUS === 'weight' ? undefined : '#/today'; // a tab in TapWeigh
+    case 'caffeine': return '#/today';
     case 'labs': return HAS_VISITS ? '#/appointments' : '#/settings';
     case 'settings': return r.section ? '#/settings' : '#/today';
     case 'medNew': case 'med': return '#/meds';
@@ -125,6 +128,7 @@ function Screen({ r }: { r: Route }) {
     case 'appointmentSummary': return HAS_VISITS ? <AppointmentSummary /> : <Today />;
     case 'labs': return HAS_MEDS ? <Labs /> : <Today />;
     case 'food': return HAS_FOOD ? <Suspense fallback={<ChartsLoading />}><FoodScreen /></Suspense> : <Today />;
+    case 'caffeine': return <Suspense fallback={<ChartsLoading />}><CaffeineFinder /></Suspense>;
     case 'travel': return HAS_VISITS ? <Travel /> : <Today />;
     default: return <Today />;
   }

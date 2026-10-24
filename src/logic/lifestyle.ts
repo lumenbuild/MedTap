@@ -1,14 +1,14 @@
 // More patterns from the person's own records (both apps): a stock recount against the logs, days off a medicine
 // against days on, caffeine and alcohol against sleep, steps against weight,
 // and heart rate after a dose. Pure; each result says how much it rests on. Links, not causes.
-import type { BodyEntry, CheckIn, DailyHealth, Dose, Medication, Vital } from '../db/schema';
+import type { BodyEntry, CheckIn, DailyHealth, Dose, FoodLog, Medication, Vital } from '../db/schema';
 import { getDayBounds, type ScheduleSettings } from './schedule';
 import { dayKey, ymdToMs } from './stats';
 import { occurrences } from './habits';
 import { stockUnitsFor } from './stock';
 import { EFFECT_CHIPS } from './predict';
 import { robustFit, seriesOf } from './forecast';
-import { zonedParts } from './tz';
+import { CAFFEINE, LOW_MG, intakesOf, nights } from './caffeine';
 
 const HOUR = 3_600_000;
 const DAY = 86_400_000;
@@ -17,7 +17,6 @@ const avg = (xs: number[]) => (xs.length ? r(xs.reduce((a, b) => a + b, 0) / xs.
 const nums = <T>(xs: T[], f: (x: T) => number | undefined) => xs.map(f).filter((v): v is number => typeof v === 'number');
 const live = <T extends { deletedAt?: string }>(x: T) => !x.deletedAt;
 const effect = (c: CheckIn) => c.chips.some((x) => EFFECT_CHIPS.includes(x));
-const localHour = (t: number, tz: string) => { const p = zonedParts(t, tz); return p.h + p.mi / 60; };
 
 // ── Stock recount ───────────────────────────────────────────────────────────────────────────────────
 
@@ -87,13 +86,15 @@ export function onOffDays(med: Medication, doses: Dose[], checkIns: CheckIn[], n
 
 // ── Caffeine and alcohol ────────────────────────────────────────────────────────────────────────────
 
-export const CAFFEINE = 'Caffeine';
+export { CAFFEINE };
 export const ALCOHOL = 'Alcohol';
 export interface SubstanceFinding { what: 'late-caffeine' | 'alcohol'; title: string; with: Side & { effectPct?: number }; without: Side & { effectPct?: number } }
 
-/** Nights after caffeine from 2 pm on, and after alcohol, against the others: the next morning's sleep, and (alcohol)
- *  side effects the next day. Needs 3+ nights each way; only clear differences (0.5+ on sleep or 20+ points). */
-export function substanceFindings(checkIns: CheckIn[], now: number, s: ScheduleSettings, days = 90): SubstanceFinding[] {
+/** Nights with caffeine likely still in the body at bedtime (50 mg or more, from what was had and when), and after
+ *  alcohol, against the others: the next morning's sleep, and (alcohol) side effects the next day. Needs 3+ nights each
+ *  way; only clear differences (0.5+ on sleep or 20+ points). */
+export function substanceFindings(checkIns: CheckIn[], now: number, s: ScheduleSettings, days = 90,
+  caffeine: { bedtime: string; halfLifeH: number; foodLogs?: FoodLog[] } = { bedtime: '22:30', halfLifeH: 5 }): SubstanceFinding[] {
   const cis = checkIns.filter((c) => live(c) && Date.parse(c.at) > now - days * DAY && Date.parse(c.at) <= now);
   const dayOf = new Map<string, CheckIn[]>();
   for (const c of cis) { const k = dayKey(Date.parse(c.at), s); dayOf.set(k, [...(dayOf.get(k) ?? []), c]); }
@@ -116,7 +117,8 @@ export function substanceFindings(checkIns: CheckIn[], now: number, s: ScheduleS
     const d = (x?: number, y?: number) => (x !== undefined && y !== undefined ? Math.abs(x - y) : 0);
     if (d(w.sleepHours, wo.sleepHours) >= 0.5 || d(w.sleepQuality, wo.sleepQuality) >= 0.5 || (what === 'alcohol' && d(w.effectPct, wo.effectPct) >= 20)) out.push({ what, title, with: w, without: wo });
   };
-  consider('late-caffeine', 'Caffeine from 2 pm', (k) => (dayOf.get(k) ?? []).some((c) => c.chips.includes(CAFFEINE) && localHour(Date.parse(c.at), s.tz) >= 14));
+  const atBed = new Map(nights(intakesOf(checkIns, caffeine.foodLogs), keys, caffeine.bedtime, s, caffeine.halfLifeH).map((n) => [n.day, n.atBed]));
+  consider('late-caffeine', `Caffeine at bedtime (${LOW_MG} mg or more still in you)`, (k) => (atBed.get(k) ?? 0) >= LOW_MG);
   consider('alcohol', 'Alcohol', (k) => (dayOf.get(k) ?? []).some((c) => c.chips.includes(ALCOHOL)));
   return out;
 }

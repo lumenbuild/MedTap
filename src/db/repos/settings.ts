@@ -123,6 +123,19 @@ export interface AppSettings {
   snoozes: Snooze[];
   /** A notification 30 minutes before a medicine's forecast wear-off (app). */
   wearOffNotify: boolean;
+  /** Caffeine: the person's own daily limit (mg), usual bedtime ('HH:mm') and how fast they clear it (half-life, h). */
+  caffeineLimitMg: number | null;
+  bedtime: string;
+  caffeineHalfLifeH: number;
+  /** The person's own caffeine cut-off ('HH:mm'), and when they started a two-week caffeine check (ms). */
+  caffeineCutoff: string | null;
+  caffeineCheckFrom: number | null;
+  /** The app asked the phone for notification permission by itself (once). */
+  notifyAsked: boolean;
+  /** Milestones already celebrated (ids), and "Same as usual?": on, and the ones answered "not today". */
+  milestonesSeen: string[];
+  usualAsk: boolean;
+  usualDismissed: string[];
 }
 
 export interface Snooze { id: number; medId: string; amount: number; dueAt: number; at: number; made: number }
@@ -198,6 +211,15 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pharmacyContact: '',
   snoozes: [],
   wearOffNotify: true,
+  caffeineLimitMg: 400,
+  bedtime: '22:30',
+  caffeineHalfLifeH: 5,
+  caffeineCutoff: null,
+  caffeineCheckFrom: null,
+  notifyAsked: false,
+  milestonesSeen: [],
+  usualAsk: true,
+  usualDismissed: [],
 };
 
 export async function getSettings(): Promise<AppSettings> {

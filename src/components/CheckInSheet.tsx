@@ -5,14 +5,15 @@ import { Plus } from 'lucide-react';
 import type { CheckIn, Dose, Medication } from '../db/schema';
 import { addCheckIn, removeCheckIn, restoreCheckIn, updateCheckIn, type CheckInInput } from '../db/repos/checkIns';
 import { setSetting } from '../db/repos/settings';
-import { storedPerson } from '../db/repos/people';
+import { personOf, storedPerson } from '../db/repos/people';
+import { usualAnswers } from '../logic/reminders';
 import { getDayBounds, type ScheduleSettings } from '../logic/schedule';
 import { fmtAmount, fmtTime, fmtWhen, fromLocalInput, toLocalInput } from '../logic/format';
 import { useToast } from '../app/toast';
 import { Sheet, SheetActions } from './ui/Sheet';
 import { Button } from './ui/Button';
 import { Stepper } from './ui/Stepper';
-import { MoodPicker, Rating } from './ui/Rating';
+import { MOOD_LABELS, MoodPicker, Rating } from './ui/Rating';
 
 const SIX_HOURS = 6 * 3_600_000;
 
@@ -72,6 +73,13 @@ function CheckInForm({ seed, onClose, doses, checkIns, meds, chips, s, personId,
     }
     onClose();
   };
+  // "Same as usual": the person's usual answers, saved in one tap (only for a new, untouched check-in).
+  const usual = !seed.editing && f.mood === undefined && f.energy === undefined && f.focus === undefined ? usualAnswers(checkIns.filter((c) => personOf(c) === personId), Date.now()) : null;
+  const sameAsUsual = async () => {
+    const c = await addCheckIn({ ...f, ...usual, relatedDoseId, personId: storedPerson(personId) });
+    toast('Saved: same as usual', { onAction: () => removeCheckIn(c.id) });
+    onClose();
+  };
   const del = async () => {
     if (!seed.editing) return;
     const id = seed.editing.id;
@@ -83,6 +91,12 @@ function CheckInForm({ seed, onClose, doses, checkIns, meds, chips, s, personId,
   return (
     <Sheet open onClose={onClose} title={seed.editing ? 'Edit check-in' : 'How are you feeling?'}>
       <div className="space-y-5">
+        {usual && (
+          <Button variant="secondary" className="w-full min-h-[52px] flex-col !items-start text-left" onClick={sameAsUsual}>
+            <span className="font-semibold">Same as usual</span>
+            <span className="text-sm text-muted font-normal">{[usual.mood !== undefined ? MOOD_LABELS[usual.mood - 1] : null, usual.energy !== undefined ? `energy ${usual.energy}` : null, usual.focus !== undefined ? `focus ${usual.focus}` : null].filter(Boolean).join(', ')}</span>
+          </Button>
+        )}
         <MoodPicker value={f.mood} onChange={(v) => set('mood', v)} />
         <Rating label="Energy" low="Drained" high="Energised" value={f.energy} onChange={(v) => set('energy', v)} />
         <Rating label="Focus" low="Scattered" high="Sharp" value={f.focus} onChange={(v) => set('focus', v)} />

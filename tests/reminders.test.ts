@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import type { CheckIn, Dose, Medication } from '../src/db/schema';
-import { checkInDue, checkInPromptDose, lowStockMeds, needsBackup, planCheckInNotes } from '../src/logic/reminders';
+import { answersCheckIn, checkInDue, checkInPromptDose, lowStockMeds, needsBackup, planCheckInNotes } from '../src/logic/reminders';
 import type { ScheduleSettings } from '../src/logic/schedule';
 import { buildIcs } from '../src/logic/ics';
 
 const H = 3_600_000, DAY = 24 * H;
 const now = Date.parse('2026-07-15T06:00:00Z');
 const dose = (ms: number, id = 'd1'): Dose => ({ id, medicationId: 'm', takenAt: new Date(ms).toISOString(), amount: 10, source: 'tag', createdAt: '', updatedAt: '' });
-const ci = (ms: number): CheckIn => ({ id: 'c', at: new Date(ms).toISOString(), chips: [], createdAt: '', updatedAt: '' });
+const ci = (ms: number): CheckIn => ({ id: 'c', at: new Date(ms).toISOString(), chips: [], mood: 3, createdAt: '', updatedAt: '' });
 
 describe('backup reminder', () => {
   it('stays quiet with no data or a recent backup', () => {
@@ -50,16 +50,30 @@ describe('check-ins asked for more often', () => {
     expect(checkInDue([dose(eight - 30 * 60_000)], [], eight + H, o, S)).toMatchObject({ kind: 'dose', key: 'd1' });
     expect(checkInDue([{ ...dose(eight - 30 * 60_000), skipped: true }], [], eight + H, o, S)?.kind).toBe('daily');
   });
-  it('plans notifications after the latest dose and at each daily time for a week', () => {
+  it('plans notifications after the latest dose and at each daily time for two weeks', () => {
     const noon = Date.parse('2026-07-15T02:00:00Z');
     const plan = planCheckInNotes([dose(noon - H)], [], noon, { delayMin: 90, times: ['20:00'] }, S);
     expect(plan[0]).toMatchObject({ kind: 'dose', at: noon + 30 * 60_000 });
-    expect(plan.filter((p) => p.kind === 'daily')).toHaveLength(7);
+    expect(plan.filter((p) => p.kind === 'daily')).toHaveLength(14);
     expect(new Set(plan.map((p) => p.id)).size).toBe(plan.length);
     // Already checked in this evening: today's time is left out.
     const late = planCheckInNotes([], [ci(eight - 20 * 60_000)], eight - 10 * 60_000, { delayMin: 90, times: ['20:00'] }, S);
     expect(late.map((p) => p.at)).not.toContain(eight);
     expect(planCheckInNotes([], [], noon, { delayMin: 0, times: [] }, S)).toEqual([]);
+  });
+  it('a coffee, a drink or a one-tap sleep answer doesn’t count as checking in', () => {
+    const coffee: CheckIn = { ...ci(eight - 20 * 60_000), mood: undefined, chips: ['Caffeine'], note: 'Flat white', caffeineMg: 160 };
+    const wine: CheckIn = { ...ci(eight - 30 * 60_000), mood: undefined, chips: ['Alcohol'] };
+    const slept: CheckIn = { ...ci(eight - 40 * 60_000), mood: undefined, sleepQuality: 4 };
+    for (const c of [coffee, wine, slept]) {
+      expect(answersCheckIn(c)).toBe(false);
+      expect(checkInDue([], [c], eight + H, o, S)?.kind).toBe('daily');
+      expect(planCheckInNotes([], [c], eight - 10 * 60_000, { delayMin: 90, times: ['20:00'] }, S).map((p) => p.at)).toContain(eight);
+    }
+    // After a dose, a coffee doesn't cancel "how are you feeling?" either.
+    expect(checkInPromptDose([dose(eight - 2 * H)], [{ ...coffee, at: new Date(eight - H).toISOString() }], eight, 90, null)?.id).toBe('d1');
+    expect(answersCheckIn({ ...wine, chips: ['Alcohol', 'Headache'] })).toBe(true);
+    expect(answersCheckIn({ ...slept, note: 'Rough night' })).toBe(true);
   });
 });
 

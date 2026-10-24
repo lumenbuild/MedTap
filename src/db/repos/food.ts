@@ -50,7 +50,7 @@ export async function logFood(x: LogInput): Promise<FoodLog> {
   const personId = storedPerson(x.personId);
   const protein = x.nutrients.protein && x.nutrients.protein > 0 ? x.nutrients.protein : undefined;
   if (protein) await addIntake(x.personId, x.date, 'proteinG', protein);
-  const caffeine = (x.nutrients.caffeine ?? 0) >= 1 ? await addCheckIn({ at: x.at, chips: [CAFFEINE], note: x.name, personId }) : undefined;
+  const caffeine = (x.nutrients.caffeine ?? 0) >= 1 ? await addCheckIn({ at: x.at, chips: [CAFFEINE], note: x.name, personId, caffeineMg: Math.round(x.nutrients.caffeine!) }) : undefined;
   const log: FoodLog = {
     id: crypto.randomUUID(), at: x.at, name: x.name, foodId: x.foodId, servings: x.servings, nutrients: x.nutrients,
     proteinPosted: protein, caffeineCheckInId: caffeine?.id, personId, createdAt: now, updatedAt: now,

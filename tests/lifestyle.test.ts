@@ -54,18 +54,21 @@ describe('days on and off', () => {
 });
 
 describe('caffeine, alcohol and the cycle', () => {
-  it('late caffeine and alcohol against sleep and next-day side effects', () => {
+  it('caffeine still in you at bedtime, and alcohol, against sleep and next-day side effects', () => {
     const cis: CheckIn[] = [];
     for (let i = 1; i <= 20; i++) {
       const day = syd('2026-07-08', '12:00') + i * DAY;
       const late = i % 3 === 0, drink = i % 4 === 0;
-      if (late) cis.push(ci(day + 4 * HOUR, { chips: [CAFFEINE] }));
+      // A double shot at 5 pm leaves about 75 mg at a 10:30 pm bedtime; a cup of tea at 4 pm, under 20.
+      if (late) cis.push(ci(day + 5 * HOUR, { chips: [CAFFEINE], caffeineMg: 160 }));
+      else cis.push(ci(day + 4 * HOUR, { chips: [CAFFEINE], caffeineMg: 30 }));
       if (drink) cis.push(ci(day + 8 * HOUR, { chips: [ALCOHOL] }));
       cis.push(ci(day + DAY - 4 * HOUR, { sleepQuality: late ? 2 : 4, chips: drink ? ['Headache'] : [] }));
-      if (!late && !drink) cis.push(ci(day + 2 * HOUR, { chips: [CAFFEINE] })); // morning coffee
+      cis.push(ci(day - 4 * HOUR, { chips: [CAFFEINE], caffeineMg: 80 })); // morning coffee
     }
     const f = substanceFindings(cis, NOW, S);
     const c = f.find((x) => x.what === 'late-caffeine')!;
+    expect(c.with.days).toBe(6); // the 5 pm double shots only, not the afternoon teas or the morning coffees
     expect(c.with.sleepQuality).toBeLessThan(c.without.sleepQuality!);
     const a = f.find((x) => x.what === 'alcohol')!;
     expect(a.with.effectPct!).toBeGreaterThan(a.without.effectPct!);
@@ -174,6 +177,24 @@ describe('counting tablets in a photo', () => {
     const extra = (x: number, y: number): Rgb | null => (y > 335 ? [90, 60, 40] : Math.abs(x - y * 1.2 - 20) < 1.5 ? [90, 90, 90] : null);
     const r = countTablets(scene(480, 360, { bg: () => [225, 225, 220], fg: [70, 110, 190], tablets: grid(5, 3, 85, 18), extra }));
     expect(r.count).toBe(15);
+  });
+  it('round tablets packed together, touching, each counted once', () => {
+    // A hexagonal pack, 1 px apart, each with a shaded rim like a real tablet's edge.
+    const tablets: [number, number, number][] = [];
+    for (let row = 0; row < 7; row++) for (let col = 0; col < 9; col++) tablets.push([110 + col * 31 + (row % 2) * 15.5, 70 + row * 27, 15]);
+    const w = 520, h = 330, data = new Uint8ClampedArray(w * h * 4);
+    let seed = 3;
+    const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let c = [120, 70, 40];
+      for (const [cx, cy, r] of tablets) {
+        const d = Math.hypot(x - cx, y - cy);
+        if (d <= r) { const v = d > r - 2.5 ? 175 : 238; c = [v, v, v - 4]; break; }
+      }
+      const n = (rnd() - 0.5) * 12;
+      data.set([c[0] + n, c[1] + n, c[2] + n, 255], (y * w + x) * 4);
+    }
+    expect(countTablets({ width: w, height: h, data }).count).toBe(63);
   });
   it('a bare surface counts nothing', () => {
     expect(countTablets(scene(320, 240, { bg: (x) => [200 - x / 8, 200 - x / 8, 195 - x / 8], fg: [0, 0, 0], tablets: [], specks: 30 })).count).toBe(0);
