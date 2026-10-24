@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { clearCheckInRequest, clearLogRequest, onCheckInRequest, onLogRequest } from '../../app/pendingLog';
 import { shownMedName, shownName } from '../../logic/privacy';
-import { CalendarDays, CalendarPlus, Coffee, Droplet, HeartPulse, Lock, Nfc, Pill, Ruler, Scale, Smile, Wine } from 'lucide-react';
+import { CalendarDays, CalendarPlus, Coffee, HeartPulse, Lock, Nfc, Pill, Ruler, Scale, Smile, Wine } from 'lucide-react';
 import { IconRow, MiniRing, Tile } from '../../components/ui/Visual';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
 import { useBodyEntries, useCheckIns, useDaily, useDoses, useExercises, useWorkouts, useFamily, useMedEvents, useMeds, useScheduleSettings, useSupplies, useTags, useVitals } from '../../app/data';
@@ -32,12 +32,11 @@ import { BodySheet, type BodySheetState } from '../../components/BodySheets';
 import { HeroCard } from './HeroCard';
 import { TodayRow } from './TodayRow';
 import { MentionsLine, OddRecordsLine, ScriptToday } from '../../components/Smart';
-import { ChangeLine, CycleLine, StallLine, WearOffLines } from '../../components/Insights';
+import { ChangeLine, StallLine, WearOffLines } from '../../components/Insights';
 import { weightStall } from '../../logic/stall';
-import { cycleForecast } from '../../logic/cycle';
 import { whatChanged } from '../../logic/changes';
 import { appointmentsAround } from '../../logic/appointments';
-import { ALCOHOL, CAFFEINE, PERIOD } from '../../logic/lifestyle';
+import { ALCOHOL, CAFFEINE } from '../../logic/lifestyle';
 import { addCheckIn, removeCheckIn } from '../../db/repos/checkIns';
 import { useAppointments } from '../../app/data';
 import { dayKey } from '../../logic/stats';
@@ -45,6 +44,8 @@ import { format } from 'date-fns';
 import { PrnCard } from './PrnCard';
 import { Timeline } from './Timeline';
 import { DoseEditSheet } from './DoseEditSheet';
+import { planRecords, RestartCard, StepPrompt } from '../../components/DosePlan';
+import { restartPrompt, stepStatus } from '../../logic/dosePlan';
 import { AutoBackupPermission, BackupReminder, CheckInPrompt, InstallCard, UpdateCard } from './PromptCards';
 import { HAS_BODY, HAS_PEPTIDES, HAS_VISITS } from '../../edition';
 import { DigestCard, IntakeCard } from '../../components/Fitness';
@@ -56,6 +57,8 @@ import { setSetting } from '../../db/repos/settings';
 import { gettingStarted, showGettingStarted } from '../../logic/gettingStarted';
 import { GettingStartedCard } from '../../components/GettingStarted';
 import { readiness } from '../../logic/training';
+
+const FoodToday = lazy(() => import('../Food').then((m) => ({ default: m.FoodToday })));
 
 export function Today() {
   const meds = useMeds();
@@ -93,7 +96,6 @@ export function Today() {
     const pc = checkIns.filter(me), pb = body.filter(me), daily1 = (daily ?? []).filter(me);
     return {
       stall: HAS_BODY && workouts ? weightStall({ body: pb, checkIns: pc, daily: daily1, doses: pd, meds: pm, workouts: workouts.filter(me) }, t) : null,
-      cyc: ss[0].cycleTracking ? cycleForecast(pc, HAS_BODY ? pb : [], pm, pd, t) : null,
       recent: whatChanged({ meds: pm, doses: pd, checkIns: pc, daily: daily1, events: (events ?? []).filter((e) => ids.has(e.medicationId)) }, t).filter((c) => t - c.at < 10 * 86_400_000)[0],
     };
   }, [minute, meds, doses, checkIns, body, daily, workouts, events, fam, ss]);
@@ -233,11 +235,10 @@ export function Today() {
       {!fam.everyone && (() => {
         const visit = HAS_VISITS && appointments ? appointmentsAround(appointments.filter(mine), dayKey(now, s)).next : undefined;
         const mineDaily = (daily ?? []).filter((d) => personOf(d) === fam.personId);
-        const { stall, cyc, recent } = insights ?? {};
+        const { stall, recent } = insights ?? {};
         const lines = [
           <WearOffLines key="w" meds={viewMeds} doses={viewDoses} checkIns={viewCheckIns} daily={mineDaily} now={now} s={s} />,
           stall ? <StallLine key="st" stall={stall} /> : null,
-          cyc ? <CycleLine key="cy" f={cyc} /> : null,
           recent ? <ChangeLine key="ch" c={recent} /> : null,
           <ScriptToday key="s" meds={viewMeds} doses={viewDoses} s={s} now={now} />,
           <MentionsLine key="m" vitals={viewVitals} daily={(daily ?? []).filter((d) => personOf(d) === fam.personId)} dismissed={settings.mentionsDismissed} now={now} />,
@@ -256,6 +257,13 @@ export function Today() {
       })()}
 
       {promptDose && <CheckInPrompt dose={promptDose} med={medMap.get(promptDose.medicationId)} now={now} onCheckIn={(mood) => setCheckIn({ relatedDoseId: promptDose.id, mood })} />}
+      {active.map((m) => {
+        // Dosing plans: a step that's due, or a reason to start another course.
+        const r = planRecords(m, viewDoses, checkIns, body);
+        const v = stepStatus(m, r.doses, r.checkIns, r.body, now, s);
+        const p = restartPrompt(m, r.checkIns, now, s);
+        return [v?.ready ? <StepPrompt key={`step-${m.id}`} med={m} v={v} /> : null, p ? <RestartCard key={`course-${m.id}`} med={m} prompt={p} /> : null];
+      })}
       <RefillCards alerts={refills} settings={settings} now={now} />
       {HAS_PEPTIDES && <VialAlerts meds={viewMeds} doses={doses} now={now} />}
       {settings.peptideTools && supplies && <SupplyAlerts alerts={supplyAlerts(supplies, meds, doses)} />}
@@ -280,7 +288,6 @@ export function Today() {
           ] as const : []),
           ['Coffee', 'Log caffeine now', Coffee, () => quick(CAFFEINE, 'Caffeine')],
           ['Alcohol', 'Log alcohol now', Wine, () => quick(ALCOHOL, 'Alcohol')],
-          ...(settings.cycleTracking ? [['Period', 'Period started today', Droplet, () => quick(PERIOD, 'Period start')]] as const : []),
         ] as const).map(([label, name, Icon, on]) => <Tile key={label} Icon={Icon} label={label} name={name} onClick={on} />)}
       </div>
       )}
@@ -295,6 +302,10 @@ export function Today() {
         return dg ? <DigestCard d={dg} seen={settings.digestSeen} notify={settings.digestNotify} onClose={() => setSetting('digestSeen', dg.weekStart)}
           onNotify={isNative ? async () => { const on = await setDigestNotify(true); toast(on ? 'You’ll get your week each Monday at 8:30 am' : 'Notifications are off for this app. Turn them on in your phone’s settings.'); } : undefined} /> : null;
       })()}
+
+      {HAS_BODY && settings.foodTracking && !fam.everyone && (
+        <Suspense fallback={null}><FoodToday personId={fam.personId} energy={settings.energyUnit} target={settings.energyTargetKcal} now={now} /></Suspense>
+      )}
 
       {HAS_BODY && settings.trainingTools && !fam.everyone && daily && (() => {
         const mineDaily = daily.filter((d) => !d.deletedAt && personOf(d) === fam.personId);

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { BellRing, Sparkles, CalendarClock, ChevronRight, Compass, Info, Lock, Nfc, RefreshCw, ScanText, ShieldCheck, Smartphone, Syringe, Target, Users, Dumbbell } from 'lucide-react';
+import { Utensils, BellRing, Sparkles, CalendarClock, ChevronRight, Compass, Info, Lock, Nfc, RefreshCw, ScanText, ShieldCheck, Smartphone, Syringe, Target, Users, Dumbbell } from 'lucide-react';
 import { isNative, isNativeIOS } from '../../platform';
 import { APP_NAME, DISCLAIMER } from '../../config';
 import { tagBase } from '../../nfc/url';
@@ -13,6 +13,7 @@ const TOPICS = [
   { id: 'scan', title: 'Scanning a pharmacy label', Icon: ScanText },
   ...(HAS_BODY ? [{ id: 'goals', title: 'Goals and forecasts', Icon: Target }] as const : []),
   ...(HAS_BODY ? [{ id: 'training', title: 'Training and fitness', Icon: Dumbbell }] as const : []),
+  ...(HAS_BODY ? [{ id: 'food', title: 'Food and nutrition', Icon: Utensils }] as const : []),
   { id: 'peptides', title: 'Peptides and injections', Icon: Syringe, peptides: true },
   { id: 'family', title: 'Family members', Icon: Users },
   { id: 'sync', title: 'Family sync', Icon: RefreshCw },
@@ -86,6 +87,7 @@ const CONTENT: Record<string, ReactNode> = {
       <Step n={5} title="Read Today">
         <p>The big number is your next dose. Below it: each medicine and whether it's done, as-needed medicines with when you last had them, and quick buttons for a check-in, blood pressure{HAS_BODY ? ', weight' : ''} and more.</p>
         <p>Notes appear only when they matter: stock running low, a script to renew, a pattern worth knowing.</p>
+        <p>At the bottom, <strong>Logged today</strong> lists everything you logged. Tap a row to change or remove it; the arrows step back to earlier days.</p>
       </Step>
       <Step n={6} title="Check in">
         <p>A few taps on mood, focus, energy and anything you noticed. {APP_NAME} asks a while after a dose, and Trends sets them against your doses, sleep and more. The more check-ins, the sharper the patterns.</p>
@@ -112,6 +114,26 @@ const CONTENT: Record<string, ReactNode> = {
         </ul>
       </Step>
       <p className="pt-2"><a href="#/welcome" className="text-primary font-semibold underline underline-offset-4">Show the welcome again</a></p>
+    </>
+  ),
+  food: (
+    <>
+      <H>Log food</H>
+      <p>Today → <strong>Food</strong> → <strong>Log food</strong>, or open Food for the day's totals. Turn it off in Settings if you don't want it.</p>
+      <ul className="list-disc pl-5 space-y-1">
+        <li><strong>Scan a barcode</strong>: point the camera at it and it's read as soon as it's in the frame (or take a photo, or type the numbers). It's looked up in Open Food Facts, a free open database (only the barcode number is sent), and everything on its panel is kept: energy, protein, carbs, sugars, fat, fibre, sodium, and micros like caffeine, B vitamins, calcium and iron. Check it against the pack the first time; after that it's saved on your phone and works offline.</li>
+        <li><strong>Photo of the label</strong>: for anything the database doesn't have, photograph the nutrition panel. It's read on your phone, not uploaded, and you check the numbers before saving. Scanned first? The barcode is saved with it, so it's found next time.</li>
+        <li><strong>Meal I made</strong>: hand portions, below.</li>
+        <li><strong>Type it in</strong>: numbers from a menu or another app.</li>
+      </ul>
+      <p>Anything you log is saved to log again in one tap: your shake, your energy drink, your usual lunch. Star the ones you have most.</p>
+      <H>Food you make, without weighing</H>
+      <p>Use your hand as the measure. A <strong>palm</strong> of protein (its size and thickness), a <strong>cupped hand</strong> of carbs, a <strong>fist</strong> of veg, a <strong>thumb</strong> of fats. Tap how many of each and you get an estimate that's close enough to see the pattern over a week, which is what matters.</p>
+      <p>Name a meal you make often and next time pick it and choose <strong>Smaller</strong>, <strong>Usual</strong> or <strong>Bigger</strong>. It's never the same twice, and it doesn't need to be.</p>
+      <p>Cooking a batch? Food → <strong>New batch recipe</strong>: scan the packs or pick what you've saved, say how many serves, then log a serve each time. You enter it once.</p>
+      <p>If you only get one number right, make it protein: it's the one that protects muscle while you lose weight. The rest can be rough.</p>
+      <H>Where it shows</H>
+      <p>Protein from food adds to the protein on Today (and widgets, the watch and Trends). Caffeine from a drink counts as a caffeine check-in, so the caffeine-and-sleep finding includes it. Energy shows as Calories or kilojoules (Food → Energy), with a daily target if you set one.</p>
     </>
   ),
   training: (
@@ -190,11 +212,10 @@ const CONTENT: Record<string, ReactNode> = {
       <ul className="list-disc pl-5 space-y-1">
         <li><strong>Days on and off</strong>: check-ins on days you took a medicine against days you didn't.</li>
         <li><strong>Caffeine and alcohol</strong>: tap Coffee or Alcohol on Today; Trends compares the next morning's sleep (and, for alcohol, side effects the next day).</li>
-        <li><strong>Your cycle</strong> (optional, Settings → Check-ins): a Period button on Today, and check-ins by phase of the cycle.</li>
         <li><strong>Heart rate after a dose</strong>{HAS_BODY ? <> and <strong>steps and weight</strong></> : null}: from Health Connect or Apple Health.</li>
       </ul>
       <H>Count what's left</H>
-      <p>On a tablet or capsule's page, <strong>Count what's left</strong>: type the count or take a photo of them spread out on a plain surface (counted on the phone). It compares with what your logs say should be left, and can log doses you took but didn't log.</p>
+      <p>Meds → <strong>Count</strong> (also on a medication's page, and on the Today card when stock is low): type the count, or for tablets and capsules take a photo of them spread out on a plain surface, not touching (counted on the phone; the photo isn't kept). It compares with what your logs say should be left, and can log doses you took but didn't log.</p>
       <H>In the app</H>
       <ul className="list-disc pl-5 space-y-1">
         <li><strong>Health Connect / Apple Health</strong> (Settings): read only; steps, sleep and heart rate{HAS_BODY ? ', weigh-ins' : ''} and blood pressure. Imports again when you open the app.</li>
@@ -222,9 +243,8 @@ const CONTENT: Record<string, ReactNode> = {
       <H>Stock and batches</H>
       <p>On the medication's page, <strong>Add</strong> vials or pens to stock with their lot, expiry, supplier and purity. Mixing a new vial takes the one that expires soonest. Tap any vial to add photos of its label or certificate of analysis, and to see the doses taken from it, so you can trace a batch.</p>
       <H>Supplies</H>
-      <p>Settings → Peptides and injections → <strong>Supplies</strong>. Enter how many syringes, pen needles and swabs you have, and your water. They count down as you log injections and mix vials. The sharps container counts up, and Today reminds you when it's nearly full.</p>
-      <H>On and off cycles</H>
-      <p>In a medication's schedule, tick <strong>On and off cycles</strong>, e.g. 8 weeks on, 4 off, or 5 days on, 2 off. Off days aren't scheduled, and Today shows “Week 3 of 8 on” or “Off until …”.</p>
+      <p>Protocol → <strong>Supplies</strong> (also in Settings, under Tools). Enter how many syringes, pen needles and swabs you have, and your water. They count down as you log injections and mix vials. The sharps container counts up, and Today reminds you when it's nearly full.</p>
+      <p>Courses, on and off cycles, and stepping the dose when ready are in <a href="#/help/schedules" className="underline underline-offset-4">Setting up a schedule</a>.</p>
       <H>Titration</H>
       <p>On the medication's page, <strong>Plan a titration</strong>: the first dose, the step up (or down), how often, and the final dose. Each step is a planned change that switches over on its day, and it's marked on the weight chart.</p>
       <H>Charts</H>
@@ -246,7 +266,7 @@ const CONTENT: Record<string, ReactNode> = {
       </ul>
       <p>Each says what it's based on. They're estimates from your own records, not advice: they show links, not causes, and never suggest a dose.</p>
       <H>Calculator</H>
-      <p>Settings → Peptides and injections → <strong>Peptide calculator</strong>: units for a dose, the dose for a number of units, or the water that makes your dose an easy number of units.</p>
+      <p>Protocol → <strong>Calculator</strong> (also in Settings, under Tools): units for a dose, the dose for a number of units, or the water that makes your dose an easy number of units.</p>
       <H>Check your numbers</H>
       <p>{APP_NAME} only does sums on the numbers you enter; it doesn't suggest doses. Check against the label, your prescriber's directions or your pharmacist, especially the first time. Under 2 units is hard to measure accurately.</p>
     </>
@@ -273,7 +293,7 @@ const CONTENT: Record<string, ReactNode> = {
       <p>Family sync shares {APP_NAME}'s records between your phones and your family's: medications, doses, check-ins, {HAS_BODY ? 'weight, ' : ''}blood pressure and tags. A dose logged on one phone shows on the others, and stock counts include doses logged on every phone. {HAS_BODY ? 'Photos and settings stay' : 'Settings stay'} on each phone.</p>
       <H>Setting it up</H>
       <ol className="list-decimal pl-5 space-y-1">
-        <li>On one phone: Settings → Family sync. Enter your name and tap <strong>Start family sync</strong>.</li>
+        <li>On one phone: Settings → People and sync → <strong>Family sync</strong>. Enter your name and tap <strong>Start family sync</strong>.</li>
         <li>Tap <strong>Invite a phone</strong>. On the other phone, scan the QR code with the camera (or send the invite privately and open it there).</li>
         <li>On the other phone, enter your name and tap <strong>Join</strong>. Anything already on that phone is kept, under that name.</li>
       </ol>
@@ -287,7 +307,7 @@ const CONTENT: Record<string, ReactNode> = {
   family: (
     <>
       <H>Tracking for more than one person</H>
-      <p>Go to Settings → Family members → <strong>Add a family member</strong>. You start as “Me”, which you can rename.</p>
+      <p>Go to Settings → People and sync → <strong>Add a family member</strong>. You start as “Me”, which you can rename.</p>
       <p>Each person has their own medications, check-ins, {HAS_BODY ? 'weight, measurements, blood pressure, photos' : 'blood pressure'}, charts and doctor report. Choose who to show with the names at the top of Today, Trends, {HAS_BODY ? 'Body' : 'Vitals'} and Meds.</p>
       <p>On Today, <strong>Everyone</strong> shows every person's medications at once, each card labelled with whose it is. Handy when you're giving doses to several people.</p>
       <H>Tags</H>
@@ -325,6 +345,13 @@ const CONTENT: Record<string, ReactNode> = {
       <p>On other days, Today shows “Not scheduled today” and counts down to the next one.</p>
       <H>Every few days</H>
       <p>For something every second day, fortnightly or every 4 weeks, choose <strong>Every few days</strong>, enter the number of days (for example 14) and a day you take it.</p>
+      <H>On and off</H>
+      <p>In the schedule, <strong>Pattern</strong> → <strong>On and off</strong>: for example 4 weeks on, 12 weeks off, repeating. Off days aren't scheduled and send no reminders; Meds and Protocol show where you are (“On, week 3 of 4”).</p>
+      <H>A course, then a break</H>
+      <p><strong>Pattern</strong> → <strong>Course</strong>: for example {HAS_PEPTIDES ? '10 units' : 'a dose'} each night for 12 weeks, then off until it's needed again. After the last day nothing is scheduled. To be asked about starting again, add a word like <strong>Pain</strong>: it becomes a check-in chip, and when a check-in mentions it Today asks “Start another course?”. Or choose a number of weeks off. Nothing starts until you tap <strong>Start today</strong>.</p>
+      <H>Step the dose when ready</H>
+      <p>On the medication's page, <strong>Step when ready</strong> → <strong>Set a step plan</strong>: how much each step is (in {HAS_PEPTIDES ? 'syringe units or ' : ''}the medication's unit), the least time on each dose, the most you'll go to (a dose or a week), and, if you like, conditions from your check-ins: appetite back to a level, side effects settled{HAS_BODY ? ', weight loss slowed' : ''}, no missed doses. For example: {HAS_PEPTIDES ? 'up 5 units every 4 weeks or more once appetite is back to 3 of 5, to at most 12 mg a week' : 'up 10 mg at least a week apart while side effects stay settled, to at most 70 mg a dose'}.</p>
+      <p>When every condition is met, Today shows the next dose with <strong>Step up</strong> and <strong>Not yet</strong>. It never changes a dose by itself, and stops at your maximum. For steps on fixed dates instead, use a planned change{HAS_PEPTIDES ? ' or a titration' : ''}.</p>
       <H>Set times with different amounts</H>
       <p>Each set time can have its own amount, such as 10 mg at 8 am and 5 mg at 1 pm. Leave an amount blank to use your usual dose.</p>
       <H>Instructions</H>
@@ -420,11 +447,11 @@ const CONTENT: Record<string, ReactNode> = {
       <ul className="list-disc pl-5 space-y-1">
         <li>Everything you enter is saved on this device only.</li>
         <li>There are no accounts, no analytics and no tracking.</li>
-        <li>After the app loads, it makes no network requests except checking for app updates from {tagBase()} (and, if you scan a label, downloading the label reader from the same place once).</li>
+        <li>After the app loads, it makes no network requests except checking for app updates from {tagBase()} (and, if you scan a label, downloading the label reader from the same place once){HAS_BODY ? '. Scanning a food barcode sends only that barcode number to Open Food Facts to look the product up; nothing about you goes with it' : ''}.</li>
         <li>Nothing leaves the phone unless you export it (backups, spreadsheets, calendar events and printed reports) or turn on family sync, which encrypts everything first.</li>
         <li>Backup files are encrypted, so opening one (or a cloud drive or email preview) shows only scrambled text. Any copy of {APP_NAME} can restore them without a password, so treat them like the data itself: keep them somewhere private.</li>
         <li>Automatic backups (where the browser allows) only ever go to the folder you choose.</li>
-        <li>{HAS_BODY ? 'Progress photos are stored on this phone and never uploaded. ' : ''}Label photos are read on the phone and not kept.</li>
+        <li>{HAS_BODY ? 'Progress photos are stored on this phone and never uploaded. ' : ''}Label photos{HAS_BODY ? ' and nutrition panels' : ''} are read on the phone and not kept.</li>
         <li>Give a medication a <strong>nickname</strong> (on its page in Meds) and that's what shows on Today, when its tag is tapped, in calendar reminders and on Trends, with a plain grey icon. The real name only shows on the medication's own page, in the doctor report (you can choose nicknames there too) and in spreadsheet exports. For everything else, use the app lock.</li>
       </ul>
       <H>What could lose your data</H>
@@ -435,6 +462,7 @@ const CONTENT: Record<string, ReactNode> = {
     <>
       <H>App lock</H>
       <p>The PIN is a privacy screen. It stops casual access on an unlocked phone. It doesn't encrypt the data on the phone.</p>
+      <p>Settings → Privacy: choose how soon it locks after you leave the app, or tap <strong>Lock now</strong> before handing the phone over.</p>
       <p>If you forget your PIN, the only way back in is to erase this phone's data and restore from a backup.</p>
     </>
   ),

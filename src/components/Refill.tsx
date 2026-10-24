@@ -15,6 +15,7 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Sheet, SheetActions } from './ui/Sheet';
 import { TextInput } from './ui/Field';
+import { CountButton } from './CountSheet';
 
 const DAY = 86_400_000;
 
@@ -73,6 +74,7 @@ export function RefillCards({ alerts, settings, now }: { alerts: RefillAlert[]; 
             {expiringBottles.map((b) => <p key={b.id} className="text-sm tnum font-medium">{fmtBottle(b, now)}</p>)}
             <div className="flex flex-wrap gap-2">
               <Button variant="secondary" onClick={() => setRestocking(med)}>Add stock</Button>
+              {med.stockCount !== undefined && <CountButton med={med} label="Count" />}
               {!!med.repeatsLeft && <AskPharmacy meds={[med]} settings={settings} />}
               {expiringBottles.length > 0 && <Button variant="secondary" onClick={() => go(`/meds/${med.id}`)}>Bottles</Button>}
             </div>

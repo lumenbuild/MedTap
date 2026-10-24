@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Segmented } from '../components/ui/Field';
 import { Body } from './Body/Body';
 import { HAS_BODY } from '../edition';
@@ -7,10 +7,12 @@ const Trends = lazy(() => import('./Trends/Trends').then((m) => ({ default: m.Tr
 type View = 'trends' | 'body';
 
 /** Progress (peptide tools on): Trends and Body behind one tab, so Protocol can have its own. */
-export function Progress() {
+export function Progress({ view: asked }: { view?: View }) {
   const [view, setView] = useState<View>(() => {
+    if (asked) return asked;
     try { return (localStorage.getItem('progressView') as View) || 'trends'; } catch { return 'trends'; }
   });
+  useEffect(() => { if (asked) setView(asked); }, [asked]);
   const pick = (v: View) => { setView(v); try { localStorage.setItem('progressView', v); } catch { /* per-device preference only */ } };
   return (
     <div className="space-y-4">

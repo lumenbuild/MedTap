@@ -725,3 +725,69 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
   Web NFC error mapping (read-only vs unsupported tag) is best-effort from Chrome's error names; confirm on a real tag.
 - Verified in headless Chromium (Pixel 7 viewport, Sydney time zone): add med, unknown tag → assign → log, guard, notes,
   undo, stock, timeline edit/delete/undo, manual link + QR, change event, set-times + as-needed cards, dark mode. No console errors.
+
+## Settings that open the phone's screens, photo count, spacing
+
+- Health Connect settings: on Android 14+ Health Connect is part of the phone and the old settings action opens
+  nothing. The button now tries this app's own access page, then Health Connect's data screen, then its settings,
+  then the Play Store, and says so if none opens. It shows before connecting too (after two "Don't allow"s Android
+  stops asking, so it's the only way back), and the card checks again when you come back to the app.
+- Notification and NFC settings fall back to the app info page / wireless settings on phones without them.
+- Reminders: the exact-timing and notifications-off warnings showed twice; now once, in the reminder check.
+- Count what's left (photo count for tablets and capsules) was only on a medicine's page once a stock count was
+  saved. Now: Meds → Count (pick a medicine), Count on Today's refill card, and on every medicine's page.
+- Spacing: switches line up with their labels (On/Off beside the switch), the gap under Today's next dose, the
+  readiness list, Logged today names no longer wrap early, the goal button, Supplies' intro, and the About page
+  (was empty on the web) now says what the app keeps where, with Help and the welcome.
+
+## Every feature reachable sensibly
+
+- A crawl from the tabs and Settings, in MedTap (peptide tools on, and peptide and training tools off) and TapDose,
+  reaches every screen; the rest open from buttons (Routines, sheets) or from outside (tags, invite links).
+- Back goes to the screen you came from (the Doctor report from Meds returns to Meds; Settings returns to whichever
+  tab opened it). A screen opened straight from a tag, link or notification falls back to its usual parent.
+- Earlier days: "Logged today" on Today steps back day by day, so a dose or check-in from last week can be fixed or
+  removed (before, only today's could).
+- Settings → Privacy → Lock now, to lock before handing the phone over or to switch between the full and private views.
+- Links to Progress (Today's insights, Body's weight chart, Protocol) open Trends; without peptide tools there's no
+  Progress tab, so they go to the Trends tab.
+- Help and hints name the real menus: Settings → People and sync (family members, family sync), Protocol →
+  Calculator and Supplies, and the Settings row is now "Backup and restore" like the page and every mention of it.
+
+## Period tracking removed; dosing plans
+
+- Period tracking is gone: the setting, the Period button, the cycle card in Trends, the cycle line on Today, the
+  cycle-phase question in Ask your data, the cycle water adjustment in the stall detector, and the onboarding switch.
+  Old check-ins keep their chips; nothing reads them now.
+- Dosing plans, all the person's own (or their prescriber's), and nothing changes without them saying so:
+  - **Step when ready** (medicine page): step by an amount (or syringe units for a mixed vial), at least N weeks on
+    each dose, up to a maximum a dose or a week, and optionally only when appetite is back to a level, side effects
+    are settled, weight loss has slowed, or no doses were missed. When all are met Today shows the next dose with
+    Step up (undoable) and Not yet (asks again in a week). Stops at the maximum; waits for the first dose at a new
+    amount before asking again. Protocol shows where it's at.
+  - **Course** (schedule → Pattern): N weeks from a date, then a break with nothing scheduled and no reminders.
+    Words like "Pain" become check-in chips; a check-in mentioning one (or a set number of weeks off) asks on Today
+    "Start another course?" with Start today (undoable) and Not now.
+  - **On and off** (schedule → Pattern), now for every medicine, not only with peptide tools.
+  - Today's rows, the hero, Meds and Protocol say where each is ("Course, week 4 of 12", "On a break", "Off until …").
+- logic/dosePlan.ts with tests (tests/dose-plan.test.ts); course gating in isScheduledDay, so reminders, widgets,
+  the watch, forecasts and reports all follow it.
+
+## Food: macros and micros
+
+- Today → Food (MedTap; Settings → Food to turn off): energy so far, carbs, fat and fibre, and Log food. Food (#/food):
+  the day's totals with every micro the labels gave, entries (edit amount, remove with undo), earlier days, saved
+  foods (star, remove), batch recipes, Calories or kilojoules and a daily energy target.
+- Ways to log: scan a barcode (a photo; the phone's BarcodeDetector, or ZXing loaded on demand) looked up in Open
+  Food Facts (only the number is sent; saved on the phone after, so it's offline next time); a photo of the
+  nutrition panel read on the phone (AU/NZ, US and EU layouts; common OCR slips fixed; checked before saving, and
+  kept with the barcode if it wasn't found); a meal you made by hand portions (palm, cupped hand, fist, thumb), named
+  to log again Smaller, Usual or Bigger; a batch recipe (scan the packs or pick saved, serves, log a serve); typed.
+- A food's protein is added to the day's protein (Today, widgets, watch, Trends, digest and the stall check all
+  count it) and its caffeine makes a caffeine check-in (so the caffeine-and-sleep finding counts it); removing
+  the entry takes both off. Food and food logs are backed up and synced.
+- logic/nutrition.ts (34 nutrients, Open Food Facts mapping, panel parser, portions) with tests; db v10.
+- Live camera scanning: Scan a barcode opens the camera full screen with a guide and reads a few frames a second
+  (BarcodeDetector, or ZXing on the middle of the frame) until the same valid code is seen twice; torch where the
+  phone has one; Photo instead / Type numbers; camera stopped as soon as it reads. Android declares CAMERA
+  (Capacitor asks when it's first used); the iOS camera text mentions barcodes.

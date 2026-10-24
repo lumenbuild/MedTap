@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Appointment, BodyEntry, CheckIn, DailyHealth, Exercise, Routine, Workout, DeviceValue, Dose, LabResult, MedEvent, Medication, Person, Photo, Question, Setting, Tag, Vital, Supply } from './schema';
+import type { Food, FoodLog, Appointment, BodyEntry, CheckIn, DailyHealth, Exercise, Routine, Workout, DeviceValue, Dose, LabResult, MedEvent, Medication, Person, Photo, Question, Setting, Tag, Vital, Supply } from './schema';
 import { LEGACY_COLOURS } from '../logic/palette';
 import { edition } from '../edition';
 
@@ -23,6 +23,8 @@ class MedDB extends Dexie {
   exercises!: Table<Exercise, string>;
   workouts!: Table<Workout, string>;
   routines!: Table<Routine, string>;
+  foods!: Table<Food, string>;
+  foodLogs!: Table<FoodLog, string>;
 
   constructor() {
     super(edition.dbName); // each edition keeps its own data, even on the same website
@@ -56,11 +58,13 @@ class MedDB extends Dexie {
     this.version(8).stores({ daily: 'id, date' });
     // v9: training (MedTap): your own exercises, workouts and routines.
     this.version(9).stores({ exercises: 'id', workouts: 'id, startedAt', routines: 'id' });
+    // v10: food: saved products, meals and recipes, and what was eaten.
+    this.version(10).stores({ foods: 'id, barcode', foodLogs: 'id, at' });
   }
 }
 
 export const db = new MedDB();
 
 /** Every table, in a fixed order. Used by backup, restore and erase. */
-export const TABLES = ['people', 'medications', 'tags', 'doses', 'checkIns', 'bodyEntries', 'vitals', 'medEvents', 'settings', 'photos', 'supplies', 'labs', 'appointments', 'questions', 'daily', 'exercises', 'workouts', 'routines'] as const;
+export const TABLES = ['people', 'medications', 'tags', 'doses', 'checkIns', 'bodyEntries', 'vitals', 'medEvents', 'settings', 'photos', 'supplies', 'labs', 'appointments', 'questions', 'daily', 'exercises', 'workouts', 'routines', 'foods', 'foodLogs'] as const;
 export type TableName = (typeof TABLES)[number];

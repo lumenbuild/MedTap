@@ -4,12 +4,10 @@ import { format } from 'date-fns';
 import type { CheckIn, DailyHealth, Dose, Medication, Vital, BodyEntry } from '../db/schema';
 import type { ScheduleSettings } from '../logic/schedule';
 import type { Units } from '../db/repos/settings';
-import { PHASES, cycleView, heartAfterDose, onOffDays, stepsVsWeight, substanceFindings, type Side } from '../logic/lifestyle';
+import { heartAfterDose, onOffDays, stepsVsWeight, substanceFindings, type Side } from '../logic/lifestyle';
 import { shownName } from '../logic/privacy';
 import { kgTo, weightUnit } from '../logic/units';
-import type { CycleForecast } from '../logic/cycle';
-import { CycleStrip } from './Insights';
-import { CompareBars, HeatTable } from './ui/Visual';
+import { CompareBars } from './ui/Visual';
 
 const Section = ({ id, title, children }: { id: string; title: string; children: React.ReactNode }) => (
   <section className="border-t border-border pt-5 pb-1" aria-labelledby={id}>
@@ -62,25 +60,6 @@ export function SubstanceCard({ checkIns, now, s }: { checkIns: CheckIn[]; now: 
         ))}
       </div>
       <p className="text-xs text-muted mt-1">From the Coffee and Alcohol buttons on Today (or those chips in a check-in).</p>
-    </Section>
-  );
-}
-
-export function CycleCard({ checkIns, now, forecast }: { checkIns: CheckIn[]; now: number; forecast?: CycleForecast | null }) {
-  const v = cycleView(checkIns, now);
-  if (!v) return <Section id="cycle-h" title="Your cycle"><p className="text-[15px] text-muted">Tap Period on Today when one starts.</p></Section>;
-  return (
-    <Section id="cycle-h" title="Your cycle">
-      <p className="text-[15px] mb-2 tnum">{v.today ? `Day ${v.today} today` : ''}{v.averageLength ? ` · usually ${v.averageLength} days` : ''} · {v.starts.length} cycles logged</p>
-      <HeatTable columns={v.phases.map((p) => p.name.replace(/^Days? /, '').replace(' on', '+'))} highlight={v.today ? PHASES.findIndex((p) => v.today! >= p.from && v.today! <= p.to) : undefined}
-        rows={[
-          { label: 'Mood', values: v.phases.map((p) => p.mood ?? null) },
-          { label: 'Focus', values: v.phases.map((p) => p.focus ?? null) },
-          { label: 'Appetite', values: v.phases.map((p) => p.appetite ?? null) },
-          { label: 'Side effects', values: v.phases.map((p) => p.effectPct ?? null), fmt: (x) => `${Math.round(x)}%` },
-        ]} />
-      <p className="text-xs text-muted mt-1">Days of your cycle. Stronger colour is higher, row by row.</p>
-      {forecast && forecast.upcoming.length > 0 && <CycleStrip f={forecast} now={now} />}
     </Section>
   );
 }

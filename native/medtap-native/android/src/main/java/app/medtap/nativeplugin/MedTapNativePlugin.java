@@ -217,7 +217,8 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
 
     @PluginMethod
     public void openNfcSettings(PluginCall call) {
-        getActivity().startActivity(new Intent(Settings.ACTION_NFC_SETTINGS));
+        try { getActivity().startActivity(new Intent(Settings.ACTION_NFC_SETTINGS)); }
+        catch (Exception e) { try { getActivity().startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS)); } catch (Exception ignored) { /* nothing to open */ } }
         call.resolve();
     }
 
@@ -576,11 +577,14 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
     /** Health Connect's settings, or its Play Store page when it needs installing or updating. */
     @PluginMethod
     public void openHealthConnect(PluginCall call) {
-        String status = HealthBridge.status(getContext());
-        Intent i;
-        if ("available".equals(status)) i = new Intent("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS");
-        else i = new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.google.android.apps.healthdata&url=healthconnect%3A%2F%2Fonboarding"));
-        try { getActivity().startActivity(i); call.resolve(); } catch (Exception e) { call.reject("Couldn't open Health Connect", "io"); }
+        java.util.List<Intent> tries = new java.util.ArrayList<>();
+        if ("available".equals(HealthBridge.status(getContext()))) tries.addAll(HealthBridge.settingsIntents(getContext()));
+        tries.add(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.google.android.apps.healthdata&url=healthconnect%3A%2F%2Fonboarding")));
+        tries.add(new Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata")));
+        for (Intent i : tries) {
+            try { getActivity().startActivity(i); call.resolve(); return; } catch (Exception ignored) { /* try the next one */ }
+        }
+        call.reject("Couldn't open Health Connect", "io");
     }
 
     // ---- Shortcuts: "Log <medicine>" on a long press of the app icon (can be pinned to the home screen) ----
@@ -654,7 +658,10 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
         Context ctx = getContext();
         Intent i = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
         i.putExtra(Settings.EXTRA_APP_PACKAGE, ctx.getPackageName());
-        try { getActivity().startActivity(i); } catch (Exception e) { /* older phones */ }
+        try { getActivity().startActivity(i); }
+        catch (Exception e) {
+            try { getActivity().startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + ctx.getPackageName()))); } catch (Exception ignored) { /* nothing to open */ }
+        }
         call.resolve();
     }
 

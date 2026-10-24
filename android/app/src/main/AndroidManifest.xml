@@ -70,5 +70,8 @@
 
     <!-- Permissions -->
 
+    <!-- Live barcode scanning for food (the camera view in the app; photos still use the camera app). -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-permission android:name="android.permission.INTERNET" />
 </manifest>

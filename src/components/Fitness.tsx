@@ -32,7 +32,7 @@ export function ReadinessBlock({ r, compact = false }: { r: Readiness; compact?:
           <p className="text-[17px] font-medium">{r.label}</p>
         </div>
       </div>
-      {!compact && <ul className="text-[15px] tnum mt-2 grid grid-cols-2 gap-x-4 gap-y-1">{r.parts.map((p) => <li key={p.what} className="flex items-center gap-2"><span aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ background: p.good ? 'var(--success)' : 'var(--caution)' }} />{p.what}: {p.text}</li>)}</ul>}
+      {!compact && <ul className="text-[15px] tnum mt-3 space-y-1">{r.parts.map((p) => <li key={p.what} className="flex items-start gap-2"><span aria-hidden="true" className="w-2 h-2 mt-[8px] rounded-full shrink-0" style={{ background: p.good ? 'var(--success)' : 'var(--caution)' }} />{p.what}: {p.text}</li>)}</ul>}
     </div>
   );
 }
@@ -138,7 +138,7 @@ export function IntakeCard({ personId, today, day, proteinTarget, waterTarget, r
         <div className="flex items-center gap-2">
           <Icon size={18} aria-hidden="true" className="text-primary" />
           <span className="font-medium flex-1">{label}</span>
-          <span className="tnum"><span className="text-[20px] font-semibold">{v}</span><span className="text-sm text-muted">{target ? ` / ${target}` : ''} {unit}</span></span>
+          <span className="tnum"><span className="text-[20px] font-semibold">{Math.round(v)}</span><span className="text-sm text-muted">{target ? ` / ${target}` : ''} {unit}</span></span>
         </div>
         {target ? <Bar value={v} max={target} tone={v >= target ? 'good' : 'primary'} label={`${v} of ${target} ${unit}`} /> : null}
         <div className="flex gap-2">
@@ -149,7 +149,7 @@ export function IntakeCard({ personId, today, day, proteinTarget, waterTarget, r
   };
   return (
     <section className="border-t border-border pt-4 space-y-4" aria-label="Protein, water and readiness">
-      {ready && <ReadinessBlock r={ready} compact />}
+      {ready && <div className="pb-4 border-b border-border"><ReadinessBlock r={ready} compact /></div>}
       {row('Protein', Beef, 'proteinG', 'g', proteinTarget, [10, 25, 40])}
       {row('Water', GlassWater, 'waterMl', 'mL', waterTarget, [250, 500])}
     </section>

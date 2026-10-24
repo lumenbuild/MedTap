@@ -1,5 +1,5 @@
 // More patterns from the person's own records (both apps): a stock recount against the logs, days off a medicine
-// against days on, caffeine and alcohol against sleep, the menstrual cycle against check-ins, steps against weight,
+// against days on, caffeine and alcohol against sleep, steps against weight,
 // and heart rate after a dose. Pure; each result says how much it rests on. Links, not causes.
 import type { BodyEntry, CheckIn, DailyHealth, Dose, Medication, Vital } from '../db/schema';
 import { getDayBounds, type ScheduleSettings } from './schedule';
@@ -119,33 +119,6 @@ export function substanceFindings(checkIns: CheckIn[], now: number, s: ScheduleS
   consider('late-caffeine', 'Caffeine from 2 pm', (k) => (dayOf.get(k) ?? []).some((c) => c.chips.includes(CAFFEINE) && localHour(Date.parse(c.at), s.tz) >= 14));
   consider('alcohol', 'Alcohol', (k) => (dayOf.get(k) ?? []).some((c) => c.chips.includes(ALCOHOL)));
   return out;
-}
-
-// ── Menstrual cycle ─────────────────────────────────────────────────────────────────────────────────
-
-export const PERIOD = 'Period started';
-export const PHASES = [
-  { name: 'Days 1–5', from: 1, to: 5 }, { name: 'Days 6–13', from: 6, to: 13 }, { name: 'Days 14–16', from: 14, to: 16 }, { name: 'Day 17 on', from: 17, to: 45 },
-] as const;
-export interface PhaseStats { name: string; checkIns: number; mood?: number; focus?: number; energy?: number; appetite?: number; effectPct?: number }
-export interface CycleView { starts: number[]; today?: number; phases: PhaseStats[]; averageLength?: number }
-
-/** Check-ins by day of the cycle (from "Period started" check-ins). Needs 2+ starts. */
-export function cycleView(checkIns: CheckIn[], now: number): CycleView | null {
-  const starts: number[] = [];
-  for (const c of checkIns.filter((c) => live(c) && c.chips.includes(PERIOD)).sort((a, b) => a.at.localeCompare(b.at))) {
-    const t = Date.parse(c.at);
-    if (!starts.length || t - starts[starts.length - 1] > 10 * DAY) starts.push(t);
-  }
-  if (starts.length < 2) return null;
-  const dayOfCycle = (t: number) => { const st = starts.filter((x) => x <= t).pop(); return st === undefined ? undefined : Math.floor((t - st) / DAY) + 1; };
-  const rows = checkIns.filter(live).map((c) => ({ c, d: dayOfCycle(Date.parse(c.at)) })).filter((x) => x.d !== undefined && x.d <= 45);
-  const phases = PHASES.map((p) => {
-    const cs = rows.filter((x) => x.d! >= p.from && x.d! <= p.to).map((x) => x.c);
-    return { name: p.name, checkIns: cs.length, mood: avg(nums(cs, (c) => c.mood)), focus: avg(nums(cs, (c) => c.focus)), energy: avg(nums(cs, (c) => c.energy)), appetite: avg(nums(cs, (c) => c.appetite)), effectPct: cs.length ? Math.round((cs.filter(effect).length / cs.length) * 100) : undefined };
-  });
-  const gaps = starts.slice(1).map((t, i) => (t - starts[i]) / DAY);
-  return { starts, today: dayOfCycle(now), phases, averageLength: gaps.length ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) : undefined };
 }
 
 // ── Steps and weight ────────────────────────────────────────────────────────────────────────────────

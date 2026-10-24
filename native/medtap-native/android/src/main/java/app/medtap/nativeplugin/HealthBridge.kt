@@ -73,6 +73,20 @@ object HealthBridge {
         }
     }
 
+    /** Where "Health Connect settings" goes, best first: this app's access page (Android 14+, where Health Connect is
+     *  part of the phone), Health Connect's data and access screen, then its settings. The old
+     *  "androidx.health.ACTION_HEALTH_CONNECT_SETTINGS" alone opens nothing on Android 14+. */
+    @JvmStatic
+    fun settingsIntents(context: Context): List<Intent> {
+        val out = mutableListOf<Intent>()
+        if (Build.VERSION.SDK_INT >= 34) {
+            out += Intent("android.health.connect.action.MANAGE_HEALTH_PERMISSIONS").putExtra(Intent.EXTRA_PACKAGE_NAME, context.packageName)
+        }
+        out += HealthConnectClient.getHealthConnectManageDataIntent(context)
+        out += Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS)
+        return out
+    }
+
     @JvmStatic
     fun requestIntent(context: Context): Intent =
         PermissionController.createRequestPermissionResultContract().createIntent(context, PERMISSIONS)

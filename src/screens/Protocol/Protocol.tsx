@@ -1,4 +1,6 @@
 import { costSummary, money } from '../../logic/cost';
+import { planLine, stepStatus } from '../../logic/dosePlan';
+import { stepSummary } from '../../components/DosePlan';
 import { lazy, Suspense, useState, type ReactNode } from 'react';
 import { format } from 'date-fns';
 import type { Dose, Medication } from '../../db/schema';
@@ -6,7 +8,7 @@ import { useBodyEntries, useCheckIns, useDoses, useFamily, useMeds, useScheduleS
 import { medIsFor, personOf } from '../../db/repos/people';
 import { useNow } from '../../app/useNow';
 import { go } from '../../app/router';
-import { cycleInfo, getDayBounds, getExpectedAmount, getNextDue, getStatus, type ScheduleSettings } from '../../logic/schedule';
+import { getExpectedAmount, getNextDue, getStatus, type ScheduleSettings } from '../../logic/schedule';
 import { nextPlannedChange } from '../../logic/plans';
 import { dayKey } from '../../logic/stats';
 import { fmtAmount, fmtSchedule, fmtWhen } from '../../logic/format';
@@ -128,7 +130,8 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal 
   const nextAmount = next !== null ? getExpectedAmount(med, doses, next, s) : med.defaultAmount;
   const guide = guideText(med, nextAmount);
   const change = nextPlannedChange(med, dayKey(now, s));
-  const cyc = med.schedule.cycle ? cycleInfo(med.schedule.cycle, getDayBounds(now, s.dayStartsAt, s.tz).start, s) : undefined;
+  const plan = planLine(med, now, s);
+  const step = stepStatus(med, doses.filter((d) => d.medicationId === med.id), checkIns, HAS_BODY ? body : [], now, s);
   const vial = vialStatus(med, doses, now);
   const stock = stockVials(med).length;
   const sp = stockPlan(med, doses, now, s);
@@ -172,10 +175,16 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal 
             ? <><span className="tnum">{ymdDay(change.from)}</span><span className="block text-sm text-muted tnum">{fmtAmount(med.defaultAmount, med.unit)} → {fmtAmount(change.defaultAmount, med.unit)}{change.note ? ` · ${change.note}` : ''}</span></>
             : <a href={`#/meds/${med.id}`} className="underline underline-offset-4">None planned</a>}
         </Row>
-        {cyc && (
-          <Row label="Cycle">
-            <span className="tnum">{cyc.phase === 'before' ? `Starts ${ymdDay(cyc.nextChange)}` : cyc.phase === 'off' ? `Off, day ${cyc.day} of ${cyc.length}` : `On, day ${cyc.day} of ${cyc.length}`}</span>
-            {cyc.phase !== 'before' && <span className="block text-sm text-muted">{cyc.phase === 'on' ? 'Break' : 'Back on'} from {ymdDay(cyc.nextChange)}</span>}
+        {plan && (
+          <Row label="Plan" onClick={() => go(`/meds/${med.id}`)}>
+            <span className="tnum">{plan.split(' · ')[0]}</span>
+            {plan.includes(' · ') && <span className="block text-sm text-muted tnum">{plan.split(' · ').slice(1).join(' · ')}</span>}
+          </Row>
+        )}
+        {step && (
+          <Row label="Step plan" onClick={() => go(`/meds/${med.id}`)}>
+            <span className="tnum">{step.ready ? `Ready: ${fmtAmount(step.next, med.unit)}` : step.atLimit ? 'At your limit' : `Next ${fmtAmount(step.next, med.unit)}`}</span>
+            <span className="block text-sm text-muted">{stepSummary(med, step, now)}</span>
           </Row>
         )}
         <Row label={pen ? 'Pen' : 'Vial'} onClick={() => go(`/meds/${med.id}`)}>
@@ -247,7 +256,7 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal 
       {HAS_BODY && (
         <div className="mt-5">
           {path ? (
-            <a href="#/progress" onClick={() => { try { localStorage.setItem('progressView', 'trends'); } catch { /* preference only */ } }}
+            <a href="#/progress/trends"
               className="flex items-center gap-3 rounded-card bg-surface-2 p-3">
               <TrendingDown aria-hidden="true" className="shrink-0" />
               <span className="flex-1 min-w-0">

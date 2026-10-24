@@ -26,7 +26,7 @@ export function CountSheet({ med, doses, s, now, onClose, onCounted }: {
   const n = Number(counted);
   const valid = counted !== '' && n >= 0;
   const check = valid ? countCheck(med, doses, n, now, s) : null;
-  const solid = /tablet|capsule/i.test(med.form);
+  const solid = countsFromPhoto(med);
   const save = async (logMissing: boolean) => {
     const ids: string[] = [];
     if (logMissing && check) for (const u of check.unlogged.slice(0, Math.round(check.doses))) ids.push((await logDose({ medicationId: med.id, takenAt: new Date(u.t).toISOString(), amount: u.amount, source: 'backdated', note: 'Logged after a recount' })).id);
@@ -104,17 +104,51 @@ function PhotoCount({ onCount }: { onCount: (url: string, r: TabletCount & { w: 
   );
 }
 
-/** "Count what's left" on the medication page (with its own data). */
-export function CountButton({ med, onCounted }: { med: Medication; onCounted: (n: number) => void }) {
+/** Tablets and capsules can be counted from a photo; anything else is typed in. */
+export const countsFromPhoto = (med: Medication) => /tablet|capsule/i.test(med.form);
+
+/** "Count what's left" (with its own data): on the medication page and the Today refill card. */
+export function CountButton({ med, onCounted, label = "Count what's left" }: { med: Medication; onCounted?: (n: number) => void; label?: string }) {
   const doses = useDoses();
   const ss = useScheduleSettings();
   const now = useNow(60_000);
   const [open, setOpen] = useState(false);
-  if (!doses || !ss || med.stockCount === undefined) return null;
+  if (!doses || !ss || med.peptide) return null;
   return (
     <>
-      <Button variant="secondary" onClick={() => setOpen(true)}>Count what's left</Button>
+      <Button variant="secondary" className="flex items-center justify-center gap-2" onClick={() => setOpen(true)}>
+        {countsFromPhoto(med) && <Camera size={18} aria-hidden="true" />}{label}
+      </Button>
       {open && <CountSheet med={med} doses={doses} s={ss[1]} now={now} onClose={() => setOpen(false)} onCounted={onCounted} />}
     </>
+  );
+}
+
+/** Meds → Count: pick which medication, then count it (tablets and capsules first, as they can use a photo). */
+export function CountPicker({ meds, onClose }: { meds: Medication[]; onClose: () => void }) {
+  const doses = useDoses();
+  const ss = useScheduleSettings();
+  const now = useNow(60_000);
+  const [med, setMed] = useState<Medication | null>(meds.length === 1 ? meds[0] : null);
+  if (!doses || !ss) return null;
+  if (med) return <CountSheet med={med} doses={doses} s={ss[1]} now={now} onClose={onClose} />;
+  const list = [...meds].sort((a, b) => Number(countsFromPhoto(b)) - Number(countsFromPhoto(a)));
+  return (
+    <Sheet open onClose={onClose} title="Count what's left">
+      <p className="text-[15px] text-muted mb-3">Tablets and capsules can be counted from a photo.</p>
+      {list.length === 0 ? <p className="text-[15px]">Add a medication first.</p> : (
+        <ul className="divide-y divide-border">
+          {list.map((m) => (
+            <li key={m.id}>
+              <button type="button" className="w-full min-h-[52px] flex items-center gap-3 text-left" onClick={() => setMed(m)}>
+                <span className="flex-1 min-w-0 truncate font-medium">{shownName(m)}</span>
+                {countsFromPhoto(m) && <Camera size={18} className="text-muted shrink-0" aria-label="Photo count" />}
+                {m.stockCount !== undefined && <span className="text-sm text-muted tnum shrink-0">{Math.round(m.stockCount * 100) / 100} left</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Sheet>
   );
 }

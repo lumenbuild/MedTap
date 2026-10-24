@@ -1,4 +1,4 @@
-// The smart insights, each in one place: today's wear-off forecast, a weight stall, today's cycle phase and recent
+// The smart insights, each in one place: today's wear-off forecast, a weight stall and recent
 // changes as one line on Today; "What changed" and "Ask your data" on Trends; the step-up checklist on Protocol.
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
@@ -7,7 +7,6 @@ import type { CheckIn, DailyHealth, Dose, Medication, StepUpCriteria } from '../
 import type { ScheduleSettings } from '../logic/schedule';
 import { wearOffToday, type WearOff } from '../logic/wearOff';
 import type { Stall } from '../logic/stall';
-import type { CycleForecast } from '../logic/cycle';
 import { fmtChangeValue, type Change, type SignalKey } from '../logic/changes';
 import { ask, askSuggestions, type AskData } from '../logic/ask';
 import { DEFAULT_STEP_UP, stepUpChecklist } from '../logic/stepUp';
@@ -56,7 +55,7 @@ function WearOffRow({ w, now }: { w: WearOff; now: number }) {
 
 export function StallLine({ stall }: { stall: Stall }) {
   return (
-    <IconRow Icon={stall.likelyWater ? Droplet : TrendingDown} tone="watch" href="#/progress">
+    <IconRow Icon={stall.likelyWater ? Droplet : TrendingDown} tone="watch" href="#/progress/trends">
       {stall.likelyWater ? `Weight steady ${stall.days} days, probably water` : `Weight steady for ${stall.days} days`}
       {!stall.likelyWater && stall.diffs.length > 0 && <span className="block text-sm text-muted">{stall.diffs.slice(0, 2).map((d) => `${d.label} ${d.before} → ${d.during}`).join(' · ')}</span>}
     </IconRow>
@@ -68,7 +67,7 @@ export function StallBlock({ stall }: { stall: Stall }) {
   return (
     <div className="mt-3 rounded-card bg-surface-2 p-3 space-y-2">
       <p className="font-semibold">{stall.likelyWater ? 'Probably water' : `Steady since ${day(stall.since)}`}</p>
-      <p className="text-sm tnum">{stall.before.toFixed(2)} kg/wk before · {stall.during >= 0 ? '+' : ''}{stall.during.toFixed(2)} kg/wk now{stall.cycleAdjusted ? ' · cycle water taken out' : ''}</p>
+      <p className="text-sm tnum">{stall.before.toFixed(2)} kg/wk before · {stall.during >= 0 ? '+' : ''}{stall.during.toFixed(2)} kg/wk now</p>
       {stall.water.length > 0 && <p className="text-sm text-muted">Water from {stall.water.join(', ')}</p>}
       {stall.diffs.length > 0 && (
         <table className="w-full text-sm tnum">
@@ -80,37 +79,13 @@ export function StallBlock({ stall }: { stall: Stall }) {
   );
 }
 
-// ── Cycle ──────────────────────────────────────────────────────────────────────────────────────────
-
-export function CycleLine({ f }: { f: CycleForecast }) {
-  if (!f.today?.notes.length || f.day === undefined) return null;
-  return <IconRow Icon={Droplet} tone="primary" href="#/progress">Cycle day {f.day}<span className="block text-sm text-muted">{f.today.notes.join(' · ')}</span></IconRow>;
-}
-
-/** The next five weeks by phase, each with what usually differs. */
-export function CycleStrip({ f, now }: { f: CycleForecast; now: number }) {
-  return (
-    <div className="mt-3">
-      <p className="text-sm font-medium text-muted mb-2">Coming weeks · next period about {day(f.nextStart)}</p>
-      <ul className="space-y-1.5">
-        {f.upcoming.map((u) => (
-          <li key={u.from} className={`flex gap-3 text-sm ${u.from <= now && u.to > now ? 'font-medium' : ''}`}>
-            <span className="w-28 shrink-0 tnum text-muted">{format(Math.max(u.from, now), 'd MMM')}–{format(u.to - 1, 'd MMM')}</span>
-            <span className="flex-1">{u.notes.length ? u.notes.join(' · ') : 'Usual'}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 // ── What changed ───────────────────────────────────────────────────────────────────────────────────
 
 const toneOf = (c: Change) => (c.good === undefined ? 'var(--text-muted)' : c.good ? 'var(--success)' : 'var(--caution)');
 
 export function ChangeLine({ c }: { c: Change }) {
   return (
-    <IconRow Icon={c.after > c.before ? ArrowUpRight : ArrowDownRight} tone={c.good === undefined ? 'plain' : c.good ? 'good' : 'watch'} href="#/progress">
+    <IconRow Icon={c.after > c.before ? ArrowUpRight : ArrowDownRight} tone={c.good === undefined ? 'plain' : c.good ? 'good' : 'watch'} href="#/progress/trends">
       {c.label} {c.after > c.before ? 'up' : 'down'}: {fmtChangeValue(c, c.before)} → {fmtChangeValue(c, c.after)}
       {c.event && <span className="block text-sm text-muted">After {c.event.text}</span>}
     </IconRow>

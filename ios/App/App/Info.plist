@@ -71,7 +71,7 @@
 	<key>NFCReaderUsageDescription</key>
 	<string>MedTap reads and writes your medication tags.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>MedTap can read a pharmacy label from a photo, on this iPhone, to fill in a medication's details.</string>
+	<string>MedTap reads pharmacy labels and food barcodes with the camera, on this iPhone. Nothing is recorded or uploaded.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose a photo of a pharmacy label or a progress photo.</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>

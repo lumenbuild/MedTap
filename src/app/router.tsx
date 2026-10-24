@@ -14,8 +14,32 @@ export function useHashRoute(): string {
 
 export const go = (path: string) => { window.location.hash = path; };
 
+const here = () => window.location.hash.replace(/^#/, '') || '/today';
+
+// The screens visited in this app session, so the Back arrow returns to the screen you came from (the Doctor report
+// opened from Meds goes back to Meds, not Trends). A screen opened straight from a tag, link or notification has
+// nothing before it, so Back goes to its usual parent instead.
+const trail: string[] = [];
+let replacing = false;
+if (typeof window !== 'undefined') {
+  trail.push(here());
+  window.addEventListener('hashchange', () => {
+    const h = here();
+    if (replacing) { replacing = false; trail[trail.length - 1] = h; return; }
+    if (trail.length > 1 && trail[trail.length - 2] === h) trail.pop(); // Back (the arrow, the phone's or the browser's)
+    else trail.push(h);
+  });
+}
+
+/** The Back arrow: the previous screen in the app, or `parent` (a #/ link) when there isn't one. */
+export function goBack(parent: string) {
+  if (trail.length > 1) window.history.back();
+  else replace(parent.replace(/^#/, ''));
+}
+
 /** Navigate without leaving a history entry (so Back doesn't return to a finished flow). */
 export const replace = (path: string) => {
+  if (path !== here()) replacing = true;
   window.location.replace(`${window.location.pathname}${window.location.search}#${path}`);
 };
 
@@ -24,9 +48,9 @@ export type Route =
   | { name: 'backup' } | { name: 'report' } | { name: 'help'; topic?: string }
   | { name: 'meds' } | { name: 'medNew'; tagId?: string } | { name: 'med'; id: string }
   | { name: 'tag'; id: string } | { name: 'sync' } | { name: 'join'; code: string } | { name: 'calc' } | { name: 'supplies' }
-  | { name: 'protocol' } | { name: 'protocolReport' } | { name: 'progress' }
+  | { name: 'protocol' } | { name: 'protocolReport' } | { name: 'progress'; view?: 'trends' | 'body' }
   | { name: 'appointments' } | { name: 'appointmentSummary' } | { name: 'labs' } | { name: 'travel' }
-  | { name: 'training' } | { name: 'workout'; id: string } | { name: 'exercise'; id: string } | { name: 'routines' } | { name: 'tags' } | { name: 'welcome' };
+  | { name: 'training' } | { name: 'workout'; id: string } | { name: 'exercise'; id: string } | { name: 'routines' } | { name: 'tags' } | { name: 'welcome' } | { name: 'food' };
 
 export function parseRoute(path: string): Route {
   const [, a, b, c, d] = path.split('/').map(decodeURIComponent);
@@ -42,11 +66,12 @@ export function parseRoute(path: string): Route {
     case 'calc': return { name: 'calc' };
     case 'supplies': return { name: 'supplies' };
     case 'protocol': return b === 'report' ? { name: 'protocolReport' } : { name: 'protocol' };
-    case 'progress': return { name: 'progress' };
+    case 'progress': return { name: 'progress', view: b === 'trends' || b === 'body' ? b : undefined };
     case 'appointments': return b === 'summary' ? { name: 'appointmentSummary' } : { name: 'appointments' };
     case 'labs': return { name: 'labs' };
     case 'tags': return { name: 'tags' };
     case 'welcome': return { name: 'welcome' };
+    case 'food': return { name: 'food' };
     case 'travel': return { name: 'travel' };
     case 'training':
       if (b === 'workout' && c) return { name: 'workout', id: c };

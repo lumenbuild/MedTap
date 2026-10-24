@@ -66,7 +66,7 @@ function SyncOff() {
       </Card>
       <Sheet open={joining} onClose={() => setJoining(false)} title="Join with an invite">
         <div className="space-y-3">
-          <p>On the phone that started family sync, open Settings → Family sync → <strong>Invite a phone</strong>. Scan its QR code with this phone's camera, or paste the invite here.</p>
+          <p>On the phone that started family sync, open Settings → People and sync → Family sync → <strong>Invite a phone</strong>. Scan its QR code with this phone's camera, or paste the invite here.</p>
           <TextArea label="Invite" rows={3} value={code} onChange={(e) => setCode(e.target.value)} error={code.trim() && !invite ? "That isn't a complete invite. Copy it again." : undefined} />
           <SheetActions>
             <Button className="w-full min-h-[56px]" disabled={!invite || !name.trim()} onClick={async () => {
@@ -221,7 +221,7 @@ export function JoinSync({ code }: { code: string }) {
   if (cfg) {
     return (
       <Card className="space-y-3">
-        <p>{cfg.key === invite.key ? 'This phone is already in this family.' : 'This phone already syncs with a family. To join this one, stop syncing first (Settings → Family sync).'}</p>
+        <p>{cfg.key === invite.key ? 'This phone is already in this family.' : 'This phone already syncs with a family. To join this one, stop syncing first (Settings → People and sync → Family sync).'}</p>
         <Button className="w-full" onClick={() => replace('/sync')}>Family sync</Button>
       </Card>
     );

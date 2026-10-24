@@ -20,7 +20,7 @@ export function disguise(m: Medication): Medication {
   return {
     ...m, name: m.coverName?.trim() || 'Medication', nickname: undefined, ingredients: undefined, instructions: undefined,
     instructionsBy: undefined, instructionsUpdatedAt: undefined, scriptNotes: undefined, peptide: undefined, vials: undefined,
-    lotFlags: undefined, stepUp: undefined, form: m.form === 'injection' ? 'other' : m.form,
+    lotFlags: undefined, stepUp: undefined, stepPlan: undefined, form: m.form === 'injection' ? 'other' : m.form,
   };
 }
 

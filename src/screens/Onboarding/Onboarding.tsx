@@ -108,7 +108,7 @@ export function Onboarding({ again = false }: { again?: boolean }) {
             <div className="space-y-3">
               {HAS_PEPTIDES && <Switch label="Peptides and injections" checked={settings.peptideTools} onChange={(v) => setSetting('peptideTools', v)}>Vials you mix, pens, syringe units, titration plans and supplies.</Switch>}
               {HAS_BODY && <Switch label="Training" checked={settings.trainingTools} onChange={(v) => setSetting('trainingTools', v)}>Workouts, personal bests, what to aim for next time, protein and water.</Switch>}
-              <Switch label="My cycle" checked={settings.cycleTracking} onChange={(v) => setSetting('cycleTracking', v)}>A Period button on Today, and check-ins by phase of the cycle.</Switch>
+              {HAS_BODY && <Switch label="Food" checked={settings.foodTracking} onChange={(v) => setSetting('foodTracking', v)}>Scan a barcode or photo a label for every macro and micro, or estimate meals you make by hand portions</Switch>}
             </div>
           )}
         </>

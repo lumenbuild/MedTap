@@ -56,7 +56,7 @@ export function Body() {
             <p className="mt-2"><span className="text-[40px] leading-[44px] font-semibold tnum">{fmtWeight(latestWeight.weightKg!, units)}</span>
               <span className="block text-muted">{fmtYmd(latestWeight.date)}</span></p>
             {weights.length >= 3 && (
-              <a href="#/progress" className="block mt-3" aria-label="Weight over the last 60 days, open the chart">
+              <a href="#/progress/trends" className="block mt-3" aria-label="Weight over the last 60 days, open the chart">
                 <Sparkline points={weights} height={44} label={`Weight over the last 60 days: ${fmtWeight(weights[0].v, units)} to ${fmtWeight(weights[weights.length - 1].v, units)}`} />
                 <span className="flex justify-between text-xs text-muted tnum mt-0.5" aria-hidden="true"><span>{format(weights[0].t, 'd MMM')}: {fmtWeight(weights[0].v, units)}</span><span>Today</span></span>
               </a>

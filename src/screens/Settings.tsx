@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
-import { Bell, Calculator, CalendarCheck, Check, ChevronRight, Clock, Download, Droplet, Dumbbell, EyeOff, HardDriveDownload, HeartPulse, HelpCircle, Info, Lock, Nfc, Package, Palette, Pill, Plane, RefreshCw, Smile, Syringe, Timer, Users, Watch, X, type LucideIcon } from 'lucide-react';
+import { Bell, Calculator, CalendarCheck, Check, ChevronRight, Clock, Download, Dumbbell, EyeOff, HardDriveDownload, HeartPulse, HelpCircle, Info, Lock, Nfc, Package, Palette, Pill, Plane, RefreshCw, Smile, Syringe, Timer, Users, Utensils, Watch, X, type LucideIcon } from 'lucide-react';
 import { IconRow } from '../components/ui/Visual';
 import { useSyncConfig } from '../app/sync';
 import { setDigestNotify, setRemindersEnabled, setTrainingReminders, syncReminders } from '../app/native';
@@ -24,6 +24,7 @@ import { FamilyCard } from './Family';
 import { placeName } from '../components/TravelBanner';
 import { isNative, isNativeAndroid } from '../platform';
 import { BUILD, checkForUpdate } from '../app/updates';
+import { lockNow } from '../app/LockGate';
 import { HAS_BODY, HAS_PEPTIDES, HAS_VISITS, edition, watchDownload } from '../edition';
 import { SIDE_EFFECT_CHIPS } from '../logic/peptide';
 
@@ -196,6 +197,7 @@ export function Settings({ section }: { section?: string }) {
                   {[1, 5, 15, 60].map((m) => <option key={m} value={m}>After {m === 60 ? '1 hour' : `${m} minute${m === 1 ? '' : 's'}`}</option>)}
                 </select>
               </Pick>
+              <Button variant="secondary" className="w-full flex items-center justify-center gap-2" onClick={lockNow}><Lock size={18} aria-hidden="true" /> Lock now</Button>
               {/* The private view can't change or turn off the lock (that would open the full view next time). */}
               {!priv && <Switch label="Ask for the PIN on every tag tap" checked={settings.tagNeedsPin} onChange={(v) => setSetting('tagNeedsPin', v)}>Even if you've just unlocked</Switch>}
               {!priv && (
@@ -273,13 +275,18 @@ export function Settings({ section }: { section?: string }) {
     about: () => (
       <>
         <Card className="space-y-3">
-          {BUILD > 0 && <p className="tnum">Build {BUILD}</p>}
+          <p className="text-[15px]">{APP_NAME} keeps everything on this {isNative ? 'phone' : 'device'}. There's no account, and nothing is sent anywhere unless you turn on sync or make a backup{HAS_BODY ? ' (a food barcode you scan is looked up by its number alone)' : ''}.</p>
+          <p className="text-sm text-muted tnum">{BUILD > 0 ? `Build ${BUILD}` : 'Web version'}</p>
           {isNativeAndroid && BUILD > 0 && (
             <>
               <Switch label="Check for updates" checked={settings.updateCheck} onChange={(v) => setSetting('updateCheck', v)}>Once a day</Switch>
               <Button variant="secondary" onClick={async () => { const u = await checkForUpdate(true); toast(u ? `Build ${u.build} is ready on Today` : 'Up to date'); if (u) await setSetting('updateDismissed', 0); }}>Check now</Button>
             </>
           )}
+        </Card>
+        <Card className="space-y-1">
+          <a href="#/help" className="min-h-[48px] flex items-center justify-between font-medium">Help and guides<ChevronRight size={18} className="text-muted" aria-hidden="true" /></a>
+          {!priv && <a href="#/welcome" className="min-h-[48px] flex items-center justify-between font-medium border-t border-border">Show the welcome again<ChevronRight size={18} className="text-muted" aria-hidden="true" /></a>}
         </Card>
         <Card>
           <Button variant="danger" className="w-full" onClick={() => { setTyped(''); setEraseSheet(true); }}>Erase all data</Button>
@@ -295,7 +302,7 @@ export function Settings({ section }: { section?: string }) {
         <h2 className="text-sm font-medium text-muted mb-1">Features</h2>
         {HAS_PEPTIDES && !priv && <Toggle Icon={Syringe} label="Peptides and injections" checked={settings.peptideTools} onChange={(v) => setSetting('peptideTools', v)} />}
         {HAS_BODY && <Toggle Icon={Dumbbell} label="Training" checked={settings.trainingTools} onChange={(v) => setSetting('trainingTools', v)} />}
-        <Toggle Icon={Droplet} label="Cycle tracking" checked={settings.cycleTracking} onChange={(v) => setSetting('cycleTracking', v)} />
+        {HAS_BODY && <Toggle Icon={Utensils} label="Food" checked={settings.foodTracking} onChange={(v) => setSetting('foodTracking', v)} />}
         {isNative && <Toggle Icon={Bell} label="Dose reminders" checked={settings.remindersEnabled} onChange={async (v) => { const on = await setRemindersEnabled(v); if (v && !on) notifyOff(); }} />}
       </section>
       <section aria-label="Settings">
@@ -305,7 +312,7 @@ export function Settings({ section }: { section?: string }) {
         <Row href="#/settings/checkins" Icon={Smile} title="Check-ins" value={settings.checkInDelayMin ? 'Asks after doses' : 'Off'} />
         <Row href="#/settings/people" Icon={Users} title="People and sync" value={`${fam?.people.length ?? 1} ${fam && fam.people.length > 1 ? 'people' : 'person'} · sync ${sync ? 'on' : 'off'}`} />
         {isNative && <Row href="#/settings/health" Icon={HeartPulse} title="Health data" value={settings.healthImport ? 'On' : 'Off'} />}
-        <Row href="#/backup" Icon={HardDriveDownload} title="Backup" value={last ? fmtAgo(now - last) : 'None yet'} />
+        <Row href="#/backup" Icon={HardDriveDownload} title="Backup and restore" value={last ? fmtAgo(now - last) : 'None yet'} />
         <Row href="#/settings/privacy" Icon={Lock} title="Privacy" value={settings.lockEnabled ? 'PIN on' : 'PIN off'} />
         <Row href="#/settings/display" Icon={Palette} title="Display" value={THEMES.find(([t]) => t === theme)?.[1] ?? ''} />
         {isNativeAndroid && <Row href="#/settings/watch" Icon={Watch} title="Watch" value="Wear OS" />}
@@ -313,7 +320,7 @@ export function Settings({ section }: { section?: string }) {
       <section aria-label="Tools">
         <h2 className="text-sm font-medium text-muted mb-1">Tools</h2>
         <Row href="#/tags" Icon={Nfc} title="Tags" />
-        <Row href={HAS_VISITS ? '#/appointments' : '#/labs'} Icon={CalendarCheck} title={HAS_VISITS ? 'Appointments and labs' : 'Lab results'} />
+        <Row href={HAS_VISITS ? '#/appointments' : '#/labs'} Icon={CalendarCheck} title={HAS_VISITS ? 'Appointments and lab results' : 'Lab results'} />
         {HAS_VISITS && <Row href="#/travel" Icon={Plane} title="Plan a trip" />}
         {HAS_PEPTIDES && settings.peptideTools && <Row href="#/calc" Icon={Calculator} title="Peptide calculator" />}
         {HAS_PEPTIDES && settings.peptideTools && <Row href="#/supplies" Icon={Package} title="Supplies" />}
