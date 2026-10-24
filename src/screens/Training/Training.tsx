@@ -2,7 +2,7 @@ import { BellRing, Disc, Flame, Footprints, ListChecks, Nfc, Plus } from 'lucide
 import { MiniRing, Sparkline, Tile } from '../../components/ui/Visual';
 // The Training tab (MedTap): start or continue a workout, readiness, the week, goals, personal bests, plateaus,
 // strength against the peptide, lean mass, muscle balance, cardio and the history.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import {
   useBodyEntries, useCheckIns, useDaily, useDoses, useExercises, useFamily, useMeds, useRoutines, useScheduleSettings, useWorkouts,
@@ -13,7 +13,7 @@ import {
   cardioBests, e1rmSeries, fitnessGoalStatus, newPBs, personalBests, plateau, readiness, timeText, trainingCalendar, weeklyBalance, working, paceText,
 } from '../../logic/training';
 import { useNow } from '../../app/useNow';
-import { go } from '../../app/router';
+import { go, replace } from '../../app/router';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { Button } from '../../components/ui/Button';
 import { GoalTimeline, PeptideTrainingCard, ReadinessBlock } from '../../components/Fitness';
@@ -32,13 +32,16 @@ import { TrendChart } from '../../components/charts/TrendChart';
 
 const DAY = 86_400_000;
 
-export function Training() {
+/** `start`: opened from Today's Start a workout (#/training/start), so the start sheet is already open. */
+export function Training({ start = false }: { start?: boolean }) {
   const workouts = useWorkouts(); const own = useExercises(); const routines = useRoutines(); const fam = useFamily(); const ss = useScheduleSettings();
   const daily = useDaily(); const checkIns = useCheckIns(); const body = useBodyEntries(); const meds = useMeds(); const doses = useDoses();
   const now = useNow(60_000);
   const toast = useToast();
-  const [sheet, setSheet] = useState<'start' | 'cardio' | 'goal' | 'plates' | null>(null);
+  const [sheet, setSheet] = useState<'start' | 'cardio' | 'goal' | 'plates' | null>(start ? 'start' : null);
   const [editGoal, setEditGoal] = useState<string | null>(null);
+  // Once the start sheet opened from Today closes, the address goes back to plain Training (so a reload doesn't reopen it).
+  useEffect(() => { if (start && sheet === null) replace('/training'); }, [start, sheet]);
   if (!workouts || !own || !routines || !fam || !ss || !daily || !checkIns || !body || !meds || !doses) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
   const [settings, s] = ss;
   const mine = <T extends { personId?: string; deletedAt?: string }>(r: T) => personOf(r) === fam.personId && !r.deletedAt;

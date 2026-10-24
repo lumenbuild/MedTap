@@ -1,7 +1,7 @@
 // Android app only: is there a newer build than this one? Asks GitHub for the latest release of this app (nothing
 // about the person is sent), at most once a day. Installs are by hand (the APK isn't from the Play Store), so without
 // this a phone would stay on an old build.
-import { edition } from '../edition';
+import { edition, PLAY } from '../edition';
 import { isNativeAndroid } from '../platform';
 import { getSettings, setSetting } from '../db/repos/settings';
 import { MedTapNative } from '../nfc/native';
@@ -19,7 +19,7 @@ export const newsOf = (body: string) => body.match(/What's new: ([^\n]+)/)?.[1]?
 
 /** The newer build, if any. Checks at most once a day unless `force`; the last answer is kept in settings. */
 export async function checkForUpdate(force = false): Promise<Update | null> {
-  if (!isNativeAndroid || !BUILD) return null;
+  if (!isNativeAndroid || !BUILD || PLAY) return null; // Google Play builds are updated by Play
   const s = await getSettings();
   if (!s.updateCheck && !force) return null;
   if (!force && s.lastUpdateCheck && Date.now() - Date.parse(s.lastUpdateCheck) < DAY) return s.latestUpdate && s.latestUpdate.build > BUILD ? s.latestUpdate : null;

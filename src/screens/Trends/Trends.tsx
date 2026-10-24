@@ -24,7 +24,7 @@ import { ChipPicker, Segmented } from '../../components/ui/Field';
 import { AdherenceHeatmap, DoseTimingCharts, FeelingsChart, IntervalCharts } from '../../components/charts/Charts';
 import { BlendCharts, DoseLevelsCards } from '../../components/charts/PeptideCharts';
 import { shownName } from '../../logic/privacy';
-import { HAS_BODY, HAS_VISITS } from '../../edition';
+import { HAS_MEDS, HAS_BODY, HAS_TRAINING, HAS_FOOD, HAS_VISITS } from '../../edition';
 
 export function Trends() {
   const allMeds = useMeds();
@@ -81,9 +81,9 @@ export function Trends() {
   const one = med ? [med] : [];
   const peptide = settings.peptideTools && med?.peptide ? one : [];
   const workouts = allWorkouts.filter((w) => personOf(w) === fam.personId);
-  const training = HAS_BODY && settings.trainingTools;
+  const training = HAS_TRAINING && settings.trainingTools;
   const habits = dailyHabits({ daily, foodLogs: allFood.filter((l) => personOf(l) === fam.personId), checkIns }, start, end, prevStart, s, {
-    food: HAS_BODY && settings.foodTracking, intake: training, readiness: training,
+    food: HAS_FOOD && settings.foodTracking, intake: training, readiness: training,
     targets: { energy: settings.energyTargetKcal, protein: settings.proteinTargetG, water: settings.waterTargetMl },
   });
   const sleep = sleepImpact(meds.filter((m) => !m.peptide && !m.archived), doses, checkIns, now, s);
@@ -128,10 +128,12 @@ export function Trends() {
       )}
       <DailyHabitsCard habits={habits} foodLogs={allFood.filter((l) => personOf(l) === fam.personId)} energy={settings.energyUnit} start={start} end={end} prevDays={prevStart === null ? null : days} />
       <LinksSection checkIns={checkIns} daily={daily} body={body} workouts={workouts} sleep={sleep} units={settings.units} now={now} s={s} showBody={HAS_BODY} training={training} />
-      <div className="border-t border-border pt-4 grid grid-cols-2 gap-2" role="group" aria-label="More">
-        <Tile Icon={FileText} label="Doctor report" href="#/report" />
-        <Tile Icon={FlaskConical} label={HAS_VISITS ? 'Appointments' : 'Lab results'} href={HAS_VISITS ? '#/appointments' : '#/labs'} />
-      </div>
+      {HAS_MEDS && (
+        <div className="border-t border-border pt-4 grid grid-cols-2 gap-2" role="group" aria-label="More">
+          <Tile Icon={FileText} label="Doctor report" href="#/report" />
+          <Tile Icon={FlaskConical} label={HAS_VISITS ? 'Appointments' : 'Lab results'} href={HAS_VISITS ? '#/appointments' : '#/labs'} />
+        </div>
+      )}
     </div>
   );
 }

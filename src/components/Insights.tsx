@@ -19,6 +19,7 @@ import { Sheet, SheetActions } from './ui/Sheet';
 import { TextInput } from './ui/Field';
 import { TrendChart } from './charts/TrendChart';
 import type { BodyEntry } from '../db/schema';
+import { HAS_MEDS, FOCUS } from '../edition';
 
 const day = (t: number) => format(t, 'EEE d MMM');
 
@@ -133,7 +134,7 @@ export function AskBox({ data, now }: { data: AskData; now: number }) {
       <form className="flex items-center gap-2 rounded-btn bg-surface-2 pl-3 pr-1" onSubmit={(e) => { e.preventDefault(); if (q.trim()) setAsked(q.trim()); }}>
         <Search size={18} aria-hidden="true" className="text-muted shrink-0" />
         <label className="flex-1"><span className="sr-only">Ask your data</span>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ask, e.g. sleep since 7.5 mg" className="w-full min-h-[48px] bg-transparent outline-none text-base" enterKeyHint="search" /></label>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={HAS_MEDS ? 'Ask, e.g. sleep since 7.5 mg' : FOCUS === 'weight' ? 'Ask, e.g. weight since 3 Oct' : 'Ask, e.g. sleep last week'} className="w-full min-h-[48px] bg-transparent outline-none text-base" enterKeyHint="search" /></label>
         {asked && <button type="button" aria-label="Clear" onClick={() => { setQ(''); setAsked(''); }} className="w-10 h-10 flex items-center justify-center text-muted"><X size={18} /></button>}
       </form>
       {!asked && suggestions.length > 0 && (

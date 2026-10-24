@@ -3,6 +3,8 @@
      names are plain here so nothing in the app mentions them. -->
 <resources>
     <bool name="mw_body_widgets">false</bool>
+    <bool name="mw_shot_widget">false</bool>
+    <bool name="mw_training_widgets">false</bool>
     <string name="mw_shot_label">Week</string>
     <string name="mw_shot_description">This week.</string>
     <string name="mw_weight_label">Trend</string>

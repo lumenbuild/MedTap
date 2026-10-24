@@ -24,3 +24,20 @@ describe('getting started', () => {
     expect(gettingStarted({ ...base, native: false }).some((i) => i.id === 'reminders')).toBe(false);
   });
 });
+
+describe('getting started in TapWeigh and TapLift', () => {
+  const empty = { meds: [], tags: [], doses: [], checkIns: [], remindersEnabled: false, lockEnabled: false, lastBackupAt: null, native: true };
+  it('starts with a tag on the scales and a weigh-in', () => {
+    const items = gettingStarted({ ...empty, focus: 'weight', weighIns: 0 });
+    expect(items.filter((i) => i.essential).map((i) => i.id)).toEqual(['tag', 'weigh']);
+    const done = gettingStarted({ ...empty, focus: 'weight', weighIns: 3, tags: [{ id: 't', medicationId: '', action: { kind: 'weight' }, createdAt: '' } as Tag] });
+    expect(showGettingStarted(done, false)).toBe(false);
+  });
+  it('starts with a gym tag and a workout, and never mentions medicines', () => {
+    const items = gettingStarted({ ...empty, focus: 'training', workouts: 0 });
+    expect(items.map((i) => i.id)).not.toContain('med');
+    expect(items.find((i) => i.id === 'tag')!.done).toBe(false);
+    const tagged = gettingStarted({ ...empty, focus: 'training', workouts: 1, tags: [{ id: 't', medicationId: '', action: { kind: 'exercise', exerciseId: 'bench' }, createdAt: '' } as Tag] });
+    expect(showGettingStarted(tagged, false)).toBe(false);
+  });
+});

@@ -1,8 +1,9 @@
 name: Native apps
-# Builds the Android app (APK) and checks the iOS app compiles, on every push.
-# Android: builds both apps, MedTap and TapDose. With the MEDTAP_KEYSTORE_BASE64 and MEDTAP_KEYSTORE_PASSWORD secrets
-# set, they're signed releases, and on the default branch they're published as the "android" and "tapdose-android"
-# releases so phones can download them.
+# Builds the Android apps and checks the iOS app compiles, on every push.
+# Android: MedTap, TapDose, TapWeigh and TapLift as APKs, and TapDose, TapWeigh and TapLift as Google Play bundles. With
+# the MEDTAP_KEYSTORE_BASE64 and MEDTAP_KEYSTORE_PASSWORD secrets set, they're signed releases, and on the default
+# branch the APKs are published as the "android", "tapdose-android", "tapweigh-android" and "taplift-android" releases
+# (so phones can download them) and the bundles as "play".
 on:
   push:
   workflow_dispatch:
@@ -31,6 +32,9 @@ jobs:
       - run: npm test
       # Two apps (see src/edition.ts): MedTap, then TapDose. Each needs its own web build in the app's assets first.
       # Each assemble also builds its Wear OS watch app (android/wear), published beside the phone app.
+      # Signed builds: an APK of each app for GitHub (updates itself), and a bundle of TapDose, TapWeigh and TapLift for
+      # Google Play (Play updates it; built with VITE_STORE=play, which turns the app's own updater off and leaves out the
+      # permissions Play doesn't allow, see android/app/src/play). MedTap, with peptide tools, isn't for Play.
       - name: Build signed releases
         if: env.HAS_KEY == 'true'
         env:
@@ -39,30 +43,44 @@ jobs:
           echo "${{ secrets.MEDTAP_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/medtap.keystore"
           export MEDTAP_KEYSTORE="$RUNNER_TEMP/medtap.keystore"
           npm run build:native
-          (cd android && ./gradlew --no-daemon assembleMedtapRelease)
-          cp android/app/build/outputs/apk/medtap/release/app-medtap-release.apk "$RUNNER_TEMP/MedTap.apk"
+          (cd android && ./gradlew --no-daemon :app:assembleMedtapGithubRelease :wear:assembleMedtapRelease)
+          cp android/app/build/outputs/apk/medtapGithub/release/app-medtap-github-release.apk "$RUNNER_TEMP/MedTap.apk"
           cp android/wear/build/outputs/apk/medtap/release/wear-medtap-release.apk "$RUNNER_TEMP/MedTap-watch.apk"
           npm run build:native:tapdose
-          (cd android && ./gradlew --no-daemon assembleTapdoseRelease)
-          cp android/app/build/outputs/apk/tapdose/release/app-tapdose-release.apk "$RUNNER_TEMP/TapDose.apk"
+          (cd android && ./gradlew --no-daemon :app:assembleTapdoseGithubRelease :wear:assembleTapdoseRelease)
+          cp android/app/build/outputs/apk/tapdoseGithub/release/app-tapdose-github-release.apk "$RUNNER_TEMP/TapDose.apk"
           cp android/wear/build/outputs/apk/tapdose/release/wear-tapdose-release.apk "$RUNNER_TEMP/TapDose-watch.apk"
+          for e in tapweigh:TapWeigh taplift:TapLift; do
+            id=${e%%:*}; name=${e##*:}; cap="$(echo ${id:0:1} | tr a-z A-Z)${id:1}"
+            npm run build:native:$id
+            (cd android && ./gradlew --no-daemon :app:assemble${cap}GithubRelease)
+            cp android/app/build/outputs/apk/${id}Github/release/app-${id}-github-release.apk "$RUNNER_TEMP/$name.apk"
+          done
+          for e in tapdose:TapDose tapweigh:TapWeigh taplift:TapLift; do
+            id=${e%%:*}; name=${e##*:}; cap="$(echo ${id:0:1} | tr a-z A-Z)${id:1}"
+            VITE_STORE=play npm run build:native:$id
+            (cd android && ./gradlew --no-daemon :app:bundle${cap}PlayRelease)
+            cp android/app/build/outputs/bundle/${id}PlayRelease/app-${id}-play-release.aab "$RUNNER_TEMP/$name-play.aab"
+          done
       - name: Build debug (no signing key set)
         if: env.HAS_KEY != 'true'
         run: |
           npm run build:native
-          (cd android && ./gradlew --no-daemon assembleMedtapDebug)
-          cp android/app/build/outputs/apk/medtap/debug/app-medtap-debug.apk "$RUNNER_TEMP/MedTap-debug.apk"
+          (cd android && ./gradlew --no-daemon :app:assembleMedtapGithubDebug :wear:assembleMedtapDebug)
+          cp android/app/build/outputs/apk/medtapGithub/debug/app-medtap-github-debug.apk "$RUNNER_TEMP/MedTap-debug.apk"
           cp android/wear/build/outputs/apk/medtap/debug/wear-medtap-debug.apk "$RUNNER_TEMP/MedTap-watch-debug.apk"
-          npm run build:native:tapdose
-          (cd android && ./gradlew --no-daemon assembleTapdoseDebug)
-          cp android/app/build/outputs/apk/tapdose/debug/app-tapdose-debug.apk "$RUNNER_TEMP/TapDose-debug.apk"
-          cp android/wear/build/outputs/apk/tapdose/debug/wear-tapdose-debug.apk "$RUNNER_TEMP/TapDose-watch-debug.apk"
+          for e in tapdose:TapDose tapweigh:TapWeigh taplift:TapLift; do
+            id=${e%%:*}; name=${e##*:}; cap="$(echo ${id:0:1} | tr a-z A-Z)${id:1}"
+            npm run build:native:$id
+            (cd android && ./gradlew --no-daemon :app:assemble${cap}GithubDebug)
+            cp android/app/build/outputs/apk/${id}Github/debug/app-${id}-github-debug.apk "$RUNNER_TEMP/$name-debug.apk"
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: android-apps
           path: |
-            ${{ runner.temp }}/MedTap*.apk
-            ${{ runner.temp }}/TapDose*.apk
+            ${{ runner.temp }}/*.apk
+            ${{ runner.temp }}/*.aab
       - name: Publish the Android apps
         if: env.HAS_KEY == 'true' && github.ref_name == github.event.repository.default_branch
         env:
@@ -71,14 +89,27 @@ jobs:
         run: |
           # "What's new": a merged PR's title (the commit message's third line), else its first line. Shown in the app.
           NEW="$(printf '%s\n' "$HEAD_MSG" | sed -n '3p')"; [ -n "$NEW" ] || NEW="$(printf '%s\n' "$HEAD_MSG" | sed -n '1p')"
+          INSTALL="Updates install over the top and keep your data."
           gh release delete android --yes --cleanup-tag || true
           gh release create android "$RUNNER_TEMP/MedTap.apk" "$RUNNER_TEMP/MedTap-watch.apk" --target "$GITHUB_SHA" --latest \
             --title "MedTap for Android (build ${{ github.run_number }})" \
-            --notes "What's new: $NEW"$'\n\n'"Download MedTap.apk on your Android phone and open it to install. Updates install over the top and keep your data. For a Wear OS watch, MedTap-watch.apk goes on the watch (Settings, Watch in the app says how)."
+            --notes "What's new: $NEW"$'\n\n'"Download MedTap.apk on your Android phone and open it to install. $INSTALL For a Wear OS watch, MedTap-watch.apk goes on the watch (Settings, Watch in the app says how)."
           gh release delete tapdose-android --yes --cleanup-tag || true
           gh release create tapdose-android "$RUNNER_TEMP/TapDose.apk" "$RUNNER_TEMP/TapDose-watch.apk" --target "$GITHUB_SHA" --latest=false \
             --title "TapDose for Android (build ${{ github.run_number }})" \
-            --notes "What's new: $NEW"$'\n\n'"Download TapDose.apk on your Android phone and open it to install. Updates install over the top and keep your data. For a Wear OS watch, TapDose-watch.apk goes on the watch (Settings, Watch in the app says how)."
+            --notes "What's new: $NEW"$'\n\n'"Download TapDose.apk on your Android phone and open it to install. $INSTALL For a Wear OS watch, TapDose-watch.apk goes on the watch (Settings, Watch in the app says how)."
+          for name in TapWeigh TapLift; do
+            id="$(echo $name | tr A-Z a-z)"
+            gh release delete $id-android --yes --cleanup-tag || true
+            gh release create $id-android "$RUNNER_TEMP/$name.apk" --target "$GITHUB_SHA" --latest=false \
+              --title "$name for Android (build ${{ github.run_number }})" \
+              --notes "What's new: $NEW"$'\n\n'"Download $name.apk on your Android phone and open it to install. $INSTALL"
+          done
+          # The Google Play bundles, to upload in Play Console (Production or a testing track → Create new release).
+          gh release delete play --yes --cleanup-tag || true
+          gh release create play "$RUNNER_TEMP/TapDose-play.aab" "$RUNNER_TEMP/TapWeigh-play.aab" "$RUNNER_TEMP/TapLift-play.aab" --target "$GITHUB_SHA" --latest=false --prerelease \
+            --title "Google Play bundles (build ${{ github.run_number }})" \
+            --notes "What's new: $NEW"$'\n\n'"Upload each .aab in Play Console: the app → Test and release → a track → Create new release. Version code ${{ github.run_number }}."
 
   ios:
     runs-on: macos-latest

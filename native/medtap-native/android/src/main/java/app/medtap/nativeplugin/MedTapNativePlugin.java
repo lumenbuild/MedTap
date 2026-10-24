@@ -644,6 +644,8 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
     public void openBatterySettings(PluginCall call) {
         Context ctx = getContext();
         try {
+            // Google Play builds don't ask for the permission this needs: they open the list of apps instead.
+            if (ctx.checkSelfPermission("android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED) throw new SecurityException("not declared");
             Intent i = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + ctx.getPackageName()));
             getActivity().startActivity(i);
         } catch (Exception e) {

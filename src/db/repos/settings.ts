@@ -1,7 +1,7 @@
 import { db } from '../db';
 import { deviceTimeZone } from '../../logic/tz';
 import type { ScheduleSettings } from '../../logic/schedule';
-import { HAS_BODY, HAS_PEPTIDES } from '../../edition';
+import { HAS_TRAINING, HAS_FOOD, FOCUS, HAS_PEPTIDES } from '../../edition';
 
 export type Units = 'metric' | 'imperial';
 
@@ -205,7 +205,11 @@ export async function getSettings(): Promise<AppSettings> {
   const out = { ...DEFAULT_SETTINGS } as Record<string, unknown>;
   for (const r of rows) if (r.key in DEFAULT_SETTINGS) out[r.key] = r.value;
   if (!HAS_PEPTIDES) out.peptideTools = false; // e.g. after restoring a MedTap backup into TapDose
-  if (!HAS_BODY) out.trainingTools = false;
+  if (!HAS_TRAINING) out.trainingTools = false;
+  if (!HAS_FOOD) out.foodTracking = false;
+  // The app's own main thing can't be switched off.
+  if (FOCUS === 'training') out.trainingTools = true;
+  if (FOCUS === 'weight') out.foodTracking = true;
   return out as unknown as AppSettings;
 }
 

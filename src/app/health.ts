@@ -8,7 +8,7 @@ import { upsertBody } from '../db/repos/body';
 import { addVital } from '../db/repos/vitals';
 import { planHealthImport } from '../logic/healthImport';
 import { deviceTimeZone } from '../logic/tz';
-import { HAS_BODY } from '../edition';
+import { HAS_BODY, HAS_TRAINING } from '../edition';
 import { isNative, MedTapNative } from '../nfc/native';
 
 const DAY = 86_400_000;
@@ -43,14 +43,14 @@ export async function importHealth(full = false): Promise<ImportResult> {
   await db.daily.bulkPut(plan.daily);
   if (HAS_BODY) for (const b of plan.body) await upsertBody(b.date, { weightKg: b.kg, note: 'From Health' }, s.healthPersonId);
   if (HAS_BODY) for (const c of plan.comp) await upsertBody(c.date, { ...(c.bodyFatPct !== undefined ? { bodyFatPct: c.bodyFatPct } : {}), ...(c.leanKg !== undefined ? { leanKg: c.leanKg } : {}) }, s.healthPersonId);
-  if (HAS_BODY) {
+  if (HAS_TRAINING) {
     const at = new Date(now).toISOString();
     await db.workouts.bulkAdd(plan.cardio.map((c) => ({ id: crypto.randomUUID(), startedAt: c.at, endedAt: c.at, sets: [], source: 'health' as const, personId: person, createdAt: at, updatedAt: at,
       cardio: { activity: c.activity, durationMin: c.durationMin, ...(c.distanceKm ? { distanceKm: c.distanceKm } : {}) } })));
   }
   for (const v of plan.vitals) await addVital({ at: v.at, systolic: v.systolic, diastolic: v.diastolic, note: 'From Health', personId: person });
   await setSetting('healthLastImport', new Date(now).toISOString());
-  return { days: plan.daily.length, weighIns: HAS_BODY ? plan.body.length : 0, readings: plan.vitals.length, workouts: HAS_BODY ? plan.cardio.length : 0 };
+  return { days: plan.daily.length, weighIns: HAS_BODY ? plan.body.length : 0, readings: plan.vitals.length, workouts: HAS_TRAINING ? plan.cardio.length : 0 };
 }
 
 /** On opening the app: import again if it's on and it's been 6 hours. */

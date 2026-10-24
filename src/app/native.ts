@@ -346,6 +346,14 @@ export async function setDigestNotify(on: boolean): Promise<boolean> {
   return on;
 }
 
+/** Check-in notifications on (asking for permission) or off. */
+export async function setCheckInNotify(on: boolean): Promise<boolean> {
+  if (on && isNative) { const p = await LocalNotifications.requestPermissions(); if (p.display !== 'granted') return false; }
+  await setSetting('checkInNotify', on);
+  await syncReminders();
+  return on;
+}
+
 /** The rest timer, for when the phone is locked or the app is in the background. */
 export async function scheduleRestEnd(at: number, body: string) {
   if (!isNative) return;
