@@ -98,6 +98,7 @@ const CONTENT: Record<string, ReactNode> = {
       </Step>
       <Step n={6} title="Check in">
         <p>A few taps on mood, focus, energy and anything you noticed. {APP_NAME} asks a while after a dose and at the times you choose each day (8 pm to start), opening the check-in by itself when the app is open and, on the phone app, with a notification. Change the times or turn either off in Settings → <strong>Check-ins</strong>. Trends sets check-ins against your doses, sleep and more: the more you do, the sharper the patterns.</p>
+        <p>Short on time? Answer <strong>Good</strong>, <strong>OK</strong> or <strong>Rough</strong> right on the notification, or tap <strong>Same as usual</strong> at the top of the check-in to save your usual answers in one go.</p>
       </Step>
       <Step n={7} title="Reminders">
         {isNative
@@ -156,6 +157,8 @@ const CONTENT: Record<string, ReactNode> = {
         <li><strong>Again</strong> logs the last drink once more.</li>
       </ul>
       <p>The estimate assumes it's absorbed over about an hour and that half is gone every few hours. That time varies a lot between people (about 3 to 8 hours or more), so set yours in Settings → Caffeine if the default feels off. It's an estimate, not a measurement.</p>
+      <H>Same as usual?</H>
+      <p>Once a drink is a habit (most days, at about the same time), Today asks <strong>Same as usual?</strong> with Yes and Not today, and the app sends the same question as a notification an hour after the usual time. Yes logs it at the usual time. Turn it off in Settings → Caffeine.</p>
       <H>Find your cut-off and limit</H>
       <p>Today's caffeine card → <strong>Find your cut-off and limit</strong> (or Settings → Caffeine). From your own days it shows how you slept by the time of your last drink, and how often you felt on edge (Jittery, Irritable and the like in a check-in) by how much you had. Where later drinks or bigger days are clearly worse, that's your cut-off or limit, and one tap puts it on Today.</p>
       <p>To gather the days, start a <strong>two-week check</strong>: each morning Today asks how you slept (one tap), and the card counts the days. It helps to have some days with your last drink early and some later, and some lighter and some heavier, within what you'd usually have. You can stop any time.</p>
@@ -237,6 +240,8 @@ const CONTENT: Record<string, ReactNode> = {
         </>
       )}
       <p>Check-in notes suggest chips (“bit queasy” → Nausea)<Pep>, and adding vials can read the lot and expiry from a photo of the label</Pep>.</p>
+      <H>Streaks, milestones and your day</H>
+      <p>Today's ring fills as you take your set doses, check in and reach your water and protein. Under it, your longest streak; tap for every streak, your best runs and the milestones you've reached (runs of days, workouts, personal bests and every 5 kg towards a weight goal). Streaks are forgiving: one off day in any week, or one off week in four for training, doesn't end them, and a dose skipped on purpose counts. Monday's “Your week” starts with what went well.</p>
       <H>How Trends is laid out</H>
       <ul className="list-disc pl-5 space-y-1">
         <li><strong>How you've felt</strong>: your check-ins, what you noticed most and the coming days, in one place.</li>

@@ -160,6 +160,7 @@ export function Settings({ section }: { section?: string }) {
           <input id="caf-cut" type="time" value={settings.caffeineCutoff ?? ''} className={`${selectCls} tnum`}
             onChange={(e) => void setSetting('caffeineCutoff', /^\d{2}:\d{2}$/.test(e.target.value) ? e.target.value : null)} />
         </Pick>
+        <Switch label="Same as usual?" checked={settings.usualAsk} onChange={(v) => setSetting('usualAsk', v)}>For a drink you have at about the same time most days: ask once with a Yes button{isNative ? ' (on Today and as a notification)' : ' on Today'} instead of you logging it</Switch>
         <Button variant="secondary" className="w-full" onClick={() => go('/caffeine')}>Find your cut-off and limit</Button>
         <p className="text-sm text-muted">Today shows the day's caffeine against your limit, about how much is still in you, and when it drops under {LOW_MG} mg. Trends compares your sleep on nights with {LOW_MG} mg or more still in you at bedtime against the others.</p>
       </Card>

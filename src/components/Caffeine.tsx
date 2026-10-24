@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Coffee, RotateCcw } from 'lucide-react';
 import type { CheckIn, DailyHealth } from '../db/schema';
 import type { ScheduleSettings } from '../logic/schedule';
-import { CAFFEINE, CHECK_DAYS, DRINKS, LOW_MG, bedtimeOf, curve, dayTotal, level, lowBy, usualDrinks, type Intake } from '../logic/caffeine';
+import { CAFFEINE, CHECK_DAYS, DRINKS, usualKey, type UsualHabit, LOW_MG, bedtimeOf, curve, dayTotal, level, lowBy, usualDrinks, type Intake } from '../logic/caffeine';
 import { getDayBounds } from '../logic/schedule';
 import { fmtTime, toLocalInput } from '../logic/format';
 import { addCheckIn, removeCheckIn, restoreCheckIn, updateCheckIn } from '../db/repos/checkIns';
@@ -72,6 +72,36 @@ export function CaffeineCard({ intakes, prefs, now, s, onLog }: { intakes: Intak
       <a href="#/caffeine" className="block text-sm font-medium underline underline-offset-4 min-h-[44px] flex items-center">
         {checkDay >= 1 && checkDay <= CHECK_DAYS ? `Caffeine check: day ${checkDay} of ${CHECK_DAYS}` : 'Find your cut-off and limit'}
       </a>
+    </section>
+  );
+}
+
+/** "Same as usual?": drinks had at about the same time most days that aren't logged yet today. Yes logs it at the
+ *  usual time; Not today leaves it for today. */
+export function UsualCard({ asks, personId, now, s, onNotToday }: { asks: UsualHabit[]; personId?: string; now: number; s: ScheduleSettings; onNotToday: (key: string) => void }) {
+  const toast = useToast();
+  if (!asks.length) return null;
+  const start = getDayBounds(now, s.dayStartsAt, s.tz).start;
+  const yes = async (h: UsualHabit) => {
+    const c = await addCheckIn({ at: new Date(Math.min(h.at, Date.now())).toISOString(), chips: [CAFFEINE], note: h.name, caffeineMg: h.mg, personId });
+    toast(`${h.name} logged at ${fmtTime(h.at)}`, { onAction: () => removeCheckIn(c.id) });
+  };
+  return (
+    <section className="border-t border-border pt-4 space-y-2" aria-labelledby="usual-h">
+      <h2 id="usual-h" className="font-medium">Same as usual?</h2>
+      <ul className="space-y-2">
+        {asks.map((h) => (
+          <li key={h.name} className="flex items-center gap-3">
+            <Coffee size={18} aria-hidden="true" className="text-primary shrink-0" />
+            <span className="flex-1 min-w-0">
+              <span className="block truncate">{h.name}</span>
+              <span className="block text-sm text-muted tnum">About {fmtTime(h.at)} · {h.mg} mg</span>
+            </span>
+            <Button className="min-h-[44px]" onClick={() => yes(h)} aria-label={`Yes, I had ${h.name}`}>Yes</Button>
+            <Button variant="secondary" className="min-h-[44px]" onClick={() => onNotToday(usualKey(h, start))} aria-label={`Not today: ${h.name}`}>Not today</Button>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

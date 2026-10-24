@@ -1,6 +1,6 @@
 // Fitness cards used on Training, Body, Protocol and Today: readiness, lean mass while losing weight, strength against
 // the peptide, and one timeline for every goal.
-import { Beef, Dumbbell, GlassWater, Moon, Pill, Scale, Smile, type LucideIcon } from 'lucide-react';
+import { Beef, Dumbbell, GlassWater, Moon, Pill, Scale, Smile, Trophy, type LucideIcon } from 'lucide-react';
 import { Bar, IconRow, MiniRing, Stat, ZeroBars } from './ui/Visual';
 import { format } from 'date-fns';
 import type { BodyEntry, BodyGoal, DailyHealth, Dose, FitnessGoal, Medication, Workout } from '../db/schema';
@@ -198,6 +198,11 @@ export function DigestCard({ d, seen, onClose, onNotify, notify }: { d: Digest; 
   return (
     <section className="border-t border-border pt-4 pb-1" aria-labelledby="dg-h">
       <h2 id="dg-h" className="text-sm font-medium text-muted">Your week · {format(d.weekStart, 'd MMM')} – {format(d.weekEnd - 1, 'd MMM')}</h2>
+      {d.wins.length > 0 && (
+        <ul className="tnum mt-1" aria-label="Wins">
+          {d.wins.map((w) => <li key={w}><IconRow Icon={Trophy} tone="good">{w}</IconRow></li>)}
+        </ul>
+      )}
       <ul className="tnum mt-1">
         {d.lines.map((l) => (
           <li key={l.key}><IconRow Icon={DIGEST_ICON[l.key] ?? Smile} tone={l.tone === 'good' ? 'good' : l.tone === 'watch' ? 'watch' : 'plain'}>{l.text}</IconRow></li>

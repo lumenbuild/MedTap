@@ -16,6 +16,22 @@ export function answersCheckIn(c: CheckIn): boolean {
   return !quick || (!!c.note?.trim() && !c.chips.includes('Caffeine'));
 }
 
+/** The person's usual check-in answers (each the most common over the last two weeks), once there are 5+ check-ins
+ *  to go on; for "Same as usual" in the check-in. */
+export function usualAnswers(checkIns: CheckIn[], now: number): Partial<Pick<CheckIn, 'mood' | 'energy' | 'focus' | 'appetite'>> | null {
+  const recent = checkIns.filter((c) => answersCheckIn(c) && c.mood !== undefined && Date.parse(c.at) > now - 14 * DAY && Date.parse(c.at) <= now);
+  if (recent.length < 5) return null;
+  const out: Partial<Pick<CheckIn, 'mood' | 'energy' | 'focus' | 'appetite'>> = {};
+  for (const k of ['mood', 'energy', 'focus', 'appetite'] as const) {
+    const vs = recent.map((c) => c[k]).filter((v): v is number => v !== undefined);
+    if (vs.length < recent.length / 2) continue;
+    const count = new Map<number, number>();
+    for (const v of vs) count.set(v, (count.get(v) ?? 0) + 1);
+    out[k] = [...count.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0][0];
+  }
+  return out;
+}
+
 /** Back up if the last backup (or, if never, the first record) is older than `days` (default 7). No data, no prompt. */
 export function needsBackup(lastBackupAt: string | null, earliestRecordAt: number | null, now: number, days = 7): boolean {
   if (earliestRecordAt === null) return false;
@@ -67,14 +83,14 @@ export function checkInDue(doses: Dose[], checkIns: CheckIn[], now: number, o: C
 
 /** Check-in notifications to schedule: one after the latest dose (if it's still ahead and nothing's been logged since),
  *  and each daily time over the next two weeks (so they keep coming if the app isn't opened for a while), leaving out today's if a check-in already covers it. */
-export function planCheckInNotes(doses: Dose[], checkIns: CheckIn[], now: number, o: Omit<CheckInOptions, 'dismissed'>, s: ScheduleSettings, days = 14): { id: number; at: number; kind: 'dose' | 'daily' }[] {
-  const out: { id: number; at: number; kind: 'dose' | 'daily' }[] = [];
+export function planCheckInNotes(doses: Dose[], checkIns: CheckIn[], now: number, o: Omit<CheckInOptions, 'dismissed'>, s: ScheduleSettings, days = 14): { id: number; at: number; kind: 'dose' | 'daily'; doseId?: string }[] {
+  const out: { id: number; at: number; kind: 'dose' | 'daily'; doseId?: string }[] = [];
   let last: Dose | undefined;
   for (const d of doses) if (!d.deletedAt && !d.skipped && Date.parse(d.takenAt) <= now && (!last || d.takenAt > last.takenAt)) last = d;
   if (last && o.delayMin > 0) {
     const t = Date.parse(last.takenAt);
     const at = t + o.delayMin * 60_000;
-    if (at > now && !checkIns.some((c) => answersCheckIn(c) && Date.parse(c.at) >= t)) out.push({ id: 900_500_000, at, kind: 'dose' });
+    if (at > now && !checkIns.some((c) => answersCheckIn(c) && Date.parse(c.at) >= t)) out.push({ id: 900_500_000, at, kind: 'dose', doseId: last.id });
   }
   const p = zonedParts(now, s.tz);
   let n = 1;

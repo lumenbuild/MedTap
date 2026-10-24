@@ -238,3 +238,45 @@ export function findLimit(days: CaffeineDay[]): Finding {
   if (w) return { bands, status: 'found', value: w.from, nights: useful.length };
   return { bands, status: 'clear', value: Math.max(...useful.map((x) => x.total)), nights: useful.length };
 }
+
+// ── Same as usual? ─────────────────────────────────────────────────────────────────────────────────
+
+export interface UsualHabit { name: string; mg: number; /** Today's usual time. */ at: number; days: number }
+
+/** Drinks had on most days (6+ of the last 14) at about the same time: the name, amount and today's usual time (the
+ *  median time of the day's first one). */
+export function usualHabits(intakes: Intake[], now: number, s: ScheduleSettings): UsualHabit[] {
+  const today = getDayBounds(now, s.dayStartsAt, s.tz).start;
+  const from = today - 14 * 24 * HOUR;
+  const byName = new Map<string, { mg: number[]; offsets: Map<string, number> }>();
+  for (const x of intakes) {
+    if (!x.name || x.t < from || x.t >= today) continue;
+    const start = getDayBounds(x.t, s.dayStartsAt, s.tz).start;
+    const e = byName.get(x.name) ?? { mg: [] as number[], offsets: new Map<string, number>() };
+    e.mg.push(x.mg);
+    const k = String(start);
+    if (!e.offsets.has(k)) e.offsets.set(k, x.t - start);
+    byName.set(x.name, e);
+  }
+  const out: UsualHabit[] = [];
+  for (const [name, e] of byName) {
+    const offs = [...e.offsets.values()].sort((a, b) => a - b);
+    if (offs.length < 6) continue;
+    const mid = offs[offs.length >> 1];
+    // About the same time: most of those days within an hour and a half of the middle.
+    if (offs.filter((o) => Math.abs(o - mid) <= 1.5 * HOUR).length < offs.length * 0.7) continue;
+    const mg = [...e.mg].sort((a, b) => a - b)[e.mg.length >> 1];
+    out.push({ name, mg, at: today + mid, days: offs.length });
+  }
+  return out.sort((a, b) => a.at - b.at);
+}
+
+/** The usual drinks to ask about now: their time was 45+ minutes ago today, none logged since an hour and a half
+ *  before it, and not answered "not today". */
+export function usualToAsk(habits: UsualHabit[], intakes: Intake[], now: number, dismissed: string[], s: ScheduleSettings): UsualHabit[] {
+  const today = getDayBounds(now, s.dayStartsAt, s.tz).start;
+  return habits.filter((h) => now >= h.at + 45 * 60_000 && !dismissed.includes(usualKey(h, today))
+    && !intakes.some((x) => x.name === h.name && x.t >= Math.max(today, h.at - 1.5 * HOUR) && x.t <= now));
+}
+
+export const usualKey = (h: { name: string }, dayStart: number) => `${Math.round(dayStart / 60_000)}|${h.name}`;

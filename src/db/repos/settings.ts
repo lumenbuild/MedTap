@@ -132,6 +132,10 @@ export interface AppSettings {
   caffeineCheckFrom: number | null;
   /** The app asked the phone for notification permission by itself (once). */
   notifyAsked: boolean;
+  /** Milestones already celebrated (ids), and "Same as usual?": on, and the ones answered "not today". */
+  milestonesSeen: string[];
+  usualAsk: boolean;
+  usualDismissed: string[];
 }
 
 export interface Snooze { id: number; medId: string; amount: number; dueAt: number; at: number; made: number }
@@ -213,6 +217,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   caffeineCutoff: null,
   caffeineCheckFrom: null,
   notifyAsked: false,
+  milestonesSeen: [],
+  usualAsk: true,
+  usualDismissed: [],
 };
 
 export async function getSettings(): Promise<AppSettings> {

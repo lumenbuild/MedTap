@@ -5,7 +5,7 @@ import { liveQuery } from 'dexie';
 import { db } from '../db/db';
 import { getSettings, scheduleSettings, setSetting } from '../db/repos/settings';
 import { dosesForPerson, listPeople, medIsFor, personOf, storedPerson } from '../db/repos/people';
-import { CAFFEINE, intakesOf, usualDrinks } from '../logic/caffeine';
+import { CAFFEINE, intakesOf, usualDrinks, usualHabits, usualKey, usualToAsk } from '../logic/caffeine';
 import { shortcutItems } from '../logic/widget';
 import { widgetsPayload } from '../logic/widgets';
 import { HAS_BODY, HAS_PEPTIDES } from '../edition';
@@ -14,7 +14,7 @@ import { addCheckIn } from '../db/repos/checkIns';
 import { dayKey } from '../logic/stats';
 import { autoImportHealth } from './health';
 import { APP_NAME } from '../config';
-import { getExpectedAmount, getRecentDose } from '../logic/schedule';
+import { getDayBounds, getExpectedAmount, getRecentDose } from '../logic/schedule';
 import { logDose } from '../db/repos/doses';
 import { liveSnoozes, planReminders, snoozeOf, SNOOZE_MIN, withoutSnoozed } from '../logic/notify';
 import { planTrainingReminders } from '../logic/trainingPlan';
@@ -37,6 +37,8 @@ const CHECKIN_CHANNEL = 'checkins';
 /** The rest timer's notification, and the range used by training reminders: kept out of the dose reminders' clear-out. */
 const REST_ID = 900_000_001;
 const ACTIONS = 'dose';
+const CHECKIN_ACTIONS = 'checkin';
+const USUAL_ACTIONS = 'usual';
 
 /** A tag or link opened the app: go to that tag's screen. */
 function openUrl(url: string | null) {
@@ -61,7 +63,11 @@ export async function initNative() {
   }
   void autoImportHealth();
 
-  await LocalNotifications.registerActionTypes({ types: [{ id: ACTIONS, actions: [
+  await LocalNotifications.registerActionTypes({ types: [
+    // Check-ins answered from the notification; usual drinks confirmed from it.
+    { id: CHECKIN_ACTIONS, actions: [{ id: 'ci-4', title: 'Good' }, { id: 'ci-3', title: 'OK' }, { id: 'ci-2', title: 'Rough' }] },
+    { id: USUAL_ACTIONS, actions: [{ id: 'usual-yes', title: 'Yes' }, { id: 'usual-no', title: 'Not today' }] },
+    { id: ACTIONS, actions: [
     { id: 'log', title: 'Log it', foreground: true },
     { id: 'snooze', title: `In ${SNOOZE_MIN} min` },
     { id: 'skip', title: 'Skip', destructive: true },
@@ -161,7 +167,22 @@ async function syncExtras() {
 /** "Log it" logs the planned amount straight away; "In 15 min" reminds again then; "Skip" records the dose as skipped
  *  (it covers its place in the plan); tapping the notification opens Log dose. */
 async function onAction({ actionId, notification }: ActionPerformed) {
-  const { medId, amount, route, dueAt } = (notification.extra ?? {}) as { medId?: string; amount?: number; route?: string; dueAt?: number };
+  const { medId, amount, route, dueAt, doseId, usual } = (notification.extra ?? {}) as { medId?: string; amount?: number; route?: string; dueAt?: number;
+    doseId?: string; usual?: { name: string; mg: number; at: number; dayStart: number } };
+  // A check-in answered from the notification: saved as it is (Good, OK or Rough), nothing to open.
+  if (route === '/checkin' && actionId.startsWith('ci-')) {
+    const mood = Number(actionId.slice(3));
+    const st = await getSettings();
+    await addCheckIn({ at: new Date().toISOString(), chips: [], mood, personId: storedPerson(st.activePersonId), ...(doseId ? { relatedDoseId: doseId } : {}) });
+    return;
+  }
+  // "Had your usual?": Yes logs it at the usual time; Not today leaves it for the day.
+  if (usual && (actionId === 'usual-yes' || actionId === 'usual-no')) {
+    const st = await getSettings();
+    if (actionId === 'usual-yes') await addCheckIn({ at: new Date(Math.min(usual.at, Date.now())).toISOString(), chips: [CAFFEINE], note: usual.name, caffeineMg: usual.mg, personId: storedPerson(st.activePersonId) });
+    else await setSetting('usualDismissed', [usualKey(usual, usual.dayStart), ...st.usualDismissed].slice(0, 60));
+    return;
+  }
   // Training reminders open Training; the rest timer just brings the app (and the workout) back.
   if (route === '/checkin') { go('/today'); requestCheckIn(); return; }
   if (route) { if (route !== 'back') go(route); return; }
@@ -245,6 +266,7 @@ async function doSync() {
   // Each kind on its own, so one that fails can't stop the others (check-ins used to sit behind all of these).
   const safe = async (what: string, f: () => Promise<void>) => { try { await f(); } catch (e) { console.error(what, e); } };
   await safe('check-ins', () => scheduleCheckIns(settings));
+  await safe('usual drinks', () => scheduleUsual(settings));
   if (settings.trainingTools && settings.trainingReminders) await safe('training', () => scheduleTraining(settings));
   if (settings.digestNotify) await safe('digest', scheduleDigest);
   if (settings.wearOffNotify) await safe('wear-off', () => scheduleWearOff(settings));
@@ -335,9 +357,35 @@ async function scheduleCheckIns(settings: Awaited<ReturnType<typeof getSettings>
     { delayMin: settings.checkInDelayMin, times: settings.checkInTimes }, scheduleSettings(settings));
   if (!plan.length) return;
   await LocalNotifications.schedule({
-    notifications: plan.map((r) => ({ id: r.id, title: r.kind === 'daily' ? 'How has today been?' : 'How are you feeling?', body: 'Tap for a quick check-in.',
-      schedule: { at: new Date(r.at), allowWhileIdle: true }, channelId: CHECKIN_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/checkin' } })),
+    notifications: plan.map((r) => ({ id: r.id, title: r.kind === 'daily' ? 'How has today been?' : 'How are you feeling?', body: 'Answer here, or tap for the full check-in.',
+      schedule: { at: new Date(r.at), allowWhileIdle: true }, channelId: CHECKIN_CHANNEL, smallIcon: 'ic_stat_medtap', actionTypeId: CHECKIN_ACTIONS,
+      extra: { route: '/checkin', ...(r.doseId ? { doseId: r.doseId } : {}) } })),
   });
+}
+
+const USUAL_IDS = Array.from({ length: 40 }, (_, i) => ({ id: 900_600_000 + i }));
+
+/** "Had your usual flat white?" an hour after its usual time each day for the next week, unless it's logged (or
+ *  answered "not today") first. */
+async function scheduleUsual(settings: Awaited<ReturnType<typeof getSettings>>) {
+  if (!settings.usualAsk) return;
+  const who = settings.activePersonId;
+  const s = scheduleSettings(settings);
+  const now = Date.now();
+  const intakes = intakesOf((await db.checkIns.toArray()).filter((c) => personOf(c) === who));
+  const habits = usualHabits(intakes, now, s);
+  const today = getDayBounds(now, s.dayStartsAt, s.tz).start;
+  const ask = new Set(usualToAsk(habits, intakes, Infinity, settings.usualDismissed, s).map((h) => h.name)); // not logged or dismissed today
+  const notes = [];
+  let n = 0;
+  for (let k = 0; k < 7; k++) for (const h of habits) {
+    const at = h.at + k * 86_400_000, when = at + 60 * 60_000;
+    if (when <= now || (k === 0 && !ask.has(h.name)) || n >= USUAL_IDS.length) continue;
+    notes.push({ id: 900_600_000 + n++, title: `Had your usual ${h.name.replace(/^./, (c) => c.toLowerCase())}?`, body: `About ${fmtTime(at)} · ${h.mg} mg`,
+      schedule: { at: new Date(when), allowWhileIdle: true }, channelId: CHECKIN_CHANNEL, smallIcon: 'ic_stat_medtap', actionTypeId: USUAL_ACTIONS,
+      extra: { route: '/today', usual: { name: h.name, mg: h.mg, at, dayStart: today + k * 86_400_000 } } });
+  }
+  if (notes.length) await LocalNotifications.schedule({ notifications: notes });
 }
 
 /** After a check-in (or a dose): replace just the check-in notifications, in turn with any full resync so the two
@@ -346,8 +394,10 @@ function syncCheckIns(): Promise<void> {
   if (!isNative) return Promise.resolve();
   syncing = (syncing ?? Promise.resolve()).then(async () => {
     if ((await reminderPermission()) !== 'granted') return;
-    await LocalNotifications.cancel({ notifications: CHECKIN_IDS });
-    await scheduleCheckIns(await getSettings());
+    await LocalNotifications.cancel({ notifications: [...CHECKIN_IDS, ...USUAL_IDS] });
+    const st = await getSettings();
+    await scheduleCheckIns(st);
+    await scheduleUsual(st);
   }).catch((e) => console.error('check-in notifications', e));
   return syncing;
 }

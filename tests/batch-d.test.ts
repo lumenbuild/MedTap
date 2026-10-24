@@ -58,7 +58,9 @@ describe('weekly digest', () => {
     expect(d.lines.find((l) => l.key === 'weight')!.text).toMatch(/^down 0.8 kg/);
     expect(d.lines.find((l) => l.key === 'training')!.text).toMatch(/1 session, 1 personal best: Bench press: Heaviest: 65 kg × 8/);
     expect(d.lines.find((l) => l.key === 'mood')!.text).toBe('4 of 5, up from 3');
-    expect(d.headline).toMatch(/^Doses/);
+    // Leads with what went well: the personal best first.
+    expect(d.headline).toMatch(/^A personal best: Bench press/);
+    expect(d.wins[0]).toBe(d.headline);
   });
 });
 
