@@ -12,7 +12,7 @@ import { useNow } from '../../app/useNow';
 import { useToast } from '../../app/toast';
 import { go } from '../../app/router';
 import { addToCalendar } from '../../app/calendar';
-import { byUrgency, getLastDose, getNextDue, getStatus } from '../../logic/schedule';
+import { byUrgency, getLastDose, getNextDue, getStatus, nextUp } from '../../logic/schedule';
 import { checkInPromptDose, needsBackup, refillAlerts } from '../../logic/reminders';
 import { RefillCards } from '../../components/Refill';
 import { VialAlerts } from '../Meds/VialCard';
@@ -20,7 +20,7 @@ import { GoalLines } from '../Body/Goals';
 import { SupplyAlerts } from '../Supplies';
 import { supplyAlerts } from '../../logic/peptide';
 import { fmtAgo, fmtAmount, fmtTime, fmtWhen } from '../../logic/format';
-import { removeDose } from '../../db/repos/doses';
+import { logDose, removeDose } from '../../db/repos/doses';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Sheet } from '../../components/ui/Sheet';
@@ -29,7 +29,8 @@ import { IOSBanner } from '../../components/IOSBanner';
 import { TravelBanner } from '../../components/TravelBanner';
 import { CheckInSheet, type CheckInSeed } from '../../components/CheckInSheet';
 import { BodySheet, type BodySheetState } from '../../components/BodySheets';
-import { HeroCard } from './HeroCard';
+import { HeroCard, HeroGroup } from './HeroCard';
+import { currentVial } from '../../logic/peptide';
 import { TodayRow } from './TodayRow';
 import { MentionsLine, OddRecordsLine, ScriptToday } from '../../components/Smart';
 import { ChangeLine, StallLine, WearOffLines } from '../../components/Insights';
@@ -135,11 +136,19 @@ export function Today() {
   // Order is fixed per minute so cards don't reshuffle under the user's thumb every second.
   const scheduled = byUrgency(active.filter((m) => m.schedule.type !== 'prn'), doses, Math.floor(now / 60_000) * 60_000, s);
   const prn = active.filter((m) => m.schedule.type === 'prn');
-  // The headline: whatever is due now; otherwise, with peptide tools on, the next injection; otherwise the most urgent.
-  const dueNow = scheduled.find((m) => getStatus(m, doses, now, s) === 'due');
-  const nextShot = settings.peptideTools ? scheduled.filter((m) => m.peptide && getNextDue(m, doses, now, s) !== null)
-    .sort((a, b) => getNextDue(a, doses, now, s)! - getNextDue(b, doses, now, s)!)[0] : undefined;
-  const headline = dueNow ?? nextShot ?? scheduled[0];
+  // The headline: everything due now, otherwise every medicine due at the soonest upcoming time (tablets and
+  // injections alike). With nothing planned ahead (all on a break), the most urgent one says so.
+  const up = nextUp(active, doses, Math.floor(now / 60_000) * 60_000, s);
+  const headline = up.meds.length === 1 ? up.meds[0] : up.meds.length === 0 ? scheduled[0] : undefined;
+  const logAll = async (items: { med: Medication; amount: number }[]) => {
+    const at = new Date().toISOString();
+    const logged: Dose[] = [];
+    for (const { med, amount } of items) {
+      const v = med.peptide ? currentVial(med) : undefined;
+      logged.push(await logDose({ medicationId: med.id, takenAt: at, amount, source: 'manual', vialId: v && v.id !== 'legacy' ? v.id : undefined }));
+    }
+    toast(`Logged ${items.map((x) => shownName(x.med)).join(', ')}`, { onAction: async () => { for (const d of logged) await removeDose(d.id); toast('Removed. Nothing was logged.'); } });
+  };
 
   const firstRecord = [...doses, ...checkIns, ...body].filter((r) => !r.deletedAt).reduce<number | null>((min, r) => {
     const t = Date.parse(r.createdAt);
@@ -214,7 +223,9 @@ export function Today() {
       })()}
 
       {/* B2: the most urgent dose is the headline; every scheduled medicine is then one line, tap to log. */}
-      {headline && hero(headline)}
+      {up.meds.length > 1 && up.at !== null
+        ? <HeroGroup meds={up.meds} doses={viewDoses} s={s} now={now} at={up.at} due={up.due} onLog={setLogFor} onLogAll={logAll} whose={fam.many ? whose : undefined} />
+        : headline && hero(headline)}
       {scheduled.length > 1 && (
         <section aria-labelledby="today-meds" className="border-t border-border pt-4">
           {(() => {

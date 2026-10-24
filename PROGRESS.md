@@ -791,3 +791,13 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
   (BarcodeDetector, or ZXing on the middle of the frame) until the same valid code is seen twice; torch where the
   phone has one; Photo instead / Type numbers; camera stopped as soon as it reads. Android declares CAMERA
   (Capacitor asks when it's first used); the iOS camera text mentions barcodes.
+
+## Today's next dose is the next one due
+
+- The headline used to prefer the next injection (with peptide tools on) over a tablet due sooner, and ranked by
+  status before time, so a weekly shot days away or a missed evening dose could sit above tomorrow morning's tablets.
+- logic/schedule nextUp: everything due now (oldest first, plus an every-few-hours medicine not started today),
+  otherwise every medicine due at the soonest upcoming time (same minute = together). Tested.
+- Several at once: one card with the time, each medicine with its amount (or draw/dial) and Log, and Log all when
+  they're due (or within the hour), with undo. A medicine done for today shows when it's next, not "Done".
+- The home-screen widget and the watch (same payload) use the same rule.
