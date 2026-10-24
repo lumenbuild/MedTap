@@ -7,6 +7,15 @@ import { addDays, zonedParts, zonedToUtc } from './tz';
 const DAY = 86_400_000;
 const SIX_HOURS = 6 * 3_600_000;
 
+/** A check-in that answers "how are you?". A coffee or a drink logged on its own, or last night's sleep in one tap, is
+ *  a check-in underneath but says nothing about how the day is going, so it doesn't stand in for one. */
+export function answersCheckIn(c: CheckIn): boolean {
+  if (c.deletedAt) return false;
+  if ([c.mood, c.energy, c.focus, c.appetite, c.soreness].some((v) => v !== undefined)) return true;
+  const quick = c.chips.every((x) => x === 'Caffeine' || x === 'Alcohol');
+  return !quick || (!!c.note?.trim() && !c.chips.includes('Caffeine'));
+}
+
 /** Back up if the last backup (or, if never, the first record) is older than `days` (default 7). No data, no prompt. */
 export function needsBackup(lastBackupAt: string | null, earliestRecordAt: number | null, now: number, days = 7): boolean {
   if (earliestRecordAt === null) return false;
@@ -23,7 +32,7 @@ export function checkInPromptDose(doses: Dose[], checkIns: CheckIn[], now: numbe
   if (!last || last.id === dismissedId) return undefined;
   const t = Date.parse(last.takenAt);
   if (now - t < delayMin * 60_000 || now - t > SIX_HOURS) return undefined;
-  if (checkIns.some((c) => !c.deletedAt && Date.parse(c.at) >= t)) return undefined;
+  if (checkIns.some((c) => answersCheckIn(c) && Date.parse(c.at) >= t)) return undefined;
   return last;
 }
 
@@ -52,20 +61,20 @@ export function checkInDue(doses: Dose[], checkIns: CheckIn[], now: number, o: C
   if (dose) return { key: dose.id, kind: 'dose', at: Date.parse(dose.takenAt) + o.delayMin * 60_000, dose };
   const past = timesOn(now, o.times, s.tz).filter((x) => x.at <= now && now - x.at <= 4 * 3_600_000).pop();
   if (!past || past.key === o.dismissed) return undefined;
-  if (checkIns.some((c) => !c.deletedAt && Date.parse(c.at) >= past.at - 3_600_000)) return undefined;
+  if (checkIns.some((c) => answersCheckIn(c) && Date.parse(c.at) >= past.at - 3_600_000)) return undefined;
   return { key: past.key, kind: 'daily', at: past.at };
 }
 
 /** Check-in notifications to schedule: one after the latest dose (if it's still ahead and nothing's been logged since),
- *  and each daily time over the next week, leaving out today's if a check-in already covers it. */
-export function planCheckInNotes(doses: Dose[], checkIns: CheckIn[], now: number, o: Omit<CheckInOptions, 'dismissed'>, s: ScheduleSettings, days = 7): { id: number; at: number; kind: 'dose' | 'daily' }[] {
+ *  and each daily time over the next two weeks (so they keep coming if the app isn't opened for a while), leaving out today's if a check-in already covers it. */
+export function planCheckInNotes(doses: Dose[], checkIns: CheckIn[], now: number, o: Omit<CheckInOptions, 'dismissed'>, s: ScheduleSettings, days = 14): { id: number; at: number; kind: 'dose' | 'daily' }[] {
   const out: { id: number; at: number; kind: 'dose' | 'daily' }[] = [];
   let last: Dose | undefined;
   for (const d of doses) if (!d.deletedAt && !d.skipped && Date.parse(d.takenAt) <= now && (!last || d.takenAt > last.takenAt)) last = d;
   if (last && o.delayMin > 0) {
     const t = Date.parse(last.takenAt);
     const at = t + o.delayMin * 60_000;
-    if (at > now && !checkIns.some((c) => !c.deletedAt && Date.parse(c.at) >= t)) out.push({ id: 900_500_000, at, kind: 'dose' });
+    if (at > now && !checkIns.some((c) => answersCheckIn(c) && Date.parse(c.at) >= t)) out.push({ id: 900_500_000, at, kind: 'dose' });
   }
   const p = zonedParts(now, s.tz);
   let n = 1;
@@ -74,7 +83,7 @@ export function planCheckInNotes(doses: Dose[], checkIns: CheckIn[], now: number
     for (const x of timesOn(zonedToUtc(d.y, d.m, d.d, 12, 0, s.tz), o.times, s.tz)) {
       const id = 900_500_000 + n++;
       if (x.at <= now) continue;
-      if (checkIns.some((c) => !c.deletedAt && Date.parse(c.at) >= x.at - 3_600_000 && Date.parse(c.at) <= x.at)) continue;
+      if (checkIns.some((c) => answersCheckIn(c) && Date.parse(c.at) >= x.at - 3_600_000 && Date.parse(c.at) <= x.at)) continue;
       // Not right on top of the after-dose one.
       if (out[0]?.kind === 'dose' && Math.abs(out[0].at - x.at) < 3_600_000) continue;
       out.push({ id, at: x.at, kind: 'daily' });

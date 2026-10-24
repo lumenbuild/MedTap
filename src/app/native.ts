@@ -33,6 +33,7 @@ import { requestCheckIn, requestLog } from './pendingLog';
 
 const CHANNEL = 'doses';
 const TRAINING_CHANNEL = 'training';
+const CHECKIN_CHANNEL = 'checkins';
 /** The rest timer's notification, and the range used by training reminders: kept out of the dose reminders' clear-out. */
 const REST_ID = 900_000_001;
 const ACTIONS = 'dose';
@@ -68,8 +69,18 @@ export async function initNative() {
   if (isNativeAndroid) {
     await LocalNotifications.createChannel({ id: CHANNEL, name: 'Dose reminders', description: 'When a dose is due', importance: 4, vibration: true, visibility: 0 });
     await LocalNotifications.createChannel({ id: TRAINING_CHANNEL, name: 'Training', description: 'Rest timer and training-day reminders', importance: 4, vibration: true, visibility: 1 });
+    await LocalNotifications.createChannel({ id: CHECKIN_CHANNEL, name: 'Check-ins', description: 'How the day has been, and after a dose', importance: 4, vibration: true, visibility: 1 });
   }
   await LocalNotifications.addListener('localNotificationActionPerformed', (a) => { void onAction(a); });
+  // Check-in notifications start on, but Android 13+ only shows any once the app has asked: ask once, after the
+  // welcome, rather than leave them switched on and silent.
+  void (async () => {
+    const st = await getSettings();
+    if (st.onboarded && !st.notifyAsked && (st.checkInNotify || st.remindersEnabled) && (await reminderPermission()) === 'prompt') {
+      await setSetting('notifyAsked', true);
+      if ((await LocalNotifications.requestPermissions()).display === 'granted') await syncReminders();
+    }
+  })().catch((e) => console.error('notification permission', e));
 
   // Reschedule whenever medications, doses or settings change (debounced).
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -231,10 +242,12 @@ async function doSync() {
   if (stale.length) await LocalNotifications.cancel({ notifications: stale.map((n) => ({ id: n.id })) });
   const settings = await getSettings();
   if ((await reminderPermission()) !== 'granted') return;
-  if (settings.trainingTools && settings.trainingReminders) await scheduleTraining(settings);
-  if (settings.digestNotify) await scheduleDigest();
-  if (settings.wearOffNotify) await scheduleWearOff(settings);
-  await scheduleCheckIns(settings);
+  // Each kind on its own, so one that fails can't stop the others (check-ins used to sit behind all of these).
+  const safe = async (what: string, f: () => Promise<void>) => { try { await f(); } catch (e) { console.error(what, e); } };
+  await safe('check-ins', () => scheduleCheckIns(settings));
+  if (settings.trainingTools && settings.trainingReminders) await safe('training', () => scheduleTraining(settings));
+  if (settings.digestNotify) await safe('digest', scheduleDigest);
+  if (settings.wearOffNotify) await safe('wear-off', () => scheduleWearOff(settings));
   if (!settings.remindersEnabled) return;
   const [meds, doses, people] = await Promise.all([db.medications.toArray(), db.doses.toArray(), listPeople()]);
   const live = doses.filter((d) => !d.deletedAt);
@@ -308,7 +321,7 @@ async function scheduleWearOff(settings: Awaited<ReturnType<typeof getSettings>>
   });
 }
 
-const CHECKIN_IDS = Array.from({ length: 40 }, (_, i) => ({ id: 900_500_000 + i }));
+const CHECKIN_IDS = Array.from({ length: 80 }, (_, i) => ({ id: 900_500_000 + i }));
 
 /** Check-in notifications (after the latest dose and at the daily times) for the person being shown. They say nothing
  *  about which medicine, so they suit the lock screen as they are. */
@@ -323,18 +336,49 @@ async function scheduleCheckIns(settings: Awaited<ReturnType<typeof getSettings>
   if (!plan.length) return;
   await LocalNotifications.schedule({
     notifications: plan.map((r) => ({ id: r.id, title: r.kind === 'daily' ? 'How has today been?' : 'How are you feeling?', body: 'Tap for a quick check-in.',
-      schedule: { at: new Date(r.at), allowWhileIdle: true }, channelId: CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/checkin' } })),
+      schedule: { at: new Date(r.at), allowWhileIdle: true }, channelId: CHECKIN_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/checkin' } })),
   });
 }
 
-/** After a check-in (or a dose): replace just the check-in notifications. */
-async function syncCheckIns() {
-  if (!isNative) return;
-  try {
+/** After a check-in (or a dose): replace just the check-in notifications, in turn with any full resync so the two
+ *  can't cancel each other's. */
+function syncCheckIns(): Promise<void> {
+  if (!isNative) return Promise.resolve();
+  syncing = (syncing ?? Promise.resolve()).then(async () => {
     if ((await reminderPermission()) !== 'granted') return;
     await LocalNotifications.cancel({ notifications: CHECKIN_IDS });
     await scheduleCheckIns(await getSettings());
-  } catch (e) { console.error('check-in notifications', e); }
+  }).catch((e) => console.error('check-in notifications', e));
+  return syncing;
+}
+
+export interface CheckInNoteStatus { permission: ReminderPermission; exact: boolean; next: number | null; pending: number }
+
+/** For Settings → Check-ins: whether the phone allows notifications and exact times, and the next one booked. */
+export async function checkInNoteStatus(): Promise<CheckInNoteStatus | null> {
+  if (!isNative) return null;
+  const permission = await reminderPermission();
+  const exact = await exactRemindersAllowed();
+  const ids = new Set(CHECKIN_IDS.map((x) => x.id));
+  const mine = (await LocalNotifications.getPending()).notifications.filter((n) => ids.has(n.id));
+  const times = mine.map((n) => (n.schedule?.at ? new Date(n.schedule.at).getTime() : NaN)).filter((t) => Number.isFinite(t) && t > Date.now()).sort((a, b) => a - b);
+  return { permission, exact, next: times[0] ?? null, pending: mine.length };
+}
+
+/** Ask the phone for notifications (and book the check-ins at once if it says yes). */
+export async function allowCheckInNotes(): Promise<boolean> {
+  const p = await LocalNotifications.requestPermissions();
+  if (p.display !== 'granted') return false;
+  await syncReminders();
+  return true;
+}
+
+/** A test check-in notification ten seconds from now, to see it arrive. */
+export async function testCheckInNote(): Promise<boolean> {
+  if ((await reminderPermission()) !== 'granted') return false;
+  await LocalNotifications.schedule({ notifications: [{ id: 900_599_999, title: 'How has today been?', body: 'A test: tap for a quick check-in.',
+    schedule: { at: new Date(Date.now() + 10_000), allowWhileIdle: true }, channelId: CHECKIN_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/checkin' } }] });
+  return true;
 }
 
 /** Next Monday 8:30 am: "Your week" (the digest is on Today until Wednesday). */

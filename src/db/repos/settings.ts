@@ -130,6 +130,8 @@ export interface AppSettings {
   /** The person's own caffeine cut-off ('HH:mm'), and when they started a two-week caffeine check (ms). */
   caffeineCutoff: string | null;
   caffeineCheckFrom: number | null;
+  /** The app asked the phone for notification permission by itself (once). */
+  notifyAsked: boolean;
 }
 
 export interface Snooze { id: number; medId: string; amount: number; dueAt: number; at: number; made: number }
@@ -210,6 +212,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   caffeineHalfLifeH: 5,
   caffeineCutoff: null,
   caffeineCheckFrom: null,
+  notifyAsked: false,
 };
 
 export async function getSettings(): Promise<AppSettings> {

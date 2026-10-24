@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { Bell, Calculator, CalendarCheck, Check, ChevronRight, Clock, Coffee, Download, Dumbbell, EyeOff, HardDriveDownload, HeartPulse, HelpCircle, Info, Lock, Nfc, Package, Palette, Pill, Plane, RefreshCw, Smile, Syringe, Timer, Users, Utensils, Watch, X, type LucideIcon } from 'lucide-react';
 import { IconRow } from '../components/ui/Visual';
 import { useSyncConfig } from '../app/sync';
-import { setCheckInNotify, setDigestNotify, setRemindersEnabled, setTrainingReminders, syncReminders } from '../app/native';
+import { allowCheckInNotes, allowExactReminders, checkInNoteStatus, setCheckInNotify, setDigestNotify, setRemindersEnabled, setTrainingReminders, syncReminders, testCheckInNote, type CheckInNoteStatus } from '../app/native';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Sheet, SheetActions } from '../components/ui/Sheet';
@@ -17,7 +17,7 @@ import { useToast } from '../app/toast';
 import { go } from '../app/router';
 import { DEFAULT_CHIPS, setSetting, type Units } from '../db/repos/settings';
 import { eraseAll } from '../db/repos/backup';
-import { fmtAgo, fmtHHmm } from '../logic/format';
+import { fmtAgo, fmtHHmm, fmtWhen } from '../logic/format';
 import { hashPin, isValidPin, newSalt, verifyPin } from '../logic/pin';
 import { useViewMode } from '../app/viewMode';
 import { FamilyCard } from './Family';
@@ -194,6 +194,7 @@ export function Settings({ section }: { section?: string }) {
         </div>
         <Switch label="Open the check-in by itself" checked={settings.checkInPopup} onChange={(v) => setSetting('checkInPopup', v)}>When one is due and the app is open, once each</Switch>
         {isNative && <Switch label="Check-in notifications" checked={settings.checkInNotify} onChange={async (v) => { const on = await setCheckInNotify(v); if (v && !on) notifyOff(); }}>{HAS_MEDS ? 'After a dose and at your daily times. They never name a medicine.' : 'At your daily times.'}</Switch>}
+        {isNative && settings.checkInNotify && <CheckInNoteHealth times={settings.checkInTimes.join(',')} />}
         <div>
           <span className="block text-sm font-medium mb-2">What you can tick</span>
           <ul className="flex flex-wrap gap-2">
@@ -437,6 +438,29 @@ function SettingText({ id, label, value, placeholder, onSave }: { id: string; la
     <div className="space-y-1.5">
       <label htmlFor={id} className="block text-sm font-medium">{label}</label>
       <input id={id} value={text} placeholder={placeholder} onChange={(e) => setText(e.target.value)} onBlur={() => text.trim() !== value && onSave(text.trim())} className={selectCls} autoComplete="off" />
+    </div>
+  );
+}
+
+/** Whether check-in notifications can actually arrive: the phone's permission, exact times, the next one booked, and
+ *  a test. */
+function CheckInNoteHealth({ times }: { times: string }) {
+  const toast = useToast();
+  const [st, setSt] = useState<CheckInNoteStatus | null>(null);
+  const [n, setN] = useState(0);
+  useEffect(() => { let live = true; const t = setTimeout(() => { void checkInNoteStatus().then((x) => { if (live) setSt(x); }); }, 2500); return () => { live = false; clearTimeout(t); }; }, [times, n]);
+  if (!st) return null;
+  const refresh = () => setN((x) => x + 1);
+  if (st.permission !== 'granted') return (
+    <IconRow Icon={Bell} tone="watch" action={<Button variant="secondary" onClick={async () => { const ok = await allowCheckInNotes(); if (!ok) toast('Turn notifications on for this app in your phone’s settings'); refresh(); }}>Allow</Button>}>
+      The phone hasn't allowed notifications for this app, so none can arrive.
+    </IconRow>
+  );
+  return (
+    <div className="space-y-2">
+      <p className="text-sm text-muted tnum">{st.next ? `Next: ${fmtWhen(st.next, Date.now())} (${st.pending} booked)` : 'None booked: add a daily time above.'}</p>
+      {!st.exact && <IconRow Icon={Clock} tone="watch" action={<Button variant="secondary" onClick={() => { void allowExactReminders(); }}>Allow</Button>}>Without “Alarms and reminders”, the phone may hold them back a while.</IconRow>}
+      <Button variant="secondary" className="w-full" onClick={async () => { toast((await testCheckInNote()) ? 'A test check-in arrives in about 10 seconds' : 'Notifications aren’t allowed'); }}>Send a test</Button>
     </div>
   );
 }
