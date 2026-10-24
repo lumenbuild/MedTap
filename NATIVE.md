@@ -13,34 +13,44 @@ small plugin of our own (`native/medtap-native`) for the things a website can't 
 Tags don't change: they still hold `https://lumenbuild.github.io/MedTap/?t=<ID>`, so the same tags work with
 the website and the app.
 
-## Two apps: MedTap and TapDose
+## Four apps: MedTap, TapDose, TapWeigh and TapLift
 
-The same code builds two apps (`src/edition.ts`, chosen with `VITE_EDITION` at build time):
+The same code builds four apps (`src/edition.ts`, chosen with `VITE_EDITION` at build time):
 
-| | MedTap | TapDose |
-|---|---|---|
-| For | Everything | Medications and ADHD support |
-| Leaves out | Nothing | Peptide tools, weight, measurements, goals, progress photos |
-| Website | lumenbuild.github.io/MedTap/ | lumenbuild.github.io/MedTap/tapdose/ |
-| Tags hold | `…/MedTap/?t=<ID>` | `…/MedTap/tapdose/?t=<ID>` |
-| Android app | `app.medtap.tracker` (release **android**) | `app.tapdose.tracker` (release **tapdose-android**) |
-| Colour | Teal | Violet |
+| | MedTap | TapDose | TapWeigh | TapLift |
+|---|---|---|---|---|
+| For | Everything | Medications and ADHD support | Weight, measurements, goals, food | Training, weight and body composition |
+| Leaves out | Nothing | Peptides, weight, measurements, goals, photos, training, food | Medicines, peptides, training | Medicines, peptides, food |
+| Website | …/MedTap/ | …/MedTap/tapdose/ | …/MedTap/tapweigh/ | …/MedTap/taplift/ |
+| Tags hold | `…/MedTap/?t=<ID>` | `…/MedTap/tapdose/?t=<ID>` | `…/MedTap/tapweigh/?t=<ID>` | `…/MedTap/taplift/?t=<ID>` |
+| Android app | `app.medtap.tracker` | `app.tapdose.tracker` | `app.tapweigh.tracker` | `app.taplift.tracker` |
+| GitHub release | **android** | **tapdose-android** | **tapweigh-android** | **taplift-android** |
+| Google Play | No (peptide tools) | Yes | Yes | Yes |
+| Colour | Teal | Violet | Amber | Sky blue |
 
-Each keeps its own data, even on the same website, and opens only its own tags. A fix in shared code reaches both.
-Both Android apps are signed with the same key. TapDose isn't set up for iPhone yet.
+Each keeps its own data, even on the same website, and opens only its own tags. A fix in shared code reaches all of
+them. All are signed with the same key. Only MedTap is set up for iPhone; only MedTap and TapDose have a watch app.
+
+**Two stores.** Each Android app has a `github` build (the APK on GitHub releases, which checks for and installs its
+own updates) and a `play` build (a bundle for Google Play, built with `VITE_STORE=play`: no update check or
+installer, no battery-exemption request, no watch download; see `android/app/src/play/AndroidManifest.xml`). Each
+merge publishes the Play bundles as the **play** release. Store listings and graphics are in `store/`.
 
 ## Build
 
 ```sh
 npm ci
-npm run build:native           # MedTap: builds the web app into dist-native/ and copies it into android/ and ios/
-npm run build:native:tapdose   # TapDose: the same, Android only
+npm run build:native            # MedTap: builds the web app into dist-native/ and copies it into android/ and ios/
+npm run build:native:tapdose    # TapDose (also :tapweigh, :taplift): the same, Android only
+VITE_STORE=play npm run build:native:tapweigh   # the Google Play build of an app
 ```
 
-Then open `android/` in Android Studio and pick the **medtap** or **tapdose** build variant to match the last web
-build (the build stops with a message if they don't match), or open `ios/App/App.xcodeproj` in Xcode (MedTap).
-From the command line: `cd android && ./gradlew assembleMedtapRelease` (or `assembleTapdoseRelease`).
-Icons (web, Android, watch, iOS, splash) all come from `scripts/make-native-icons.mjs`; TapDose's: `node scripts/make-native-icons.mjs tapdose`.
+Then open `android/` in Android Studio and pick the build variant that matches the last web build, such as
+**medtapGithubDebug** or **tapweighPlayRelease** (the build stops with a message if they don't match), or open
+`ios/App/App.xcodeproj` in Xcode (MedTap). From the command line: `cd android && ./gradlew
+:app:assembleMedtapGithubRelease :wear:assembleMedtapRelease`, or `:app:bundleTapweighPlayRelease` for a Play bundle.
+Icons (web, Android, watch, iOS, splash) all come from `scripts/make-native-icons.mjs`; the others':
+`node scripts/make-native-icons.mjs tapdose` (or `tapweigh`, `taplift`).
 
 ## Android
 

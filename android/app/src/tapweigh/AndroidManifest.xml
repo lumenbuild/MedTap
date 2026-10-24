@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TapWeigh reads weight, body fat, lean mass, blood pressure, steps, sleep and heart rate from Health Connect; not
+     workouts. HealthBridge asks for whatever is left declared. The camera is for food barcodes. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" tools:node="remove" />
+    <uses-permission android:name="android.permission.health.READ_DISTANCE" tools:node="remove" />
+</manifest>

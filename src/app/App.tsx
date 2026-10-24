@@ -24,7 +24,7 @@ import { UpdatePrompt } from './UpdatePrompt';
 import { useMaintenance } from './maintenance';
 import { ScanTagButton } from '../components/ScanTagButton';
 import { isNativeIOS } from '../platform';
-import { HAS_BODY, HAS_PEPTIDES, HAS_VISITS } from '../edition';
+import { HAS_MEDS, HAS_BODY, HAS_TRAINING, HAS_FOOD, FOCUS, HAS_PEPTIDES, HAS_VISITS } from '../edition';
 import { useNow } from './useNow';
 import { Protocol } from '../screens/Protocol/Protocol';
 import { Progress } from '../screens/Progress';
@@ -48,12 +48,13 @@ function title(r: Route, peptides = HAS_PEPTIDES): string {
     case 'today': return 'Today';
     case 'trends': return 'Trends';
     case 'body': return HAS_BODY ? 'Body' : 'Vitals';
-    case 'meds': return 'Meds';
-    case 'settings': return r.section && r.section in SECTION_TITLE ? SECTION_TITLE[r.section as SettingsSection] : 'Settings';
-    case 'medNew': return 'Add medication';
-    case 'med': return 'Medication';
+    case 'meds': return HAS_MEDS ? 'Meds' : 'Today';
+    case 'settings': return r.section && r.section in SECTION_TITLE && !(!HAS_MEDS && ['doses', 'reminders'].includes(r.section)) && !(!HAS_TRAINING && r.section === 'training')
+      ? SECTION_TITLE[r.section as SettingsSection] : 'Settings';
+    case 'medNew': return HAS_MEDS ? 'Add medication' : 'Today';
+    case 'med': return HAS_MEDS ? 'Medication' : 'Today';
     case 'backup': return 'Backup and restore';
-    case 'report': return 'Doctor report';
+    case 'report': return HAS_MEDS ? 'Doctor report' : 'Today';
     case 'help': return helpTitle(r.topic, HAS_PEPTIDES && viewMode() !== 'private');
     case 'sync': return 'Family sync';
     case 'join': return 'Join family sync';
@@ -62,15 +63,15 @@ function title(r: Route, peptides = HAS_PEPTIDES): string {
     case 'protocol': return peptides ? 'Protocol' : 'Today';
     case 'protocolReport': return peptides ? 'Protocol report' : 'Today';
     case 'progress': return 'Progress';
-    case 'training': return 'Training';
-    case 'workout': return 'Workout';
-    case 'exercise': return 'Exercise';
-    case 'routines': return 'Routines';
+    case 'training': return HAS_TRAINING ? 'Training' : 'Today';
+    case 'workout': return HAS_TRAINING ? 'Workout' : 'Today';
+    case 'exercise': return HAS_TRAINING ? 'Exercise' : 'Today';
+    case 'routines': return HAS_TRAINING ? 'Routines' : 'Today';
     case 'tags': return 'Tags';
     case 'appointments': return HAS_VISITS ? 'Appointments' : 'Today';
     case 'appointmentSummary': return HAS_VISITS ? 'Since your last appointment' : 'Today';
-    case 'labs': return 'Lab results';
-    case 'food': return HAS_BODY ? 'Food' : 'Today';
+    case 'labs': return HAS_MEDS ? 'Lab results' : 'Today';
+    case 'food': return HAS_FOOD ? 'Food' : 'Today';
     case 'travel': return HAS_VISITS ? 'Plan a trip' : 'Today';
     default: return '';
   }
@@ -82,7 +83,7 @@ function backTo(r: Route, protocol: boolean): string | undefined {
     case 'workout': case 'exercise': case 'routines': return '#/training';
     case 'appointments': case 'travel': case 'tags': return '#/settings';
     case 'appointmentSummary': return '#/appointments';
-    case 'food': return '#/today';
+    case 'food': return FOCUS === 'weight' ? undefined : '#/today'; // a tab in TapWeigh
     case 'labs': return HAS_VISITS ? '#/appointments' : '#/settings';
     case 'settings': return r.section ? '#/settings' : '#/today';
     case 'medNew': case 'med': return '#/meds';
@@ -100,12 +101,13 @@ function Screen({ r }: { r: Route }) {
     case 'settings': return <Settings section={r.section} />;
     case 'trends': return <Suspense fallback={<ChartsLoading />}><Trends /></Suspense>;
     case 'body': return <Body />;
-    case 'meds': return <MedsList />;
-    case 'medNew': return <MedEditor key={`new-${r.tagId ?? ''}`} tagId={r.tagId} />;
-    case 'med': return <MedEditor key={r.id} id={r.id} />;
+    // TapWeigh and TapLift have no medicines: their links land on Today.
+    case 'meds': return HAS_MEDS ? <MedsList /> : <Today />;
+    case 'medNew': return HAS_MEDS ? <MedEditor key={`new-${r.tagId ?? ''}`} tagId={r.tagId} /> : <Today />;
+    case 'med': return HAS_MEDS ? <MedEditor key={r.id} id={r.id} /> : <Today />;
     case 'tag': return <TagLanding key={r.id} id={r.id} />;
     case 'backup': return <Backup />;
-    case 'report': return <Suspense fallback={<ChartsLoading />}><Report /></Suspense>;
+    case 'report': return HAS_MEDS ? <Suspense fallback={<ChartsLoading />}><Report /></Suspense> : <Today />;
     case 'help': return <Help topic={r.topic} />;
     case 'sync': return <Sync />;
     case 'join': return <JoinSync code={r.code} />;
@@ -114,15 +116,15 @@ function Screen({ r }: { r: Route }) {
     case 'protocol': return peptides ? <Protocol /> : <Today />;
     case 'protocolReport': return peptides ? <Suspense fallback={<ChartsLoading />}><ProtocolReport /></Suspense> : <Today />;
     case 'progress': return <Progress view={r.view} />;
-    case 'training': return HAS_BODY ? <Suspense fallback={<ChartsLoading />}><Training /></Suspense> : <Today />;
-    case 'workout': return HAS_BODY ? <Suspense fallback={<ChartsLoading />}><WorkoutScreen key={r.id} id={r.id} /></Suspense> : <Today />;
-    case 'exercise': return HAS_BODY ? <Suspense fallback={<ChartsLoading />}><ExerciseScreen key={r.id} id={r.id} /></Suspense> : <Today />;
+    case 'training': return HAS_TRAINING ? <Suspense fallback={<ChartsLoading />}><Training key={r.start ? 'start' : 'tab'} start={r.start} /></Suspense> : <Today />;
+    case 'workout': return HAS_TRAINING ? <Suspense fallback={<ChartsLoading />}><WorkoutScreen key={r.id} id={r.id} /></Suspense> : <Today />;
+    case 'exercise': return HAS_TRAINING ? <Suspense fallback={<ChartsLoading />}><ExerciseScreen key={r.id} id={r.id} /></Suspense> : <Today />;
     case 'tags': return <Suspense fallback={<ChartsLoading />}><Tags /></Suspense>;
-    case 'routines': return HAS_BODY ? <Suspense fallback={<ChartsLoading />}><Routines /></Suspense> : <Today />;
+    case 'routines': return HAS_TRAINING ? <Suspense fallback={<ChartsLoading />}><Routines /></Suspense> : <Today />;
     case 'appointments': return HAS_VISITS ? <Appointments /> : <Today />;
     case 'appointmentSummary': return HAS_VISITS ? <AppointmentSummary /> : <Today />;
-    case 'labs': return <Labs />;
-    case 'food': return HAS_BODY ? <Suspense fallback={<ChartsLoading />}><FoodScreen /></Suspense> : <Today />;
+    case 'labs': return HAS_MEDS ? <Labs /> : <Today />;
+    case 'food': return HAS_FOOD ? <Suspense fallback={<ChartsLoading />}><FoodScreen /></Suspense> : <Today />;
     case 'travel': return HAS_VISITS ? <Travel /> : <Today />;
     default: return <Today />;
   }
@@ -135,7 +137,7 @@ export function App() {
   const meds = useMeds();
   // Peptide tools on (MedTap): the tabs are Today, Protocol, Progress (Trends and Body together) and Meds.
   const protocol = HAS_PEPTIDES && !!settings?.peptideTools;
-  const training = HAS_BODY && !!settings?.trainingTools;
+  const training = HAS_TRAINING && !!settings?.trainingTools;
   const back = backTo(r, protocol);
   const now = useNow(60_000);
   const showTabs = !back && r.name !== 'tag';

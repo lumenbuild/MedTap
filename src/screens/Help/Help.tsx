@@ -4,27 +4,32 @@ import { isNative, isNativeIOS } from '../../platform';
 import { APP_NAME, DISCLAIMER } from '../../config';
 import { tagBase } from '../../nfc/url';
 import { Card } from '../../components/ui/Card';
-import { apkDownload, edition, HAS_BODY, HAS_PEPTIDES, HAS_VISITS } from '../../edition';
+import { HAS_BODY, HAS_TRAINING, HAS_FOOD, FOCUS, PLAY, HAS_PEPTIDES, HAS_VISITS, edition, apkDownload } from '../../edition';
+import { FOCUS_HELP } from './HelpFocus';
 import { useViewMode } from '../../app/viewMode';
 
-const TOPICS = [
+// TapWeigh and TapLift have no medicines: their topics are listed in FOCUS_TOPIC_IDS and their own pages come from
+// HelpFocus.tsx.
+const ALL_TOPICS = [
   { id: 'start', title: 'Getting started', Icon: Compass },
   { id: 'schedules', title: 'Setting up a schedule', Icon: CalendarClock },
   { id: 'scan', title: 'Scanning a pharmacy label', Icon: ScanText },
   ...(HAS_BODY ? [{ id: 'goals', title: 'Goals and forecasts', Icon: Target }] as const : []),
-  ...(HAS_BODY ? [{ id: 'training', title: 'Training and fitness', Icon: Dumbbell }] as const : []),
-  ...(HAS_BODY ? [{ id: 'food', title: 'Food and nutrition', Icon: Utensils }] as const : []),
+  ...(HAS_TRAINING ? [{ id: 'training', title: 'Training and fitness', Icon: Dumbbell }] as const : []),
+  ...(HAS_FOOD ? [{ id: 'food', title: 'Food and nutrition', Icon: Utensils }] as const : []),
   { id: 'peptides', title: 'Peptides and injections', Icon: Syringe, peptides: true },
   { id: 'family', title: 'Family members', Icon: Users },
   { id: 'sync', title: 'Family sync', Icon: RefreshCw },
-  { id: 'tags', title: 'Which tags work', Icon: Nfc },
+  { id: 'tags', title: FOCUS === 'meds' ? 'Which tags work' : 'Tags', Icon: Nfc },
   { id: 'phones', title: 'iPhone and Android', Icon: Smartphone },
-  { id: 'reminders', title: 'Reminders', Icon: BellRing },
-  { id: 'patterns', title: 'Patterns and planning', Icon: Sparkles },
+  { id: 'reminders', title: FOCUS === 'meds' ? 'Reminders' : 'Check-ins and notifications', Icon: BellRing },
+  { id: 'patterns', title: FOCUS === 'meds' ? 'Patterns and planning' : 'Trends', Icon: Sparkles },
   { id: 'privacy', title: 'Privacy', Icon: ShieldCheck },
   { id: 'lock', title: 'App lock', Icon: Lock },
   { id: 'about', title: `About ${APP_NAME}`, Icon: Info },
 ] as const;
+const FOCUS_TOPIC_IDS = ['start', 'tags', 'goals', 'food', 'training', 'reminders', 'patterns', 'family', 'sync', 'phones', 'privacy', 'lock', 'about'];
+const TOPICS = FOCUS === 'meds' ? ALL_TOPICS : ALL_TOPICS.filter((t) => FOCUS_TOPIC_IDS.includes(t.id)).sort((a, b) => FOCUS_TOPIC_IDS.indexOf(a.id) - FOCUS_TOPIC_IDS.indexOf(b.id));
 
 export const helpTitle = (topic?: string, peptides = HAS_PEPTIDES) => TOPICS.filter((t) => !('peptides' in t) || peptides).find((t) => t.id === topic)?.title ?? 'Help';
 
@@ -50,7 +55,7 @@ export function Help({ topic }: { topic?: string }) {
       </ul>
     );
   }
-  const page = topics.some((t) => t.id === topic) ? CONTENT[topic] : undefined;
+  const page = topics.some((t) => t.id === topic) ? (FOCUS !== 'meds' && topic in FOCUS_HELP ? FOCUS_HELP[topic] : CONTENT[topic]) : undefined;
   return <Card className="space-y-4 help-prose">{page ?? <p>That help page doesn't exist.</p>}</Card>;
 }
 
@@ -119,7 +124,7 @@ const CONTENT: Record<string, ReactNode> = {
   food: (
     <>
       <H>Log food</H>
-      <p>Today → <strong>Food</strong> → <strong>Log food</strong>, or open Food for the day's totals. Turn it off in Settings if you don't want it.</p>
+      <p>{FOCUS === 'weight' ? <>The <strong>Food</strong> tab → <strong>Log food</strong>, with the day's totals underneath.</> : <>Today → <strong>Food</strong> → <strong>Log food</strong>, or open Food for the day's totals. Turn it off in Settings if you don't want it.</>}</p>
       <ul className="list-disc pl-5 space-y-1">
         <li><strong>Scan a barcode</strong>: point the camera at it and it's read as soon as it's in the frame (or take a photo, or type the numbers). It's looked up in Open Food Facts, a free open database (only the barcode number is sent), and everything on its panel is kept: energy, protein, carbs, sugars, fat, fibre, sodium, and micros like caffeine, B vitamins, calcium and iron. Check it against the pack the first time; after that it's saved on your phone and works offline.</li>
         <li><strong>Photo of the label</strong>: for anything the database doesn't have, photograph the nutrition panel. It's read on your phone, not uploaded, and you check the numbers before saving. Scanned first? The barcode is saved with it, so it's found next time.</li>
@@ -132,14 +137,17 @@ const CONTENT: Record<string, ReactNode> = {
       <p>Name a meal you make often and next time pick it and choose <strong>Smaller</strong>, <strong>Usual</strong> or <strong>Bigger</strong>. It's never the same twice, and it doesn't need to be.</p>
       <p>Cooking a batch? Food → <strong>New batch recipe</strong>: scan the packs or pick what you've saved, say how many serves, then log a serve each time. You enter it once.</p>
       <p>If you only get one number right, make it protein: it's the one that protects muscle while you lose weight. The rest can be rough.</p>
+      {FOCUS === 'weight' && <p>Something you have often (a protein shake, a drink)? Put a tag on it: Settings → Tags → A food or drink, and one tap logs a serving.</p>}
       <H>Where it shows</H>
       <p>Protein from food adds to the protein on Today (and widgets, the watch and Trends). Caffeine from a drink counts as a caffeine check-in, so the caffeine-and-sleep finding includes it. Energy shows as Calories or kilojoules (Food → Energy), with a daily target if you set one.</p>
     </>
   ),
   training: (
     <>
-      <H>Turning it on</H>
-      <p>Settings → <strong>Training</strong>. This adds a Training tab, protein and water on Today, and a soreness rating in check-ins. Turning it off hides them; nothing is deleted.</p>
+      {FOCUS !== 'training' && <>
+        <H>Turning it on</H>
+        <p>Settings → <strong>Training</strong>. This adds a Training tab, protein and water on Today, and a soreness rating in check-ins. Turning it off hides them; nothing is deleted.</p>
+      </>}
       <H>Logging a workout</H>
       <ol className="list-decimal pl-5 space-y-1">
         <li>On Training, tap <strong>Start a workout</strong>: empty, from a routine, or a repeat of a past session.</li>
@@ -155,10 +163,10 @@ const CONTENT: Record<string, ReactNode> = {
         <li><strong>Strength goals</strong>: a date with a range, from the trend in your estimated max, like weight goals.</li>
         <li><strong>Ready to train</strong>: today's sleep, resting heart rate and heart rate variability against your own last 4 weeks (from Health Connect or Apple Health), and soreness from a check-in.</li>
         <li><strong>Sets per muscle</strong>: the last 7 days, and push against pull, upper against lower.</li>
-        <li><strong>Lean mass while losing weight</strong>: log body fat % or lean mass (Body → Add measurements or body fat) and it shows how much of the weight you've lost was lean mass, by dose with peptide tools on.</li>
-        <li><strong>Strength and your peptide</strong>: each session against your recent level, by days since the shot and by dose.</li>
+        <li><strong>Lean mass while losing weight</strong>: log body fat % or lean mass (Body → Add measurements or body fat) and it shows how much of the weight you've lost was lean mass<Pep>, by dose with peptide tools on</Pep>.</li>
+        <Pep><li><strong>Strength and your peptide</strong>: each session against your recent level, by days since the shot and by dose.</li></Pep>
       </ul>
-      <p>These are worked out from your own records. They're not a training programme or medical advice.</p>
+      <p>These are worked out from your own records. They're not a training programme or health advice.</p>
     </>
   ),
   goals: (
@@ -410,7 +418,9 @@ const CONTENT: Record<string, ReactNode> = {
     <>
       <H>The {APP_NAME} app</H>
       <p>There's also an installable app. It sends dose reminders, writes tags on iPhone and Android, and on Android a tag tap opens it even when it's closed.</p>
-      <p><strong>Android:</strong> on your phone, open <a className="text-primary underline break-all" href={apkDownload}>{apkDownload.replace('https://', '')}</a> and open the downloaded {edition.apk}. Android asks you to allow installing from your browser the first time. Updates install over the top and keep your data.</p>
+      {PLAY
+        ? <p><strong>Android:</strong> get it from Google Play, which keeps it up to date.</p>
+        : <p><strong>Android:</strong> on your phone, open <a className="text-primary underline break-all" href={apkDownload}>{apkDownload.replace('https://', '')}</a> and open the downloaded {edition.apk}. Android asks you to allow installing from your browser the first time. Updates install over the top and keep your data.</p>}
       <p>Tags written by the Android app open the app. Older tags, or ones written from the website, open Chrome instead. To fix one, open the medication in the app, tap the tag, then <strong>Test this tag</strong> → <strong>Update this tag</strong>. It stays linked.</p>
       <p><strong>iPhone:</strong> the app needs to be signed with an Apple Developer account before it can be installed (see NATIVE.md in {APP_NAME}'s code).</p>
       <p>The app keeps its own data. To move across, back up here (Settings → Backup and restore) and restore the file in the app. Or turn on family sync in both.</p>
@@ -449,7 +459,7 @@ const CONTENT: Record<string, ReactNode> = {
       <ul className="list-disc pl-5 space-y-1">
         <li>Everything you enter is saved on this device only.</li>
         <li>There are no accounts, no analytics and no tracking.</li>
-        <li>After the app loads, it makes no network requests except checking for app updates from {tagBase()} (and, if you scan a label, downloading the label reader from the same place once){HAS_BODY ? '. Scanning a food barcode sends only that barcode number to Open Food Facts to look the product up; nothing about you goes with it' : ''}.</li>
+        <li>After the app loads, it makes no network requests except checking for app updates from {tagBase()} (and, if you scan a label, downloading the label reader from the same place once){HAS_FOOD ? '. Scanning a food barcode sends only that barcode number to Open Food Facts to look the product up; nothing about you goes with it' : ''}.</li>
         <li>Nothing leaves the phone unless you export it (backups, spreadsheets, calendar events and printed reports) or turn on family sync, which encrypts everything first.</li>
         <li>Backup files are encrypted, so opening one (or a cloud drive or email preview) shows only scrambled text. Any copy of {APP_NAME} can restore them without a password, so treat them like the data itself: keep them somewhere private.</li>
         <li>Automatic backups (where the browser allows) only ever go to the folder you choose.</li>
@@ -458,6 +468,7 @@ const CONTENT: Record<string, ReactNode> = {
       </ul>
       <H>What could lose your data</H>
       <p>Clearing your browser's website data, deleting the app, or losing your phone without a backup. Back up regularly and keep the file somewhere safe.</p>
+      <p><a className="text-primary underline" href={`${tagBase()}privacy.html`}>The full privacy policy</a></p>
     </>
   ),
   lock: (

@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- TapWeigh's name; everything else comes from src/main. -->
+<resources>
+    <string name="app_name">TapWeigh</string>
+    <string name="title_activity_main">TapWeigh</string>
+    <string name="package_name">app.tapweigh.tracker</string>
+    <string name="custom_url_scheme">app.tapweigh.tracker</string>
+</resources>

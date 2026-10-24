@@ -11,4 +11,7 @@
     <color name="mw_watch">#B45309</color>
     <!-- TapDose has no weight or training: its app overrides this to hide those widgets. -->
     <bool name="mw_body_widgets">true</bool>
+    <bool name="mw_med_widgets">true</bool>
+    <bool name="mw_shot_widget">true</bool>
+    <bool name="mw_training_widgets">true</bool>
 </resources>

@@ -42,7 +42,6 @@ function batchLine(v: PeptideVial): string {
 export function VialCard({ med }: { med: Medication }) {
   const doses = useDoses();
   const now = useNow(60_000);
-  const toast = useToast();
   const [starting, setStarting] = useState(false);
   const [adding, setAdding] = useState(false);
   const [details, setDetails] = useState<PeptideVial | null>(null);
@@ -123,11 +122,7 @@ export function VialCard({ med }: { med: Medication }) {
       <a href="#/supplies" className="block text-center min-h-[44px] leading-[44px] text-primary font-semibold">Supplies</a>
       {!pen && <a href="#/calc" className="block text-center min-h-[44px] leading-[44px] text-primary font-semibold">Peptide calculator</a>}
 
-      {starting && <StartSheet med={med} stock={stock} onClose={() => setStarting(false)} onStarted={(before, tagsBefore) => {
-        toast(pen ? 'New pen: counting from now' : tagsBefore.length ? 'New vial: counting from now. Tag moved to it.' : 'New vial: counting from now', {
-          onAction: async () => { await setVials(med.id, before); for (const t of tagsBefore) await restoreTag(t); },
-        });
-      }} />}
+      {starting && <StartVialSheet med={med} onClose={() => setStarting(false)} />}
       {v && <LinkTagSheet med={med} vialId={v.vial.id} open={linking} onClose={() => setLinking(false)} onQr={() => { setLinking(false); setLabel(true); }} />}
       {label && v && <VialLabelSheet med={med} vial={v.vial} useBy={v.useBy} onClose={() => setLabel(false)} />}
       {adding && <AddSheet med={med} onClose={() => setAdding(false)} />}
@@ -137,6 +132,17 @@ export function VialCard({ med }: { med: Medication }) {
 }
 
 /** Start the next vial/pen: pick from stock (soonest expiry first) or one that isn't listed; vials ask for the water. */
+/** Mix a new vial or start a new pen (from stock or not), with Undo. Also opened from Protocol's next-shot card. */
+export function StartVialSheet({ med, onClose }: { med: Medication; onClose: () => void }) {
+  const toast = useToast();
+  const pen = isPen(med);
+  return <StartSheet med={med} stock={stockVials(med)} onClose={onClose} onStarted={(before, tagsBefore) => {
+    toast(pen ? 'New pen: counting from now' : tagsBefore.length ? 'New vial: counting from now. Tag moved to it.' : 'New vial: counting from now', {
+      onAction: async () => { await setVials(med.id, before); for (const t of tagsBefore) await restoreTag(t); },
+    });
+  }} />;
+}
+
 function StartSheet({ med, stock, onClose, onStarted }: { med: Medication; stock: PeptideVial[]; onClose: () => void; onStarted: (before: PeptideVial[] | undefined, tagsBefore: Tag[]) => void }) {
   const pen = isPen(med);
   const [pick, setPick] = useState<string>(stock[0]?.id ?? 'other');

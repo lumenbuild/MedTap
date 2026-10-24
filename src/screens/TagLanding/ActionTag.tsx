@@ -1,5 +1,6 @@
 // A tap on a tag that isn't for a medication. Like a medication tag, it shows what it will do with one button to do it
-// (nothing is logged by the tap alone), or opens the matching form: weight, blood pressure, a check-in, cardio.
+// (nothing is logged by the tap alone), or opens the matching form: weight, measurements, blood pressure, a check-in,
+// cardio.
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { Nfc } from 'lucide-react';
@@ -16,21 +17,35 @@ import { fmtLoad } from '../../logic/load';
 import { useNow } from '../../app/useNow';
 import { useToast } from '../../app/toast';
 import { go, replace } from '../../app/router';
-import { HAS_BODY } from '../../edition';
+import { HAS_TRAINING } from '../../edition';
 import { Button } from '../../components/ui/Button';
 import { TextInput } from '../../components/ui/Field';
 import { BodySheet } from '../../components/BodySheets';
 import { VitalsSheet } from '../../components/VitalsSheet';
 import { CheckInSheet } from '../../components/CheckInSheet';
 import { ACTIVITIES, CardioSheet } from '../Training/TrainingSheets';
+import { db } from '../../db/db';
+import { useLive } from '../../db/live';
+import { logFood, removeFoodLog } from '../../db/repos/food';
+import { dayKey } from '../../logic/stats';
+import type { ScheduleSettings } from '../../logic/schedule';
+import type { EnergyUnit } from '../../logic/nutrition';
+import { macroLine } from '../../components/food/LogFoodSheet';
 
 const TRAINING = ['exercise', 'routine', 'cardio', 'water', 'protein'];
+// The sheets restart when their state changes, and this screen redraws every second, so each gets the same object every
+// time (a new {} each render wiped what was being typed).
+const WEIGHT = { kind: 'weight' } as const;
+const MEASURE = { kind: 'measure' } as const;
+const NEW_READING = {};
+const NEW_CHECK_IN = {};
 
 export function ActionTag({ tag, personName }: { tag: Tag; personName?: string }) {
   const a = tag.action!;
   const personId = tag.personId ?? DEFAULT_PERSON;
   const workouts = useWorkouts(); const own = useExercises(); const routines = useRoutines(); const daily = useDaily();
   const ss = useScheduleSettings(); const checkIns = useCheckIns(); const doses = useDoses(); const meds = useMeds();
+  const foods = useLive(() => db.foods.toArray(), []);
   const now = useNow(1000);
   const today = useTrainingContext(tag.personId ?? DEFAULT_PERSON, now);
   const toast = useToast();
@@ -42,7 +57,7 @@ export function ActionTag({ tag, personName }: { tag: Tag; personName?: string }
   const mine = <T extends { personId?: string; deletedAt?: string }>(r: T) => personOf(r) === personId && !r.deletedAt;
   const ws = workouts.filter(mine);
   const defs = allExercises(own);
-  const title = actionTitle(a, defs, routines);
+  const title = actionTitle(a, defs, routines, foods ?? []);
   const who = personName ? <p className="text-sm font-medium text-muted">For {personName}</p> : null;
   const head = (sub?: string) => (
     <div className="mb-5">
@@ -54,7 +69,7 @@ export function ActionTag({ tag, personName }: { tag: Tag; personName?: string }
   );
   const run = async (f: () => Promise<void>) => { setBusy(true); try { await f(); } finally { setBusy(false); } };
 
-  if (TRAINING.includes(a.kind) && (!HAS_BODY || !settings.trainingTools)) {
+  if (TRAINING.includes(a.kind) && (!HAS_TRAINING || !settings.trainingTools)) {
     return (
       <section>
         {head('This tag is for training, which is turned off.')}
@@ -149,12 +164,14 @@ export function ActionTag({ tag, personName }: { tag: Tag; personName?: string }
         onStart={() => run(async () => { await startCardio(personId, a.activity); toast(`${name} started. Tap the tag again to finish.`); close(); })}
         onClose={close} personId={personId} activity={a.activity} />;
     }
-    case 'weight': return <><section>{head()}</section><BodySheet state={{ kind: 'weight' }} onClose={close} units={settings.units} personId={personId} /></>;
-    case 'bp': return <><section>{head()}</section><VitalsSheet state={{}} onClose={close} personId={personId} /></>;
+    case 'weight': return <><section>{head()}</section><BodySheet state={WEIGHT} onClose={close} units={settings.units} personId={personId} /></>;
+    case 'bp': return <><section>{head()}</section><VitalsSheet state={NEW_READING} onClose={close} personId={personId} /></>;
+    case 'measure': return <><section>{head()}</section><BodySheet state={MEASURE} onClose={close} units={settings.units} personId={personId} /></>;
+    case 'food': return <FoodTag foodId={a.foodId} personId={personId} head={head} s={s} energy={settings.energyUnit} close={close} />;
     case 'checkin': return (
       <>
         <section>{head()}</section>
-        <CheckInSheet seed={{}} onClose={close} doses={doses} checkIns={checkIns.filter(mine)} meds={meds} chips={settings.chips} s={s} personId={personId} soreness={HAS_BODY && settings.trainingTools} />
+        <CheckInSheet seed={NEW_CHECK_IN} onClose={close} doses={doses} checkIns={checkIns.filter(mine)} meds={meds} chips={settings.chips} s={s} personId={personId} soreness={HAS_TRAINING && settings.trainingTools} />
       </>
     );
   }
@@ -180,6 +197,29 @@ function Missing({ what, close }: { what: string; close: () => void }) {
       <p className="text-muted mt-2">Choose something else for it to do.</p>
       <Button className="w-full min-h-[56px] mt-5" onClick={() => go('/tags')}>Change what it does</Button>
       <Button variant="secondary" className="w-full mt-3" onClick={close}>Go to Today</Button>
+    </section>
+  );
+}
+
+/** A food or drink tag: what one serving has, and Log it. */
+function FoodTag({ foodId, personId, head, s, energy, close }: { foodId: string; personId: string; head: (sub?: string) => React.ReactNode; s: ScheduleSettings; energy: EnergyUnit; close: () => void }) {
+  const food = useLive(() => db.foods.get(foodId), [foodId]);
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  if (food === undefined) return <div className="h-[420px] rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
+  if (!food || food.deletedAt) return <Missing what="food" close={close} />;
+  return (
+    <section>
+      {head([food.serving, macroLine(food.nutrients, energy)].filter(Boolean).join(' · '))}
+      <Button className="w-full min-h-[64px] text-lg" disabled={busy} onClick={async () => {
+        setBusy(true);
+        const now = Date.now();
+        const log = await logFood({ name: food.name, foodId: food.id, servings: 1, nutrients: food.nutrients, at: new Date(now).toISOString(), date: dayKey(now, s), personId });
+        toast(`Logged ${food.name}`, { duration: 10_000, onAction: () => removeFoodLog(log, dayKey(now, s)) });
+        close();
+      }}>Log one serving</Button>
+      <Button variant="secondary" className="w-full mt-3" onClick={() => replace('/food')}>Log a different amount</Button>
+      <Button variant="secondary" className="w-full mt-3" onClick={close}>Cancel</Button>
     </section>
   );
 }

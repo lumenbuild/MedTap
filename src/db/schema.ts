@@ -216,7 +216,8 @@ export type TagAction =
   | { kind: 'routine'; routineId: string } // start that routine
   | { kind: 'water'; ml: number } | { kind: 'protein'; g: number } // a bottle or shaker: add that much to today
   | { kind: 'cardio'; activity: CardioActivity } // treadmill, bike: log a session
-  | { kind: 'weight' } | { kind: 'bp' } | { kind: 'checkin' }; // scales, blood pressure cuff, bedside
+  | { kind: 'weight' } | { kind: 'bp' } | { kind: 'checkin' } // scales, blood pressure cuff, bedside
+  | { kind: 'measure' } | { kind: 'food'; foodId: string }; // tape measure; a product or the pantry: log one serving
 export interface Tag {
   id: string; medicationId: string; label?: string; createdAt: string; lastScannedAt?: string; vialId?: string;
   action?: TagAction;

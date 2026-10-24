@@ -6,6 +6,7 @@ import { listPeople } from '../db/repos/people';
 import { DEFAULT_PERSON } from '../db/schema';
 import { hiddenMedIds, viewMeds, withoutHidden } from '../logic/privateView';
 import { isPrivateView, useViewMode } from './viewMode';
+import { HAS_MEDS } from '../edition';
 
 // In the private view (see logic/privateView.ts) these hooks are where it happens: left-out medicines and everything
 // of theirs disappear, covered ones come back under their cover name, and the peptide tools read as off. Screens
@@ -25,15 +26,17 @@ export async function inView<T extends { medicationId?: string }>(rows: T[]): Pr
 }
 
 export const useSettings = () => { const v = useViewMode(); return useLive(viewSettings, [v]); };
+// TapWeigh and TapLift have no medicines: even a restored backup that has some shows none.
 export const useMeds = () => {
   const v = useViewMode();
   return useLive(async () => {
+    if (!HAS_MEDS) return [];
     const meds = await db.medications.orderBy('name').toArray();
     if (v === 'full') return meds;
     return viewMeds(meds, (await getSettings()).privacyHidePeptides).sort((a, b) => a.name.localeCompare(b.name));
   }, [v]);
 };
-export const useDoses = () => { const v = useViewMode(); return useLive(async () => inView(await db.doses.toArray()), [v]); };
+export const useDoses = () => { const v = useViewMode(); return useLive(async () => (HAS_MEDS ? inView(await db.doses.toArray()) : []), [v]); };
 export const useTags = () => { const v = useViewMode(); return useLive(async () => inView(await db.tags.toArray()), [v]); };
 
 export function useScheduleSettings(): [AppSettings, ScheduleSettings] | undefined {

@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "build:native": "NATIVE=1 VITE_TAG_BASE=https://lumenbuild.github.io/MedTap/ vite build --outDir dist-native && cap sync",
-    "build:native:tapdose": "VITE_EDITION=tapdose NATIVE=1 VITE_TAG_BASE=https://lumenbuild.github.io/MedTap/tapdose/ vite build --outDir dist-native && cap sync android"
+    "build:native:tapdose": "VITE_EDITION=tapdose NATIVE=1 VITE_TAG_BASE=https://lumenbuild.github.io/MedTap/tapdose/ vite build --outDir dist-native && cap sync android",
+    "build:native:tapweigh": "VITE_EDITION=tapweigh NATIVE=1 VITE_TAG_BASE=https://lumenbuild.github.io/MedTap/tapweigh/ vite build --outDir dist-native && cap sync android",
+    "build:native:taplift": "VITE_EDITION=taplift NATIVE=1 VITE_TAG_BASE=https://lumenbuild.github.io/MedTap/taplift/ vite build --outDir dist-native && cap sync android"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.2",

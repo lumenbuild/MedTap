@@ -29,7 +29,7 @@ function ocrAssets(): Plugin {
     },
     generateBundle() {
       // The Android build checks this matches the app it's building (android/app/build.gradle).
-      if (native) this.emitFile({ type: 'asset', fileName: 'edition.txt', source: tapdose ? 'tapdose' : 'medtap' });
+      if (native) this.emitFile({ type: 'asset', fileName: 'edition.txt', source: process.env.VITE_STORE === 'play' ? `${editionId}+play` : editionId });
       for (const f of OCR_FILES) {
         // Android's packager unzips .gz assets and drops the extension, so app builds ship the language data
         // uncompressed under its plain name (and src/app/ocr.ts asks for that name in the app).
@@ -44,18 +44,23 @@ function ocrAssets(): Plugin {
 const base = process.env.BASE_PATH ?? '/';
 // NATIVE=1 builds for the iOS/Android app: no service worker (the app ships its files itself).
 const native = !!process.env.NATIVE;
-// VITE_EDITION=tapdose builds TapDose (see src/edition.ts); otherwise MedTap. TapDose's website lives in tapdose/ under
-// MedTap's, so MedTap's service worker must leave that folder alone.
-const tapdose = process.env.VITE_EDITION === 'tapdose';
-const brand = tapdose
-  ? { name: 'TapDose', icons: 'icons/tapdose/', theme: '#FFFFFF', description: 'Log doses with an NFC tap, see when the next one is due, and track how you feel. Your data stays on your phone.' }
-  : { name: 'MedTap', icons: 'icons/', theme: '#FFFFFF', description: 'Log doses with an NFC tap and track how you feel. Your data stays on your phone.' };
+// VITE_EDITION picks the app (see src/edition.ts); MedTap by default. The others' websites live in folders under
+// MedTap's (tapdose/, tapweigh/, taplift/), so MedTap's service worker must leave those folders alone.
+const EDITIONS = ['medtap', 'tapdose', 'tapweigh', 'taplift'] as const;
+const editionId = EDITIONS.find((e) => e === process.env.VITE_EDITION) ?? 'medtap';
+const BRANDS = {
+  medtap: { name: 'MedTap', icons: 'icons/', description: 'Log doses with an NFC tap and track how you feel. Your data stays on your phone.' },
+  tapdose: { name: 'TapDose', icons: 'icons/tapdose/', description: 'Log doses with an NFC tap, see when the next one is due, and track how you feel. Your data stays on your phone.' },
+  tapweigh: { name: 'TapWeigh', icons: 'icons/tapweigh/', description: 'Tap an NFC tag on your scales to log your weight, and see where it’s heading. Food, measurements and goals too. Your data stays on your phone.' },
+  taplift: { name: 'TapLift', icons: 'icons/taplift/', description: 'Tap an NFC tag on a machine or rack to log your sets, with what to aim for next time. Your data stays on your phone.' },
+};
+const brand = { ...BRANDS[editionId], theme: '#FFFFFF' };
 
 /** index.html carries __APP_NAME__, __THEME__, __ICONS__ and __EDITION__ for the edition being built. */
 function brandHtml(): Plugin {
   return {
     name: 'brand-html',
-    transformIndexHtml: (html) => html.replaceAll('__APP_NAME__', brand.name).replaceAll('__THEME__', brand.theme).replaceAll('__ICONS__', brand.icons).replaceAll('__EDITION__', tapdose ? 'tapdose' : 'medtap'),
+    transformIndexHtml: (html) => html.replaceAll('__APP_NAME__', brand.name).replaceAll('__THEME__', brand.theme).replaceAll('__ICONS__', brand.icons).replaceAll('__EDITION__', editionId),
   };
 }
 
@@ -87,7 +92,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,woff}'],
         navigateFallback: `${base}index.html`,
-        navigateFallbackDenylist: [/^\/404\.html$/, ...(tapdose ? [] : [new RegExp(`^${base}tapdose/`)])],
+        navigateFallbackDenylist: [/^\/404\.html$/, ...(editionId === 'medtap' ? ['tapdose', 'tapweigh', 'taplift'].map((f) => new RegExp(`^${base}${f}/`)) : [])],
         // The label reader is big; it's cached the first time someone scans a label, not up front.
         globIgnores: ['ocr/**'],
         runtimeCaching: [{ urlPattern: /\/ocr\//, handler: 'CacheFirst', options: { cacheName: 'ocr', expiration: { maxEntries: 10 } } }],

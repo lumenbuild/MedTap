@@ -17,7 +17,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Sheet, SheetActions } from '../components/ui/Sheet';
 import { TextArea, TextInput } from '../components/ui/Field';
-import { HAS_BODY } from '../edition';
+import { HAS_MEDS, HAS_BODY, HAS_TRAINING } from '../edition';
 
 /** "Me" on this phone, unless it was never given a name. */
 function useMyName(): string {
@@ -39,7 +39,9 @@ function About() {
   return (
     <Card className="space-y-2">
       <h2 className="text-sm font-medium text-muted">Share records between phones</h2>
-      <p>Family sync keeps {APP_NAME} the same on your phones and your family's: medications, doses, check-ins, {HAS_BODY ? 'weight, ' : ''}blood pressure and tags. A dose logged on one phone shows on the others, and stock counts stay right.</p>
+      {HAS_MEDS
+        ? <p>Family sync keeps {APP_NAME} the same on your phones and your family's: medications, doses, check-ins, {HAS_BODY ? 'weight, ' : ''}blood pressure and tags. A dose logged on one phone shows on the others, and stock counts stay right.</p>
+        : <p>Family sync keeps {APP_NAME} the same on your phones and your family's: {HAS_TRAINING ? 'workouts, routines, ' : 'food, measurements, '}weigh-ins, check-ins and tags. Something logged on one phone shows on the others.</p>}
       <p className="text-sm text-muted">Everything is encrypted on the phone before it leaves. Only phones you invite have the key. {HAS_BODY ? 'Photos and settings stay' : 'Settings stay'} on each phone.</p>
     </Card>
   );

@@ -21,13 +21,15 @@ export function plannedSets(def: ExerciseDef, workouts: Workout[], item?: Routin
   return Array.from({ length: t.sets }, () => ({ id: newId(), exerciseId: def.id, weightKg: t.weightKg || item?.weightKg || 0, reps: t.reps, done: false }));
 }
 
-export const ACTION_KINDS: { kind: TagAction['kind']; name: string; where: string; training?: boolean; body?: boolean }[] = [
+export const ACTION_KINDS: { kind: TagAction['kind']; name: string; where: string; training?: boolean; body?: boolean; food?: boolean }[] = [
   { kind: 'exercise', name: 'An exercise or machine', where: 'On the machine, rack or bench', training: true },
   { kind: 'routine', name: 'A routine', where: 'On your gym bag or locker', training: true },
   { kind: 'cardio', name: 'Cardio', where: 'On the treadmill, bike or rower', training: true },
   { kind: 'water', name: 'Water bottle', where: 'Adds that much water to today', training: true },
   { kind: 'protein', name: 'Protein shaker', where: 'Adds that much protein to today', training: true },
   { kind: 'weight', name: 'Scales', where: 'Opens Log weight', body: true },
+  { kind: 'measure', name: 'Tape measure', where: 'Opens Add measurements', body: true },
+  { kind: 'food', name: 'A food or drink', where: 'On something you have often: logs one serving', food: true },
   { kind: 'bp', name: 'Blood pressure cuff', where: 'Opens Log blood pressure' },
   { kind: 'checkin', name: 'Check-in', where: 'Bedside or desk: opens a check-in' },
 ];
@@ -35,7 +37,7 @@ export const ACTION_KINDS: { kind: TagAction['kind']; name: string; where: strin
 const CARDIO_NAMES: Record<string, string> = { run: 'Run', walk: 'Walk', ride: 'Ride', swim: 'Swim', row: 'Row', other: 'Cardio' };
 
 /** "Bench press", "Water bottle · 500 mL" and so on: what the tag is, for lists and the tap screen. */
-export function actionTitle(a: TagAction, defs: ExerciseDef[], routines: Routine[]): string {
+export function actionTitle(a: TagAction, defs: ExerciseDef[], routines: Routine[], foods: { id: string; name: string; deletedAt?: string }[] = []): string {
   switch (a.kind) {
     case 'exercise': return defs.find((d) => d.id === a.exerciseId)?.name ?? 'An exercise';
     case 'routine': return routines.find((r) => r.id === a.routineId && !r.deletedAt)?.name ?? 'A routine';
@@ -45,5 +47,7 @@ export function actionTitle(a: TagAction, defs: ExerciseDef[], routines: Routine
     case 'weight': return 'Log weight';
     case 'bp': return 'Log blood pressure';
     case 'checkin': return 'Check in';
+    case 'measure': return 'Add measurements';
+    case 'food': return foods.find((f) => f.id === a.foodId && !f.deletedAt)?.name ?? 'A food';
   }
 }

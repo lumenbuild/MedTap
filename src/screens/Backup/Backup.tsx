@@ -26,7 +26,7 @@ import { APP_NAME } from '../../config';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Sheet, SheetActions } from '../../components/ui/Sheet';
-import { HAS_BODY } from '../../edition';
+import { HAS_MEDS, HAS_BODY, HAS_TRAINING } from '../../edition';
 
 const LABELS: Record<string, string> = {
   medications: 'medications', tags: 'tags', doses: 'doses', checkIns: 'check-ins', bodyEntries: 'body entries',
@@ -226,7 +226,7 @@ export function Backup() {
       <Card className="space-y-2">
         <h2 className="text-sm font-medium text-muted">Spreadsheets</h2>
         <p className="text-sm text-muted">CSV files you can open in Excel, Numbers or Google Sheets. These can't be restored.</p>
-        {([['doses', 'Doses'], ['checkIns', 'Check-ins'], ...(HAS_BODY ? [['body', 'Weight, measurements and body fat'] as const, ['workouts', 'Workouts and cardio'] as const] : []), ['vitals', 'Blood pressure and heart rate'], ['daily', HAS_BODY ? 'Daily: steps, sleep, protein, water' : 'Daily: steps, sleep, heart rate'] as const, ['meds', 'Medications']] as const).map(([k, label]) => (
+        {([...(HAS_MEDS ? [['doses', 'Doses'] as const] : []), ['checkIns', 'Check-ins'], ...(HAS_BODY ? [['body', 'Weight, measurements and body fat'] as const] : []), ...(HAS_TRAINING ? [['workouts', 'Workouts and cardio'] as const] : []), ['vitals', 'Blood pressure and heart rate'], ['daily', HAS_TRAINING ? 'Daily: steps, sleep, protein, water' : 'Daily: steps, sleep, heart rate'] as const, ...(HAS_MEDS ? [['meds', 'Medications'] as const] : [])] as const).map(([k, label]) => (
           <button key={k} onClick={() => exportCsv(k)} className="w-full min-h-[48px] flex items-center gap-3 px-3 rounded-btn bg-surface-2 text-left font-medium">
             <FileSpreadsheet size={20} className="text-primary" aria-hidden="true" /> {label}
           </button>

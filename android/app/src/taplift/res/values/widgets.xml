@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TapLift has no medicines or peptides: those widgets are off (see the plugin's manifest). -->
+<resources>
+    <bool name="mw_med_widgets">false</bool>
+    <bool name="mw_shot_widget">false</bool>
+    <string name="mw_quick_description">One tap logs a coffee or opens a check-in.</string>
+</resources>

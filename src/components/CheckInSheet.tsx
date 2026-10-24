@@ -138,7 +138,7 @@ function CheckInForm({ seed, onClose, doses, checkIns, meds, chips, s, personId,
           </div>
         )}
 
-        <div className="space-y-1.5">
+        {(nearby.length > 0 || relatedDoseId) && <div className="space-y-1.5">
           <label htmlFor="ci-dose" className="block text-sm font-medium">Linked dose</label>
           <select id="ci-dose" value={relatedDoseId ?? ''} onChange={(e) => { setDoseTouched(true); set('relatedDoseId', e.target.value || undefined); }}
             className="w-full min-h-[48px] rounded-btn bg-surface-2 border border-border px-3">
@@ -148,7 +148,7 @@ function CheckInForm({ seed, onClose, doses, checkIns, meds, chips, s, personId,
               return <option key={d.id} value={d.id}>{m ? shownName(m) : 'Dose'} {m ? fmtAmount(d.amount, m.unit) : ''} · {fmtWhen(Date.parse(d.takenAt), at)}</option>;
             })}
           </select>
-        </div>
+        </div>}
 
         <div className="flex items-center justify-between gap-3 min-h-[48px]">
           {!changeTime ? (

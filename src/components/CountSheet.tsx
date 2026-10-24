@@ -1,12 +1,12 @@
 // "Count what's left": type the count, or count tablets from a photo on the phone, then compare with what the logs say
 // should be left. Doses the logs are missing can be logged (at their set times) before the count is saved.
-import { useRef, useState } from 'react';
+import { useRef, useState, type MouseEvent } from 'react';
 import { format } from 'date-fns';
 import { Camera } from 'lucide-react';
 import type { Dose, Medication } from '../db/schema';
 import type { ScheduleSettings } from '../logic/schedule';
 import { countCheck } from '../logic/lifestyle';
-import { countTablets, type TabletCount } from '../logic/countTablets';
+import { countTablets, type Blob, type TabletCount } from '../logic/countTablets';
 import { setStockCount } from '../db/repos/meds';
 import { logDose, removeDose } from '../db/repos/doses';
 import { shownName } from '../logic/privacy';
@@ -22,7 +22,7 @@ export function CountSheet({ med, doses, s, now, onClose, onCounted }: {
 }) {
   const toast = useToast();
   const [counted, setCounted] = useState('');
-  const [photo, setPhoto] = useState<{ url: string; result: TabletCount & { w: number; h: number } } | null>(null);
+  const [photo, setPhoto] = useState<Counted | null>(null);
   const n = Number(counted);
   const valid = counted !== '' && n >= 0;
   const check = valid ? countCheck(med, doses, n, now, s) : null;
@@ -42,17 +42,7 @@ export function CountSheet({ med, doses, s, now, onClose, onCounted }: {
       <div className="space-y-4">
         <TextInput label={`How many ${med.form}s are left`} type="number" inputMode="numeric" min="0" step="any" value={counted} onChange={(e) => setCounted(e.target.value)} />
         {solid && <PhotoCount onCount={(url, result) => { setPhoto({ url, result }); setCounted(String(result.count)); }} />}
-        {photo && (
-          <figure className="space-y-1">
-            <div className="relative">
-              <img src={photo.url} alt="Your photo, with each tablet counted" className="w-full rounded-btn" />
-              <svg className="absolute inset-0 w-full h-full" viewBox={`0 0 ${photo.result.w} ${photo.result.h}`} aria-hidden="true">
-                {photo.result.blobs.map((b, i) => <g key={i}><circle cx={b.x} cy={b.y} r={Math.max(6, Math.sqrt(photo.result.typicalArea / Math.PI) * 0.6)} fill="rgba(0,0,0,.55)" /><text x={b.x} y={b.y + 4} textAnchor="middle" fontSize="12" fill="#fff">{b.n > 1 ? `×${b.n}` : ''}</text></g>)}
-              </svg>
-            </div>
-            <figcaption className="text-sm text-muted">Counted {photo.result.count}. Each dot is one found; ×2 means two touching. Correct the number above if it's off.</figcaption>
-          </figure>
-        )}
+        {photo && <PhotoMarks photo={photo} onChange={(blobs) => { setPhoto({ ...photo, result: { ...photo.result, blobs } }); setCounted(String(blobs.reduce((a, b) => a + b.n, 0))); }} />}
         {check && (
           <div className="border-t border-border pt-3 space-y-1">
             <p className="text-[17px] tnum">Your logs say {check.expected} should be left.</p>
@@ -76,8 +66,41 @@ export function CountSheet({ med, doses, s, now, onClose, onCounted }: {
   );
 }
 
+type Counted = { url: string; result: TabletCount & { w: number; h: number } };
+
+/** The photo with a dot on each tablet found. Tapping a dot takes it away (or one from a ×2); tapping a tablet that
+ *  was missed adds one. The number field above stays the way to change it without touching the photo. */
+function PhotoMarks({ photo, onChange }: { photo: Counted; onChange: (blobs: Blob[]) => void }) {
+  const { w, h, blobs, typicalArea } = photo.result;
+  const r = Math.max(w * 0.022, Math.sqrt(typicalArea / Math.PI) * 0.55);
+  const total = blobs.reduce((a, b) => a + b.n, 0);
+  const tap = (e: MouseEvent<SVGSVGElement>) => {
+    const box = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - box.left) / box.width) * w, y = ((e.clientY - box.top) / box.height) * h;
+    const hit = blobs.findIndex((b) => Math.hypot(b.x - x, b.y - y) < Math.max(r * 1.6, w * 0.03));
+    if (hit < 0) onChange([...blobs, { x: Math.round(x), y: Math.round(y), n: 1 }]);
+    else onChange(blobs.flatMap((b, i) => (i !== hit ? [b] : b.n > 1 ? [{ ...b, n: b.n - 1 }] : [])));
+  };
+  return (
+    <figure className="space-y-1">
+      <div className="relative">
+        <img src={photo.url} alt="Your photo, with each tablet counted" className="w-full rounded-btn" />
+        <svg className="absolute inset-0 w-full h-full cursor-pointer" viewBox={`0 0 ${w} ${h}`} aria-hidden="true" onClick={tap}>
+          {blobs.map((b, i) => (
+            <g key={i}>
+              <circle cx={b.x} cy={b.y} r={r} fill="#d61f69" fillOpacity="0.85" stroke="#fff" strokeWidth={r * 0.18} />
+              {b.n > 1 && <text x={b.x} y={b.y + r * 0.38} textAnchor="middle" fontSize={r * 1.05} fontWeight="600" fill="#fff">×{b.n}</text>}
+            </g>
+          ))}
+        </svg>
+      </div>
+      <figcaption className="text-sm text-muted">Found {total}. Tap a dot to take it away, or tap a tablet that was missed to add it. ×2 means two touching.</figcaption>
+    </figure>
+  );
+}
+
 /** Take a photo of the tablets spread out on a plain surface; they're counted on the phone. */
-function PhotoCount({ onCount }: { onCount: (url: string, r: TabletCount & { w: number; h: number }) => void }) {
+function PhotoCount({ onCount }: { onCount: (url: string, r: Counted['result']) => void }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const read = async (file?: File) => {
@@ -85,7 +108,7 @@ function PhotoCount({ onCount }: { onCount: (url: string, r: TabletCount & { w: 
     setBusy(true);
     try {
       const bmp = await createImageBitmap(file);
-      const scale = Math.min(1, 900 / Math.max(bmp.width, bmp.height));
+      const scale = Math.min(1, 720 / Math.max(bmp.width, bmp.height));
       const c = document.createElement('canvas');
       c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
       const g = c.getContext('2d', { willReadFrequently: true })!;
@@ -99,7 +122,7 @@ function PhotoCount({ onCount }: { onCount: (url: string, r: TabletCount & { w: 
     <div>
       <input ref={input} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { void read(e.target.files?.[0]); e.target.value = ''; }} />
       <Button variant="secondary" disabled={busy} className="w-full flex items-center justify-center gap-2" onClick={() => input.current?.click()}><Camera size={18} aria-hidden="true" /> {busy ? 'Counting…' : 'Count from a photo'}</Button>
-      <p className="text-xs text-muted mt-1">Spread out on a plain surface. Photo isn't kept.</p>
+      <p className="text-xs text-muted mt-1">Spread them out, not touching, on a plain surface in a different colour (dark for white tablets), in even light. The photo isn't kept.</p>
     </div>
   );
 }

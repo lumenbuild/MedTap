@@ -1,4 +1,5 @@
-// Every tag on this phone in one place: medication tags (managed on each medication) and the others (exercises,
+// Every tag on this phone in one place: medication tags (managed on each medication; not in TapWeigh or TapLift) and the
+// others (exercises,
 // routines, water, scales and so on), with a way to link a new one.
 import { useState } from 'react';
 import { ChevronRight, Nfc, Plus } from 'lucide-react';
@@ -21,9 +22,13 @@ import { QrSheet } from '../Meds/QrSheet';
 import { TagTest } from '../Meds/TagTest';
 import { tagName } from '../Meds/TagsSection';
 import { ActionPicker } from './ActionPicker';
+import { db } from '../../db/db';
+import { useLive } from '../../db/live';
+import { HAS_MEDS, FOCUS } from '../../edition';
 
 export function Tags() {
   const tags = useTags(); const meds = useMeds(); const own = useExercises(); const routines = useRoutines(); const fam = useFamily();
+  const foods = useLive(() => db.foods.toArray(), []);
   const now = useNow(60_000);
   const [choosing, setChoosing] = useState(false);
   const [writing, setWriting] = useState<{ action: TagAction; label: string } | null>(null);
@@ -33,14 +38,14 @@ export function Tags() {
   const defs = allExercises(own);
   const medTags = tags.filter((t) => t.medicationId && meds.some((m) => m.id === t.medicationId));
   const others = tags.filter((t) => t.action && (fam.everyone || !fam.many || personOf(t) === fam.personId));
-  const what = (t: Tag) => (t.action ? actionTitle(t.action, defs, routines) : '');
+  const what = (t: Tag) => (t.action ? actionTitle(t.action, defs, routines, foods ?? []) : '');
   const last = (t: Tag) => (t.lastScannedAt ? `last tapped ${fmtAgo(now - Date.parse(t.lastScannedAt))}` : 'not tapped yet');
 
   return (
     <div className="space-y-4">
       <section aria-labelledby="ot-h">
-        <h2 id="ot-h" className="text-sm font-medium text-muted mb-1">Training and everyday</h2>
-        {others.length === 0 && <p className="text-muted">None yet. Stick one on a gym machine, a water bottle or the scales.</p>}
+        <h2 id="ot-h" className="text-sm font-medium text-muted mb-1">{HAS_MEDS ? 'Training and everyday' : 'Your tags'}</h2>
+        {others.length === 0 && <p className="text-muted">None yet. {FOCUS === 'weight' ? 'Stick one on your scales, your tape measure, or a food you have often.' : FOCUS === 'training' ? 'Stick one on your gym bag, a machine or rack, or your water bottle.' : 'Stick one on a gym machine, a water bottle or the scales.'}</p>}
         <ul>
           {others.map((t) => (
             <li key={t.id} className="border-t border-border">
@@ -58,6 +63,7 @@ export function Tags() {
         <Button className="w-full mt-2 flex items-center justify-center gap-2" onClick={() => setChoosing(true)}><Plus size={20} aria-hidden="true" /> Link a new tag</Button>
       </section>
 
+      {HAS_MEDS && (
       <section aria-labelledby="mt-h" className="pt-2">
         <h2 id="mt-h" className="text-sm font-medium text-muted mb-1">Medications</h2>
         {medTags.length === 0 && <p className="text-muted">None yet. Link one from a medication’s page in Meds.</p>}
@@ -79,6 +85,7 @@ export function Tags() {
           })}
         </ul>
       </section>
+      )}
 
       <Sheet open={choosing} onClose={() => setChoosing(false)} title="What should the tag do?">
         <ActionPicker onPicked={(action, label) => { setChoosing(false); setWriting({ action, label }); }} />

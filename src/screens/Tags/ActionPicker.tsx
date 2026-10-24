@@ -1,21 +1,26 @@
-// Choosing what a non-medication tag does: an exercise, a routine, water, protein, cardio, scales, blood pressure or a
-// check-in. Used when a new tag is tapped and from the Tags screen.
+// Choosing what a non-medication tag does: an exercise, a routine, water, protein, cardio, scales, a tape measure, a
+// food, blood pressure or a check-in. Used when a new tag is tapped and from the Tags screen.
 import { useState } from 'react';
 import type { CardioActivity, TagAction } from '../../db/schema';
 import { useExercises, useFamily, useRoutines, useSettings } from '../../app/data';
 import { personOf } from '../../db/repos/people';
 import { ACTION_KINDS } from '../../logic/tagActions';
-import { HAS_BODY } from '../../edition';
+import { db } from '../../db/db';
+import { useLive } from '../../db/live';
+import { HAS_BODY, HAS_TRAINING, HAS_FOOD, FOCUS } from '../../edition';
 import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { TextInput } from '../../components/ui/Field';
 import { ACTIVITIES, ExercisePicker } from '../Training/TrainingSheets';
 
-/** The kinds this phone can use: training ones with the Training tab on, scales only where weight is tracked. */
+/** The kinds this phone can use: training ones with the Training tab on, scales and tape measure only where weight is
+ *  tracked, a food only with food logging on. The app's own main thing comes first. */
 export function useActionKinds() {
   const settings = useSettings();
-  const training = HAS_BODY && !!settings?.trainingTools;
-  return ACTION_KINDS.filter((k) => (!k.training || training) && (!k.body || HAS_BODY));
+  const training = HAS_TRAINING && !!settings?.trainingTools;
+  const food = HAS_FOOD && !!settings?.foodTracking;
+  const kinds = ACTION_KINDS.filter((k) => (!k.training || training) && (!k.body || HAS_BODY) && (!k.food || food));
+  return FOCUS === 'weight' ? [...kinds.filter((k) => k.body || k.food), ...kinds.filter((k) => !k.body && !k.food)] : kinds;
 }
 
 /** A list of the kinds; choosing one asks for what it needs (which exercise, how much water) and then calls `onPicked`
@@ -28,8 +33,9 @@ export function ActionPicker({ onPicked }: { onPicked: (a: TagAction, label: str
   const [step, setStep] = useState<TagAction['kind'] | null>(null);
   const [amount, setAmount] = useState('');
   const mine = routines.filter((r) => !r.deletedAt && personOf(r) === fam?.personId);
+  const foods = (useLive(() => db.foods.toArray(), []) ?? []).filter((f) => !f.deletedAt).sort((a, b) => (b.lastUsedAt ?? '').localeCompare(a.lastUsedAt ?? ''));
   const pick = (k: TagAction['kind']) => {
-    if (k === 'weight' || k === 'bp' || k === 'checkin') { onPicked({ kind: k } as TagAction, ACTION_KINDS.find((x) => x.kind === k)!.name); return; }
+    if (k === 'weight' || k === 'bp' || k === 'checkin' || k === 'measure') { onPicked({ kind: k } as TagAction, ACTION_KINDS.find((x) => x.kind === k)!.name); return; }
     setAmount(k === 'water' ? '500' : k === 'protein' ? '25' : '');
     setStep(k);
   };
@@ -68,6 +74,22 @@ export function ActionPicker({ onPicked }: { onPicked: (a: TagAction, label: str
               </li>
             ))}
           </ul>
+        </Sheet>
+      )}
+      {step === 'food' && (
+        <Sheet open onClose={() => setStep(null)} title="Which food or drink?">
+          {foods.length === 0 ? <p className="text-muted">Nothing saved yet. Log it once in Food (scan its barcode or photo the label), then link the tag.</p> : (
+            <ul>
+              {foods.map((f) => (
+                <li key={f.id} className="border-t border-border">
+                  <button type="button" className="w-full text-left py-3 min-h-[48px]" onClick={() => { setStep(null); onPicked({ kind: 'food', foodId: f.id }, f.name); }}>
+                    <span className="block font-medium">{f.name}</span>
+                    {f.serving && <span className="block text-sm text-muted">{f.serving}</span>}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </Sheet>
       )}
       {(step === 'water' || step === 'protein') && (
