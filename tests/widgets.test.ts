@@ -26,10 +26,11 @@ describe('widgets payload', () => {
     expect(p.v).toBe(2);
     expect(p.total).toBe(2);
     expect(p.done).toBe(1);
-    expect(p.title).toBe('Sertraline');
+    // Vyvanse is taken and Sertraline's 8 pm has passed: next is tomorrow morning's Vyvanse (as on Today).
+    expect(p.title).toBe('Vyvanse');
     expect(p.quick.map((q) => q.label)).toEqual(['Paracetamol', 'Coffee', 'Alcohol', 'Check in']);
     expect(p.quick[0]).toMatchObject({ kind: 'dose', id: 'p' });
-    expect(p.glance.next).toMatch(/Sertraline/);
+    expect(p.glance.next).toMatch(/Vyvanse/);
   });
   it('protein and water today, weight weekly averages with a forecast', () => {
     const daily: DailyHealth[] = [{ id: 'd', date: ymd(NOW), proteinG: 60, waterMl: 1250, steps: 8421, ...st }];

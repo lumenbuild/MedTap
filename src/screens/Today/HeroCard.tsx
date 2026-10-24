@@ -27,7 +27,7 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer, pe
   const next = getNextDue(med, doses, now, s);
   const last = getLastDose(doses, med.id, now);
   const dayStart = getDayBounds(now, s.dayStartsAt, s.tz).start;
-  const nextAmount = status !== 'done-today' && status !== 'not-today' ? getExpectedAmount(med, doses, next ?? now, s) : med.defaultAmount;
+  const nextAmount = status !== 'not-today' && next !== null ? getExpectedAmount(med, doses, next, s) : med.defaultAmount;
   const latest = med.schedule.latestDoseTime;
 
   // The headline: a time, "Now", "Done" or "Not today".
@@ -36,9 +36,15 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer, pe
   let sub: string;
   if (status === 'due' && next !== null) {
     big = 'Now'; sub = `Due since ${fmtTime(next)}`;
+  } else if (status === 'done-today' && next !== null && next > now) {
+    // Taken for today: the headline is when it's next due.
+    const [hm, ap] = format(next, 'h:mm a').split(' ');
+    const sameDay = next < getDayBounds(now, s.dayStartsAt, s.tz).end;
+    label = sameDay ? 'Next' : `Next · ${fmtDay(next)}`;
+    big = <>{hm}<span className="text-[28px] tracking-normal ml-1.5">{ap.toLowerCase()}</span></>;
+    sub = `Done for today · in ${fmtCountdownLong(next - now)}`;
   } else if (status === 'done-today') {
-    big = 'Done'; label = 'Today';
-    sub = next !== null && next > now ? `Next ${fmtWhen(next, now)}` : 'All taken';
+    big = 'Done'; label = 'Today'; sub = 'All taken';
   } else if (status === 'past-latest-time') {
     // Every-few-hours: past the latest dose time set. Set times: today's times have passed without a dose.
     big = 'Missed'; label = 'Today'; sub = latest ? `Past your latest time of ${fmtHHmm(latest)}` : "Today's dose time has passed";
@@ -115,6 +121,52 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer, pe
 
       <Button className="w-full min-h-[56px] mt-7 text-[17px]" onClick={onLog}>Log dose</Button>
       {footer}
+    </article>
+  );
+}
+
+/** "10 mg · 1 tablet" or "Draw to 25 units" for one dose. */
+function doseText(med: Medication, amount: number): string {
+  const guide = med.peptide && amount > 0 ? doseGuide(med, amount) : undefined;
+  if (guide) return guide.kind === 'draw' ? `Draw to ${fmtUnits(guide.draw.units)} · ${fmtAmount(amount, med.unit)}` : guide.clicks !== undefined ? `Dial ${guide.clicks} clicks · ${fmtAmount(amount, med.unit)}` : fmtAmount(amount, med.unit);
+  const units = amount > 0 && med.strength > 0 && med.unit !== 'tablet' ? stockUnitsFor(med, amount) : null;
+  const how = units !== null ? `${units} ${med.form === 'other' ? 'units' : `${med.form}${units === 1 ? '' : 's'}`}` : null;
+  return [amount > 0 ? fmtAmount(amount, med.unit) : null, how].filter(Boolean).join(' · ');
+}
+
+/** The headline when several medicines are due at the same time: the time once, each medicine with what to take and
+ *  its own Log, and Log all (each at its planned amount, now). */
+export function HeroGroup({ meds, doses, s, now, at, due, onLog, onLogAll, whose }: {
+  meds: Medication[]; doses: Dose[]; s: ScheduleSettings; now: number; at: number; due: boolean;
+  onLog: (m: Medication) => void; onLogAll: (items: { med: Medication; amount: number }[]) => void;
+  whose?: (m: Medication) => string | undefined;
+}) {
+  const items = meds.map((m) => ({ med: m, amount: getExpectedAmount(m, doses, due ? now : at, s) }));
+  const [hm, ap] = format(at, 'h:mm a').split(' ');
+  const sameDay = at < getDayBounds(now, s.dayStartsAt, s.tz).end;
+  const label = due ? 'Due now' : sameDay ? 'Next' : `Next · ${fmtDay(at)}`;
+  const all = items.filter((x) => !x.med.shared);
+  return (
+    <article aria-label={`${label}: ${meds.map((m) => shownName(m)).join(', ')}`} className="pt-6 pb-6">
+      <p className="text-sm font-medium text-muted">{label}</p>
+      <p className="mt-1.5 font-light text-[84px] leading-[84px] tracking-[-0.04em] tnum" aria-hidden="true">
+        {due ? 'Now' : <>{hm}<span className="text-[28px] tracking-normal ml-1.5">{ap.toLowerCase()}</span></>}
+      </p>
+      <p className="mt-2 text-[15px] text-muted tnum">{due ? `Due since ${fmtTime(at)}` : `in ${fmtCountdownLong(at - now)}`} · {meds.length} medicines</p>
+      <ul className="mt-3 divide-y divide-border">
+        {items.map(({ med, amount }) => (
+          <li key={med.id} className="flex items-center gap-3 py-2.5">
+            <MedBadge color={shownColour(med)} icon={med.icon} size={34} />
+            <span className="flex-1 min-w-0">
+              <span className="block text-[17px] font-medium truncate">{shownMedName(med)}</span>
+              <span className="block text-[15px] text-muted tnum">{[doseText(med, amount), whose?.(med)].filter(Boolean).join(' · ')}</span>
+            </span>
+            <Button variant="secondary" onClick={() => onLog(med)} aria-label={`Log ${shownName(med)}`}>Log</Button>
+          </li>
+        ))}
+      </ul>
+      <p className="sr-only" aria-live="polite">{label}{due ? '' : ` at ${fmtTime(at)}`}: {meds.map((m) => shownName(m)).join(', ')}.</p>
+      {all.length > 1 && (due || at - now <= 60 * 60_000) && <Button className="w-full min-h-[56px] mt-4 text-[17px]" onClick={() => onLogAll(all)}>Log all {all.length} now</Button>}
     </article>
   );
 }

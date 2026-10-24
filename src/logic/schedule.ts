@@ -379,3 +379,20 @@ export function byUrgency(meds: Medication[], doses: Dose[], now: number, s: Sch
     return ua - ub || na - nb || a.name.localeCompare(b.name);
   });
 }
+
+/** What Today's headline shows: everything due now (oldest first, including an every-few-hours medicine whose first
+ *  dose of the day hasn't been taken), otherwise every medicine due at the soonest upcoming time. Empty when nothing
+ *  is planned (as-needed only, or every course on a break). */
+export function nextUp(meds: Medication[], doses: Dose[], now: number, s: ScheduleSettings): { meds: Medication[]; at: number | null; due: boolean } {
+  const live = meds.filter((m) => !m.archived && m.schedule.type !== 'prn');
+  const info = live.map((m) => ({ m, status: getStatus(m, doses, now, s), next: getNextDue(m, doses, now, s) }));
+  const due = info.filter((x) => x.status === 'due' || (x.status === 'none-today' && x.m.schedule.type === 'interval'))
+    .sort((a, b) => (a.next ?? now) - (b.next ?? now) || a.m.name.localeCompare(b.m.name));
+  if (due.length) return { meds: due.map((x) => x.m), at: due[0].next ?? now, due: true };
+  const upcoming = info.filter((x) => x.next !== null && x.next > now);
+  if (!upcoming.length) return { meds: [], at: null, due: false };
+  const soonest = Math.min(...upcoming.map((x) => x.next!));
+  // Same minute counts as together (e.g. three tablets at 8:00 am).
+  const group = upcoming.filter((x) => Math.floor(x.next! / 60_000) === Math.floor(soonest / 60_000)).sort((a, b) => a.m.name.localeCompare(b.m.name));
+  return { meds: group.map((x) => x.m), at: soonest, due: false };
+}
