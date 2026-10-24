@@ -127,4 +127,55 @@ describe('counting tablets in a photo', () => {
     const discs: [number, number, number][] = Array.from({ length: 9 }, (_, i) => [40 + (i % 3) * 60, 40 + Math.floor(i / 3) * 60, 14] as [number, number, number]);
     expect(countTablets(draw(240, 220, 220, 30, discs)).count).toBe(9);
   });
+
+  // A fuller scene: a surface colour that changes across the photo (light from one side), tablets of one colour with a
+  // pale imprint in the middle, dust and crumbs, and grain.
+  type Rgb = [number, number, number];
+  const scene = (w: number, h: number, o: { bg: (x: number, y: number) => Rgb; fg: Rgb; tablets: [number, number, number][];
+    specks?: number; speckR?: number; imprint?: boolean; extra?: (x: number, y: number) => Rgb | null }) => {
+    const data = new Uint8ClampedArray(w * h * 4);
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+    const specks = Array.from({ length: o.specks ?? 0 }, () => [rnd() * w, rnd() * h, 0.6 + rnd() * (o.speckR ?? 2)]);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let c: Rgb = o.bg(x, y);
+      const hit = o.tablets.find(([cx, cy, r]) => (x - cx) ** 2 + (y - cy) ** 2 <= r * r);
+      if (hit) c = o.imprint && Math.abs(x - hit[0]) < 2 && Math.abs(y - hit[1]) < hit[2] * 0.6 ? o.bg(x, y) : o.fg;
+      else if (specks.some(([sx, sy, r]) => (x - sx) ** 2 + (y - sy) ** 2 <= r * r)) c = [60, 55, 50];
+      c = o.extra?.(x, y) ?? c;
+      const n = (rnd() - 0.5) * 14;
+      data.set([c[0] + n, c[1] + n, c[2] + n, 255], (y * w + x) * 4);
+    }
+    return { width: w, height: h, data };
+  };
+  const grid = (cols: number, rows: number, gap: number, r: number, off = 40): [number, number, number][] =>
+    Array.from({ length: cols * rows }, (_, i) => [off + (i % cols) * gap, off + Math.floor(i / cols) * gap, r]);
+
+  it('ignores dust and crumbs on the surface', () => {
+    const r = countTablets(scene(480, 360, { bg: () => [215, 210, 200], fg: [250, 250, 250], tablets: grid(5, 4, 85, 18), specks: 120, speckR: 2.5 }));
+    expect(r.count).toBe(20);
+  });
+  it('ignores more specks than tablets, even bigger ones', () => {
+    const r = countTablets(scene(480, 360, { bg: () => [40, 42, 48], fg: [235, 235, 230], tablets: grid(4, 3, 100, 20, 60), specks: 300, speckR: 4 }));
+    expect(r.count).toBe(12);
+  });
+  it('follows light falling off across the surface', () => {
+    const bg = (x: number): Rgb => { const v = 235 - (x / 480) * 120; return [v, v, v * 0.97]; };
+    const r = countTablets(scene(480, 360, { bg, fg: [190, 120, 60], tablets: grid(5, 4, 85, 18), specks: 40 }));
+    expect(r.count).toBe(20);
+  });
+  it('a pale imprint or score line doesn\'t split a tablet', () => {
+    expect(countTablets(scene(480, 360, { bg: () => [30, 30, 35], fg: [240, 240, 240], tablets: grid(5, 4, 85, 18), imprint: true })).count).toBe(20);
+  });
+  it('tablets the same brightness as the surface but a different colour', () => {
+    expect(countTablets(scene(480, 360, { bg: () => [70, 140, 200], fg: [200, 120, 80], tablets: grid(5, 4, 85, 18) })).count).toBe(20);
+  });
+  it('ignores the edge of a tray running off the photo and a thin line', () => {
+    const extra = (x: number, y: number): Rgb | null => (y > 335 ? [90, 60, 40] : Math.abs(x - y * 1.2 - 20) < 1.5 ? [90, 90, 90] : null);
+    const r = countTablets(scene(480, 360, { bg: () => [225, 225, 220], fg: [70, 110, 190], tablets: grid(5, 3, 85, 18), extra }));
+    expect(r.count).toBe(15);
+  });
+  it('a bare surface counts nothing', () => {
+    expect(countTablets(scene(320, 240, { bg: (x) => [200 - x / 8, 200 - x / 8, 195 - x / 8], fg: [0, 0, 0], tablets: [], specks: 30 })).count).toBe(0);
+  });
 });
