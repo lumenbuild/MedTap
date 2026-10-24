@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { CheckIn, FoodLog } from '../src/db/schema';
 import type { ScheduleSettings } from '../src/logic/schedule';
-import { CAFFEINE, UNKNOWN_MG, bedtimeOf, dayTotal, intakesOf, isDrink, level, lowBy, nights, usualDrinks, type Intake } from '../src/logic/caffeine';
+import { CAFFEINE, UNKNOWN_MG, bedtimeOf, caffeineDays, findCutoff, findLimit, dayTotal, intakesOf, isDrink, level, lowBy, nights, usualDrinks, type Intake } from '../src/logic/caffeine';
 import { dailyHabits } from '../src/logic/dailyHabits';
 
 const S: ScheduleSettings = { dayStartsAt: '04:00', tz: 'Australia/Sydney', guardMinutes: 10 };
@@ -76,5 +76,49 @@ describe('caffeine drinks', () => {
     expect(c.key).toBe('caffeine');
     expect(c.days.map((d) => d.v)).toEqual([160, 260, 360, 460]);
     expect(c.underLimit).toBe(2);
+  });
+});
+
+describe('finding your cut-off and limit', () => {
+  const NOW = at('2026-10-31', '09:00');
+  const day = (n: number) => new Date(NOW - n * 24 * HOUR).toISOString().slice(0, 10);
+  // 30 days: a morning coffee every day; on some, a later one. Nights after a drink from 4 pm sleep worse; days of
+  // 300 mg or more feel jittery.
+  const build = () => {
+    const cis: CheckIn[] = [];
+    for (let n = 1; n <= 30; n++) {
+      const d = day(n);
+      const late = [16, 17, 14, 13, 0, 0][n % 6]; // hour of a second drink, or none
+      const extra = n % 4 === 0 ? 2 : 1; // morning cups
+      for (let k = 0; k < extra; k++) cis.push(drink(at(d, `0${7 + k}:30`), 160, 'Double', `${d}m${k}`));
+      if (late) cis.push(drink(at(d, `${late}:00`), 80, 'Espresso', `${d}l`));
+      const total = 160 * extra + (late ? 80 : 0);
+      cis.push({ id: `${d}e`, at: new Date(at(d, '20:00')).toISOString(), chips: total >= 300 ? ['Jittery'] : [], energy: 3, ...st });
+      const next = new Date(at(d, '12:00') + 24 * HOUR).toISOString().slice(0, 10);
+      cis.push({ id: `${d}s`, at: new Date(at(next, '07:00')).toISOString(), chips: [], sleepQuality: late >= 16 ? 2 : 4, sleepHours: late >= 16 ? 6 : 7.5, ...st });
+    }
+    return cis;
+  };
+  it('finds the time drinks start to cost sleep', () => {
+    const cis = build();
+    const days = caffeineDays(intakesOf(cis), cis, [], NOW, S, '22:30');
+    expect(days).toHaveLength(60);
+    const f = findCutoff(days);
+    expect(f.status).toBe('found');
+    expect(f.value).toBe(16);
+    expect(f.bands.find((b) => b.from === 14)!.worse).toBe(false);
+  });
+  it('finds the amount you start to feel on edge', () => {
+    const cis = build();
+    const f = findLimit(caffeineDays(intakesOf(cis), cis, [], NOW, S, '22:30'));
+    expect(f.status).toBe('found');
+    expect(f.value).toBe(300);
+  });
+  it('says when there isn’t enough yet, and when nothing differs', () => {
+    expect(findCutoff(caffeineDays([], [], [], NOW, S, '22:30')).status).toBe('more');
+    const calm = build().map((c) => (c.sleepQuality ? { ...c, sleepQuality: 4, sleepHours: 7.5 } : c));
+    const f = findCutoff(caffeineDays(intakesOf(calm), calm, [], NOW, S, '22:30'));
+    expect(f.status).toBe('clear');
+    expect(f.value).toBe(18);
   });
 });

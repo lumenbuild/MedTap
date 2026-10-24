@@ -50,7 +50,7 @@ export type Route =
   | { name: 'tag'; id: string } | { name: 'sync' } | { name: 'join'; code: string } | { name: 'calc' } | { name: 'supplies' }
   | { name: 'protocol' } | { name: 'protocolReport' } | { name: 'progress'; view?: 'trends' | 'body' }
   | { name: 'appointments' } | { name: 'appointmentSummary' } | { name: 'labs' } | { name: 'travel' }
-  | { name: 'training'; start?: boolean } | { name: 'workout'; id: string } | { name: 'exercise'; id: string } | { name: 'routines' } | { name: 'tags' } | { name: 'welcome' } | { name: 'food' };
+  | { name: 'training'; start?: boolean } | { name: 'workout'; id: string } | { name: 'exercise'; id: string } | { name: 'routines' } | { name: 'tags' } | { name: 'welcome' } | { name: 'food' } | { name: 'caffeine' };
 
 export function parseRoute(path: string): Route {
   const [, a, b, c, d] = path.split('/').map(decodeURIComponent);
@@ -72,6 +72,7 @@ export function parseRoute(path: string): Route {
     case 'tags': return { name: 'tags' };
     case 'welcome': return { name: 'welcome' };
     case 'food': return { name: 'food' };
+    case 'caffeine': return { name: 'caffeine' };
     case 'travel': return { name: 'travel' };
     case 'training':
       if (b === 'workout' && c) return { name: 'workout', id: c };

@@ -156,6 +156,9 @@ const CONTENT: Record<string, ReactNode> = {
         <li><strong>Again</strong> logs the last drink once more.</li>
       </ul>
       <p>The estimate assumes it's absorbed over about an hour and that half is gone every few hours. That time varies a lot between people (about 3 to 8 hours or more), so set yours in Settings → Caffeine if the default feels off. It's an estimate, not a measurement.</p>
+      <H>Find your cut-off and limit</H>
+      <p>Today's caffeine card → <strong>Find your cut-off and limit</strong> (or Settings → Caffeine). From your own days it shows how you slept by the time of your last drink, and how often you felt on edge (Jittery, Irritable and the like in a check-in) by how much you had. Where later drinks or bigger days are clearly worse, that's your cut-off or limit, and one tap puts it on Today.</p>
+      <p>To gather the days, start a <strong>two-week check</strong>: each morning Today asks how you slept (one tap), and the card counts the days. It helps to have some days with your last drink early and some later, and some lighter and some heavier, within what you'd usually have. You can stop any time.</p>
       <H>In Trends</H>
       <p><strong>Daily habits</strong> → Caffeine: mg each day against your limit. <strong>What goes with what</strong> compares your sleep on nights with {LOW_MG} mg or more likely still in you at bedtime against the others, once there are a few of each.</p>
     </>

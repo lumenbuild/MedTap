@@ -39,7 +39,7 @@ import { whatChanged } from '../../logic/changes';
 import { appointmentsAround } from '../../logic/appointments';
 import { ALCOHOL } from '../../logic/lifestyle';
 import { intakesOf, isDrink } from '../../logic/caffeine';
-import { CaffeineCard, CaffeineSheet } from '../../components/Caffeine';
+import { CaffeineCard, CaffeineSheet, SleepAsk } from '../../components/Caffeine';
 import { addCheckIn, removeCheckIn } from '../../db/repos/checkIns';
 import { useAppointments } from '../../app/data';
 import { dayKey } from '../../logic/stats';
@@ -130,7 +130,7 @@ export function Today() {
   const viewBody = body.filter(mine);
   // Caffeine for the person shown (in everyone's view the card and sheet aren't shown).
   const intakes = intakesOf(viewCheckIns);
-  const cafPrefs = { limit: settings.caffeineLimitMg, bedtime: settings.bedtime, halfLifeH: settings.caffeineHalfLifeH };
+  const cafPrefs = { limit: settings.caffeineLimitMg, bedtime: settings.bedtime, halfLifeH: settings.caffeineHalfLifeH, cutoff: settings.caffeineCutoff, checkFrom: settings.caffeineCheckFrom };
   const viewVitals = vitals.filter(mine);
   const viewMedMap = new Map(viewMeds.map((m) => [m.id, m]));
   const whose = (r: { personId?: string; shared?: boolean }) => {
@@ -346,6 +346,7 @@ export function Today() {
           ready={FOCUS === 'training' ? null : readiness(mineDaily, viewCheckIns, now, s)} />;
       })()}
 
+      {!fam.everyone && daily && <SleepAsk checkIns={viewCheckIns} daily={daily.filter(mine)} personId={storedPerson(fam.personId)} checkFrom={settings.caffeineCheckFrom} now={now} s={s} />}
       {!fam.everyone && <CaffeineCard intakes={intakes} prefs={cafPrefs} now={now} s={s} onLog={() => setDrink({})} />}
 
       {HAS_BODY && !fam.everyone && <GoalLines goals={fam.people.find((p) => p.id === fam.personId)?.goals ?? []} entries={viewBody} units={settings.units} now={now} />}

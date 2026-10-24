@@ -156,6 +156,11 @@ export function Settings({ section }: { section?: string }) {
             {HALF_LIVES.map((x) => <option key={x.h} value={x.h}>{x.label}</option>)}
           </select>
         </Pick>
+        <Pick id="caf-cut" label="Your cut-off" hint="The latest you want caffeine. Today marks it, and a drink logged after it says so. Leave empty for none.">
+          <input id="caf-cut" type="time" value={settings.caffeineCutoff ?? ''} className={`${selectCls} tnum`}
+            onChange={(e) => void setSetting('caffeineCutoff', /^\d{2}:\d{2}$/.test(e.target.value) ? e.target.value : null)} />
+        </Pick>
+        <Button variant="secondary" className="w-full" onClick={() => go('/caffeine')}>Find your cut-off and limit</Button>
         <p className="text-sm text-muted">Today shows the day's caffeine against your limit, about how much is still in you, and when it drops under {LOW_MG} mg. Trends compares your sleep on nights with {LOW_MG} mg or more still in you at bedtime against the others.</p>
       </Card>
     ),
@@ -353,7 +358,7 @@ export function Settings({ section }: { section?: string }) {
         {HAS_MEDS && <Row href="#/settings/doses" Icon={Pill} title="Doses" value={`Day starts ${fmtHHmm(settings.dayStartsAt)}`} />}
         {HAS_TRAINING && settings.trainingTools && <Row href="#/settings/training" Icon={Dumbbell} title="Training" value={`Rest ${restLabel(settings.restSeconds)}`} />}
         <Row href="#/settings/checkins" Icon={Smile} title="Check-ins" value={[HAS_MEDS && settings.checkInDelayMin ? 'after doses' : null, settings.checkInTimes.length ? settings.checkInTimes.map(fmtHHmm).join(', ') : null].filter(Boolean).join(' · ').replace(/^./, (c) => c.toUpperCase()) || 'Off'} />
-        <Row href="#/settings/caffeine" Icon={Coffee} title="Caffeine" value={`${settings.caffeineLimitMg ? `${settings.caffeineLimitMg} mg a day · ` : ''}bed ${fmtHHmm(settings.bedtime)}`} />
+        <Row href="#/settings/caffeine" Icon={Coffee} title="Caffeine" value={[settings.caffeineLimitMg ? `${settings.caffeineLimitMg} mg a day` : null, settings.caffeineCutoff ? `until ${fmtHHmm(settings.caffeineCutoff)}` : `bed ${fmtHHmm(settings.bedtime)}`].filter(Boolean).join(' · ')} />
         <Row href="#/settings/people" Icon={Users} title="People and sync" value={`${fam?.people.length ?? 1} ${fam && fam.people.length > 1 ? 'people' : 'person'} · sync ${sync ? 'on' : 'off'}`} />
         {isNative && <Row href="#/settings/health" Icon={HeartPulse} title="Health data" value={settings.healthImport ? 'On' : 'Off'} />}
         <Row href="#/backup" Icon={HardDriveDownload} title="Backup and restore" value={last ? fmtAgo(now - last) : 'None yet'} />

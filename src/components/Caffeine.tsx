@@ -3,9 +3,9 @@
 // or anything else by name and mg) or change one.
 import { useState } from 'react';
 import { Coffee, RotateCcw } from 'lucide-react';
-import type { CheckIn } from '../db/schema';
+import type { CheckIn, DailyHealth } from '../db/schema';
 import type { ScheduleSettings } from '../logic/schedule';
-import { CAFFEINE, DRINKS, LOW_MG, bedtimeOf, curve, dayTotal, level, lowBy, usualDrinks, type Intake } from '../logic/caffeine';
+import { CAFFEINE, CHECK_DAYS, DRINKS, LOW_MG, bedtimeOf, curve, dayTotal, level, lowBy, usualDrinks, type Intake } from '../logic/caffeine';
 import { getDayBounds } from '../logic/schedule';
 import { fmtTime, toLocalInput } from '../logic/format';
 import { addCheckIn, removeCheckIn, restoreCheckIn, updateCheckIn } from '../db/repos/checkIns';
@@ -17,15 +17,17 @@ import { Bar } from './ui/Visual';
 
 const HOUR = 3_600_000;
 
-export interface CaffeinePrefs { limit: number | null; bedtime: string; halfLifeH: number }
+export interface CaffeinePrefs { limit: number | null; bedtime: string; halfLifeH: number; cutoff: string | null; checkFrom: number | null }
 
 /** What to say after a drink is logged: how much is likely still in at bedtime if that's a lot, else the day's total. */
 function afterLog(all: Intake[], added: Intake, p: CaffeinePrefs, s: ScheduleSettings): string {
   const xs = [...all, added].sort((a, b) => a.t - b.t);
   const bed = bedtimeOf(added.t, p.bedtime, s);
   const atBed = Math.round(level(xs, bed, p.halfLifeH));
-  if (added.t < bed && atBed >= LOW_MG) return `about ${atBed} mg likely still in you at ${fmtTime(bed)}`;
-  return `${dayTotal(xs, added.t, s)} mg today`;
+  const cut = p.cutoff ? bedtimeOf(added.t, p.cutoff, s) : null;
+  const late = cut !== null && added.t >= cut ? ` (after your ${fmtTime(cut)} cut-off)` : '';
+  if (added.t < bed && atBed >= LOW_MG) return `about ${atBed} mg likely still in you at ${fmtTime(bed)}${late}`;
+  return `${dayTotal(xs, added.t, s)} mg today${late}`;
 }
 
 /** Today's caffeine card. Shown once there's caffeine today or still some in the body. */
@@ -39,6 +41,8 @@ export function CaffeineCard({ intakes, prefs, now, s, onLog }: { intakes: Intak
   const atBed = Math.round(level(intakes, bed, prefs.halfLifeH));
   const last = intakes.filter((x) => x.t <= now).at(-1);
   const over = prefs.limit !== null && total > prefs.limit;
+  const cut = prefs.cutoff ? bedtimeOf(now, prefs.cutoff, s) : null;
+  const checkDay = prefs.checkFrom ? Math.floor((now - prefs.checkFrom) / (24 * HOUR)) + 1 : 0;
   const again = async () => {
     if (!last) return;
     const c = await addCheckIn({ at: new Date().toISOString(), chips: [CAFFEINE], note: last.name, caffeineMg: last.mg, personId: last.personId });
@@ -52,17 +56,49 @@ export function CaffeineCard({ intakes, prefs, now, s, onLog }: { intakes: Intak
         <span className="tnum"><span className="text-[20px] font-semibold">{total}</span><span className="text-sm text-muted">{prefs.limit ? ` / ${prefs.limit}` : ''} mg today</span></span>
       </div>
       {prefs.limit ? <Bar value={total} max={prefs.limit} tone={over ? 'watch' : 'primary'} label={`${total} of your ${prefs.limit} mg today`} /> : null}
-      <LevelChart intakes={intakes} now={now} bed={bed} s={s} halfLifeH={prefs.halfLifeH} />
+      <LevelChart intakes={intakes} now={now} bed={bed} cut={cut} s={s} halfLifeH={prefs.halfLifeH} />
       <p className="text-[15px]">
         About <span className="font-semibold tnum">{inYou} mg</span> in you now.{' '}
         {low === null ? null
           : low <= bed ? <span className="text-muted">Under {LOW_MG} mg by {fmtTime(low)}, before your {fmtTime(bed)} bedtime.</span>
           : <span className="text-caution">About {atBed} mg likely still in you at your {fmtTime(bed)} bedtime; under {LOW_MG} mg by {fmtTime(low)}.</span>}
+        {cut !== null && <span className="text-muted">{' '}Your cut-off: {fmtTime(cut)}.</span>}
       </p>
       <div className="grid grid-cols-2 gap-2">
         <Button variant="secondary" onClick={onLog}>Log a drink</Button>
         {last?.name && <Button variant="secondary" className="flex items-center justify-center gap-1.5 min-w-0" onClick={again} aria-label={`Again: ${last.name}, ${last.mg} mg`}>
           <RotateCcw size={16} aria-hidden="true" className="shrink-0" /><span className="truncate">{last.name}</span></Button>}
+      </div>
+      <a href="#/caffeine" className="block text-sm font-medium underline underline-offset-4 min-h-[44px] flex items-center">
+        {checkDay >= 1 && checkDay <= CHECK_DAYS ? `Caffeine check: day ${checkDay} of ${CHECK_DAYS}` : 'Find your cut-off and limit'}
+      </a>
+    </section>
+  );
+}
+
+/** During a caffeine check, each morning until last night's sleep is recorded: how did you sleep, in one tap. */
+export function SleepAsk({ checkIns, daily, personId, checkFrom, now, s }: {
+  checkIns: CheckIn[]; daily: DailyHealth[]; personId?: string; checkFrom: number | null; now: number; s: ScheduleSettings;
+}) {
+  const toast = useToast();
+  if (!checkFrom || now - checkFrom > CHECK_DAYS * 24 * HOUR || now - checkFrom < 6 * HOUR) return null;
+  const { start } = getDayBounds(now, s.dayStartsAt, s.tz);
+  if (now > start + 10 * HOUR) return null; // mornings only
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: s.tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+  if (daily.some((d) => !d.deletedAt && d.date === today && d.sleepMin)) return null;
+  if (checkIns.some((c) => !c.deletedAt && Date.parse(c.at) >= start - 2 * HOUR && (c.sleepQuality !== undefined || c.sleepHours !== undefined))) return null;
+  const answer = async (q: number) => {
+    const c = await addCheckIn({ at: new Date().toISOString(), chips: [], sleepQuality: q, personId });
+    toast('Sleep noted for your caffeine check', { onAction: () => removeCheckIn(c.id) });
+  };
+  return (
+    <section className="border-t border-border pt-4 space-y-2" aria-labelledby="sleep-ask-h">
+      <h2 id="sleep-ask-h" className="font-medium">How did you sleep?</h2>
+      <p className="text-sm text-muted">For your caffeine check.</p>
+      <div className="grid grid-cols-5 gap-2">
+        {['Poor', 'Fair', 'OK', 'Good', 'Great'].map((l, i) => (
+          <button key={l} type="button" onClick={() => answer(i + 1)} className="min-h-[48px] rounded-chip bg-surface-2 text-sm font-medium">{l}</button>
+        ))}
       </div>
     </section>
   );
@@ -70,7 +106,7 @@ export function CaffeineCard({ intakes, prefs, now, s, onLog }: { intakes: Intak
 
 /** The estimated level from the start of the day (or a little before the first drink) to after bedtime, with now,
  *  bedtime and the low line marked. */
-function LevelChart({ intakes, now, bed, s, halfLifeH }: { intakes: Intake[]; now: number; bed: number; s: ScheduleSettings; halfLifeH: number }) {
+function LevelChart({ intakes, now, bed, cut, s, halfLifeH }: { intakes: Intake[]; now: number; bed: number; cut: number | null; s: ScheduleSettings; halfLifeH: number }) {
   const { start } = getDayBounds(now, s.dayStartsAt, s.tz);
   const first = intakes.find((x) => x.t >= start - 12 * HOUR && level(intakes, x.t + HOUR, halfLifeH) >= 5);
   const from = Math.max(start, Math.min(now - 2 * HOUR, (first?.t ?? now) - HOUR));
@@ -94,6 +130,10 @@ function LevelChart({ intakes, now, bed, s, halfLifeH }: { intakes: Intake[]; no
       {past.length > 1 && <path d={past.map((p, i) => `${i ? 'L' : 'M'}${X(p.t).toFixed(1)} ${Y(p.v).toFixed(1)}`).join('')} fill="none" stroke="var(--primary)" strokeWidth="2.5" />}
       <line x1={X(bed)} x2={X(bed)} y1={T - 6} y2={B} stroke="var(--text)" strokeWidth="1" strokeDasharray="2 3" />
       <text x={Math.min(X(bed), R - 30)} y={T - 6} fontSize="10" textAnchor="middle" fill="var(--text-muted)">Bed {fmtTime(bed)}</text>
+      {cut !== null && cut > from && cut < to && <>
+        <line x1={X(cut)} x2={X(cut)} y1={T} y2={B} stroke="var(--caution)" strokeWidth="1" strokeDasharray="2 3" />
+        <text x={X(cut)} y={B - 4} fontSize="10" textAnchor="middle" fill="var(--text-muted)" transform={`rotate(-90 ${X(cut) - 3} ${B - 4})`}>Cut-off</text>
+      </>}
       <circle cx={X(now)} cy={Y(level(intakes, now, halfLifeH))} r="4" fill="var(--primary)" stroke="var(--surface)" strokeWidth="2" />
       <text x={L} y={B + 14} fontSize="10" fill="var(--text-muted)">{fmtTime(from)}</text>
       <text x={X(now)} y={B + 14} fontSize="10" textAnchor="middle" fill="var(--text-muted)">Now</text>

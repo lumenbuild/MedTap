@@ -2,7 +2,7 @@
 // and its mg (older ones without an amount count as a usual cup). The level uses a standard one-compartment model:
 // absorbed over the first hour or so (peak about 50 minutes after), then halving every few hours (about 5 on average;
 // it varies a lot between people). Estimates, not measurements. Pure.
-import type { CheckIn, FoodLog } from '../db/schema';
+import type { CheckIn, DailyHealth, FoodLog } from '../db/schema';
 import { getDayBounds, timeInDay, type ScheduleSettings } from './schedule';
 
 export const CAFFEINE = 'Caffeine';
@@ -119,4 +119,122 @@ export function nights(intakes: Intake[], days: string[], bedtime: string, s: Sc
     const total = intakes.filter((x) => x.t >= start && x.t < bed).reduce((a, x) => a + x.mg, 0);
     return { day, bedtime: bed, atBed: Math.round(level(intakes, bed, halfLifeH)), total };
   });
+}
+
+// ── Finding your own cut-off and limit ─────────────────────────────────────────────────────────────
+
+/** How long a caffeine check runs. */
+export const CHECK_DAYS = 14;
+
+/** Check-in chips that count as feeling on edge (for the limit). */
+export const EDGY = ['Jittery', 'Irritable', 'Anxious', 'Heart racing', 'Restless'];
+
+export interface CaffeineDay {
+  day: string; total: number;
+  /** Clock time of the day's last drink, in hours (after midnight runs on past 24), if any. */
+  last?: number;
+  atBed: number;
+  /** That night's sleep: hours (imported, else the next morning's check-in) and quality (1–5, from a check-in). */
+  hours?: number; quality?: number;
+  /** Whether any check-in that day noted feeling on edge, and whether there was a check-in at all to say. */
+  edgy: boolean; checked: boolean;
+}
+
+/** Each of the last `days` days (not today): what was had and when, the night's sleep and how the day felt. */
+export function caffeineDays(intakes: Intake[], checkIns: CheckIn[], daily: DailyHealth[], now: number, s: ScheduleSettings,
+  bedtime: string, halfLifeH = 5, days = 60): CaffeineDay[] {
+  const out: CaffeineDay[] = [];
+  const cis = checkIns.filter((c) => live(c) && !isDrink(c));
+  const today = getDayBounds(now, s.dayStartsAt, s.tz).start;
+  for (let n = 1; n <= days; n++) {
+    const { start, end } = getDayBounds(today - n * 24 * HOUR + HOUR, s.dayStartsAt, s.tz);
+    const day = ymd(start + 12 * HOUR, s);
+    const mine = intakes.filter((x) => x.t >= start && x.t < end);
+    const bed = timeInDay(start, bedtime, s);
+    const lastT = mine.at(-1)?.t;
+    const wake = ymd(end + 4 * HOUR, s);
+    const row = daily.find((d) => live(d) && d.date === wake && d.sleepMin);
+    const morning = cis.filter((c) => { const t = Date.parse(c.at); return t >= end - 2 * HOUR && t < end + 10 * HOUR && (c.sleepHours !== undefined || c.sleepQuality !== undefined); })[0];
+    const that = cis.filter((c) => { const t = Date.parse(c.at); return t >= start && t < end; });
+    out.push({
+      day, total: mine.reduce((a, x) => a + x.mg, 0),
+      ...(lastT !== undefined ? { last: (lastT - start) / HOUR + hhmm(s.dayStartsAt) } : {}),
+      atBed: Math.round(level(intakes, bed, halfLifeH)),
+      hours: row ? row.sleepMin! / 60 : morning?.sleepHours, quality: morning?.sleepQuality,
+      edgy: that.some((c) => c.chips.some((x) => EDGY.includes(x))), checked: that.length > 0,
+    });
+  }
+  return out.reverse();
+}
+
+const hhmm = (v: string) => { const [h, m] = v.split(':').map(Number); return h + m / 60; };
+const ymd = (t: number, s: ScheduleSettings) => new Intl.DateTimeFormat('en-CA', { timeZone: s.tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(t);
+const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : undefined);
+
+export interface FinderBand { label: string; from: number; to: number; nights: number; hours?: number; quality?: number; edgyPct?: number; worse: boolean }
+export interface Finding {
+  bands: FinderBand[];
+  /** found: the bands show where it starts to matter; clear: no difference up to the latest or most you've had;
+   *  more: not enough to tell yet. */
+  status: 'found' | 'clear' | 'more';
+  /** The cut-off (clock hour) or limit (mg) found, or for 'clear' the latest or most tried so far. */
+  value?: number;
+  nights: number;
+}
+
+const sleepOf = (xs: CaffeineDay[]) => ({ hours: avg(xs.flatMap((x) => (x.hours !== undefined ? [x.hours] : []))), quality: avg(xs.flatMap((x) => (x.quality !== undefined ? [x.quality] : []))) });
+const slept = (x: CaffeineDay) => x.hours !== undefined || x.quality !== undefined;
+/** Clearly worse sleep than the baseline: 25+ minutes less, or half a point lower on quality. */
+const worseSleep = (b: { hours?: number; quality?: number }, base: { hours?: number; quality?: number }) =>
+  (b.hours !== undefined && base.hours !== undefined && base.hours - b.hours >= 0.4) || (b.quality !== undefined && base.quality !== undefined && base.quality - b.quality >= 0.5);
+
+/** The earliest band (with 3+ nights) that's worse, when every later band with enough is worse too. */
+function firstWorse(bands: FinderBand[]): FinderBand | undefined {
+  const known = bands.filter((b) => b.nights >= 3);
+  const i = known.findIndex((b, j) => b.worse && known.slice(j).every((x) => x.worse));
+  return i >= 0 ? known[i] : undefined;
+}
+
+/** Your cut-off: sleep by the time of the day's last drink, against days with none or only before noon. */
+export function findCutoff(days: CaffeineDay[]): Finding {
+  const withSleep = days.filter(slept);
+  const defs = [{ label: 'None, or before 12 pm', from: 0, to: 12 }, { label: '12 to 2 pm', from: 12, to: 14 }, { label: '2 to 4 pm', from: 14, to: 16 },
+    { label: '4 to 6 pm', from: 16, to: 18 }, { label: 'After 6 pm', from: 18, to: 30 }];
+  const inBand = (x: CaffeineDay, d: { from: number; to: number }) => (x.last === undefined ? d.from === 0 : x.last >= d.from && x.last < d.to);
+  const base = sleepOf(withSleep.filter((x) => inBand(x, defs[0])));
+  const bands = defs.map((d, i) => {
+    const xs = withSleep.filter((x) => inBand(x, d));
+    const sl = sleepOf(xs);
+    return { ...d, nights: xs.length, ...sl, worse: i > 0 && xs.length >= 3 && worseSleep(sl, base) };
+  });
+  const known = bands.filter((b) => b.nights >= 3);
+  if (withSleep.length < 10 || bands[0].nights < 3 || known.length < 2) return { bands, status: 'more', nights: withSleep.length };
+  const w = firstWorse(bands);
+  if (w) return { bands, status: 'found', value: w.from, nights: withSleep.length };
+  return { bands, status: 'clear', value: known.at(-1)!.to, nights: withSleep.length };
+}
+
+/** Your limit: how often you felt on edge, and sleep on nights with little left at bedtime (so timing doesn't muddle
+ *  it), by the day's total, against your lightest days. */
+export function findLimit(days: CaffeineDay[]): Finding {
+  const defs = [{ label: 'Under 100 mg', from: 0, to: 100 }, { label: '100 to 199 mg', from: 100, to: 200 }, { label: '200 to 299 mg', from: 200, to: 300 },
+    { label: '300 to 399 mg', from: 300, to: 400 }, { label: '400 mg or more', from: 400, to: 10_000 }];
+  const useful = days.filter((x) => x.checked || (slept(x) && x.atBed < LOW_MG));
+  const pct = (xs: CaffeineDay[]) => { const c = xs.filter((x) => x.checked); return c.length >= 3 ? Math.round((c.filter((x) => x.edgy).length / c.length) * 100) : undefined; };
+  const raw = defs.map((d) => {
+    const xs = useful.filter((x) => x.total >= d.from && x.total < d.to);
+    return { ...d, nights: xs.length, ...sleepOf(xs.filter((x) => slept(x) && x.atBed < LOW_MG)), edgyPct: pct(xs), xs };
+  });
+  const baseBand = raw.find((b) => b.nights >= 3);
+  if (useful.length < 10 || !baseBand) return { bands: raw.map(({ xs: _xs, ...b }) => ({ ...b, worse: false })), status: 'more', nights: useful.length };
+  const bands = raw.map(({ xs: _xs, ...b }) => ({
+    ...b,
+    worse: b !== baseBand && b.from > baseBand.from && b.nights >= 3
+      && ((b.edgyPct !== undefined && baseBand.edgyPct !== undefined && b.edgyPct - baseBand.edgyPct >= 25) || worseSleep(b, baseBand)),
+  }));
+  const known = bands.filter((b) => b.nights >= 3);
+  if (known.length < 2) return { bands, status: 'more', nights: useful.length };
+  const w = firstWorse(bands);
+  if (w) return { bands, status: 'found', value: w.from, nights: useful.length };
+  return { bands, status: 'clear', value: Math.max(...useful.map((x) => x.total)), nights: useful.length };
 }
