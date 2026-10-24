@@ -1,12 +1,10 @@
 // Fitness cards used on Training, Body, Protocol and Today: readiness, lean mass while losing weight, strength against
 // the peptide, and one timeline for every goal.
 import { Beef, Dumbbell, GlassWater, Moon, Pill, Scale, Smile, type LucideIcon } from 'lucide-react';
-import { Bar, CompareBars, IconRow, MiniRing, Stat, ZeroBars } from './ui/Visual';
-import { HeadlineStat } from './charts/ChartCard';
+import { Bar, IconRow, MiniRing, Stat, ZeroBars } from './ui/Visual';
 import { format } from 'date-fns';
-import type { BodyEntry, BodyGoal, CheckIn, DailyHealth, Dose, FitnessGoal, Medication, Workout } from '../db/schema';
+import type { BodyEntry, BodyGoal, DailyHealth, Dose, FitnessGoal, Medication, Workout } from '../db/schema';
 import type { Digest } from '../logic/digest';
-import { intakeTrend, proteinVsLean, readinessTrend, readinessVsPerformance } from '../logic/fitnessInsights';
 import { addIntake } from '../db/repos/training';
 import { useToast } from '../app/toast';
 import type { Units } from '../db/repos/settings';
@@ -189,66 +187,6 @@ export function TrainingReport({ sum, units }: { sum: TrainingSummary; units: Un
         </div>
       )}
     </section>
-  );
-}
-
-function Bars({ values, max, label, target }: { values: { key: string; v: number }[]; max: number; label: string; target?: number | null }) {
-  return (
-    <div className="relative flex items-end gap-0.5 h-16 mt-2" role="img" aria-label={label}>
-      {target ? <div className="absolute inset-x-0 border-t border-dashed" style={{ bottom: `${Math.min(100, (target / max) * 100)}%`, borderColor: 'var(--border-strong)' }} aria-hidden="true" /> : null}
-      {values.map((x) => <div key={x.key} className="flex-1 rounded-[2px] bg-text" style={{ height: `${Math.max(3, (x.v / max) * 100)}%`, opacity: target && x.v < target ? 0.45 : 1 }} />)}
-    </div>
-  );
-}
-
-/** Trends: protein, water and readiness by day, and what they link to in the person's own records. */
-export function TrainingTrends({ daily, body, checkIns, workouts, start, end, s, targets }: {
-  daily: DailyHealth[]; body: BodyEntry[]; checkIns: CheckIn[]; workouts: Workout[]; start: number; end: number; s: ScheduleSettings; targets: { protein: number | null; water: number | null };
-}) {
-  const intake = intakeTrend(daily, body, start, end, targets);
-  const ready = readinessTrend(daily, checkIns, start, end, s).slice(-31);
-  const pl = proteinVsLean(daily, body);
-  const rp = readinessVsPerformance(workouts, daily, checkIns, s);
-  if (!intake && !ready.length && !pl && !rp) return null;
-  const last = intake?.days.slice(-31) ?? [];
-  return (
-    <>
-      {intake?.protein && (
-        <section className="border-t border-border pt-5 pb-1" aria-labelledby="pr-h">
-          <h2 id="pr-h" className="text-sm font-medium text-muted">Protein</h2>
-          <HeadlineStat h={{ value: String(intake.protein.avg), unit: 'g a day', delta: intake.protein.onTarget !== undefined ? `${intake.protein.onTarget} of ${intake.protein.days} days at ${targets.protein} g` : undefined }} />
-          {intake.protein.perKg && <p className="text-sm text-muted tnum">{intake.protein.perKg} g per kg of body weight</p>}
-          <Bars values={last.filter((d) => d.protein).map((d) => ({ key: d.date, v: d.protein! }))} max={Math.max(...last.map((d) => d.protein ?? 0), targets.protein ?? 0)} target={targets.protein}
-            label={`Protein each logged day: ${last.filter((d) => d.protein).map((d) => `${d.date} ${d.protein} g`).join(', ')}`} />
-          {intake.water && (
-            <>
-              <h3 className="text-sm font-medium text-muted mt-4">Water</h3>
-              <HeadlineStat h={{ value: (intake.water.avg / 1000).toFixed(1), unit: 'L a day', delta: intake.water.onTarget !== undefined && targets.water ? `${intake.water.onTarget} of ${intake.water.days} days at ${(targets.water / 1000).toFixed(1)} L` : undefined }} />
-              <Bars values={last.filter((d) => d.water).map((d) => ({ key: d.date, v: d.water! }))} max={Math.max(...last.map((d) => d.water ?? 0), targets.water ?? 0)} target={targets.water}
-                label={`Water each logged day: ${last.filter((d) => d.water).map((d) => `${d.date} ${d.water} mL`).join(', ')}`} />
-            </>
-          )}
-          <p className="text-xs text-muted mt-1">Logged days only. Pale bars are under your target.</p>
-        </section>
-      )}
-      {ready.length >= 3 && (
-        <section className="border-t border-border pt-5 pb-1" aria-labelledby="rd-h">
-          <h2 id="rd-h" className="text-sm font-medium text-muted">Ready to train</h2>
-          <HeadlineStat h={{ value: String(Math.round(ready.reduce((n, x) => n + x.score, 0) / ready.length)), unit: 'average', delta: `${ready.filter((x) => x.score < 55).length} low of ${ready.length} days` }} />
-          <Bars values={ready.map((x) => ({ key: String(x.t), v: x.score }))} max={100} target={55} label={`Readiness by day: ${ready.map((x) => `${format(x.t, 'd MMM')} ${x.score}`).join(', ')}`} />
-          <p className="text-xs text-muted mt-1">Pale bars are low days (under 55).</p>
-        </section>
-      )}
-      {(pl || rp) && (
-        <section className="border-t border-border pt-5 pb-1 space-y-4" aria-labelledby="ln-h">
-          <h2 id="ln-h" className="text-sm font-medium text-muted">Links in your records</h2>
-          {rp && <CompareBars a={`Better readiness (about ${rp.higher.score})`} b={`Lower (about ${rp.lower.score})`}
-            rows={[{ label: `Lifts against your recent level (${rp.higher.sessions} and ${rp.lower.sessions} sessions)`, a: rp.higher.pct, b: rp.lower.pct, fmt: (v) => `${v > 0 ? '+' : ''}${v}%` }]} />}
-          {pl && <CompareBars a={`Protein about ${pl.higher.protein} g`} b={`About ${pl.lower.protein} g`}
-            rows={[{ label: `Share of weight lost that was lean mass (${pl.higher.spans + pl.lower.spans} spans)`, a: pl.higher.share, b: pl.lower.share, fmt: (v) => `${v}%` }]} />}
-        </section>
-      )}
-    </>
   );
 }
 

@@ -59,3 +59,21 @@ export function Segmented<T extends string>({ label, value, options, onChange }:
     </div>
   );
 }
+
+/** One of several, as a row of chips that scrolls sideways when there are many (medicines, habits). */
+export function ChipPicker<T extends string>({ label, value, options, onChange }: {
+  label: string; value: T; options: { value: T; label: string }[]; onChange: (v: T) => void;
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} className="-mx-6 px-6 overflow-x-auto no-scrollbar">
+      <div className="flex gap-2 w-max py-1">
+        {options.map((o) => (
+          <button key={o.value} type="button" role="radio" aria-checked={value === o.value} onClick={() => onChange(o.value)}
+            className={`h-10 px-4 rounded-chip text-sm font-medium whitespace-nowrap transition-colors ${value === o.value ? 'bg-primary text-on-primary' : 'bg-surface-2'}`}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}

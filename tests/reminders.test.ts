@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { CheckIn, Dose, Medication } from '../src/db/schema';
-import { checkInPromptDose, lowStockMeds, needsBackup } from '../src/logic/reminders';
+import { checkInDue, checkInPromptDose, lowStockMeds, needsBackup, planCheckInNotes } from '../src/logic/reminders';
+import type { ScheduleSettings } from '../src/logic/schedule';
 import { buildIcs } from '../src/logic/ics';
 
 const H = 3_600_000, DAY = 24 * H;
@@ -29,6 +30,36 @@ describe('check-in prompt', () => {
     expect(checkInPromptDose([dose(now - 2 * H)], [], now, 90, 'd1')).toBeUndefined();
     expect(checkInPromptDose([dose(now - 2 * H)], [], now, 0, null)).toBeUndefined();
     expect(checkInPromptDose([dose(now - 7 * H)], [], now, 90, null)).toBeUndefined();
+  });
+});
+
+describe('check-ins asked for more often', () => {
+  const S: ScheduleSettings = { dayStartsAt: '04:00', tz: 'Australia/Sydney', guardMinutes: 10 };
+  // Wed 15 Jul 2026 in Sydney (UTC+10): 8 pm is 10:00Z.
+  const eight = Date.parse('2026-07-15T10:00:00Z');
+  const o = { delayMin: 90, times: ['20:00'], dismissed: null };
+  it('asks at the daily time for up to 4 hours, unless a check-in came from an hour before', () => {
+    expect(checkInDue([], [], eight - 60_000, o, S)).toBeUndefined();
+    expect(checkInDue([], [], eight + H, o, S)).toMatchObject({ kind: 'daily', key: 'daily:2026-07-15 20:00', at: eight });
+    expect(checkInDue([], [], eight + 5 * H, o, S)).toBeUndefined();
+    expect(checkInDue([], [ci(eight - 30 * 60_000)], eight + H, o, S)).toBeUndefined();
+    expect(checkInDue([], [ci(eight - 2 * H)], eight + H, o, S)?.kind).toBe('daily');
+    expect(checkInDue([], [], eight + H, { ...o, dismissed: 'daily:2026-07-15 20:00' }, S)).toBeUndefined();
+  });
+  it('puts the after-dose check-in first, and never asks about a skipped dose', () => {
+    expect(checkInDue([dose(eight - 30 * 60_000)], [], eight + H, o, S)).toMatchObject({ kind: 'dose', key: 'd1' });
+    expect(checkInDue([{ ...dose(eight - 30 * 60_000), skipped: true }], [], eight + H, o, S)?.kind).toBe('daily');
+  });
+  it('plans notifications after the latest dose and at each daily time for a week', () => {
+    const noon = Date.parse('2026-07-15T02:00:00Z');
+    const plan = planCheckInNotes([dose(noon - H)], [], noon, { delayMin: 90, times: ['20:00'] }, S);
+    expect(plan[0]).toMatchObject({ kind: 'dose', at: noon + 30 * 60_000 });
+    expect(plan.filter((p) => p.kind === 'daily')).toHaveLength(7);
+    expect(new Set(plan.map((p) => p.id)).size).toBe(plan.length);
+    // Already checked in this evening: today's time is left out.
+    const late = planCheckInNotes([], [ci(eight - 20 * 60_000)], eight - 10 * 60_000, { delayMin: 90, times: ['20:00'] }, S);
+    expect(late.map((p) => p.at)).not.toContain(eight);
+    expect(planCheckInNotes([], [], noon, { delayMin: 0, times: [] }, S)).toEqual([]);
   });
 });
 

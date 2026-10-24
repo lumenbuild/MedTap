@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { format } from 'date-fns';
-import { CheckCircle2, ChevronRight, Flag, TrendingDown, TrendingUp } from 'lucide-react';
+import { CheckCircle2, Flag, TrendingDown, TrendingUp } from 'lucide-react';
 import type { BodyEntry, BodyGoal, GoalMetric } from '../../db/schema';
 import type { Units } from '../../db/repos/settings';
 import { setGoal } from '../../db/repos/people';
@@ -53,12 +53,13 @@ export function goalLine(v: GoalView, units: Units): string {
 }
 
 /** Body screen: each goal's forecast, and setting goals. */
-export function GoalsSection({ personId, goals, entries, units, now }: { personId: string; goals: BodyGoal[]; entries: BodyEntry[]; units: Units; now: number }) {
+/** `chartFor`: a goal's chart, drawn inside its card (weight's goal is on the weight chart, so it has none). */
+export function GoalsSection({ personId, goals, entries, units, now, chartFor }: { personId: string; goals: BodyGoal[]; entries: BodyEntry[]; units: Units; now: number; chartFor?: (g: BodyGoal) => ReactNode }) {
   const [editing, setEditing] = useState<GoalMetric | 'new' | null>(null);
   const free = GOAL_METRICS.filter((m) => !goals.some((g) => g.metric === m.metric));
   return (
     <>
-      {goals.map((g) => <GoalCard key={g.metric} view={goalView(g, entries, now)} units={units} now={now} onEdit={() => setEditing(g.metric)} />)}
+      {goals.map((g) => <GoalCard key={g.metric} view={goalView(g, entries, now)} units={units} now={now} onEdit={() => setEditing(g.metric)} chart={chartFor?.(g)} />)}
       {free.length > 0 && (
         <Button variant="secondary" className="w-full flex items-center justify-center gap-2" onClick={() => setEditing('new')}>
           <Flag size={18} aria-hidden="true" /> {goals.length ? 'Set another goal' : 'Set a goal'}
@@ -73,7 +74,7 @@ export function GoalsSection({ personId, goals, entries, units, now }: { personI
   );
 }
 
-function GoalCard({ view, units, now, onEdit }: { view: GoalView; units: Units; now: number; onEdit: () => void }) {
+function GoalCard({ view, units, now, onEdit, chart }: { view: GoalView; units: Units; now: number; onEdit: () => void; chart?: ReactNode }) {
   const { goal: g, points, f, weekAgo, last } = view;
   const u = valueFmt(g.metric, units);
   const rate = (w: number) => `${w < 0 ? 'down' : 'up'} ${u.fmt(Math.abs(w))} a week`;
@@ -118,7 +119,7 @@ function GoalCard({ view, units, now, onEdit }: { view: GoalView; units: Units; 
           {ms.length > 0 && <Milestones list={ms} fmt={u.fmt} />}
         </>
       )}
-      <a href="#/trends" className="flex items-center gap-1 min-h-[44px] text-primary font-semibold">See the chart <ChevronRight size={18} aria-hidden="true" /></a>
+      {chart}
     </Card>
   );
 }

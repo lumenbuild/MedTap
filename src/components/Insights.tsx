@@ -55,7 +55,7 @@ function WearOffRow({ w, now }: { w: WearOff; now: number }) {
 
 export function StallLine({ stall }: { stall: Stall }) {
   return (
-    <IconRow Icon={stall.likelyWater ? Droplet : TrendingDown} tone="watch" href="#/progress/trends">
+    <IconRow Icon={stall.likelyWater ? Droplet : TrendingDown} tone="watch" href="#/progress/body">
       {stall.likelyWater ? `Weight steady ${stall.days} days, probably water` : `Weight steady for ${stall.days} days`}
       {!stall.likelyWater && stall.diffs.length > 0 && <span className="block text-sm text-muted">{stall.diffs.slice(0, 2).map((d) => `${d.label} ${d.before} → ${d.during}`).join(' · ')}</span>}
     </IconRow>

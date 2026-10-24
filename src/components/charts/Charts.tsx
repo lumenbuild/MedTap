@@ -6,7 +6,7 @@ import type { Units } from '../../db/repos/settings';
 import type { ScheduleSettings } from '../../logic/schedule';
 import { getDailyTarget } from '../../logic/schedule';
 import {
-  adherenceByDay, average, bodySeries, chipCounts, dailyAverages, daysBetween, doseIntervals, doseTimes, histogram,
+  adherenceByDay, average, bodySeries, dailyAverages, daysBetween, doseIntervals, doseTimes, histogram,
   median, rollingAverage, ymdToMs, type Pt,
 } from '../../logic/stats';
 import { cmTo, fmtLength, kgTo, lengthUnit, MEASUREMENTS, weightUnit } from '../../logic/units';
@@ -29,7 +29,7 @@ const point = (th: ChartTheme, color: string) => ({ pointRadius: 4, pointHoverRa
 // 1. Weight, the one weight chart: weigh-ins, the 7-day average, the goal, and where it's heading (through the dose
 // plan when there is one, else towards the goal) with its likely range.
 export interface WeightForecast { points: { t: number; v: number; low?: number; high?: number }[]; text?: string }
-export function WeightChart({ entries, start, end, units, marks = [], goalKg, forecast, extra }: RangeProps & { entries: BodyEntry[]; units: Units; extra?: ReactNode;
+export function WeightChart({ entries, start, end, units, marks = [], goalKg, forecast, extra, actions }: RangeProps & { entries: BodyEntry[]; units: Units; extra?: ReactNode; actions?: ReactNode;
   /** Dose changes to mark on the chart (peptide tools: titration steps). */
   marks?: { at: number; text: string }[]; goalKg?: number; forecast?: WeightForecast | null }) {
   const all = bodySeries(entries, 'weightKg', -Infinity, Infinity);
@@ -48,7 +48,7 @@ export function WeightChart({ entries, start, end, units, marks = [], goalKg, fo
     ...(goalKg !== undefined ? [{ label: 'Goal', style: 'goal' as const, points: [{ t: start, v: k(goalKg) }, { t: to, v: k(goalKg) }] }] : []),
   ];
   const headline = trendHeadline(avg.length ? avg : pts, (v) => String(k(v)), u, start, end);
-  return <TrendChart title="Weight" series={series} start={start} end={to} unit={u} marks={marks} summary={fc?.text ?? null} extra={extra} headline={headline}
+  return <TrendChart title="Weight" series={series} start={start} end={to} unit={u} marks={marks} summary={fc?.text ?? null} extra={extra} actions={actions} headline={headline}
     empty={pts.length ? null : 'No weigh-ins in this range.'} />;
 }
 
@@ -64,13 +64,13 @@ export function trendHeadline(pts: Pt[], show: (v: number) => string, unit: stri
 }
 
 // 2. Measurements: one small chart per measurement logged.
-export function MeasurementCharts({ entries, start, end, units, skip = [] }: RangeProps & { entries: BodyEntry[]; units: Units; skip?: string[] }) {
+export function MeasurementCharts({ entries, start, end, units, skip = [], footer, actions, empty }: RangeProps & { entries: BodyEntry[]; units: Units; skip?: string[]; footer?: ReactNode; actions?: ReactNode; empty?: string }) {
   const th = useChartTheme();
   const series = MEASUREMENTS.filter((m) => !skip.includes(m.key)).map((m) => ({ ...m, pts: bodySeries(entries, m.key, start, end) })).filter((m) => m.pts.length);
   const u = lengthUnit(units);
   return (
-    <ChartCard title="Measurements" height={null} key={th.key}
-      empty={series.length ? null : 'No measurements in this range.'}
+    <ChartCard title="Measurements" height={null} key={th.key} footer={footer} actions={actions}
+      empty={series.length ? null : empty ?? 'No measurements in this range.'}
       table={{ head: ['Date', 'Measurement', `Value (${u})`], rows: series.flatMap((m) => m.pts.map((p) => [fmtDay(p.t), m.label, cmTo(p.v, units)])) }}>
       <div className={`grid gap-4 ${series.length > 1 ? 'grid-cols-2' : ''}`}>
         {series.map((m) => {
@@ -125,7 +125,8 @@ export function WeekGrid({ days, cell, label }: { days: string[]; label: string;
 }
 
 // 3. Adherence heatmap: a calendar grid of doses per day vs the user's own daily target.
-export function AdherenceHeatmap({ meds, doses, start, end, s, realNames }: RangeProps & { meds: Medication[]; doses: Dose[] }) {
+/** `oneMed`: the charts are for the one medicine picked above them, so its name isn't repeated in each. */
+export function AdherenceHeatmap({ meds, doses, start, end, s, realNames, oneMed }: RangeProps & { meds: Medication[]; doses: Dose[]; oneMed?: boolean }) {
   const nameOf = nameFor(realNames);
   const capStart = Math.max(start, end - 182 * DAY); // at most 26 weeks so cells stay tappable
   const days = daysBetween(capStart, end, s);
@@ -143,10 +144,12 @@ export function AdherenceHeatmap({ meds, doses, start, end, s, realNames }: Rang
           const full = target ? scheduled.filter((c) => c.count >= (c.target ?? 0)).length : null;
           return (
             <div key={med.id}>
-              <div className="flex items-center gap-2 mb-2">
-                <MedBadge color={realNames ? med.color : shownColour(med)} icon={med.icon} size={24} />
-                <span className="font-medium">{nameOf(med)}</span>
-              </div>
+              {!oneMed && (
+                <div className="flex items-center gap-2 mb-2">
+                  <MedBadge color={realNames ? med.color : shownColour(med)} icon={med.icon} size={24} />
+                  <span className="font-medium">{nameOf(med)}</span>
+                </div>
+              )}
               {full !== null && <p className="text-sm text-muted mb-2 tnum">All logged on {full} of {scheduled.length} scheduled day{scheduled.length === 1 ? '' : 's'}</p>}
               <WeekGrid days={cells.map((c) => c.day)} label={`${nameOf(med)}: ${full !== null ? `all doses logged on ${full} of ${scheduled.length} scheduled days` : `doses on ${cells.filter((c) => c.count).length} of ${cells.length} days`}`}
                 cell={(i) => {
@@ -180,7 +183,7 @@ export function AdherenceHeatmap({ meds, doses, start, end, s, realNames }: Rang
 // 4. Dose timing: time of day each dose was taken, one small chart per medication, zoomed to the hours used, with a
 // dotted line at the usual time of the first dose.
 const shortHour = (h: number) => { const hh = ((Math.round(h) % 24) + 24) % 24; return `${hh % 12 || 12} ${hh < 12 ? 'am' : 'pm'}`; };
-export function DoseTimingCharts({ meds, doses, start, end, s, realNames }: RangeProps & { meds: Medication[]; doses: Dose[] }) {
+export function DoseTimingCharts({ meds, doses, start, end, s, realNames, oneMed }: RangeProps & { meds: Medication[]; doses: Dose[]; oneMed?: boolean }) {
   const nameOf = nameFor(realNames);
   const th = useChartTheme();
   const series = meds.map((m) => ({ med: m, pts: doseTimes(doses, m.id, start, end, s) })).filter((x) => x.pts.length);
@@ -205,7 +208,7 @@ export function DoseTimingCharts({ meds, doses, start, end, s, realNames }: Rang
           return (
             <div key={med.id}>
               <p className="flex items-baseline justify-between gap-3">
-                <span className="font-medium flex items-center gap-2"><MedBadge color={realNames ? med.color : shownColour(med)} icon={med.icon} size={22} />{nameOf(med)}</span>
+                {oneMed ? <span /> : <span className="font-medium flex items-center gap-2"><MedBadge color={realNames ? med.color : shownColour(med)} icon={med.icon} size={22} />{nameOf(med)}</span>}
                 {med1 !== null && <span className="text-sm text-muted tnum">usually <span className="font-semibold text-text">{hourLabel(med1)}</span></span>}
               </p>
               <div style={{ height: Math.min(180, 70 + span * 9) }} className="mt-2">
@@ -227,7 +230,9 @@ export function DoseTimingCharts({ meds, doses, start, end, s, realNames }: Rang
 
 // 5. How you've felt: one small chart per measure (mood, energy, focus, appetite), on the same dates, each with its
 // daily averages as dots and the 7-day average as a line; medication changes marked in every row and listed below.
-export function FeelingsChart({ checkIns, events, meds, start, end, s, prevStart, realNames }: RangeProps & { checkIns: CheckIn[]; events: MedEvent[]; meds: Medication[]; prevStart: number | null }) {
+export function FeelingsChart({ checkIns, events, meds, start, end, s, prevStart, realNames, extra }: RangeProps & { checkIns: CheckIn[]; events: MedEvent[]; meds: Medication[]; prevStart: number | null;
+  /** More about check-ins under the chart (what was noticed most, the coming days). */
+  extra?: ReactNode }) {
   const th = useChartTheme();
   const nameOf = nameFor(realNames);
   const fields = [['mood', 'Mood'], ['energy', 'Energy'], ['focus', 'Focus'], ['appetite', 'Appetite']] as const;
@@ -249,11 +254,14 @@ export function FeelingsChart({ checkIns, events, meds, start, end, s, prevStart
     <ChartCard title="How you've felt" height={null} key={th.key} empty={rows.length ? null : 'No check-ins in this range.'}
       summary={rows.length ? `Average of your check-ins each day, 1 (low) to 5 (high)${periodDays ? `, against the ${periodDays} days before` : ''}.` : null}
       table={{ head: ['Date', ...rows.map((r) => r.label)], rows: days.map((t) => [fmtDay(t), ...rows.map((r) => { const x = r.pts.find((p) => p.t === t); return x ? Math.round(x.v * 10) / 10 : '–'; })]) }}
-      footer={markAt.length > 0 && (
-        <ol className="mt-3 space-y-1 text-sm">
-          {markAt.map((m, i) => <li key={i} className="flex gap-2"><span className="font-semibold tnum w-4">{i + 1}</span><span className="text-muted tnum">{format(m.at, 'd MMM')}</span><span>{m.text}</span></li>)}
-        </ol>
-      )}>
+      footer={<>
+        {markAt.length > 0 && (
+          <ol className="mt-3 space-y-1 text-sm">
+            {markAt.map((m, i) => <li key={i} className="flex gap-2"><span className="font-semibold tnum w-4">{i + 1}</span><span className="text-muted tnum">{format(m.at, 'd MMM')}</span><span>{m.text}</span></li>)}
+          </ol>
+        )}
+        {extra}
+      </>}>
       <div className="space-y-1">
         {rows.map((r, i) => {
           const d = r.cur !== null && r.prev !== null ? Math.round((r.cur - r.prev) * 10) / 10 : null;
@@ -278,31 +286,13 @@ export function FeelingsChart({ checkIns, events, meds, start, end, s, prevStart
   );
 }
 
-// 7. Noticed most: the most frequent check-in chips.
-export function NoticedMost({ checkIns, start, end }: RangeProps & { checkIns: CheckIn[] }) {
-  const th = useChartTheme();
-  const counts = chipCounts(checkIns, start, end);
-  const top = counts.slice(0, 8);
-  return (
-    <ChartCard title="Noticed most" key={th.key} height={Math.max(80, top.length * 34 + 16)}
-      empty={top.length ? null : 'Nothing noted in check-ins in this range.'}
-      summary={top.length ? `${top[0].chip}: ${top[0].count} time${top[0].count === 1 ? '' : 's'}${counts.length > 8 ? `. Showing the top 8 of ${counts.length}.` : ''}` : null}
-      table={{ head: ['Noticed', 'Times'], rows: counts.map((c) => [c.chip, c.count]) }}>
-      <Bar data={{ labels: top.map((c) => c.chip), datasets: [{ data: top.map((c) => c.count), backgroundColor: th.series[0], borderRadius: 4, borderSkipped: 'start', maxBarThickness: 24 }] }}
-        options={{ ...baseOptions(th), indexAxis: 'y', layout: { padding: { right: 28 } }, interaction: { mode: 'nearest', intersect: true },
-          plugins: { ...baseOptions(th).plugins,
-            // @ts-expect-error custom plugin options
-            barValues: { enabled: true, color: th.text } },
-          scales: { x: { ...baseOptions(th).scales.x, display: false, beginAtZero: true }, y: { ...baseOptions(th).scales.y, grid: { display: false }, ticks: { ...baseOptions(th).scales.y.ticks, color: th.text } } } }} />
-    </ChartCard>
-  );
-}
-
 // 8. Interval check: hours between consecutive doses on the same day.
-export function IntervalCharts({ meds, doses, start, end, s, realNames }: RangeProps & { meds: Medication[]; doses: Dose[] }) {
+export function IntervalCharts({ meds, doses, start, end, s, realNames, oneMed }: RangeProps & { meds: Medication[]; doses: Dose[]; oneMed?: boolean }) {
   const nameOf = nameFor(realNames);
   const th = useChartTheme();
   const series = meds.map((m) => ({ med: m, gaps: doseIntervals(doses, m.id, start, end, s) })).filter((x) => x.gaps.length);
+  // For one medicine taken once a day, a gap or two is noise rather than a pattern: leave the card out.
+  if (oneMed && (series[0]?.gaps.length ?? 0) < 4) return null;
   return (
     <ChartCard title="Time between doses" height={null} key={th.key}
       empty={series.length ? null : 'Shows up once you log two or more doses of something in a day.'}
@@ -315,7 +305,7 @@ export function IntervalCharts({ meds, doses, start, end, s, realNames }: RangeP
           const sched = med.schedule.type === 'interval' && med.schedule.intervalHours ? ` Your schedule is every ${med.schedule.intervalHours} hours.` : '';
           return (
             <div key={med.id}>
-              <p className="font-medium">{realNames ? fmtMedName(med) : shownMedName(med)}</p>
+              {!oneMed && <p className="font-medium">{realNames ? fmtMedName(med) : shownMedName(med)}</p>}
               <p className="text-sm text-muted tnum">Usually {fmtDuration(med1 * 3_600_000).replace(/(\d)([dhm])\b/g, (_, n, u) => `${n} ${u === 'd' ? 'd' : u === 'h' ? 'h' : 'min'}`)} between doses ({gaps.length} gap{gaps.length === 1 ? '' : 's'}).{sched}</p>
               {gaps.length >= 4 && <div style={{ height: 150 }} className="mt-2">
                 <Bar data={{ labels: bins.map((b) => `${b.from}–${b.to}h`), datasets: [{ label: nameOf(med), data: bins.map((b) => b.count), backgroundColor: color, borderRadius: 4, borderSkipped: 'start', maxBarThickness: 24 }] }}
@@ -333,7 +323,7 @@ export function IntervalCharts({ meds, doses, start, end, s, realNames }: RangeP
 
 
 // 9. Blood pressure and heart rate: two charts on the same dates (different units, so never one chart with two scales).
-export function VitalsCharts({ vitals, start, end }: RangeProps & { vitals: Vital[] }) {
+export function VitalsCharts({ vitals, start, end, footer, actions, empty }: RangeProps & { vitals: Vital[]; footer?: ReactNode; actions?: ReactNode; empty?: string }) {
   const th = useChartTheme();
   const inRange = vitals.filter((v) => !v.deletedAt && Date.parse(v.at) >= start && Date.parse(v.at) <= end).sort((a, b) => a.at.localeCompare(b.at));
   const bp = inRange.filter((v) => v.systolic && v.diastolic);
@@ -345,8 +335,8 @@ export function VitalsCharts({ vitals, start, end }: RangeProps & { vitals: Vita
   ].filter(Boolean).join(', ');
   const at = (v: Vital) => Date.parse(v.at);
   return (
-    <ChartCard title="Blood pressure and heart rate" height={null} key={th.key}
-      empty={inRange.length ? null : 'No readings in this range.'}
+    <ChartCard title="Blood pressure and heart rate" height={null} key={th.key} footer={footer} actions={actions}
+      empty={inRange.length ? null : empty ?? 'No readings in this range.'}
       headline={bp.length ? { value: `${avg(bp.map((v) => v.systolic!))}/${avg(bp.map((v) => v.diastolic!))}`, unit: 'mmHg average', delta: hr.length ? `heart rate ${avg(hr.map((v) => v.heartRate!))} bpm` : undefined } : null}
       summary={summary ? summary[0].toUpperCase() + summary.slice(1) : null}
       table={{ head: ['When', 'Blood pressure (mmHg)', 'Heart rate (bpm)'], rows: [...inRange].reverse().map((v) =>

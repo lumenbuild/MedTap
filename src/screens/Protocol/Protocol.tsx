@@ -256,7 +256,7 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal 
       {HAS_BODY && (
         <div className="mt-5">
           {path ? (
-            <a href="#/progress/trends"
+            <a href="#/progress/body"
               className="flex items-center gap-3 rounded-card bg-surface-2 p-3">
               <TrendingDown aria-hidden="true" className="shrink-0" />
               <span className="flex-1 min-w-0">

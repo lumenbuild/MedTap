@@ -6,26 +6,29 @@ import { IconRow } from '../../components/ui/Visual';
 import { autoBackupState, BackupError, regainPermission } from '../../app/autoBackup';
 import { isNative } from '../../nfc/native';
 import { useToast } from '../../app/toast';
-import type { Dose, Medication } from '../../db/schema';
+import type { Medication } from '../../db/schema';
+import type { CheckInAsk } from '../../logic/reminders';
 import { setSetting } from '../../db/repos/settings';
 import { go } from '../../app/router';
 import { useInstallPrompt } from '../../app/install';
-import { fmtAgo } from '../../logic/format';
+import { fmtAgo, fmtTime } from '../../logic/format';
 import { isAndroid, isStandalone } from '../../platform';
 import { APP_NAME } from '../../config';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 
-/** After a dose: one tap on a face starts a check-in with that mood. */
-export function CheckInPrompt({ dose, med, now, onCheckIn }: { dose: Dose; med?: Medication; now: number; onCheckIn: (mood?: number) => void }) {
+/** After a dose, or at a daily check-in time: one tap on a face starts a check-in with that mood. */
+export function CheckInPrompt({ ask, med, now, onCheckIn }: { ask: CheckInAsk; med?: Medication; now: number; onCheckIn: (mood?: number) => void }) {
   const faces = [Frown, Annoyed, Meh, Smile, Laugh];
   return (
     <Card className="space-y-2">
       <div className="flex items-center justify-between">
-        <p className="font-semibold">How are you feeling?</p>
-        <button type="button" aria-label="Not now" className="w-11 h-11 -mr-2 flex items-center justify-center text-muted" onClick={() => setSetting('dismissedCheckInDoseId', dose.id)}><X size={20} /></button>
+        <p className="font-semibold">{ask.kind === 'daily' ? 'How has today been?' : 'How are you feeling?'}</p>
+        <button type="button" aria-label="Not now" className="w-11 h-11 -mr-2 flex items-center justify-center text-muted" onClick={() => setSetting('dismissedCheckInDoseId', ask.key)}><X size={20} /></button>
       </div>
-      <p className="text-sm text-muted tnum -mt-2">{fmtAgo(now - Date.parse(dose.takenAt)).replace(' ago', '')} after {med ? shownName(med) : 'your dose'}</p>
+      <p className="text-sm text-muted tnum -mt-2">
+        {ask.dose ? `${fmtAgo(now - Date.parse(ask.dose.takenAt)).replace(' ago', '')} after ${med ? shownName(med) : 'your dose'}` : `Your ${fmtTime(ask.at)} check-in`}
+      </p>
       <div className="grid grid-cols-5 gap-2" role="group" aria-label="Mood">
         {faces.map((F, i) => (
           <button key={i} type="button" aria-label={`Mood ${i + 1} of 5`} onClick={() => onCheckIn(i + 1)}
@@ -34,6 +37,22 @@ export function CheckInPrompt({ dose, med, now, onCheckIn }: { dose: Dose; med?:
       </div>
     </Card>
   );
+}
+
+/** Opens the check-in by itself when one comes due (once each, a moment after Today shows, and not over another
+ *  sheet). */
+export function CheckInAutoOpen({ ask, enabled, shown, busy, onOpen }: { ask?: CheckInAsk; enabled: boolean; shown: string | null; busy: boolean; onOpen: (ask: CheckInAsk) => void }) {
+  const key = ask && enabled && !busy && shown !== ask.key ? ask.key : null;
+  useEffect(() => {
+    if (!key || !ask) return;
+    const t = setTimeout(() => {
+      if (document.visibilityState !== 'visible') return;
+      void setSetting('checkInPopupShown', key);
+      onOpen(ask);
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
 }
 
 export function BackupReminder({ days }: { days: number }) {
