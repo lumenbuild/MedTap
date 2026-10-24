@@ -150,6 +150,28 @@ export function Settings({ section }: { section?: string }) {
           </select>
         </Pick>
         <div>
+          <span className="block text-sm font-medium mb-2">Ask how the day went at</span>
+          <ul className="flex flex-wrap gap-2">
+            {settings.checkInTimes.map((t) => (
+              <li key={t} className="flex items-center gap-1 pl-4 pr-1 min-h-[44px] rounded-chip bg-surface-2 text-sm tnum">
+                {fmtHHmm(t)}
+                <button onClick={() => setSetting('checkInTimes', settings.checkInTimes.filter((x) => x !== t))} aria-label={`Remove ${fmtHHmm(t)}`}
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-muted"><X size={16} aria-hidden="true" /></button>
+              </li>
+            ))}
+            {settings.checkInTimes.length === 0 && <li className="text-sm text-muted min-h-[44px] flex items-center">No daily check-in</li>}
+          </ul>
+          {settings.checkInTimes.length < 4 && (
+            <label className="flex items-center gap-3 mt-3 text-sm">
+              <span>Add a time</span>
+              <input type="time" aria-label="Add a daily check-in time" className={`${selectCls} max-w-[9rem]`}
+                onChange={(e) => { const v = e.target.value; if (/^\d{2}:\d{2}$/.test(v) && !settings.checkInTimes.includes(v)) { void setSetting('checkInTimes', [...settings.checkInTimes, v].sort()); e.target.value = ''; } }} />
+            </label>
+          )}
+        </div>
+        <Switch label="Open the check-in by itself" checked={settings.checkInPopup} onChange={(v) => setSetting('checkInPopup', v)}>When one is due and the app is open, once each</Switch>
+        {isNative && <Switch label="Check-in notifications" checked={settings.checkInNotify} onChange={(v) => setSetting('checkInNotify', v)}>After a dose and at your daily times. They never name a medicine.</Switch>}
+        <div>
           <span className="block text-sm font-medium mb-2">What you can tick</span>
           <ul className="flex flex-wrap gap-2">
             {settings.chips.map((c) => (
@@ -309,7 +331,7 @@ export function Settings({ section }: { section?: string }) {
         {isNative && <Row href="#/settings/reminders" Icon={Bell} title="Reminders" value={settings.remindersEnabled ? 'On' : 'Off'} />}
         <Row href="#/settings/doses" Icon={Pill} title="Doses" value={`Day starts ${fmtHHmm(settings.dayStartsAt)}`} />
         {HAS_BODY && settings.trainingTools && <Row href="#/settings/training" Icon={Dumbbell} title="Training" value={`Rest ${restLabel(settings.restSeconds)}`} />}
-        <Row href="#/settings/checkins" Icon={Smile} title="Check-ins" value={settings.checkInDelayMin ? 'Asks after doses' : 'Off'} />
+        <Row href="#/settings/checkins" Icon={Smile} title="Check-ins" value={[settings.checkInDelayMin ? 'after doses' : null, settings.checkInTimes.length ? settings.checkInTimes.map(fmtHHmm).join(', ') : null].filter(Boolean).join(' · ').replace(/^./, (c) => c.toUpperCase()) || 'Off'} />
         <Row href="#/settings/people" Icon={Users} title="People and sync" value={`${fam?.people.length ?? 1} ${fam && fam.people.length > 1 ? 'people' : 'person'} · sync ${sync ? 'on' : 'off'}`} />
         {isNative && <Row href="#/settings/health" Icon={HeartPulse} title="Health data" value={settings.healthImport ? 'On' : 'Off'} />}
         <Row href="#/backup" Icon={HardDriveDownload} title="Backup and restore" value={last ? fmtAgo(now - last) : 'None yet'} />

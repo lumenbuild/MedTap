@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 import type { CheckIn, DailyHealth, Dose, Medication, Vital, BodyEntry } from '../db/schema';
 import type { ScheduleSettings } from '../logic/schedule';
 import {
-  effectWindow, reminderSuggestion, riskySlots, slotHabits, type CheckInForecast, type EffectWindow, type SleepImpact,
+  effectWindow, reminderSuggestion, riskySlots, slotHabits, type CheckInForecast, type EffectWindow,
 } from '../logic/habits';
 import { oddRecords, scriptPlan, scriptVisits, type OddRecord } from '../logic/records';
 import { fmtHHmm, WEEKDAYS } from '../logic/format';
@@ -204,30 +204,19 @@ function OddSheet({ odd, dismissed, onClose }: { odd: OddRecord[]; dismissed: st
 
 // ── Trends ──────────────────────────────────────────────────────────────────────────────────────────
 
-export function SleepImpactCard({ r }: { r: SleepImpact }) {
-  const t = format(new Date(2026, 0, 1, r.cutoffHour), 'h a').toLowerCase();
-  const line = (x: SleepImpact['before']) => [x.quality !== undefined ? `sleep rated ${x.quality} of 5` : null, x.hours !== undefined ? `${x.hours} hours` : null].filter(Boolean).join(', ');
-  return (
-    <section className="border-t border-border pt-5 pb-1" aria-labelledby="sleep-h">
-      <h2 id="sleep-h" className="text-sm font-medium text-muted mb-1">Last dose and sleep</h2>
-      <p className="text-[17px]">When your last dose is after about <span className="font-medium">{t}</span>, your sleep is usually worse.</p>
-      <p className="text-[15px] tnum mt-1">Before {t}: {line(r.before)} ({r.before.nights} nights). After: {line(r.after)} ({r.after.nights} nights).</p>
-    </section>
-  );
-}
-
-export function CheckInForecastCard({ f }: { f: CheckInForecast }) {
+/** Under "How you've felt": the likely check-ins over the coming days. */
+export function CheckInForecastBlock({ f }: { f: CheckInForecast }) {
   const fields = (['focus', 'mood', 'appetite'] as const).filter((k) => f.days.some((d) => d.values[k] !== undefined));
   return (
-    <section className="border-t border-border pt-5 pb-1" aria-labelledby="ciforecast-h">
-      <h2 id="ciforecast-h" className="text-sm font-medium text-muted mb-2">The coming days</h2>
+    <div className="mt-5">
+      <h3 className="font-medium mb-2">The coming days</h3>
       <HeatTable columns={f.days.map((d) => format(d.start, 'EEE'))} highlight={0}
         rows={[
           ...fields.map((k) => ({ label: k[0].toUpperCase() + k.slice(1), values: f.days.map((d) => d.values[k] ?? null), fmt: (v: number) => v.toFixed(1) })),
           { label: 'Dose', values: f.days.map(() => null), text: f.days.map((d) => (d.dose ? '●' : '')) },
         ]} />
       <p className="text-xs text-muted mt-1">Likely check-ins, 1 to 5, from your usual pattern. Stronger colour is higher.</p>
-    </section>
+    </div>
   );
 }
 
@@ -240,7 +229,7 @@ export function EffectWindowCards({ meds, doses, checkIns, now }: { meds: Medica
       <ul className="space-y-4">
         {rows.map(({ m, w }) => (
           <li key={m.id}>
-            <p className="font-medium">{shownName(m)}</p>
+            {rows.length > 1 && <p className="font-medium">{shownName(m)}</p>}
             <p className="text-[15px]">{windowText(w!)}</p>
             <div className="flex items-end gap-0.5 h-10 mt-2" role="img" aria-label={`Focus by hour after a dose: ${w!.byHour.filter((b) => b.focus !== undefined).map((b) => `${b.h} h ${b.focus}`).join(', ')}`}>
               {w!.byHour.map((b) => <div key={b.h} className="flex-1 rounded-[2px]" style={{ height: `${((b.focus ?? 0) / 5) * 100}%`, minHeight: b.focus ? 2 : 0, background: w!.onsetH !== undefined && b.h >= w!.onsetH && (w!.wearOffH === undefined || b.h < w!.wearOffH) ? 'var(--text)' : 'var(--border-strong)' }} />)}

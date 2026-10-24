@@ -21,7 +21,16 @@ export interface AppSettings {
   chips: string[];
   /** Minutes after a dose to suggest a check-in on Today. 0 turns it off. */
   checkInDelayMin: number;
+  /** The check-in prompt closed with "Not now": a dose id (after a dose) or a daily time's key (see checkInDue). */
   dismissedCheckInDoseId: string | null;
+  /** Times each day to ask how the day went ("20:00"); empty for none. */
+  checkInTimes: string[];
+  /** Open the check-in by itself when one is due (once each), not just the card on Today. */
+  checkInPopup: boolean;
+  /** The last check-in that opened by itself, so it does once. */
+  checkInPopupShown: string | null;
+  /** Phone notifications for check-ins (after a dose and at the daily times), with reminders allowed. */
+  checkInNotify: boolean;
   /** Medication id → the stock count when its low-stock banner was dismissed. */
   dismissedLowStock: Record<string, number>;
   installCardDismissed: boolean;
@@ -129,6 +138,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   chips: DEFAULT_CHIPS,
   checkInDelayMin: 90,
   dismissedCheckInDoseId: null,
+  checkInTimes: ['20:00'],
+  checkInPopup: true,
+  checkInPopupShown: null,
+  checkInNotify: true,
   dismissedLowStock: {},
   installCardDismissed: false,
   lockEnabled: false,

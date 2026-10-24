@@ -19,6 +19,7 @@ import { liveSnoozes, planReminders, snoozeOf, SNOOZE_MIN, withoutSnoozed } from
 import { planTrainingReminders } from '../logic/trainingPlan';
 import { trainingVsPeptide } from '../logic/training';
 import { wearOffToday } from '../logic/wearOff';
+import { planCheckInNotes } from '../logic/reminders';
 import { fmtAmount, fmtTime } from '../logic/format';
 import { shownName } from '../logic/privacy';
 import { discreetName, viewMeds } from '../logic/privateView';
@@ -76,7 +77,7 @@ export async function initNative() {
   // Protein, water and check-ins change only some widgets: refresh just those quickly.
   let quick: ReturnType<typeof setTimeout> | undefined;
   liveQuery(() => Promise.all([db.daily.count(), db.daily.orderBy('date').last(), db.checkIns.count(), db.bodyEntries.count()]))
-    .subscribe(() => { clearTimeout(quick); quick = setTimeout(() => { void syncExtras(); }, 1500); });
+    .subscribe(() => { clearTimeout(quick); quick = setTimeout(() => { void syncExtras(); void syncCheckIns(); }, 1500); });
 }
 
 /** Taps on the watch: log each at the time it was tapped, at the planned amount, unless one was logged just before
@@ -145,6 +146,7 @@ async function syncExtras() {
 async function onAction({ actionId, notification }: ActionPerformed) {
   const { medId, amount, route, dueAt } = (notification.extra ?? {}) as { medId?: string; amount?: number; route?: string; dueAt?: number };
   // Training reminders open Training; the rest timer just brings the app (and the workout) back.
+  if (route === '/checkin') { go('/today'); requestCheckIn(); return; }
   if (route) { if (route !== 'back') go(route); return; }
   if (!medId) return;
   const med = await db.medications.get(medId);
@@ -226,6 +228,7 @@ async function doSync() {
   if (settings.trainingTools && settings.trainingReminders) await scheduleTraining(settings);
   if (settings.digestNotify) await scheduleDigest();
   if (settings.wearOffNotify) await scheduleWearOff(settings);
+  await scheduleCheckIns(settings);
   if (!settings.remindersEnabled) return;
   const [meds, doses, people] = await Promise.all([db.medications.toArray(), db.doses.toArray(), listPeople()]);
   const live = doses.filter((d) => !d.deletedAt);
@@ -297,6 +300,35 @@ async function scheduleWearOff(settings: Awaited<ReturnType<typeof getSettings>>
       body: settings.discreetReminders ? `About ${fmtTime(w.at)}` : `Focus likely drops about ${fmtTime(w.at)}`,
       schedule: { at: new Date(w.at - 30 * 60_000), allowWhileIdle: true }, channelId: CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/today' } })),
   });
+}
+
+const CHECKIN_IDS = Array.from({ length: 40 }, (_, i) => ({ id: 900_500_000 + i }));
+
+/** Check-in notifications (after the latest dose and at the daily times) for the person being shown. They say nothing
+ *  about which medicine, so they suit the lock screen as they are. */
+async function scheduleCheckIns(settings: Awaited<ReturnType<typeof getSettings>>) {
+  if (!settings.checkInNotify) return;
+  const who = settings.activePersonId;
+  const [meds, doses, checkIns] = await Promise.all([db.medications.toArray(), db.doses.toArray(), db.checkIns.toArray()]);
+  const mine = meds.filter((m) => medIsFor(m, who));
+  const ids = new Set(mine.map((m) => m.id));
+  const plan = planCheckInNotes(dosesForPerson(doses.filter((d) => ids.has(d.medicationId)), mine, who), checkIns.filter((c) => personOf(c) === who), Date.now(),
+    { delayMin: settings.checkInDelayMin, times: settings.checkInTimes }, scheduleSettings(settings));
+  if (!plan.length) return;
+  await LocalNotifications.schedule({
+    notifications: plan.map((r) => ({ id: r.id, title: r.kind === 'daily' ? 'How has today been?' : 'How are you feeling?', body: 'Tap for a quick check-in.',
+      schedule: { at: new Date(r.at), allowWhileIdle: true }, channelId: CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/checkin' } })),
+  });
+}
+
+/** After a check-in (or a dose): replace just the check-in notifications. */
+async function syncCheckIns() {
+  if (!isNative) return;
+  try {
+    if ((await reminderPermission()) !== 'granted') return;
+    await LocalNotifications.cancel({ notifications: CHECKIN_IDS });
+    await scheduleCheckIns(await getSettings());
+  } catch (e) { console.error('check-in notifications', e); }
 }
 
 /** Next Monday 8:30 am: "Your week" (the digest is on Today until Wednesday). */

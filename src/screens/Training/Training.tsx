@@ -16,7 +16,7 @@ import { useNow } from '../../app/useNow';
 import { go } from '../../app/router';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { Button } from '../../components/ui/Button';
-import { GoalTimeline, MuscleWatchCard, PeptideTrainingCard, ReadinessBlock } from '../../components/Fitness';
+import { GoalTimeline, PeptideTrainingCard, ReadinessBlock } from '../../components/Fitness';
 import { ACTIVITIES, CardioSheet, GoalSheet, PlatesSheet, StartSheet } from './TrainingSheets';
 import { finishCardio } from '../../db/repos/training';
 import { fmtLoad } from '../../logic/load';
@@ -187,7 +187,6 @@ export function Training() {
       )}
 
       {peptide && <PeptideTrainingCard med={peptide} doses={doses} workouts={ws} tz={s.tz} />}
-      <MuscleWatchCard body={body.filter(mine)} units={settings.units} med={peptide} doses={doses} now={now} />
 
       {bal.sessions > 0 && (
         <section className="border-t border-border pt-5 pb-1" aria-labelledby="bal-h">

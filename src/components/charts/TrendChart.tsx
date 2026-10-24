@@ -37,6 +37,8 @@ export interface TrendChartProps {
   bare?: boolean;
   /** Shown under the chart (e.g. what's different during a stall). */
   extra?: ReactNode;
+  /** Buttons under the chart, shown even when it's empty (Log weight). */
+  actions?: ReactNode;
   /** The number the chart is about, big above it. */
   headline?: Headline | null;
   /** Hide the date axis (a row in a stack of charts that share the bottom one's). */
@@ -206,7 +208,7 @@ export function TrendChart(p: TrendChartProps) {
     </div>
   );
   return (
-    <ChartCard title={p.title} key={th.key} height={p.height ?? 230} headline={p.headline} legend={legend} empty={any ? null : p.empty ?? 'Nothing logged in this range.'} summary={p.summary} table={table}
+    <ChartCard title={p.title} key={th.key} height={p.height ?? 230} headline={p.headline} legend={legend} actions={p.actions} empty={any ? null : p.empty ?? 'Nothing logged in this range.'} summary={p.summary} table={table}
       footer={<>
         {marks.length > 0 && (
           <ol className="mt-3 space-y-1 text-sm">

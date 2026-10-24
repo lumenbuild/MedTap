@@ -26,7 +26,7 @@ export function DoseLevelsCards({ meds, doses, body, checkIns, units, now }: { m
         if (!levels.length) return null;
         return (
           <Card key={m.id} className="space-y-2">
-            <h2 className="text-sm font-medium text-muted">Dose levels: {shownName(m)}</h2>
+            <h2 className="text-sm font-medium text-muted">Dose levels{meds.length > 1 ? `: ${shownName(m)}` : ''}</h2>
             <p className="text-sm text-muted">Weight and check-ins on each dose, newest first.</p>
             <ul className="space-y-3">
               {[...levels].reverse().map((l) => {
@@ -85,7 +85,7 @@ export function BlendCharts({ meds, doses, start, end }: RangeProps & { meds: Me
         const days = [...byDay.keys()].sort();
         const totals = names.map((_, i) => days.reduce((n, k) => n + byDay.get(k)![i], 0));
         return (
-          <ChartCard key={`${m.id}-${th.key}`} title={`Blend: ${shownName(m)}`}
+          <ChartCard key={`${m.id}-${th.key}`} title={meds.length > 1 ? `Blend: ${shownName(m)}` : 'Blend'}
             empty={days.length ? null : 'No doses in this range.'}
             summary={`In this range: ${parts.map((b, i) => `${fmtAmount(Math.round(totals[i] * 1000) / 1000, b.unit)} ${b.name}`).join(', ')}.`}
             table={{ head: ['Date', ...names], rows: [...days].reverse().map((k) => [fmtDay(ymdToMs(k)), ...byDay.get(k)!]) }}>

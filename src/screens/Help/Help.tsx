@@ -90,7 +90,7 @@ const CONTENT: Record<string, ReactNode> = {
         <p>At the bottom, <strong>Logged today</strong> lists everything you logged. Tap a row to change or remove it; the arrows step back to earlier days.</p>
       </Step>
       <Step n={6} title="Check in">
-        <p>A few taps on mood, focus, energy and anything you noticed. {APP_NAME} asks a while after a dose, and Trends sets them against your doses, sleep and more. The more check-ins, the sharper the patterns.</p>
+        <p>A few taps on mood, focus, energy and anything you noticed. {APP_NAME} asks a while after a dose and at the times you choose each day (8 pm to start), opening the check-in by itself when the app is open and, on the phone app, with a notification. Change the times or turn either off in Settings → <strong>Check-ins</strong>. Trends sets check-ins against your doses, sleep and more: the more you do, the sharper the patterns.</p>
       </Step>
       <Step n={7} title="Reminders">
         {isNative
@@ -193,7 +193,7 @@ const CONTENT: Record<string, ReactNode> = {
       <H>Today</H>
       <p>The effect window for today's dose, when to book a doctor for a script, records that look odd (a dose logged twice{HAS_BODY ? ', a typo in a weight' : ''}, a date in the future){HAS_VISITS ? ', and your next appointment' : ''}.</p>
       <H>Trends</H>
-      <p><strong>The coming days</strong> (likely focus, mood and appetite) and <strong>Last dose and sleep</strong> (the time after which sleep is usually worse){HAS_VISITS ? <>, and <strong>Appt</strong> to compare with before your last appointment</> : null}.</p>
+      <p><strong>The coming days</strong> (likely focus, mood and appetite, under How you've felt) and <strong>Last dose and sleep</strong> (the time after which sleep is usually worse, under What goes with what){HAS_VISITS ? <>, and <strong>Appt</strong> to compare with before your last appointment</> : null}.</p>
       <H>Reminders</H>
       <p>In the app, <strong>Nudge me if I haven't logged it</strong> sends a second reminder a while after your usual time.</p>
       {HAS_VISITS ? (
@@ -208,11 +208,13 @@ const CONTENT: Record<string, ReactNode> = {
         </>
       )}
       <p>Check-in notes suggest chips (“bit queasy” → Nausea)<Pep>, and adding vials can read the lot and expiry from a photo of the label</Pep>.</p>
-      <H>More patterns in Trends</H>
+      <H>How Trends is laid out</H>
       <ul className="list-disc pl-5 space-y-1">
-        <li><strong>Days on and off</strong>: check-ins on days you took a medicine against days you didn't.</li>
-        <li><strong>Caffeine and alcohol</strong>: tap Coffee or Alcohol on Today; Trends compares the next morning's sleep (and, for alcohol, side effects the next day).</li>
-        <li><strong>Heart rate after a dose</strong>{HAS_BODY ? <> and <strong>steps and weight</strong></> : null}: from Health Connect or Apple Health.</li>
+        <li><strong>How you've felt</strong>: your check-ins, what you noticed most and the coming days, in one place.</li>
+        <li><strong>Medicines</strong>: pick one, and every chart under it is about that medicine: doses per day, timing, effect window, <strong>days on and off</strong> (check-ins on days taken against days not) and <strong>heart rate after a dose</strong>.</li>
+        <li><strong>Daily habits</strong>: pick {HAS_BODY ? 'food, protein, water, ' : ''}steps, sleep, resting heart rate or HRV for one chart over the range.</li>
+        <li><strong>What goes with what</strong>: last dose and sleep, caffeine and alcohol (tap Coffee or Alcohol on Today){HAS_BODY ? <>, steps and weight, readiness and lifts, protein and lean mass</> : null}, side by side.</li>
+        {HAS_BODY && <li>Weight, measurements, goals and blood pressure are charted once, on <strong>Body</strong>.</li>}
       </ul>
       <H>Count what's left</H>
       <p>Meds → <strong>Count</strong> (also on a medication's page, and on the Today card when stock is low): type the count, or for tablets and capsules take a photo of them spread out on a plain surface, not touching (counted on the phone; the photo isn't kept). It compares with what your logs say should be left, and can log doses you took but didn't log.</p>

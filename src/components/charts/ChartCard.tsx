@@ -45,15 +45,23 @@ export function ChartLegend({ items }: { items: LegendItem[] }) {
 
 /** Title, the headline number, one plain-English line, the chart, and the same data as a table (for screen readers,
  *  print and colour-independent reading). */
-export function ChartCard({ title, summary, empty, children, table, height = 220, footer, headline, legend }: {
+export function ChartCard({ title, summary, empty, children, table, height = 220, footer, headline, legend, controls, actions }: {
   title: string; summary?: string | null; empty?: string | null; children?: ReactNode; height?: number | null; footer?: ReactNode;
+  /** Under the title, shown even when there's nothing to chart (a picker). */
+  controls?: ReactNode;
+  /** Buttons under the chart (or the empty message), before the table: log a reading, add one. */
+  actions?: ReactNode;
   table?: { head: string[]; rows: (string | number)[][] }; headline?: Headline | null; legend?: LegendItem[];
 }) {
   return (
     <section className="border-t border-border pt-5 pb-2 chart-card" aria-label={title}>
       <h2 className="text-sm font-medium text-muted">{title}</h2>
+      {controls && <div className="mt-2">{controls}</div>}
       {empty ? (
-        <p className="text-muted mt-1">{empty}</p>
+        <>
+          <p className="text-muted mt-1">{empty}</p>
+          {actions && <div className="mt-3">{actions}</div>}
+        </>
       ) : (
         <>
           {headline && <div className="mt-1"><HeadlineStat h={headline} /></div>}
@@ -61,6 +69,7 @@ export function ChartCard({ title, summary, empty, children, table, height = 220
           {legend && legend.length > 1 && <div className="mt-3"><ChartLegend items={legend} /></div>}
           <div className="mt-3 relative" style={height ? { height } : undefined} aria-hidden={table ? true : undefined}>{children}</div>
           {footer}
+          {actions && <div className="mt-3">{actions}</div>}
           {table && table.rows.length > 0 && (
             <details className="mt-3 chart-table">
               <summary className="min-h-[44px] inline-flex items-center gap-1.5 text-sm text-muted cursor-pointer no-print"><Table2 size={16} aria-hidden="true" />Table</summary>

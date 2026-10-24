@@ -13,7 +13,7 @@ import { useToast } from '../../app/toast';
 import { go } from '../../app/router';
 import { addToCalendar } from '../../app/calendar';
 import { byUrgency, getLastDose, getNextDue, getStatus, nextUp } from '../../logic/schedule';
-import { checkInPromptDose, needsBackup, refillAlerts } from '../../logic/reminders';
+import { checkInDue, needsBackup, refillAlerts } from '../../logic/reminders';
 import { RefillCards } from '../../components/Refill';
 import { VialAlerts } from '../Meds/VialCard';
 import { GoalLines } from '../Body/Goals';
@@ -47,7 +47,7 @@ import { Timeline } from './Timeline';
 import { DoseEditSheet } from './DoseEditSheet';
 import { planRecords, RestartCard, StepPrompt } from '../../components/DosePlan';
 import { restartPrompt, stepStatus } from '../../logic/dosePlan';
-import { AutoBackupPermission, BackupReminder, CheckInPrompt, InstallCard, UpdateCard } from './PromptCards';
+import { AutoBackupPermission, BackupReminder, CheckInAutoOpen, CheckInPrompt, InstallCard, UpdateCard } from './PromptCards';
 import { HAS_BODY, HAS_PEPTIDES, HAS_VISITS } from '../../edition';
 import { DigestCard, IntakeCard } from '../../components/Fitness';
 import { weeklyDigest } from '../../logic/digest';
@@ -154,7 +154,8 @@ export function Today() {
     const t = Date.parse(r.createdAt);
     return min === null || t < min ? t : min;
   }, null);
-  const promptDose = fam.everyone ? undefined : checkInPromptDose(viewDoses, viewCheckIns, now, settings.checkInDelayMin, settings.dismissedCheckInDoseId);
+  // A check-in to ask for: after a dose or at one of the person's daily times.
+  const ask = fam.everyone ? undefined : checkInDue(viewDoses, viewCheckIns, now, { delayMin: settings.checkInDelayMin, times: settings.checkInTimes, dismissed: settings.dismissedCheckInDoseId }, s);
   const refills = refillAlerts(viewMeds, doses, Math.floor(now / 60_000) * 60_000, s, settings.refillWarnDays, settings.dismissedLowStock);
   const last = settings.lastBackupAt ? Date.parse(settings.lastBackupAt) : null;
 
@@ -267,7 +268,9 @@ export function Today() {
         );
       })()}
 
-      {promptDose && <CheckInPrompt dose={promptDose} med={medMap.get(promptDose.medicationId)} now={now} onCheckIn={(mood) => setCheckIn({ relatedDoseId: promptDose.id, mood })} />}
+      {ask && <CheckInPrompt ask={ask} med={ask.dose && medMap.get(ask.dose.medicationId)} now={now} onCheckIn={(mood) => setCheckIn({ relatedDoseId: ask.dose?.id, mood })} />}
+      <CheckInAutoOpen ask={ask} enabled={settings.checkInPopup} shown={settings.checkInPopupShown} busy={!!(checkIn || logFor || editing || bodySheet)}
+        onOpen={(a) => setCheckIn({ relatedDoseId: a.dose?.id })} />
       {active.map((m) => {
         // Dosing plans: a step that's due, or a reason to start another course.
         const r = planRecords(m, viewDoses, checkIns, body);
