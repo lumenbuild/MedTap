@@ -122,7 +122,7 @@ function PhotoCount({ onCount }: { onCount: (url: string, r: Counted['result']) 
     <div>
       <input ref={input} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { void read(e.target.files?.[0]); e.target.value = ''; }} />
       <Button variant="secondary" disabled={busy} className="w-full flex items-center justify-center gap-2" onClick={() => input.current?.click()}><Camera size={18} aria-hidden="true" /> {busy ? 'Counting…' : 'Count from a photo'}</Button>
-      <p className="text-xs text-muted mt-1">Spread them out, not touching, on a plain surface in a different colour (dark for white tablets), in even light. The photo isn't kept.</p>
+      <p className="text-xs text-muted mt-1">In one layer (touching is fine, not stacked) on a plain surface in a different colour (dark for white tablets), in even light. The photo isn't kept.</p>
     </div>
   );
 }
