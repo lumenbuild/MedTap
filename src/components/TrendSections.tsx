@@ -19,6 +19,7 @@ function look(key: HabitKey, energy: EnergyUnit): { show: (v: number) => number;
     case 'energy': { const u = energy === 'kJ' ? 'kJ' : 'Cal'; return { show: (v) => Math.round(energy === 'kJ' ? v * KJ : v), unit: u, per: `${u} a day` }; }
     case 'protein': return { show: r(0), unit: 'g', per: 'g a day' };
     case 'water': return { show: (v) => r(1)(v / 1000), unit: 'L', per: 'L a day' };
+    case 'caffeine': return { show: r(0), unit: 'mg', per: 'mg a day' };
     case 'steps': return { show: r(0), unit: 'steps', per: 'steps a day' };
     case 'sleep': return { show: r(1), unit: 'h', per: 'h a night' };
     case 'restingHr': return { show: r(0), unit: 'bpm', per: 'bpm on average' };
@@ -45,12 +46,14 @@ export function DailyHabitsCard({ habits, foodLogs, energy, start, end, prevDays
       delta: diff === 0 ? `same as the ${prevDays} days before` : `${diff > 0 ? 'up' : 'down'} ${num(Math.abs(diff))} on the ${prevDays} days before` } : {}),
   };
   const target = h.target !== undefined ? show(h.target) : undefined;
+  const limit = h.limit !== undefined ? show(h.limit) : undefined;
   // Food: the average logged day's protein, carbs and fat as well.
   const food = h.key === 'energy' ? totalsFor(foodLogs, start, end) : null;
   const perDay = (v?: number) => Math.round((v ?? 0) / h.days.length);
   const summary = [
     `${h.days.length} day${h.days.length === 1 ? '' : 's'} with records`,
     h.onTarget !== undefined && target !== undefined ? `${h.onTarget} at your ${num(target)} ${unit}` : null,
+    h.underLimit !== undefined && limit !== undefined ? `${h.underLimit} at or under your ${num(limit)} ${unit}` : null,
     food ? `an average day had ${perDay(food.protein)} g protein, ${perDay(food.carbs)} g carbs and ${perDay(food.fat)} g fat` : null,
   ].filter(Boolean).join(', ');
   return (
@@ -62,6 +65,7 @@ export function DailyHabitsCard({ habits, foodLogs, energy, start, end, prevDays
           { label: 'Each day', style: 'dots', points: pts },
           ...(pts.length >= 7 ? [{ label: '7-day average', style: 'line' as const, points: rollingAverage(pts) }] : []),
           ...(target !== undefined ? [{ label: 'Your target', style: 'goal' as const, points: [{ t: start, v: target }, { t: end, v: target }] }] : []),
+          ...(limit !== undefined ? [{ label: 'Your limit', style: 'goal' as const, points: [{ t: start, v: limit }, { t: end, v: limit }] }] : []),
         ]} />
     </ChartCard>
   );

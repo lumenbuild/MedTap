@@ -84,7 +84,7 @@ export function Trends() {
   const training = HAS_TRAINING && settings.trainingTools;
   const habits = dailyHabits({ daily, foodLogs: allFood.filter((l) => personOf(l) === fam.personId), checkIns }, start, end, prevStart, s, {
     food: HAS_FOOD && settings.foodTracking, intake: training, readiness: training,
-    targets: { energy: settings.energyTargetKcal, protein: settings.proteinTargetG, water: settings.waterTargetMl },
+    targets: { energy: settings.energyTargetKcal, protein: settings.proteinTargetG, water: settings.waterTargetMl, caffeineLimit: settings.caffeineLimitMg },
   });
   const sleep = sleepImpact(meds.filter((m) => !m.peptide && !m.archived), doses, checkIns, now, s);
   const ciForecast = checkInForecast(meds, doses, checkIns, now, s);
@@ -127,7 +127,8 @@ export function Trends() {
         </>
       )}
       <DailyHabitsCard habits={habits} foodLogs={allFood.filter((l) => personOf(l) === fam.personId)} energy={settings.energyUnit} start={start} end={end} prevDays={prevStart === null ? null : days} />
-      <LinksSection checkIns={checkIns} daily={daily} body={body} workouts={workouts} sleep={sleep} units={settings.units} now={now} s={s} showBody={HAS_BODY} training={training} />
+      <LinksSection checkIns={checkIns} daily={daily} body={body} workouts={workouts} sleep={sleep} units={settings.units} now={now} s={s} showBody={HAS_BODY} training={training}
+        caffeine={{ bedtime: settings.bedtime, halfLifeH: settings.caffeineHalfLifeH, foodLogs: allFood.filter((l) => personOf(l) === fam.personId) }} />
       {HAS_MEDS && (
         <div className="border-t border-border pt-4 grid grid-cols-2 gap-2" role="group" aria-label="More">
           <Tile Icon={FileText} label="Doctor report" href="#/report" />

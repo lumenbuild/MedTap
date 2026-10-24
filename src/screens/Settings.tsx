@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
-import { Bell, Calculator, CalendarCheck, Check, ChevronRight, Clock, Download, Dumbbell, EyeOff, HardDriveDownload, HeartPulse, HelpCircle, Info, Lock, Nfc, Package, Palette, Pill, Plane, RefreshCw, Smile, Syringe, Timer, Users, Utensils, Watch, X, type LucideIcon } from 'lucide-react';
+import { Bell, Calculator, CalendarCheck, Check, ChevronRight, Clock, Coffee, Download, Dumbbell, EyeOff, HardDriveDownload, HeartPulse, HelpCircle, Info, Lock, Nfc, Package, Palette, Pill, Plane, RefreshCw, Smile, Syringe, Timer, Users, Utensils, Watch, X, type LucideIcon } from 'lucide-react';
 import { IconRow } from '../components/ui/Visual';
 import { useSyncConfig } from '../app/sync';
 import { setCheckInNotify, setDigestNotify, setRemindersEnabled, setTrainingReminders, syncReminders } from '../app/native';
@@ -27,6 +27,7 @@ import { BUILD, checkForUpdate } from '../app/updates';
 import { lockNow } from '../app/LockGate';
 import { HAS_WATCH, HAS_MEDS, HAS_BODY, HAS_TRAINING, HAS_FOOD, FOCUS, PLAY, HAS_PEPTIDES, HAS_VISITS, edition, watchDownload } from '../edition';
 import { SIDE_EFFECT_CHIPS } from '../logic/peptide';
+import { HALF_LIVES, LOW_MG } from '../logic/caffeine';
 
 const RemindersCard = lazy(() => import('./RemindersCard'));
 const HealthCard = lazy(() => import('./HealthCard'));
@@ -35,9 +36,9 @@ const HealthCard = lazy(() => import('./HealthCard'));
 
 const selectCls = 'w-full min-h-[48px] rounded-btn bg-surface-2 border border-border px-3';
 
-export type SettingsSection = 'reminders' | 'doses' | 'training' | 'checkins' | 'people' | 'health' | 'privacy' | 'display' | 'watch' | 'about';
+export type SettingsSection = 'reminders' | 'doses' | 'training' | 'checkins' | 'caffeine' | 'people' | 'health' | 'privacy' | 'display' | 'watch' | 'about';
 export const SECTION_TITLE: Record<SettingsSection, string> = {
-  reminders: 'Reminders', doses: 'Doses', training: 'Training', checkins: 'Check-ins', people: 'People and sync', health: 'Health data',
+  reminders: 'Reminders', doses: 'Doses', training: 'Training', checkins: 'Check-ins', caffeine: 'Caffeine', people: 'People and sync', health: 'Health data',
   privacy: 'Privacy', display: 'Display', watch: 'Watch', about: `About ${APP_NAME}`,
 };
 
@@ -139,6 +140,23 @@ export function Settings({ section }: { section?: string }) {
           <TargetInput id="protein" label="Protein a day (g)" value={settings.proteinTargetG} onChange={(v) => setSetting('proteinTargetG', v)} />
           <TargetInput id="water" label="Water a day (mL)" value={settings.waterTargetMl} onChange={(v) => setSetting('waterTargetMl', v)} />
         </div>
+      </Card>
+    ),
+    caffeine: () => (
+      <Card className="space-y-5">
+        <div className="grid grid-cols-2 gap-3">
+          <TargetInput id="caf-limit" label="Your daily limit (mg)" value={settings.caffeineLimitMg} onChange={(v) => setSetting('caffeineLimitMg', v)} />
+          <Pick id="bedtime" label="Usual bedtime">
+            <input id="bedtime" type="time" value={settings.bedtime} className={`${selectCls} tnum`}
+              onChange={(e) => { if (/^\d{2}:\d{2}$/.test(e.target.value)) void setSetting('bedtime', e.target.value); }} />
+          </Pick>
+        </div>
+        <Pick id="caf-hl" label="How fast you clear caffeine" hint="Half of it is gone in about this long. It varies a lot from person to person; if Today's estimate feels off, try another.">
+          <select id="caf-hl" value={settings.caffeineHalfLifeH} onChange={(e) => setSetting('caffeineHalfLifeH', Number(e.target.value))} className={selectCls}>
+            {HALF_LIVES.map((x) => <option key={x.h} value={x.h}>{x.label}</option>)}
+          </select>
+        </Pick>
+        <p className="text-sm text-muted">Today shows the day's caffeine against your limit, about how much is still in you, and when it drops under {LOW_MG} mg. Trends compares your sleep on nights with {LOW_MG} mg or more still in you at bedtime against the others.</p>
       </Card>
     ),
     checkins: () => (
@@ -335,6 +353,7 @@ export function Settings({ section }: { section?: string }) {
         {HAS_MEDS && <Row href="#/settings/doses" Icon={Pill} title="Doses" value={`Day starts ${fmtHHmm(settings.dayStartsAt)}`} />}
         {HAS_TRAINING && settings.trainingTools && <Row href="#/settings/training" Icon={Dumbbell} title="Training" value={`Rest ${restLabel(settings.restSeconds)}`} />}
         <Row href="#/settings/checkins" Icon={Smile} title="Check-ins" value={[HAS_MEDS && settings.checkInDelayMin ? 'after doses' : null, settings.checkInTimes.length ? settings.checkInTimes.map(fmtHHmm).join(', ') : null].filter(Boolean).join(' · ').replace(/^./, (c) => c.toUpperCase()) || 'Off'} />
+        <Row href="#/settings/caffeine" Icon={Coffee} title="Caffeine" value={`${settings.caffeineLimitMg ? `${settings.caffeineLimitMg} mg a day · ` : ''}bed ${fmtHHmm(settings.bedtime)}`} />
         <Row href="#/settings/people" Icon={Users} title="People and sync" value={`${fam?.people.length ?? 1} ${fam && fam.people.length > 1 ? 'people' : 'person'} · sync ${sync ? 'on' : 'off'}`} />
         {isNative && <Row href="#/settings/health" Icon={HeartPulse} title="Health data" value={settings.healthImport ? 'On' : 'Off'} />}
         <Row href="#/backup" Icon={HardDriveDownload} title="Backup and restore" value={last ? fmtAgo(now - last) : 'None yet'} />

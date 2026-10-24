@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { Utensils, BellRing, Sparkles, CalendarClock, ChevronRight, Compass, Info, Lock, Nfc, RefreshCw, ScanText, ShieldCheck, Smartphone, Syringe, Target, Users, Dumbbell } from 'lucide-react';
+import { Coffee, Utensils, BellRing, Sparkles, CalendarClock, ChevronRight, Compass, Info, Lock, Nfc, RefreshCw, ScanText, ShieldCheck, Smartphone, Syringe, Target, Users, Dumbbell } from 'lucide-react';
+import { LOW_MG } from '../../logic/caffeine';
 import { isNative, isNativeIOS } from '../../platform';
 import { APP_NAME, DISCLAIMER } from '../../config';
 import { tagBase } from '../../nfc/url';
@@ -17,6 +18,7 @@ const ALL_TOPICS = [
   ...(HAS_BODY ? [{ id: 'goals', title: 'Goals and forecasts', Icon: Target }] as const : []),
   ...(HAS_TRAINING ? [{ id: 'training', title: 'Training and fitness', Icon: Dumbbell }] as const : []),
   ...(HAS_FOOD ? [{ id: 'food', title: 'Food and nutrition', Icon: Utensils }] as const : []),
+  { id: 'caffeine', title: 'Caffeine', Icon: Coffee },
   { id: 'peptides', title: 'Peptides and injections', Icon: Syringe, peptides: true },
   { id: 'family', title: 'Family members', Icon: Users },
   { id: 'sync', title: 'Family sync', Icon: RefreshCw },
@@ -28,7 +30,7 @@ const ALL_TOPICS = [
   { id: 'lock', title: 'App lock', Icon: Lock },
   { id: 'about', title: `About ${APP_NAME}`, Icon: Info },
 ] as const;
-const FOCUS_TOPIC_IDS = ['start', 'tags', 'goals', 'food', 'training', 'reminders', 'patterns', 'family', 'sync', 'phones', 'privacy', 'lock', 'about'];
+const FOCUS_TOPIC_IDS = ['start', 'tags', 'goals', 'food', 'caffeine', 'training', 'reminders', 'patterns', 'family', 'sync', 'phones', 'privacy', 'lock', 'about'];
 const TOPICS = FOCUS === 'meds' ? ALL_TOPICS : ALL_TOPICS.filter((t) => FOCUS_TOPIC_IDS.includes(t.id)).sort((a, b) => FOCUS_TOPIC_IDS.indexOf(a.id) - FOCUS_TOPIC_IDS.indexOf(b.id));
 
 export const helpTitle = (topic?: string, peptides = HAS_PEPTIDES) => TOPICS.filter((t) => !('peptides' in t) || peptides).find((t) => t.id === topic)?.title ?? 'Help';
@@ -139,7 +141,23 @@ const CONTENT: Record<string, ReactNode> = {
       <p>If you only get one number right, make it protein: it's the one that protects muscle while you lose weight. The rest can be rough.</p>
       {FOCUS === 'weight' && <p>Something you have often (a protein shake, a drink)? Put a tag on it: Settings → Tags → A food or drink, and one tap logs a serving.</p>}
       <H>Where it shows</H>
-      <p>Protein from food adds to the protein on Today (and widgets, the watch and Trends). Caffeine from a drink counts as a caffeine check-in, so the caffeine-and-sleep finding includes it. Energy shows as Calories or kilojoules (Food → Energy), with a daily target if you set one.</p>
+      <p>Protein from food adds to the protein on Today (and widgets, the watch and Trends). Caffeine from a drink adds to the caffeine on Today, with its amount, so the in-you estimate and Trends include it. Energy shows as Calories or kilojoules (Food → Energy), with a daily target if you set one.</p>
+    </>
+  ),
+  caffeine: (
+    <>
+      <H>Log a drink</H>
+      <p>Today → <strong>Coffee</strong>. Tap the drink and it's logged with its caffeine: your usual ones are at the top, then common coffees, teas, energy drinks and others. For anything else, type its name and mg once; after that it's one of your usual ones. <strong>Earlier?</strong> sets the time. Drinks scanned in Food count too.</p>
+      <p>The amounts are typical. Café coffee varies a lot (from about 60 to over 200 mg a cup), so if you know yours, use your own number. Tap a drink in the timeline to change or remove it.</p>
+      <H>On Today</H>
+      <ul className="list-disc pl-5 space-y-1">
+        <li>The day's total against your own limit (Settings → <strong>Caffeine</strong>; 400 mg to start).</li>
+        <li>About how much is still in you, as a curve through the day to your bedtime, and when it drops under {LOW_MG} mg.</li>
+        <li><strong>Again</strong> logs the last drink once more.</li>
+      </ul>
+      <p>The estimate assumes it's absorbed over about an hour and that half is gone every few hours. That time varies a lot between people (about 3 to 8 hours or more), so set yours in Settings → Caffeine if the default feels off. It's an estimate, not a measurement.</p>
+      <H>In Trends</H>
+      <p><strong>Daily habits</strong> → Caffeine: mg each day against your limit. <strong>What goes with what</strong> compares your sleep on nights with {LOW_MG} mg or more likely still in you at bedtime against the others, once there are a few of each.</p>
     </>
   ),
   training: (
@@ -220,12 +238,12 @@ const CONTENT: Record<string, ReactNode> = {
       <ul className="list-disc pl-5 space-y-1">
         <li><strong>How you've felt</strong>: your check-ins, what you noticed most and the coming days, in one place.</li>
         <li><strong>Medicines</strong>: pick one, and every chart under it is about that medicine: doses per day, timing, effect window, <strong>days on and off</strong> (check-ins on days taken against days not) and <strong>heart rate after a dose</strong>.</li>
-        <li><strong>Daily habits</strong>: pick {HAS_BODY ? 'food, protein, water, ' : ''}steps, sleep, resting heart rate or HRV for one chart over the range.</li>
-        <li><strong>What goes with what</strong>: last dose and sleep, caffeine and alcohol (tap Coffee or Alcohol on Today){HAS_BODY ? <>, steps and weight, readiness and lifts, protein and lean mass</> : null}, side by side.</li>
+        <li><strong>Daily habits</strong>: pick {HAS_BODY ? 'food, protein, water, ' : ''}caffeine, steps, sleep, resting heart rate or HRV for one chart over the range.</li>
+        <li><strong>What goes with what</strong>: last dose and sleep, caffeine still in you at bedtime and alcohol (tap Coffee or Alcohol on Today){HAS_BODY ? <>, steps and weight, readiness and lifts, protein and lean mass</> : null}, side by side.</li>
         {HAS_BODY && <li>Weight, measurements, goals and blood pressure are charted once, on <strong>Body</strong>.</li>}
       </ul>
       <H>Count what's left</H>
-      <p>Meds → <strong>Count</strong> (also on a medication's page, and on the Today card when stock is low): type the count, or for tablets and capsules take a photo of them spread out on a plain surface, not touching (counted on the phone; the photo isn't kept). It compares with what your logs say should be left, and can log doses you took but didn't log.</p>
+      <p>Meds → <strong>Count</strong> (also on a medication's page, and on the Today card when stock is low): type the count, or for tablets and capsules take a photo of them in one layer on a plain surface (touching is fine; not stacked) (counted on the phone; the photo isn't kept). It compares with what your logs say should be left, and can log doses you took but didn't log.</p>
       <H>In the app</H>
       <ul className="list-disc pl-5 space-y-1">
         <li><strong>Health Connect / Apple Health</strong> (Settings): read only; steps, sleep and heart rate{HAS_BODY ? ', weigh-ins' : ''} and blood pressure. Imports again when you open the app.</li>

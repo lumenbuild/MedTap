@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, HeartPulse, Nfc, Ruler, Scale, Smile } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Coffee, HeartPulse, Nfc, Ruler, Scale, Smile } from 'lucide-react';
+import { isDrink } from '../../logic/caffeine';
 import { fmtVital } from '../../components/VitalsSheet';
 import { shownColour, shownName } from '../../logic/privacy';
 import { format } from 'date-fns';
@@ -72,6 +73,12 @@ export function Timeline({ doses, checkIns, body, vitals, meds, s, units, now, o
               onClick = () => onDose(it.dose);
               // Shared medications: label with who took this dose.
               if (personLabel) sub = [personLabel(med.shared ? it.dose : med), sub].filter(Boolean).join(' · ');
+            } else if (it.kind === 'checkin' && isDrink(it.checkIn)) {
+              const c = it.checkIn;
+              icon = <Coffee size={20} className="text-primary shrink-0" aria-hidden="true" />;
+              title = <><span className="font-medium">{c.note ?? 'Caffeine'}</span>{c.caffeineMg !== undefined && <span className="tnum"> {c.caffeineMg} mg</span>}</>;
+              onClick = () => onCheckIn(c);
+              if (personLabel) sub = personLabel(c);
             } else if (it.kind === 'checkin') {
               const c = it.checkIn;
               icon = <Smile size={20} className="text-primary shrink-0" aria-hidden="true" />;

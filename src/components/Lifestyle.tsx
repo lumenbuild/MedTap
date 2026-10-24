@@ -1,7 +1,7 @@
 // Trends: days on and off a medicine and heart rate after a dose (for the medicine picked), and every comparison in
 // the person's records in one section. Each says what it rests on; links in the person's records, not causes.
 import { format } from 'date-fns';
-import type { CheckIn, DailyHealth, Dose, Medication, Vital, BodyEntry, Workout } from '../db/schema';
+import type { CheckIn, DailyHealth, Dose, FoodLog, Medication, Vital, BodyEntry, Workout } from '../db/schema';
 import type { ScheduleSettings } from '../logic/schedule';
 import type { Units } from '../db/repos/settings';
 import { heartAfterDose, onOffDays, stepsVsWeight, substanceFindings, type Side } from '../logic/lifestyle';
@@ -47,8 +47,10 @@ export function OnOffCards({ meds, doses, checkIns, now, s }: { meds: Medication
 
 /** Trends, "What goes with what": every comparison in the person's records in one section, each as two bars side by
  *  side: the last dose and sleep, caffeine and alcohol, steps and weight, readiness and lifts, protein and lean mass. */
-export function LinksSection({ checkIns, daily, body, workouts, sleep, units, now, s, showBody = true, training }: {
+export function LinksSection({ checkIns, daily, body, workouts, sleep, units, now, s, showBody = true, training, caffeine }: {
   checkIns: CheckIn[]; daily: DailyHealth[]; body: BodyEntry[]; workouts: Workout[]; sleep: SleepImpact | null; units: Units; now: number; s: ScheduleSettings;
+  /** Bedtime and half-life for the caffeine-at-bedtime comparison, and food logs for drinks logged from Food. */
+  caffeine?: { bedtime: string; halfLifeH: number; foodLogs: FoodLog[] };
   /** Weight-based links (MedTap) and the training ones (training tools on). */
   showBody?: boolean; training: boolean;
 }) {
@@ -59,7 +61,7 @@ export function LinksSection({ checkIns, daily, body, workouts, sleep, units, no
     parts.push({ key: 'sleep', title: 'Last dose and sleep', a: `Last dose before ${t} (${sleep.before.nights} nights)`, b: `After (${sleep.after.nights})`,
       rows: [row('Sleep', sleep.before.hours, sleep.after.hours, hrs), row('Sleep quality (1–5)', sleep.before.quality, sleep.after.quality)] });
   }
-  for (const x of substanceFindings(checkIns, now, s)) {
+  for (const x of substanceFindings(checkIns, now, s, 90, caffeine)) {
     parts.push({ key: x.what, title: x.title, a: `With (${x.with.days} nights)`, b: `Without (${x.without.days})`, rows: [
       row('Sleep', x.with.sleepHours, x.without.sleepHours, hrs), row('Sleep quality (1–5)', x.with.sleepQuality, x.without.sleepQuality),
       ...(x.what === 'alcohol' ? [row('Side effects next day', x.with.effectPct, x.without.effectPct, (v) => `${Math.round(v)}%`)] : []),
@@ -89,7 +91,7 @@ export function LinksSection({ checkIns, daily, body, workouts, sleep, units, no
           </div>
         ))}
       </div>
-      <p className="text-xs text-muted mt-2">Links in your own records, not causes. Caffeine and alcohol come from the buttons on Today or those chips in a check-in; steps from Health Connect or Apple Health.</p>
+      <p className="text-xs text-muted mt-2">Links in your own records, not causes. Caffeine and alcohol come from the buttons on Today, drinks logged in Food, or those chips in a check-in; steps from Health Connect or Apple Health.</p>
     </Section>
   );
 }

@@ -37,7 +37,9 @@ import { ChangeLine, StallLine, WearOffLines } from '../../components/Insights';
 import { weightStall } from '../../logic/stall';
 import { whatChanged } from '../../logic/changes';
 import { appointmentsAround } from '../../logic/appointments';
-import { ALCOHOL, CAFFEINE } from '../../logic/lifestyle';
+import { ALCOHOL } from '../../logic/lifestyle';
+import { intakesOf, isDrink } from '../../logic/caffeine';
+import { CaffeineCard, CaffeineSheet } from '../../components/Caffeine';
 import { addCheckIn, removeCheckIn } from '../../db/repos/checkIns';
 import { useAppointments } from '../../app/data';
 import { dayKey } from '../../logic/stats';
@@ -84,6 +86,7 @@ export function Today() {
   const [editing, setEditing] = useState<Dose | null>(null);
   const [checkIn, setCheckIn] = useState<CheckInSeed | null>(null);
   const [bodySheet, setBodySheet] = useState<BodySheetState>(null);
+  const [drink, setDrink] = useState<{ editing?: CheckIn } | null>(null);
 
   const medMap = useMemo(() => new Map((meds ?? []).map((m) => [m.id, m])), [meds]);
   // The heavier detectors run once a minute (or when the records change), not on every clock tick.
@@ -125,6 +128,9 @@ export function Today() {
   const viewDoses = fam.everyone ? medDoses : dosesForPerson(medDoses, viewMeds, fam.personId);
   const viewCheckIns = checkIns.filter(mine);
   const viewBody = body.filter(mine);
+  // Caffeine for the person shown (in everyone's view the card and sheet aren't shown).
+  const intakes = intakesOf(viewCheckIns);
+  const cafPrefs = { limit: settings.caffeineLimitMg, bedtime: settings.bedtime, halfLifeH: settings.caffeineHalfLifeH };
   const viewVitals = vitals.filter(mine);
   const viewMedMap = new Map(viewMeds.map((m) => [m.id, m]));
   const whose = (r: { personId?: string; shared?: boolean }) => {
@@ -310,7 +316,7 @@ export function Today() {
             ...(FOCUS === 'weight' ? [] : [['Weight', 'Log weight', Scale, () => setBodySheet({ kind: 'weight' })] as const]),
             ['Measure', 'Add measurement', Ruler, () => setBodySheet({ kind: 'measure' })],
           ] as const : []),
-          ['Coffee', 'Log caffeine now', Coffee, () => quick(CAFFEINE, 'Caffeine')],
+          ['Coffee', 'Log caffeine', Coffee, () => setDrink({})],
           ['Alcohol', 'Log alcohol now', Wine, () => quick(ALCOHOL, 'Alcohol')],
           // TapWeigh and TapLift are built around tags: one more tile for them.
           ...(HAS_MEDS ? [] : [['Tags', 'Your tags', Nfc, () => go('/tags')] as const]),
@@ -340,6 +346,8 @@ export function Today() {
           ready={FOCUS === 'training' ? null : readiness(mineDaily, viewCheckIns, now, s)} />;
       })()}
 
+      {!fam.everyone && <CaffeineCard intakes={intakes} prefs={cafPrefs} now={now} s={s} onLog={() => setDrink({})} />}
+
       {HAS_BODY && !fam.everyone && <GoalLines goals={fam.people.find((p) => p.id === fam.personId)?.goals ?? []} entries={viewBody} units={settings.units} now={now} />}
 
       {needsBackup(settings.lastBackupAt, firstRecord, now, settings.backupReminderDays) && <BackupReminder days={settings.backupReminderDays} />}
@@ -348,7 +356,7 @@ export function Today() {
       <InstallCard hasDoses={firstRecord !== null} dismissed={settings.installCardDismissed} />
 
       <Timeline doses={viewDoses} checkIns={viewCheckIns} body={HAS_BODY ? viewBody : []} vitals={viewVitals} onVital={(v) => setVitalSheet({ editing: v })} meds={viewMedMap} s={s} units={settings.units} now={now} personLabel={fam.everyone ? whose : undefined}
-        onDose={setEditing} onCheckIn={(c: CheckIn) => setCheckIn({ editing: c })} onBody={(b: BodyEntry) => setBodySheet({ kind: 'edit', entry: b })} />
+        onDose={setEditing} onCheckIn={(c: CheckIn) => (isDrink(c) ? setDrink({ editing: c }) : setCheckIn({ editing: c }))} onBody={(b: BodyEntry) => setBodySheet({ kind: 'edit', entry: b })} />
 
       <a href="#/backup" className="flex flex-wrap items-center justify-center gap-x-2 min-h-[48px] text-sm text-muted tnum">
         <span className="flex items-center gap-2"><Lock size={16} aria-hidden="true" /> Saved on this device</span>
@@ -364,6 +372,7 @@ export function Today() {
       <CheckInSheet seed={checkIn} onClose={() => setCheckIn(null)} doses={viewDoses} checkIns={viewCheckIns} meds={viewMeds} chips={settings.chips} s={s}
         soreness={HAS_TRAINING && settings.trainingTools} personId={checkIn?.editing ? personOf(checkIn.editing) : fam.personId} />
       <VitalsSheet state={vitalSheet} onClose={() => setVitalSheet(null)} personId={fam.personId} />
+      <CaffeineSheet open={!!drink} editing={drink?.editing} onClose={() => setDrink(null)} intakes={intakes} prefs={cafPrefs} s={s} personId={storedPerson(fam.personId)} />
       <BodySheet state={bodySheet} onClose={() => setBodySheet(null)} units={settings.units} personId={bodySheet?.entry ? personOf(bodySheet.entry) : fam.personId} />
     </div>
   );

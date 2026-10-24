@@ -5,6 +5,7 @@ import { liveQuery } from 'dexie';
 import { db } from '../db/db';
 import { getSettings, scheduleSettings, setSetting } from '../db/repos/settings';
 import { dosesForPerson, listPeople, medIsFor, personOf, storedPerson } from '../db/repos/people';
+import { CAFFEINE, intakesOf, usualDrinks } from '../logic/caffeine';
 import { shortcutItems } from '../logic/widget';
 import { widgetsPayload } from '../logic/widgets';
 import { HAS_BODY, HAS_PEPTIDES } from '../edition';
@@ -111,7 +112,12 @@ async function logWidgetTaps() {
       const at = Number(a.at) || Date.now();
       if (a.kind === 'dose') await logTap(a.medId, at, 'widget');
       else if (a.kind === 'intake' && (a.field === 'proteinG' || a.field === 'waterMl')) await addIntake(who, dayKey(at, scheduleSettings(settings)), a.field, Number(a.amount) || 0);
-      else if (a.kind === 'chip') await addCheckIn({ at: new Date(at).toISOString(), chips: [a.chip], personId: storedPerson(who) });
+      else if (a.kind === 'chip' && a.chip === CAFFEINE) {
+        // Coffee: the person's usual drink and its amount (just "Caffeine" until they have one).
+        const mine = (await db.checkIns.toArray()).filter((c) => personOf(c) === who);
+        const usual = usualDrinks(intakesOf(mine), at)[0];
+        await addCheckIn({ at: new Date(at).toISOString(), chips: [CAFFEINE], personId: storedPerson(who), ...(usual ? { note: usual.name, caffeineMg: usual.mg } : {}) });
+      } else if (a.kind === 'chip') await addCheckIn({ at: new Date(at).toISOString(), chips: [a.chip], personId: storedPerson(who) });
     }
     await syncExtras();
   } catch (e) { console.error('widget taps', e); }

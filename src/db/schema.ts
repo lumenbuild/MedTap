@@ -240,6 +240,8 @@ export interface CheckIn extends Stamped {
   soreness?: number;
   sleepHours?: number; sleepQuality?: number; chips: string[]; note?: string;
   relatedDoseId?: string; deletedAt?: string; personId?: string;
+  /** A caffeine drink (with the Caffeine chip): its mg; the note is the drink's name. */
+  caffeineMg?: number;
 }
 export interface BodyEntry extends Stamped {
   date: string; // local YYYY-MM-DD

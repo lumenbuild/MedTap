@@ -1,32 +1,35 @@
 // Trends, Daily habits: one series per day for each habit the person has records of (food energy, protein, water,
-// steps, sleep, resting heart rate, HRV, readiness), with the average, days at their own target and the average over
-// the same length of time before. Pure.
+// caffeine, steps, sleep, resting heart rate, HRV, readiness), with the average, days at their own target (or, for
+// caffeine, under their own limit) and the average over the same length of time before. Pure.
 import type { CheckIn, DailyHealth, FoodLog } from '../db/schema';
 import type { ScheduleSettings } from './schedule';
 import { readinessTrend } from './fitnessInsights';
 import { dayKey, ymdToMs } from './stats';
+import { intakesOf } from './caffeine';
 
 const live = <T extends { deletedAt?: string }>(x: T) => !x.deletedAt;
 const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
 
-export type HabitKey = 'energy' | 'protein' | 'water' | 'steps' | 'sleep' | 'restingHr' | 'hrv' | 'readiness';
+export type HabitKey = 'energy' | 'protein' | 'water' | 'caffeine' | 'steps' | 'sleep' | 'restingHr' | 'hrv' | 'readiness';
 export interface HabitSeries {
   key: HabitKey; label: string;
   days: { t: number; v: number }[];
   avg: number;
   /** The person's own daily number, and how many logged days reached it (under it for nothing: none of these are limits). */
   target?: number; onTarget?: number;
+  /** Caffeine: the person's own daily limit, and how many logged days stayed at or under it. */
+  limit?: number; underLimit?: number;
   /** Average over the same length of time just before the range. */
   prevAvg?: number;
 }
 export interface HabitInput { daily: DailyHealth[]; foodLogs: FoodLog[]; checkIns: CheckIn[] }
 export interface HabitOptions {
   food: boolean; intake: boolean; readiness: boolean;
-  targets: { energy?: number | null; protein?: number | null; water?: number | null };
+  targets: { energy?: number | null; protein?: number | null; water?: number | null; caffeineLimit?: number | null };
 }
 
 export const HABIT_LABEL: Record<HabitKey, string> = {
-  energy: 'Food', protein: 'Protein', water: 'Water', steps: 'Steps', sleep: 'Sleep', restingHr: 'Resting heart rate', hrv: 'HRV', readiness: 'Ready to train',
+  energy: 'Food', protein: 'Protein', water: 'Water', caffeine: 'Caffeine', steps: 'Steps', sleep: 'Sleep', restingHr: 'Resting heart rate', hrv: 'HRV', readiness: 'Ready to train',
 };
 
 /** Each habit's value by day (keyed by the day's local noon, as ymdToMs gives it). */
@@ -38,6 +41,14 @@ function byDay(key: HabitKey, x: HabitInput, s: ScheduleSettings, from: number, 
       if (t < from || t > to || !l.nutrients.kcal) continue;
       const k = ymdToMs(dayKey(t, s));
       out.set(k, (out.get(k) ?? 0) + l.nutrients.kcal);
+    }
+    return out;
+  }
+  if (key === 'caffeine') {
+    for (const c of intakesOf(x.checkIns, x.foodLogs)) {
+      if (c.t < from || c.t > to) continue;
+      const k = ymdToMs(dayKey(c.t, s));
+      out.set(k, (out.get(k) ?? 0) + c.mg);
     }
     return out;
   }
@@ -64,7 +75,7 @@ function byDay(key: HabitKey, x: HabitInput, s: ScheduleSettings, from: number, 
   return out;
 }
 
-const ORDER: HabitKey[] = ['energy', 'protein', 'water', 'steps', 'sleep', 'restingHr', 'hrv', 'readiness'];
+const ORDER: HabitKey[] = ['energy', 'protein', 'water', 'caffeine', 'steps', 'sleep', 'restingHr', 'hrv', 'readiness'];
 
 /** The habits with 3+ days logged in the range, in a fixed order. */
 export function dailyHabits(x: HabitInput, start: number, end: number, prevStart: number | null, s: ScheduleSettings, o: HabitOptions): HabitSeries[] {
@@ -80,6 +91,7 @@ export function dailyHabits(x: HabitInput, start: number, end: number, prevStart
     out.push({
       key, label: HABIT_LABEL[key], days, avg: mean(vs),
       ...(target ? { target, onTarget: vs.filter((v) => v >= target).length } : {}),
+      ...(key === 'caffeine' && o.targets.caffeineLimit ? { limit: o.targets.caffeineLimit, underLimit: vs.filter((v) => v <= o.targets.caffeineLimit!).length } : {}),
       ...(prev.length >= 3 ? { prevAvg: mean(prev) } : {}),
     });
   }
