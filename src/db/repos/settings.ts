@@ -79,6 +79,11 @@ export interface AppSettings {
   barKg: number;
   proteinTargetG: number | null;
   waterTargetMl: number | null;
+  /** MedTap: food logging (barcodes, label photos, hand portions, meals and recipes), energy shown in Cal or kJ,
+   *  and an optional daily energy target (kcal). */
+  foodTracking: boolean;
+  energyUnit: 'kcal' | 'kJ';
+  energyTargetKcal: number | null;
   /** Rest time worked out per set (heavy sets longer, small muscles shorter) from `restSeconds`. */
   smartRest: boolean;
   /** After a set that was clearly too easy or too hard, change the weight of that exercise's remaining sets. */
@@ -159,6 +164,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   barKg: 20,
   proteinTargetG: null,
   waterTargetMl: null,
+  foodTracking: true,
+  energyUnit: 'kcal',
+  energyTargetKcal: null,
   smartRest: true,
   autoAdjust: true,
   trainingReminders: false,

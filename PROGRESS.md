@@ -772,3 +772,18 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
   - Today's rows, the hero, Meds and Protocol say where each is ("Course, week 4 of 12", "On a break", "Off until …").
 - logic/dosePlan.ts with tests (tests/dose-plan.test.ts); course gating in isScheduledDay, so reminders, widgets,
   the watch, forecasts and reports all follow it.
+
+## Food: macros and micros
+
+- Today → Food (MedTap; Settings → Food to turn off): energy so far, carbs, fat and fibre, and Log food. Food (#/food):
+  the day's totals with every micro the labels gave, entries (edit amount, remove with undo), earlier days, saved
+  foods (star, remove), batch recipes, Calories or kilojoules and a daily energy target.
+- Ways to log: scan a barcode (a photo; the phone's BarcodeDetector, or ZXing loaded on demand) looked up in Open
+  Food Facts (only the number is sent; saved on the phone after, so it's offline next time); a photo of the
+  nutrition panel read on the phone (AU/NZ, US and EU layouts; common OCR slips fixed; checked before saving, and
+  kept with the barcode if it wasn't found); a meal you made by hand portions (palm, cupped hand, fist, thumb), named
+  to log again Smaller, Usual or Bigger; a batch recipe (scan the packs or pick saved, serves, log a serve); typed.
+- A food's protein is added to the day's protein (Today, widgets, watch, Trends, digest and the stall check all
+  count it) and its caffeine makes a caffeine check-in (so the caffeine-and-sleep finding counts it); removing
+  the entry takes both off. Food and food logs are backed up and synced.
+- logic/nutrition.ts (34 nutrients, Open Food Facts mapping, panel parser, portions) with tests; db v10.

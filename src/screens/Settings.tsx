@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
-import { Bell, Calculator, CalendarCheck, Check, ChevronRight, Clock, Download, Dumbbell, EyeOff, HardDriveDownload, HeartPulse, HelpCircle, Info, Lock, Nfc, Package, Palette, Pill, Plane, RefreshCw, Smile, Syringe, Timer, Users, Watch, X, type LucideIcon } from 'lucide-react';
+import { Bell, Calculator, CalendarCheck, Check, ChevronRight, Clock, Download, Dumbbell, EyeOff, HardDriveDownload, HeartPulse, HelpCircle, Info, Lock, Nfc, Package, Palette, Pill, Plane, RefreshCw, Smile, Syringe, Timer, Users, Utensils, Watch, X, type LucideIcon } from 'lucide-react';
 import { IconRow } from '../components/ui/Visual';
 import { useSyncConfig } from '../app/sync';
 import { setDigestNotify, setRemindersEnabled, setTrainingReminders, syncReminders } from '../app/native';
@@ -275,7 +275,7 @@ export function Settings({ section }: { section?: string }) {
     about: () => (
       <>
         <Card className="space-y-3">
-          <p className="text-[15px]">{APP_NAME} keeps everything on this {isNative ? 'phone' : 'device'}. There's no account, and nothing is sent anywhere unless you turn on sync or make a backup.</p>
+          <p className="text-[15px]">{APP_NAME} keeps everything on this {isNative ? 'phone' : 'device'}. There's no account, and nothing is sent anywhere unless you turn on sync or make a backup{HAS_BODY ? ' (a food barcode you scan is looked up by its number alone)' : ''}.</p>
           <p className="text-sm text-muted tnum">{BUILD > 0 ? `Build ${BUILD}` : 'Web version'}</p>
           {isNativeAndroid && BUILD > 0 && (
             <>
@@ -302,6 +302,7 @@ export function Settings({ section }: { section?: string }) {
         <h2 className="text-sm font-medium text-muted mb-1">Features</h2>
         {HAS_PEPTIDES && !priv && <Toggle Icon={Syringe} label="Peptides and injections" checked={settings.peptideTools} onChange={(v) => setSetting('peptideTools', v)} />}
         {HAS_BODY && <Toggle Icon={Dumbbell} label="Training" checked={settings.trainingTools} onChange={(v) => setSetting('trainingTools', v)} />}
+        {HAS_BODY && <Toggle Icon={Utensils} label="Food" checked={settings.foodTracking} onChange={(v) => setSetting('foodTracking', v)} />}
         {isNative && <Toggle Icon={Bell} label="Dose reminders" checked={settings.remindersEnabled} onChange={async (v) => { const on = await setRemindersEnabled(v); if (v && !on) notifyOff(); }} />}
       </section>
       <section aria-label="Settings">

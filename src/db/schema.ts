@@ -359,3 +359,42 @@ export interface Workout extends Stamped {
 /** `repsMax` makes it a rep range (e.g. 8–12): add reps up to the top, then add weight and start from the bottom. */
 export interface RoutineItem { exerciseId: string; sets: number; reps: number; repsMax?: number; weightKg?: number }
 export interface Routine extends Stamped { name: string; items: RoutineItem[]; personId?: string; deletedAt?: string }
+
+// ── Food ───────────────────────────────────────────────────────────────────────────────────────────
+
+/** Nutrients by key (see logic/nutrition NUTRIENTS for each one's unit: kcal, g, mg or µg). */
+export type Nutrients = Partial<Record<string, number>>;
+
+/** Hand portions (an estimate without weighing): palms of protein, fists of veg, cupped hands of carbs, thumbs of fat. */
+export interface Portions { palm: number; fist: number; cupped: number; thumb: number }
+
+/** Something to log again: a packaged product (from its barcode or label), a meal you make, or a batch recipe. */
+export interface Food extends Stamped {
+  name: string; brand?: string; barcode?: string;
+  kind: 'product' | 'meal' | 'recipe';
+  /** Nutrients in one serving. */
+  nutrients: Nutrients;
+  /** What a serving is, in words ("500 mL can", "1 scoop", "1 of 6 serves"). */
+  serving?: string;
+  /** Grams or millilitres in a serving, and nutrients per 100 g/mL, when known (to log by weight). */
+  servingQty?: number; servingUnit?: 'g' | 'mL'; per100?: Nutrients;
+  /** A meal estimated by hand portions. */
+  portions?: Portions;
+  /** A batch recipe: what went in (whole batch) and how many serves it makes. */
+  recipe?: { items: { name: string; amount: string; nutrients: Nutrients }[]; serves: number };
+  /** Where the numbers came from. */
+  source?: 'openfoodfacts' | 'label' | 'typed' | 'portions' | 'recipe';
+  favourite?: boolean; lastUsedAt?: string;
+  personId?: string; deletedAt?: string;
+}
+
+/** Something eaten or drunk. Nutrients are stored as logged, so editing the food later doesn't change history. */
+export interface FoodLog extends Stamped {
+  at: string; name: string; foodId?: string;
+  /** Servings (0.5, 1, 1.5…), or for a meal its size (0.75 small, 1 usual, 1.25 large). */
+  servings: number;
+  nutrients: Nutrients;
+  /** Protein added to the day's protein total (taken off again if this is removed), and the caffeine check-in made. */
+  proteinPosted?: number; caffeineCheckInId?: string;
+  personId?: string; deletedAt?: string;
+}

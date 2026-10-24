@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { clearCheckInRequest, clearLogRequest, onCheckInRequest, onLogRequest } from '../../app/pendingLog';
 import { shownMedName, shownName } from '../../logic/privacy';
 import { CalendarDays, CalendarPlus, Coffee, HeartPulse, Lock, Nfc, Pill, Ruler, Scale, Smile, Wine } from 'lucide-react';
@@ -57,6 +57,8 @@ import { setSetting } from '../../db/repos/settings';
 import { gettingStarted, showGettingStarted } from '../../logic/gettingStarted';
 import { GettingStartedCard } from '../../components/GettingStarted';
 import { readiness } from '../../logic/training';
+
+const FoodToday = lazy(() => import('../Food').then((m) => ({ default: m.FoodToday })));
 
 export function Today() {
   const meds = useMeds();
@@ -300,6 +302,10 @@ export function Today() {
         return dg ? <DigestCard d={dg} seen={settings.digestSeen} notify={settings.digestNotify} onClose={() => setSetting('digestSeen', dg.weekStart)}
           onNotify={isNative ? async () => { const on = await setDigestNotify(true); toast(on ? 'You’ll get your week each Monday at 8:30 am' : 'Notifications are off for this app. Turn them on in your phone’s settings.'); } : undefined} /> : null;
       })()}
+
+      {HAS_BODY && settings.foodTracking && !fam.everyone && (
+        <Suspense fallback={null}><FoodToday personId={fam.personId} energy={settings.energyUnit} target={settings.energyTargetKcal} now={now} /></Suspense>
+      )}
 
       {HAS_BODY && settings.trainingTools && !fam.everyone && daily && (() => {
         const mineDaily = daily.filter((d) => !d.deletedAt && personOf(d) === fam.personId);

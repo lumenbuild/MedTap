@@ -138,7 +138,7 @@ export function IntakeCard({ personId, today, day, proteinTarget, waterTarget, r
         <div className="flex items-center gap-2">
           <Icon size={18} aria-hidden="true" className="text-primary" />
           <span className="font-medium flex-1">{label}</span>
-          <span className="tnum"><span className="text-[20px] font-semibold">{v}</span><span className="text-sm text-muted">{target ? ` / ${target}` : ''} {unit}</span></span>
+          <span className="tnum"><span className="text-[20px] font-semibold">{Math.round(v)}</span><span className="text-sm text-muted">{target ? ` / ${target}` : ''} {unit}</span></span>
         </div>
         {target ? <Bar value={v} max={target} tone={v >= target ? 'good' : 'primary'} label={`${v} of ${target} ${unit}`} /> : null}
         <div className="flex gap-2">

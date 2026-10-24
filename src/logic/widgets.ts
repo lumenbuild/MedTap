@@ -79,7 +79,7 @@ export function widgetsPayload(d: WidgetsInput, now: number, s: ScheduleSettings
   const todayK = dayKey(now, s);
   if (d.body_ && d.training) {
     const row = d.daily.find((x) => !x.deletedAt && x.date === todayK);
-    out.intake = { date: todayK, protein: row?.proteinG ?? 0, proteinTarget: d.proteinTarget ?? undefined, water: row?.waterMl ?? 0, waterTarget: d.waterTarget ?? undefined };
+    out.intake = { date: todayK, protein: Math.round(row?.proteinG ?? 0), proteinTarget: d.proteinTarget ?? undefined, water: row?.waterMl ?? 0, waterTarget: d.waterTarget ?? undefined };
   }
 
   // 5. Quick log: as-needed medicines, then coffee, then a check-in.

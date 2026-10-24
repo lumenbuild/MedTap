@@ -37,6 +37,7 @@ const WorkoutScreen = lazy(() => import('../screens/Training/WorkoutScreen').the
 const ExerciseScreen = lazy(() => import('../screens/Training/ExerciseScreen').then((m) => ({ default: m.ExerciseScreen })));
 const Tags = lazy(() => import('../screens/Tags/Tags').then((m) => ({ default: m.Tags })));
 const Routines = lazy(() => import('../screens/Training/Routines').then((m) => ({ default: m.Routines })));
+const FoodScreen = lazy(() => import('../screens/Food').then((m) => ({ default: m.FoodScreen })));
 const ProtocolReport = lazy(() => import('../screens/Protocol/ProtocolReport').then((m) => ({ default: m.ProtocolReport })));
 const ChartsLoading = () => <div className="space-y-4" aria-busy="true" aria-label="Loading">{[0, 1].map((i) => <div key={i} className="h-60 rounded-card bg-surface-2 animate-pulse" />)}</div>;
 
@@ -69,6 +70,7 @@ function title(r: Route, peptides = HAS_PEPTIDES): string {
     case 'appointments': return HAS_VISITS ? 'Appointments' : 'Today';
     case 'appointmentSummary': return HAS_VISITS ? 'Since your last appointment' : 'Today';
     case 'labs': return 'Lab results';
+    case 'food': return HAS_BODY ? 'Food' : 'Today';
     case 'travel': return HAS_VISITS ? 'Plan a trip' : 'Today';
     default: return '';
   }
@@ -80,6 +82,7 @@ function backTo(r: Route, protocol: boolean): string | undefined {
     case 'workout': case 'exercise': case 'routines': return '#/training';
     case 'appointments': case 'travel': case 'tags': return '#/settings';
     case 'appointmentSummary': return '#/appointments';
+    case 'food': return '#/today';
     case 'labs': return HAS_VISITS ? '#/appointments' : '#/settings';
     case 'settings': return r.section ? '#/settings' : '#/today';
     case 'medNew': case 'med': return '#/meds';
@@ -119,6 +122,7 @@ function Screen({ r }: { r: Route }) {
     case 'appointments': return HAS_VISITS ? <Appointments /> : <Today />;
     case 'appointmentSummary': return HAS_VISITS ? <AppointmentSummary /> : <Today />;
     case 'labs': return <Labs />;
+    case 'food': return HAS_BODY ? <Suspense fallback={<ChartsLoading />}><FoodScreen /></Suspense> : <Today />;
     case 'travel': return HAS_VISITS ? <Travel /> : <Today />;
     default: return <Today />;
   }

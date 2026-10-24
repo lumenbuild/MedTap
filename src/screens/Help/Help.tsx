@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { BellRing, Sparkles, CalendarClock, ChevronRight, Compass, Info, Lock, Nfc, RefreshCw, ScanText, ShieldCheck, Smartphone, Syringe, Target, Users, Dumbbell } from 'lucide-react';
+import { Utensils, BellRing, Sparkles, CalendarClock, ChevronRight, Compass, Info, Lock, Nfc, RefreshCw, ScanText, ShieldCheck, Smartphone, Syringe, Target, Users, Dumbbell } from 'lucide-react';
 import { isNative, isNativeIOS } from '../../platform';
 import { APP_NAME, DISCLAIMER } from '../../config';
 import { tagBase } from '../../nfc/url';
@@ -13,6 +13,7 @@ const TOPICS = [
   { id: 'scan', title: 'Scanning a pharmacy label', Icon: ScanText },
   ...(HAS_BODY ? [{ id: 'goals', title: 'Goals and forecasts', Icon: Target }] as const : []),
   ...(HAS_BODY ? [{ id: 'training', title: 'Training and fitness', Icon: Dumbbell }] as const : []),
+  ...(HAS_BODY ? [{ id: 'food', title: 'Food and nutrition', Icon: Utensils }] as const : []),
   { id: 'peptides', title: 'Peptides and injections', Icon: Syringe, peptides: true },
   { id: 'family', title: 'Family members', Icon: Users },
   { id: 'sync', title: 'Family sync', Icon: RefreshCw },
@@ -113,6 +114,26 @@ const CONTENT: Record<string, ReactNode> = {
         </ul>
       </Step>
       <p className="pt-2"><a href="#/welcome" className="text-primary font-semibold underline underline-offset-4">Show the welcome again</a></p>
+    </>
+  ),
+  food: (
+    <>
+      <H>Log food</H>
+      <p>Today → <strong>Food</strong> → <strong>Log food</strong>, or open Food for the day's totals. Turn it off in Settings if you don't want it.</p>
+      <ul className="list-disc pl-5 space-y-1">
+        <li><strong>Scan a barcode</strong>: take a photo of the barcode. It's looked up in Open Food Facts, a free open database (only the barcode number is sent), and everything on its panel is kept: energy, protein, carbs, sugars, fat, fibre, sodium, and micros like caffeine, B vitamins, calcium and iron. Check it against the pack the first time; after that it's saved on your phone and works offline.</li>
+        <li><strong>Photo of the label</strong>: for anything the database doesn't have, photograph the nutrition panel. It's read on your phone, not uploaded, and you check the numbers before saving. Scanned first? The barcode is saved with it, so it's found next time.</li>
+        <li><strong>Meal I made</strong>: hand portions, below.</li>
+        <li><strong>Type it in</strong>: numbers from a menu or another app.</li>
+      </ul>
+      <p>Anything you log is saved to log again in one tap: your shake, your energy drink, your usual lunch. Star the ones you have most.</p>
+      <H>Food you make, without weighing</H>
+      <p>Use your hand as the measure. A <strong>palm</strong> of protein (its size and thickness), a <strong>cupped hand</strong> of carbs, a <strong>fist</strong> of veg, a <strong>thumb</strong> of fats. Tap how many of each and you get an estimate that's close enough to see the pattern over a week, which is what matters.</p>
+      <p>Name a meal you make often and next time pick it and choose <strong>Smaller</strong>, <strong>Usual</strong> or <strong>Bigger</strong>. It's never the same twice, and it doesn't need to be.</p>
+      <p>Cooking a batch? Food → <strong>New batch recipe</strong>: scan the packs or pick what you've saved, say how many serves, then log a serve each time. You enter it once.</p>
+      <p>If you only get one number right, make it protein: it's the one that protects muscle while you lose weight. The rest can be rough.</p>
+      <H>Where it shows</H>
+      <p>Protein from food adds to the protein on Today (and widgets, the watch and Trends). Caffeine from a drink counts as a caffeine check-in, so the caffeine-and-sleep finding includes it. Energy shows as Calories or kilojoules (Food → Energy), with a daily target if you set one.</p>
     </>
   ),
   training: (
@@ -426,11 +447,11 @@ const CONTENT: Record<string, ReactNode> = {
       <ul className="list-disc pl-5 space-y-1">
         <li>Everything you enter is saved on this device only.</li>
         <li>There are no accounts, no analytics and no tracking.</li>
-        <li>After the app loads, it makes no network requests except checking for app updates from {tagBase()} (and, if you scan a label, downloading the label reader from the same place once).</li>
+        <li>After the app loads, it makes no network requests except checking for app updates from {tagBase()} (and, if you scan a label, downloading the label reader from the same place once){HAS_BODY ? '. Scanning a food barcode sends only that barcode number to Open Food Facts to look the product up; nothing about you goes with it' : ''}.</li>
         <li>Nothing leaves the phone unless you export it (backups, spreadsheets, calendar events and printed reports) or turn on family sync, which encrypts everything first.</li>
         <li>Backup files are encrypted, so opening one (or a cloud drive or email preview) shows only scrambled text. Any copy of {APP_NAME} can restore them without a password, so treat them like the data itself: keep them somewhere private.</li>
         <li>Automatic backups (where the browser allows) only ever go to the folder you choose.</li>
-        <li>{HAS_BODY ? 'Progress photos are stored on this phone and never uploaded. ' : ''}Label photos are read on the phone and not kept.</li>
+        <li>{HAS_BODY ? 'Progress photos are stored on this phone and never uploaded. ' : ''}Label photos{HAS_BODY ? ' and nutrition panels' : ''} are read on the phone and not kept.</li>
         <li>Give a medication a <strong>nickname</strong> (on its page in Meds) and that's what shows on Today, when its tag is tapped, in calendar reminders and on Trends, with a plain grey icon. The real name only shows on the medication's own page, in the doctor report (you can choose nicknames there too) and in spreadsheet exports. For everything else, use the app lock.</li>
       </ul>
       <H>What could lose your data</H>
