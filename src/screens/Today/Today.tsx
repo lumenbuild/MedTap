@@ -47,8 +47,9 @@ import { Timeline } from './Timeline';
 import { DoseEditSheet } from './DoseEditSheet';
 import { planRecords, RestartCard, StepPrompt } from '../../components/DosePlan';
 import { restartPrompt, stepStatus } from '../../logic/dosePlan';
+import { TrainingHero, WeightHero } from './FocusHero';
 import { AutoBackupPermission, BackupReminder, CheckInAutoOpen, CheckInPrompt, InstallCard, UpdateCard } from './PromptCards';
-import { HAS_BODY, HAS_PEPTIDES, HAS_VISITS } from '../../edition';
+import { HAS_MEDS, HAS_BODY, HAS_TRAINING, HAS_FOOD, FOCUS, HAS_PEPTIDES, HAS_VISITS } from '../../edition';
 import { DigestCard, IntakeCard } from '../../components/Fitness';
 import { weeklyDigest } from '../../logic/digest';
 import { allExercises } from '../../logic/exercises';
@@ -199,7 +200,7 @@ export function Today() {
         </Card>
       )}
 
-      {active.length === 0 && (
+      {HAS_MEDS && active.length === 0 && (
         <Card className="text-center py-8">
           <Pill className="mx-auto text-primary" size={32} aria-hidden="true" />
           <p className="mt-3">{fam.many && !fam.everyone ? `No medications for ${fam.person} yet.` : 'No medications yet.'} Add one to start logging doses.</p>
@@ -209,12 +210,17 @@ export function Today() {
 
       {tags && (() => {
         const items = gettingStarted({ meds: viewMeds, tags, doses: viewDoses, checkIns: viewCheckIns, remindersEnabled: settings.remindersEnabled,
-          lockEnabled: settings.lockEnabled, lastBackupAt: settings.lastBackupAt, native: isNative });
+          lockEnabled: settings.lockEnabled, lastBackupAt: settings.lastBackupAt, native: isNative, focus: FOCUS,
+          weighIns: viewBody.filter((b) => !b.deletedAt && b.weightKg !== undefined).length, hasGoal: !!fam.people.find((p) => p.id === fam.personId)?.goals?.length,
+          workouts: (workouts ?? []).filter((w) => !w.deletedAt && personOf(w) === fam.personId).length });
         if (!showGettingStarted(items, settings.gettingStartedDismissed)) return null;
         const first = viewMeds.find((m) => !m.archived);
         return <GettingStartedCard items={items} onHide={() => setSetting('gettingStartedDismissed', true)} onStep={(id) => {
           if (id === 'med') go('/meds/new');
-          else if (id === 'tag') go(first ? `/meds/${first.id}` : '/meds/new');
+          else if (id === 'tag') go(!HAS_MEDS ? '/tags' : first ? `/meds/${first.id}` : '/meds/new');
+          else if (id === 'weigh') setBodySheet({ kind: 'weight' });
+          else if (id === 'goal') go('/body');
+          else if (id === 'workout') go('/training/start');
           else if (id === 'dose') { if (first) setLogFor(first); else go('/meds/new'); }
           else if (id === 'checkin') setCheckIn({});
           else if (id === 'reminders') go('/settings/reminders');
@@ -224,6 +230,9 @@ export function Today() {
       })()}
 
       {/* B2: the most urgent dose is the headline; every scheduled medicine is then one line, tap to log. */}
+      {FOCUS === 'weight' && !fam.everyone && <WeightHero entries={viewBody} tags={tags ?? []} units={settings.units} now={now} onLog={() => setBodySheet({ kind: 'weight' })} />}
+      {FOCUS === 'training' && !fam.everyone && workouts && <TrainingHero workouts={workouts.filter((w) => personOf(w) === fam.personId)} tags={tags ?? []} now={now}
+        ready={readiness((daily ?? []).filter((d) => !d.deletedAt && personOf(d) === fam.personId), viewCheckIns, now, s)} />}
       {up.meds.length > 1 && up.at !== null
         ? <HeroGroup meds={up.meds} doses={viewDoses} s={s} now={now} at={up.at} due={up.due} onLog={setLogFor} onLogAll={logAll} whose={fam.many ? whose : undefined} />
         : headline && hero(headline)}
@@ -297,11 +306,14 @@ export function Today() {
           ['Check in', 'Check in', Smile, () => setCheckIn({})],
           ['BP', 'Log blood pressure and pulse', HeartPulse, () => setVitalSheet({})],
           ...(HAS_BODY ? [
-            ['Weight', 'Log weight', Scale, () => setBodySheet({ kind: 'weight' })],
+            // TapWeigh's headline card already has Log weight.
+            ...(FOCUS === 'weight' ? [] : [['Weight', 'Log weight', Scale, () => setBodySheet({ kind: 'weight' })] as const]),
             ['Measure', 'Add measurement', Ruler, () => setBodySheet({ kind: 'measure' })],
           ] as const : []),
           ['Coffee', 'Log caffeine now', Coffee, () => quick(CAFFEINE, 'Caffeine')],
           ['Alcohol', 'Log alcohol now', Wine, () => quick(ALCOHOL, 'Alcohol')],
+          // TapWeigh and TapLift are built around tags: one more tile for them.
+          ...(HAS_MEDS ? [] : [['Tags', 'Your tags', Nfc, () => go('/tags')] as const]),
         ] as const).map(([label, name, Icon, on]) => <Tile key={label} Icon={Icon} label={label} name={name} onClick={on} />)}
       </div>
       )}
@@ -312,20 +324,20 @@ export function Today() {
         if (![1, 2, 3].includes(wd)) return null;
         const mine = <T extends { personId?: string }>(r: T) => personOf(r) === fam.personId;
         const dg = weeklyDigest({ meds: viewMeds, doses: viewDoses, checkIns: viewCheckIns, body: HAS_BODY ? viewBody : [], workouts: workouts.filter(mine), daily: daily.filter(mine), defs: allExercises(own) },
-          now, s, { units: settings.units, body: HAS_BODY, training: HAS_BODY && settings.trainingTools });
+          now, s, { units: settings.units, body: HAS_BODY, training: HAS_TRAINING && settings.trainingTools });
         return dg ? <DigestCard d={dg} seen={settings.digestSeen} notify={settings.digestNotify} onClose={() => setSetting('digestSeen', dg.weekStart)}
           onNotify={isNative ? async () => { const on = await setDigestNotify(true); toast(on ? 'You’ll get your week each Monday at 8:30 am' : 'Notifications are off for this app. Turn them on in your phone’s settings.'); } : undefined} /> : null;
       })()}
 
-      {HAS_BODY && settings.foodTracking && !fam.everyone && (
+      {HAS_FOOD && settings.foodTracking && !fam.everyone && (
         <Suspense fallback={null}><FoodToday personId={fam.personId} energy={settings.energyUnit} target={settings.energyTargetKcal} now={now} /></Suspense>
       )}
 
-      {HAS_BODY && settings.trainingTools && !fam.everyone && daily && (() => {
+      {HAS_TRAINING && settings.trainingTools && !fam.everyone && daily && (() => {
         const mineDaily = daily.filter((d) => !d.deletedAt && personOf(d) === fam.personId);
         const today = format(now, 'yyyy-MM-dd');
         return <IntakeCard personId={fam.personId} today={today} day={mineDaily.find((d) => d.date === today)} proteinTarget={settings.proteinTargetG} waterTarget={settings.waterTargetMl}
-          ready={readiness(mineDaily, viewCheckIns, now, s)} />;
+          ready={FOCUS === 'training' ? null : readiness(mineDaily, viewCheckIns, now, s)} />;
       })()}
 
       {HAS_BODY && !fam.everyone && <GoalLines goals={fam.people.find((p) => p.id === fam.personId)?.goals ?? []} entries={viewBody} units={settings.units} now={now} />}
@@ -333,7 +345,7 @@ export function Today() {
       {needsBackup(settings.lastBackupAt, firstRecord, now, settings.backupReminderDays) && <BackupReminder days={settings.backupReminderDays} />}
       <AutoBackupPermission enabled={settings.autoBackupEnabled} />
       <UpdateCard dismissed={settings.updateDismissed} />
-      <InstallCard hasDoses={doses.some((d) => !d.deletedAt)} dismissed={settings.installCardDismissed} />
+      <InstallCard hasDoses={firstRecord !== null} dismissed={settings.installCardDismissed} />
 
       <Timeline doses={viewDoses} checkIns={viewCheckIns} body={HAS_BODY ? viewBody : []} vitals={viewVitals} onVital={(v) => setVitalSheet({ editing: v })} meds={viewMedMap} s={s} units={settings.units} now={now} personLabel={fam.everyone ? whose : undefined}
         onDose={setEditing} onCheckIn={(c: CheckIn) => setCheckIn({ editing: c })} onBody={(b: BodyEntry) => setBodySheet({ kind: 'edit', entry: b })} />
@@ -350,7 +362,7 @@ export function Today() {
       </Sheet>
       <DoseEditSheet dose={editing} med={editing ? medMap.get(editing.medicationId) : undefined} onClose={() => setEditing(null)} />
       <CheckInSheet seed={checkIn} onClose={() => setCheckIn(null)} doses={viewDoses} checkIns={viewCheckIns} meds={viewMeds} chips={settings.chips} s={s}
-        soreness={HAS_BODY && settings.trainingTools} personId={checkIn?.editing ? personOf(checkIn.editing) : fam.personId} />
+        soreness={HAS_TRAINING && settings.trainingTools} personId={checkIn?.editing ? personOf(checkIn.editing) : fam.personId} />
       <VitalsSheet state={vitalSheet} onClose={() => setVitalSheet(null)} personId={fam.personId} />
       <BodySheet state={bodySheet} onClose={() => setBodySheet(null)} units={settings.units} personId={bodySheet?.entry ? personOf(bodySheet.entry) : fam.personId} />
     </div>

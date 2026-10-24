@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { Bell, Calculator, CalendarCheck, Check, ChevronRight, Clock, Download, Dumbbell, EyeOff, HardDriveDownload, HeartPulse, HelpCircle, Info, Lock, Nfc, Package, Palette, Pill, Plane, RefreshCw, Smile, Syringe, Timer, Users, Utensils, Watch, X, type LucideIcon } from 'lucide-react';
 import { IconRow } from '../components/ui/Visual';
 import { useSyncConfig } from '../app/sync';
-import { setDigestNotify, setRemindersEnabled, setTrainingReminders, syncReminders } from '../app/native';
+import { setCheckInNotify, setDigestNotify, setRemindersEnabled, setTrainingReminders, syncReminders } from '../app/native';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Sheet, SheetActions } from '../components/ui/Sheet';
@@ -25,7 +25,7 @@ import { placeName } from '../components/TravelBanner';
 import { isNative, isNativeAndroid } from '../platform';
 import { BUILD, checkForUpdate } from '../app/updates';
 import { lockNow } from '../app/LockGate';
-import { HAS_BODY, HAS_PEPTIDES, HAS_VISITS, edition, watchDownload } from '../edition';
+import { HAS_WATCH, HAS_MEDS, HAS_BODY, HAS_TRAINING, HAS_FOOD, FOCUS, PLAY, HAS_PEPTIDES, HAS_VISITS, edition, watchDownload } from '../edition';
 import { SIDE_EFFECT_CHIPS } from '../logic/peptide';
 
 const RemindersCard = lazy(() => import('./RemindersCard'));
@@ -83,7 +83,7 @@ export function Settings({ section }: { section?: string }) {
           </Switch>
           <Switch label="Weekly summary on Mondays" checked={settings.digestNotify} onChange={async (v) => { const on = await setDigestNotify(v); if (v && !on) notifyOff(); }} />
           <Switch label="Wear-off heads-up" checked={settings.wearOffNotify} onChange={async (v) => { await setSetting('wearOffNotify', v); void syncReminders(); }}>30 min before focus usually drops</Switch>
-          {HAS_BODY && settings.trainingTools && (
+          {HAS_TRAINING && settings.trainingTools && (
             <Switch label="Training-day reminders" checked={settings.trainingReminders} onChange={async (v) => { const on = await setTrainingReminders(v); if (v && !on) notifyOff(); }}>
               30 min before you usually train
             </Switch>
@@ -143,12 +143,12 @@ export function Settings({ section }: { section?: string }) {
     ),
     checkins: () => (
       <Card className="space-y-5">
-        <Pick id="ci-delay" label="Ask how I feel after a dose">
+        {HAS_MEDS && <Pick id="ci-delay" label="Ask how I feel after a dose">
           <select id="ci-delay" value={settings.checkInDelayMin} onChange={(e) => setSetting('checkInDelayMin', Number(e.target.value))} className={selectCls}>
             <option value={0}>Off</option>
             {[30, 60, 90, 120, 180].map((m) => <option key={m} value={m}>{m < 60 ? `${m} minutes` : m === 90 ? '1½ hours' : `${m / 60} hour${m === 60 ? '' : 's'}`} later</option>)}
           </select>
-        </Pick>
+        </Pick>}
         <div>
           <span className="block text-sm font-medium mb-2">Ask how the day went at</span>
           <ul className="flex flex-wrap gap-2">
@@ -170,7 +170,7 @@ export function Settings({ section }: { section?: string }) {
           )}
         </div>
         <Switch label="Open the check-in by itself" checked={settings.checkInPopup} onChange={(v) => setSetting('checkInPopup', v)}>When one is due and the app is open, once each</Switch>
-        {isNative && <Switch label="Check-in notifications" checked={settings.checkInNotify} onChange={(v) => setSetting('checkInNotify', v)}>After a dose and at your daily times. They never name a medicine.</Switch>}
+        {isNative && <Switch label="Check-in notifications" checked={settings.checkInNotify} onChange={async (v) => { const on = await setCheckInNotify(v); if (v && !on) notifyOff(); }}>{HAS_MEDS ? 'After a dose and at your daily times. They never name a medicine.' : 'At your daily times.'}</Switch>}
         <div>
           <span className="block text-sm font-medium mb-2">What you can tick</span>
           <ul className="flex flex-wrap gap-2">
@@ -280,7 +280,7 @@ export function Settings({ section }: { section?: string }) {
         <ul className="space-y-1">
           <li><IconRow Icon={Clock} tone="primary">Next dose: app, tile and watch face</IconRow></li>
           <li><IconRow Icon={Check} tone="primary">Log with one tap</IconRow></li>
-          {HAS_BODY && <li><IconRow Icon={Timer} tone="primary">Workouts: next set, Done, rest timer</IconRow></li>}
+          {HAS_TRAINING && <li><IconRow Icon={Timer} tone="primary">Workouts: next set, Done, rest timer</IconRow></li>}
         </ul>
         <a href={watchDownload} className="flex items-center justify-center gap-2 min-h-[48px] rounded-btn bg-primary text-on-primary font-semibold"><Download size={18} aria-hidden="true" /> {edition.watchApk}</a>
         <details className="text-sm">
@@ -297,9 +297,9 @@ export function Settings({ section }: { section?: string }) {
     about: () => (
       <>
         <Card className="space-y-3">
-          <p className="text-[15px]">{APP_NAME} keeps everything on this {isNative ? 'phone' : 'device'}. There's no account, and nothing is sent anywhere unless you turn on sync or make a backup{HAS_BODY ? ' (a food barcode you scan is looked up by its number alone)' : ''}.</p>
+          <p className="text-[15px]">{APP_NAME} keeps everything on this {isNative ? 'phone' : 'device'}. There's no account, and nothing is sent anywhere unless you turn on sync or make a backup{HAS_FOOD ? ' (a food barcode you scan is looked up by its number alone)' : ''}.</p>
           <p className="text-sm text-muted tnum">{BUILD > 0 ? `Build ${BUILD}` : 'Web version'}</p>
-          {isNativeAndroid && BUILD > 0 && (
+          {isNativeAndroid && BUILD > 0 && !PLAY && (
             <>
               <Switch label="Check for updates" checked={settings.updateCheck} onChange={(v) => setSetting('updateCheck', v)}>Once a day</Switch>
               <Button variant="secondary" onClick={async () => { const u = await checkForUpdate(true); toast(u ? `Build ${u.build} is ready on Today` : 'Up to date'); if (u) await setSetting('updateDismissed', 0); }}>Check now</Button>
@@ -317,32 +317,35 @@ export function Settings({ section }: { section?: string }) {
     ),
   };
 
-  const sec = section as SettingsSection | undefined;
+  // Pages an app doesn't have (TapWeigh and TapLift: doses and dose reminders; training where it's not built in) show
+  // the main list instead.
+  const absent: SettingsSection[] = [...(HAS_MEDS ? [] : ['doses', 'reminders'] as const), ...(HAS_TRAINING ? [] : ['training'] as const)];
+  const sec = section && !absent.includes(section as SettingsSection) ? section as SettingsSection : undefined;
   const body = sec && pages[sec] ? <div className="space-y-4">{pages[sec]()}</div> : (
     <div className="space-y-6">
       <section aria-label="Features" className="space-y-1">
         <h2 className="text-sm font-medium text-muted mb-1">Features</h2>
         {HAS_PEPTIDES && !priv && <Toggle Icon={Syringe} label="Peptides and injections" checked={settings.peptideTools} onChange={(v) => setSetting('peptideTools', v)} />}
-        {HAS_BODY && <Toggle Icon={Dumbbell} label="Training" checked={settings.trainingTools} onChange={(v) => setSetting('trainingTools', v)} />}
-        {HAS_BODY && <Toggle Icon={Utensils} label="Food" checked={settings.foodTracking} onChange={(v) => setSetting('foodTracking', v)} />}
+        {HAS_TRAINING && FOCUS !== 'training' && <Toggle Icon={Dumbbell} label="Training" checked={settings.trainingTools} onChange={(v) => setSetting('trainingTools', v)} />}
+        {HAS_FOOD && FOCUS !== 'weight' && <Toggle Icon={Utensils} label="Food" checked={settings.foodTracking} onChange={(v) => setSetting('foodTracking', v)} />}
         {isNative && <Toggle Icon={Bell} label="Dose reminders" checked={settings.remindersEnabled} onChange={async (v) => { const on = await setRemindersEnabled(v); if (v && !on) notifyOff(); }} />}
       </section>
       <section aria-label="Settings">
         {isNative && <Row href="#/settings/reminders" Icon={Bell} title="Reminders" value={settings.remindersEnabled ? 'On' : 'Off'} />}
-        <Row href="#/settings/doses" Icon={Pill} title="Doses" value={`Day starts ${fmtHHmm(settings.dayStartsAt)}`} />
-        {HAS_BODY && settings.trainingTools && <Row href="#/settings/training" Icon={Dumbbell} title="Training" value={`Rest ${restLabel(settings.restSeconds)}`} />}
-        <Row href="#/settings/checkins" Icon={Smile} title="Check-ins" value={[settings.checkInDelayMin ? 'after doses' : null, settings.checkInTimes.length ? settings.checkInTimes.map(fmtHHmm).join(', ') : null].filter(Boolean).join(' · ').replace(/^./, (c) => c.toUpperCase()) || 'Off'} />
+        {HAS_MEDS && <Row href="#/settings/doses" Icon={Pill} title="Doses" value={`Day starts ${fmtHHmm(settings.dayStartsAt)}`} />}
+        {HAS_TRAINING && settings.trainingTools && <Row href="#/settings/training" Icon={Dumbbell} title="Training" value={`Rest ${restLabel(settings.restSeconds)}`} />}
+        <Row href="#/settings/checkins" Icon={Smile} title="Check-ins" value={[HAS_MEDS && settings.checkInDelayMin ? 'after doses' : null, settings.checkInTimes.length ? settings.checkInTimes.map(fmtHHmm).join(', ') : null].filter(Boolean).join(' · ').replace(/^./, (c) => c.toUpperCase()) || 'Off'} />
         <Row href="#/settings/people" Icon={Users} title="People and sync" value={`${fam?.people.length ?? 1} ${fam && fam.people.length > 1 ? 'people' : 'person'} · sync ${sync ? 'on' : 'off'}`} />
         {isNative && <Row href="#/settings/health" Icon={HeartPulse} title="Health data" value={settings.healthImport ? 'On' : 'Off'} />}
         <Row href="#/backup" Icon={HardDriveDownload} title="Backup and restore" value={last ? fmtAgo(now - last) : 'None yet'} />
         <Row href="#/settings/privacy" Icon={Lock} title="Privacy" value={settings.lockEnabled ? 'PIN on' : 'PIN off'} />
         <Row href="#/settings/display" Icon={Palette} title="Display" value={THEMES.find(([t]) => t === theme)?.[1] ?? ''} />
-        {isNativeAndroid && <Row href="#/settings/watch" Icon={Watch} title="Watch" value="Wear OS" />}
+        {isNativeAndroid && HAS_WATCH && <Row href="#/settings/watch" Icon={Watch} title="Watch" value="Wear OS" />}
       </section>
       <section aria-label="Tools">
         <h2 className="text-sm font-medium text-muted mb-1">Tools</h2>
         <Row href="#/tags" Icon={Nfc} title="Tags" />
-        <Row href={HAS_VISITS ? '#/appointments' : '#/labs'} Icon={CalendarCheck} title={HAS_VISITS ? 'Appointments and lab results' : 'Lab results'} />
+        {HAS_MEDS && <Row href={HAS_VISITS ? '#/appointments' : '#/labs'} Icon={CalendarCheck} title={HAS_VISITS ? 'Appointments and lab results' : 'Lab results'} />}
         {HAS_VISITS && <Row href="#/travel" Icon={Plane} title="Plan a trip" />}
         {HAS_PEPTIDES && settings.peptideTools && <Row href="#/calc" Icon={Calculator} title="Peptide calculator" />}
         {HAS_PEPTIDES && settings.peptideTools && <Row href="#/supplies" Icon={Package} title="Supplies" />}

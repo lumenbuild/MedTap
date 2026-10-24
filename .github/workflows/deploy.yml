@@ -44,6 +44,14 @@ jobs:
           BASE_PATH: /MedTap/tapdose/
           VITE_APP_VERSION: build ${{ github.run_number }}
         run: npx tsc --noEmit && npx vite build --outDir dist/tapdose --emptyOutDir
+      # TapWeigh and TapLift: tapweigh/ and taplift/ on the same site, PERMANENT for the same reason.
+      - name: Build TapWeigh and TapLift
+        env:
+          VITE_APP_VERSION: build ${{ github.run_number }}
+        run: |
+          for e in tapweigh taplift; do
+            VITE_EDITION=$e VITE_TAG_BASE=https://lumenbuild.github.io/MedTap/$e/ BASE_PATH=/MedTap/$e/ npx vite build --outDir dist/$e --emptyOutDir
+          done
       - if: github.ref_name == github.event.repository.default_branch
         uses: actions/upload-pages-artifact@v3
         with: { path: dist }

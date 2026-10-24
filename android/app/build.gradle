@@ -17,10 +17,13 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
-    // Two apps from one project (see src/edition.ts): MedTap (everything) and TapDose (medications and ADHD support).
-    // Each installs separately and opens only its own tags. Build the matching web app first:
-    // `npm run build:native` then assembleMedtapRelease, or `npm run build:native:tapdose` then assembleTapdoseRelease.
-    flavorDimensions = ["edition"]
+    // Four apps from one project (see src/edition.ts): MedTap (everything), TapDose (medications and ADHD support),
+    // TapWeigh (weight, measurements, food) and TapLift (training). Each installs separately and opens only its own tags.
+    // And two stores: github (the APKs on GitHub releases, which update themselves) and play (Google Play bundles: Play
+    // does the updating, so the self-update and battery permissions are removed, see src/play/AndroidManifest.xml).
+    // Build the matching web app first, e.g. `npm run build:native:tapweigh` then :app:assembleTapweighGithubRelease, or
+    // `VITE_STORE=play npm run build:native:tapweigh` then :app:bundleTapweighPlayRelease.
+    flavorDimensions = ["edition", "store"]
     productFlavors {
         medtap {
             dimension "edition"
@@ -32,6 +35,18 @@ android {
             applicationId "app.tapdose.tracker"
             manifestPlaceholders = [tagPath: "/MedTap/tapdose/"]
         }
+        tapweigh {
+            dimension "edition"
+            applicationId "app.tapweigh.tracker"
+            manifestPlaceholders = [tagPath: "/MedTap/tapweigh/"]
+        }
+        taplift {
+            dimension "edition"
+            applicationId "app.taplift.tracker"
+            manifestPlaceholders = [tagPath: "/MedTap/taplift/"]
+        }
+        github { dimension "store" }
+        play { dimension "store" }
     }
     // Release builds are signed with the keystore in MEDTAP_KEYSTORE (CI writes it from repository secrets).
     // Keep the same key forever: Android only installs an update signed with the key the app was first installed with.
@@ -75,16 +90,19 @@ dependencies {
 
 apply from: 'capacitor.build.gradle'
 
-// The web app in assets/ must be the same edition as the app being built, or MedTap could ship TapDose's screens.
+// The web app in assets/ must be the same edition and store as the app being built, or MedTap could ship TapDose's screens
+// (or a Play bundle the self-updater).
 android.applicationVariants.configureEach { variant ->
-    def flavor = variant.flavorName
+    def edition = variant.productFlavors.find { it.dimension == 'edition' }.name
+    def store = variant.productFlavors.find { it.dimension == 'store' }.name
+    def want = store == 'play' ? "${edition}+play" : edition
     def check = tasks.register("check${variant.name.capitalize()}Edition") {
         doLast {
             def f = file('src/main/assets/public/edition.txt')
             def built = f.exists() ? f.text.trim() : 'missing'
-            if (built != flavor) {
-                throw new GradleException("The web app in assets is '${built}', not '${flavor}'. Run " +
-                    (flavor == 'tapdose' ? "npm run build:native:tapdose" : "npm run build:native") + " first.")
+            if (built != want) {
+                throw new GradleException("The web app in assets is '${built}', not '${want}'. Run " +
+                    (store == 'play' ? 'VITE_STORE=play ' : '') + (edition == 'medtap' ? "npm run build:native" : "npm run build:native:${edition}") + " first.")
             }
         }
     }

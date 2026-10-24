@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- TapLift's name; everything else comes from src/main. -->
+<resources>
+    <string name="app_name">TapLift</string>
+    <string name="title_activity_main">TapLift</string>
+    <string name="package_name">app.taplift.tracker</string>
+    <string name="custom_url_scheme">app.taplift.tracker</string>
+</resources>

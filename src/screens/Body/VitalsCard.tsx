@@ -9,6 +9,7 @@ import { useNow } from '../../app/useNow';
 import { Button } from '../../components/ui/Button';
 import { VitalsCharts } from '../../components/charts/Charts';
 import { fmtVital, VitalsSheet, type VitalsSheetState } from '../../components/VitalsSheet';
+import { HAS_MEDS } from '../../edition';
 
 /** Blood pressure and heart rate for one person, all in one place: the charts over the range, the latest reading, the
  *  few before it (tap to change one) and Log a reading. */
@@ -21,7 +22,7 @@ export function VitalsCard({ personId, start, end, s }: { personId: string; star
   return (
     <>
       <VitalsCharts vitals={readings} start={start} end={end} s={s}
-        empty={latest ? `No readings in this range. The latest was ${fmtVital(latest)}, ${fmtWhen(Date.parse(latest.at), now)}.` : 'No readings yet. Log one after measuring at home or at the pharmacy.'}
+        empty={latest ? `No readings in this range. The latest was ${fmtVital(latest)}, ${fmtWhen(Date.parse(latest.at), now)}.` : HAS_MEDS ? 'No readings yet. Log one after measuring at home or at the pharmacy.' : 'No readings yet. Log one after you measure.'}
         actions={<>
           {readings.length > 0 && (
             <details className="group">

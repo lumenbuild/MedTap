@@ -1,11 +1,24 @@
-import { Dumbbell, HeartPulse, House, LineChart, Pill, Scale, Syringe, TrendingUp, type LucideIcon } from 'lucide-react';
-import { HAS_BODY } from '../edition';
+import { Dumbbell, HeartPulse, House, LineChart, Pill, Scale, Syringe, TrendingUp, Utensils, type LucideIcon } from 'lucide-react';
+import { FOCUS, HAS_BODY } from '../edition';
 
 type Tab = { path: string; label: string; Icon: LucideIcon; match?: string[] };
 
 /** The main tabs. With peptide tools on (MedTap), the protocol comes first and Trends and Body share Progress. */
 export function tabsFor(protocol: boolean, training = false): Tab[] {
   const train: Tab[] = training ? [{ path: '/training', label: 'Training', Icon: Dumbbell }] : [];
+  // TapWeigh: weight first, then food. TapLift: training first. Neither has medicines.
+  if (FOCUS === 'weight') return [
+    { path: '/today', label: 'Today', Icon: House },
+    { path: '/body', label: 'Body', Icon: Scale },
+    { path: '/food', label: 'Food', Icon: Utensils },
+    { path: '/trends', label: 'Trends', Icon: LineChart },
+  ];
+  if (FOCUS === 'training') return [
+    { path: '/today', label: 'Today', Icon: House },
+    { path: '/training', label: 'Training', Icon: Dumbbell },
+    { path: '/trends', label: 'Trends', Icon: LineChart },
+    { path: '/body', label: 'Body', Icon: Scale },
+  ];
   if (protocol) return [
     { path: '/today', label: 'Today', Icon: House },
     { path: '/protocol', label: 'Protocol', Icon: Syringe },

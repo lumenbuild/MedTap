@@ -87,9 +87,19 @@ object HealthBridge {
         return out
     }
 
+    /** The permissions this app declares: each app (TapDose, TapWeigh, TapLift) removes the record types it doesn't use
+     *  from its manifest, and asks only for the rest. */
+    @JvmStatic
+    fun declared(context: Context): Set<String> {
+        val asked = try {
+            context.packageManager.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_PERMISSIONS).requestedPermissions?.toSet() ?: emptySet()
+        } catch (e: Exception) { emptySet() }
+        return PERMISSIONS.filter { it in asked }.toSet()
+    }
+
     @JvmStatic
     fun requestIntent(context: Context): Intent =
-        PermissionController.createRequestPermissionResultContract().createIntent(context, PERMISSIONS)
+        PermissionController.createRequestPermissionResultContract().createIntent(context, declared(context))
 
     interface Callback { fun done(json: String?, error: String?) }
 

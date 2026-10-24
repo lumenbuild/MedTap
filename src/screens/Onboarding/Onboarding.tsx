@@ -1,14 +1,14 @@
 import { useState, type ReactNode } from 'react';
-import { ArrowLeft, BellRing, Check, HardDriveDownload, LineChart, ListChecks, Lock, Nfc, Pill, Smartphone, Sparkles, type LucideIcon } from 'lucide-react';
+import { ArrowLeft, BellRing, Check, Dumbbell, Flag, HardDriveDownload, LineChart, ListChecks, Lock, Nfc, Pill, Scale, Smartphone, Sparkles, Utensils, type LucideIcon } from 'lucide-react';
 import { useSettings } from '../../app/data';
 import { Switch } from '../../components/ui/Switch';
-import { HAS_BODY, HAS_PEPTIDES } from '../../edition';
+import { HAS_TRAINING, HAS_FOOD, FOCUS, HAS_PEPTIDES } from '../../edition';
 import { APP_NAME } from '../../config';
 import { isAndroid, isIOS, isNative, isNativeIOS, isStandalone } from '../../platform';
 import { setSetting } from '../../db/repos/settings';
 import { go } from '../../app/router';
 import { useInstallPrompt } from '../../app/install';
-import { setRemindersEnabled, syncReminders } from '../../app/native';
+import { setCheckInNotify, setRemindersEnabled, setTrainingReminders, syncReminders } from '../../app/native';
 import { hashPin, isValidPin, newSalt } from '../../logic/pin';
 import { Button } from '../../components/ui/Button';
 import { TextInput } from '../../components/ui/Field';
@@ -23,7 +23,8 @@ const Point = ({ Icon, title, children }: { Icon: LucideIcon; title: string; chi
 
 /**
  * First run: seven short steps, each one thing, with Back and Skip on every step. Welcome, this phone, what to track,
- * reminders, privacy, backups, then the first medication. Settings chosen here are the same ones in Settings, so
+ * reminders, privacy, backups, then the first medication (TapWeigh: the scales tag and first weigh-in; TapLift: a gym
+ * tag and the first workout, with no "what to track" step). Settings chosen here are the same ones in Settings, so
  * nothing is hidden away. Also opened from Help → Getting started → "Show the welcome again" (#/welcome).
  */
 export function Onboarding({ again = false }: { again?: boolean }) {
@@ -58,11 +59,25 @@ export function Onboarding({ again = false }: { again?: boolean }) {
       title: `Welcome to ${APP_NAME}`,
       body: (
         <>
-          <ul className="space-y-4">
-            <Point Icon={Nfc} title="Tap to log">Stick a tag on each medicine. Tap your phone on it and the dose is logged, with the time.</Point>
-            <Point Icon={BellRing} title="Know what's next">Today shows what's due and what's done, and reminders can nudge you.</Point>
-            <Point Icon={LineChart} title="See what works">Quick check-ins on how you feel, set against your doses, sleep and more.</Point>
-          </ul>
+          {FOCUS === 'weight' ? (
+            <ul className="space-y-4">
+              <Point Icon={Nfc} title="Tap to log">Stick a tag on your scales. Step off, tap your phone on it, and the weigh-in is logged.</Point>
+              <Point Icon={LineChart} title="See where it's heading">A trend that smooths out the daily ups and downs, and when you'll likely reach your goal.</Point>
+              <Point Icon={Utensils} title="Food without the fuss">Scan a barcode, photo a label, or estimate a home-made meal by hand portions.</Point>
+            </ul>
+          ) : FOCUS === 'training' ? (
+            <ul className="space-y-4">
+              <Point Icon={Nfc} title="Tap to log">Tags on your gym bag and machines. Tap one to start the workout or add that exercise, set out at what to aim for.</Point>
+              <Point Icon={Dumbbell} title="Know what to lift">Targets from last time and how ready you are today, personal bests and a rest timer.</Point>
+              <Point Icon={LineChart} title="See it add up">Strength, sessions each week, and lean mass as your weight changes.</Point>
+            </ul>
+          ) : (
+            <ul className="space-y-4">
+              <Point Icon={Nfc} title="Tap to log">Stick a tag on each medicine. Tap your phone on it and the dose is logged, with the time.</Point>
+              <Point Icon={BellRing} title="Know what's next">Today shows what's due and what's done, and reminders can nudge you.</Point>
+              <Point Icon={LineChart} title="See what works">Quick check-ins on how you feel, set against your doses, sleep and more.</Point>
+            </ul>
+          )}
           <p className="flex items-center gap-2 font-semibold"><Lock size={18} className="text-primary" aria-hidden="true" /> Your data stays on this phone.</p>
         </>
       ),
@@ -75,7 +90,7 @@ export function Onboarding({ again = false }: { again?: boolean }) {
         <>
           {isNativeIOS
             ? <p>To log with a tag, tap <strong>Scan tag</strong> at the top of Today, then hold the top of your iPhone near the tag.</p>
-            : <p>Hold the back of your phone on a tag. {APP_NAME} opens straight to that medicine, even when it's closed, and logs the dose.</p>}
+            : <p>Hold the back of your phone on a tag. {APP_NAME} opens straight to it, even when it's closed, and {FOCUS === 'weight' ? 'opens Log weight' : FOCUS === 'training' ? 'starts the workout or adds the exercise' : 'logs the dose'}.</p>}
           <p className="text-muted">No tags yet? Any NTAG213 or NTAG215 sticker works. You can log by hand until they arrive.</p>
         </>
       ) : isIOS ? (
@@ -89,7 +104,7 @@ export function Onboarding({ again = false }: { again?: boolean }) {
           {isStandalone ? <p className="font-semibold">✓ Installed.</p> : !install.available && <p className="text-sm text-muted">If you don't see an Install button, use the Chrome menu → Install app.</p>}
         </>
       ) : (
-        <p>Open {APP_NAME} on your phone to use tags: iPhone in Safari, Android in Chrome. On a computer you can still log doses by hand.</p>
+        <p>Open {APP_NAME} on your phone to use tags: iPhone in Safari, Android in Chrome. On a computer you can still log by hand.</p>
       ),
       actions: (
         <>
@@ -107,8 +122,8 @@ export function Onboarding({ again = false }: { again?: boolean }) {
           {settings && (
             <div className="space-y-3">
               {HAS_PEPTIDES && <Switch label="Peptides and injections" checked={settings.peptideTools} onChange={(v) => setSetting('peptideTools', v)}>Vials you mix, pens, syringe units, titration plans and supplies.</Switch>}
-              {HAS_BODY && <Switch label="Training" checked={settings.trainingTools} onChange={(v) => setSetting('trainingTools', v)}>Workouts, personal bests, what to aim for next time, protein and water.</Switch>}
-              {HAS_BODY && <Switch label="Food" checked={settings.foodTracking} onChange={(v) => setSetting('foodTracking', v)}>Scan a barcode or photo a label for every macro and micro, or estimate meals you make by hand portions</Switch>}
+              {HAS_TRAINING && FOCUS !== 'training' && <Switch label="Training" checked={settings.trainingTools} onChange={(v) => setSetting('trainingTools', v)}>Workouts, personal bests, what to aim for next time, protein and water.</Switch>}
+              {HAS_FOOD && FOCUS !== 'weight' && <Switch label="Food" checked={settings.foodTracking} onChange={(v) => setSetting('foodTracking', v)}>Scan a barcode or photo a label for every macro and micro, or estimate meals you make by hand portions</Switch>}
             </div>
           )}
         </>
@@ -118,7 +133,23 @@ export function Onboarding({ again = false }: { again?: boolean }) {
     {
       Icon: BellRing,
       title: 'Reminders',
-      body: isNative ? (
+      body: FOCUS !== 'meds' ? (
+        <>
+          <p>{APP_NAME} asks how your day went each evening, so your trends have more to go on{FOCUS === 'training' ? ', and can remind you on the days you usually train' : ''}.</p>
+          {settings && isNative && (
+            <div className="space-y-3">
+              <Switch label="Check-in notifications" checked={settings.checkInNotify} onChange={async (v) => {
+                setRemindersMsg('');
+                const on = await setCheckInNotify(v);
+                if (v && !on) setRemindersMsg('Notifications are off for this app. You can allow them in your phone settings, then turn this on in Settings → Check-ins.');
+              }}>At 8 pm to start; change the time in Settings → Check-ins.</Switch>
+              {FOCUS === 'training' && <Switch label="Training-day reminders" checked={settings.trainingReminders} onChange={async (v) => { await setTrainingReminders(v); }}>Once you've a usual pattern, on the days you train.</Switch>}
+            </div>
+          )}
+          {!isNative && <p className="text-muted">Notifications come with the Android app. Here, the check-in opens by itself when it's due.</p>}
+          {remindersMsg && <p role="alert" className="text-sm rounded-btn bg-caution-soft p-3">{remindersMsg}</p>}
+        </>
+      ) : isNative ? (
         <>
           <p>{APP_NAME} can remind you when a set-time dose is due, and again if it's late. Each reminder has Log it, In 15 min and Skip.</p>
           {settings && (
@@ -157,7 +188,7 @@ export function Onboarding({ again = false }: { again?: boolean }) {
               <p className="text-sm text-muted">A forgotten PIN can't be recovered: only erasing and restoring a backup gets you back in.</p>
             </div>
           )}
-          <p className="text-muted text-[15px]">Each medicine can also have a nickname, shown instead of its name wherever someone might glance.</p>
+          {FOCUS === 'meds' && <p className="text-muted text-[15px]">Each medicine can also have a nickname, shown instead of its name wherever someone might glance.</p>}
         </>
       ),
       actions: next(settings?.lockEnabled ? 'Next' : 'Not now'),
@@ -176,7 +207,39 @@ export function Onboarding({ again = false }: { again?: boolean }) {
       ),
       actions: next(),
     },
-    {
+    FOCUS === 'weight' ? {
+      Icon: Scale,
+      title: 'Your first weigh-in',
+      body: (
+        <ol className="space-y-3">
+          <Point Icon={Nfc} title="1. Put a tag on your scales">Settings → Tags → Add a tag, choose Scales, and hold your phone on the sticker.</Point>
+          <Point Icon={Scale} title="2. Weigh in">Step off and tap the tag. Weigh at the same time each day, ideally in the morning.</Point>
+          <Point Icon={Flag} title="3. Set a goal">On Body: you'll see when you'll likely reach it, and it updates as you go.</Point>
+        </ol>
+      ),
+      actions: (
+        <>
+          <Button className="w-full min-h-[56px]" onClick={() => finish('/tags')}>Set up the scales tag</Button>
+          <Button variant="secondary" className="w-full" onClick={() => finish()}>{again ? 'Done' : "I'll do this later"}</Button>
+        </>
+      ),
+    } : FOCUS === 'training' ? {
+      Icon: Dumbbell,
+      title: 'Your first workout',
+      body: (
+        <ol className="space-y-3">
+          <Point Icon={Nfc} title="1. Tag your gym bag">Settings → Tags → Add a tag, choose a routine, and hold your phone on the sticker. Tags on machines add that exercise.</Point>
+          <Point Icon={Dumbbell} title="2. Tap to start">Tap the tag at the gym and the workout starts, laid out at what to aim for.</Point>
+          <Point Icon={Check} title="3. Tick off sets">The rest timer starts itself, and new personal bests are marked.</Point>
+        </ol>
+      ),
+      actions: (
+        <>
+          <Button className="w-full min-h-[56px]" onClick={() => finish('/training/start')}>Start a workout</Button>
+          <Button variant="secondary" className="w-full" onClick={() => finish('/tags')}>Set up a tag first</Button>
+        </>
+      ),
+    } : {
       Icon: Pill,
       title: 'Add your first medicine',
       body: (
@@ -198,6 +261,8 @@ export function Onboarding({ again = false }: { again?: boolean }) {
       ),
     },
   ];
+  // TapWeigh and TapLift have nothing to switch on: their own main thing is always there.
+  if (FOCUS !== 'meds') screens.splice(2, 1);
   const s = screens[step];
 
   return (

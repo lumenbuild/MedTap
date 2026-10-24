@@ -12,8 +12,10 @@ import { linkActionTag } from '../../db/repos/tags';
 import { DEFAULT_PERSON } from '../../db/schema';
 import { useFamily } from '../../app/data';
 import { ActionPicker } from '../Tags/ActionPicker';
+import { HAS_MEDS } from '../../edition';
 
-/** "New tag found": assign to an existing medication (one tap), create one, or leave it for later. */
+/** "New tag found": assign to an existing medication (one tap), create one, choose something else for it to do, or
+ *  leave it for later. TapWeigh and TapLift only choose what it does. */
 export function UnknownTag({ id, meds, relinking, onLinked, personName }: {
   id: string; meds: Medication[]; relinking: boolean; onLinked: () => void; personName?: (m: Medication) => string;
 }) {
@@ -51,13 +53,15 @@ export function UnknownTag({ id, meds, relinking, onLinked, personName }: {
         </>
       )}
 
-      <div className="mt-3">
-        <Button variant={meds.length ? 'secondary' : 'primary'} className="w-full flex items-center justify-center gap-2" onClick={() => go(`/meds/new/tag/${id}`)}>
-          <Plus size={20} aria-hidden="true" /> Create a new medication
-        </Button>
-      </div>
+      {HAS_MEDS && (
+        <div className="mt-3">
+          <Button variant={meds.length ? 'secondary' : 'primary'} className="w-full flex items-center justify-center gap-2" onClick={() => go(`/meds/new/tag/${id}`)}>
+            <Plus size={20} aria-hidden="true" /> Create a new medication
+          </Button>
+        </div>
+      )}
 
-      <h2 className="text-sm font-semibold text-muted mt-5 mb-2">Or use it for something else</h2>
+      <h2 className="text-sm font-semibold text-muted mt-5 mb-2">{HAS_MEDS ? 'Or use it for something else' : 'What should it do?'}</h2>
       <ActionPicker onPicked={async (action, label) => {
         await linkActionTag(id, action, fam?.personId ?? DEFAULT_PERSON, label);
         toast(`Tag linked: ${label}`);
