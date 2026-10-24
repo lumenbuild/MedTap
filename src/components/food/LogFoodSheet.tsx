@@ -16,6 +16,7 @@ import {
   type EnergyUnit, type ProductData,
 } from '../../logic/nutrition';
 import { Sheet, SheetActions } from '../ui/Sheet';
+import { LiveScanner } from './LiveScanner';
 import { Button } from '../ui/Button';
 import { TextInput } from '../ui/Field';
 
@@ -46,6 +47,7 @@ export function LogFoodSheet({ personId, energy, onClose }: { personId: string; 
   const barcodeInput = useRef<HTMLInputElement>(null);
   const labelInput = useRef<HTMLInputElement>(null);
   const pendingBarcode = useRef<string | undefined>(undefined);
+  const [live, setLive] = useState(false);
   const foods = useLive(() => db.foods.toArray(), []);
 
   const saved = useMemo(() => (foods ?? []).filter((f) => !f.deletedAt)
@@ -105,13 +107,13 @@ export function LogFoodSheet({ personId, energy, onClose }: { personId: string; 
           <>
             {pendingBarcode.current && <p className="text-sm rounded-btn bg-surface-2 p-3">Barcode {pendingBarcode.current}: take a photo of its nutrition panel and it'll be saved with the barcode, so it's found next time.</p>}
             <div className="grid grid-cols-2 gap-2">
-              <Choice Icon={Barcode} label="Scan a barcode" onClick={() => barcodeInput.current?.click()} />
+              <Choice Icon={Barcode} label="Scan a barcode" onClick={() => setLive(true)} />
               <Choice Icon={Camera} label="Photo of the label" onClick={() => labelInput.current?.click()} />
               <Choice Icon={Hand} label="Meal I made" hint="By hand portions" onClick={() => setStep({ s: 'portions' })} />
               <Choice Icon={Keyboard} label="Type it in" onClick={() => setStep({ s: 'typed' })} />
             </div>
             <form className="flex gap-2 items-end" onSubmit={(e) => { e.preventDefault(); const c = typedCode.replace(/\D/g, ''); if (validBarcode(c)) void byBarcode(c); else toast('Check the barcode numbers.'); }}>
-              <div className="flex-1"><TextInput label="Or type the barcode numbers" inputMode="numeric" value={typedCode} onChange={(e) => setTypedCode(e.target.value)} /></div>
+              <div className="flex-1"><TextInput name="barcode-numbers" label="Or type the barcode numbers" inputMode="numeric" value={typedCode} onChange={(e) => setTypedCode(e.target.value)} /></div>
               <Button type="submit" variant="secondary" disabled={typedCode.replace(/\D/g, '').length < 8}>Find</Button>
             </form>
             <div>
@@ -137,6 +139,8 @@ export function LogFoodSheet({ personId, energy, onClose }: { personId: string; 
           </>
         )}
       </div>
+      {live && <LiveScanner onClose={() => setLive(false)} onCode={(code) => { setLive(false); void byBarcode(code); }}
+        onPhoto={() => { setLive(false); barcodeInput.current?.click(); }} onType={() => { setLive(false); setTimeout(() => document.querySelector<HTMLInputElement>('input[name="barcode-numbers"]')?.focus(), 50); }} />}
     </Sheet>
   );
 }

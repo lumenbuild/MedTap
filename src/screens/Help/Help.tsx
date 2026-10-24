@@ -121,7 +121,7 @@ const CONTENT: Record<string, ReactNode> = {
       <H>Log food</H>
       <p>Today → <strong>Food</strong> → <strong>Log food</strong>, or open Food for the day's totals. Turn it off in Settings if you don't want it.</p>
       <ul className="list-disc pl-5 space-y-1">
-        <li><strong>Scan a barcode</strong>: take a photo of the barcode. It's looked up in Open Food Facts, a free open database (only the barcode number is sent), and everything on its panel is kept: energy, protein, carbs, sugars, fat, fibre, sodium, and micros like caffeine, B vitamins, calcium and iron. Check it against the pack the first time; after that it's saved on your phone and works offline.</li>
+        <li><strong>Scan a barcode</strong>: point the camera at it and it's read as soon as it's in the frame (or take a photo, or type the numbers). It's looked up in Open Food Facts, a free open database (only the barcode number is sent), and everything on its panel is kept: energy, protein, carbs, sugars, fat, fibre, sodium, and micros like caffeine, B vitamins, calcium and iron. Check it against the pack the first time; after that it's saved on your phone and works offline.</li>
         <li><strong>Photo of the label</strong>: for anything the database doesn't have, photograph the nutrition panel. It's read on your phone, not uploaded, and you check the numbers before saving. Scanned first? The barcode is saved with it, so it's found next time.</li>
         <li><strong>Meal I made</strong>: hand portions, below.</li>
         <li><strong>Type it in</strong>: numbers from a menu or another app.</li>

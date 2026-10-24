@@ -22,6 +22,7 @@ import { Sheet, SheetActions } from '../components/ui/Sheet';
 import { Segmented, TextInput } from '../components/ui/Field';
 import { Bar } from '../components/ui/Visual';
 import { LogFoodSheet, NutrientList, macroLine } from '../components/food/LogFoodSheet';
+import { LiveScanner } from '../components/food/LiveScanner';
 
 const frac = (f: number) => (f === 0.5 ? '½' : f === 1.5 ? '1½' : f === 0.75 ? '¾' : f === 1.25 ? '1¼' : String(f));
 
@@ -171,16 +172,20 @@ function RecipeSheet({ recipe, foods, energy, onClose }: { recipe?: Food; foods:
   const [pick, setPick] = useState('');
   const [busy, setBusy] = useState(false);
   const scanInput = useRef<HTMLInputElement>(null);
+  const [live, setLive] = useState(false);
   const total = useMemo(() => addNutrients(...items.map((i) => i.nutrients)), [items]);
   const per = Number(serves) > 0 ? scaleNutrients(total, 1 / Number(serves)) : total;
   const byWeight = !!adding?.per100;
 
   const scan = async (file?: File) => {
     if (!file) return;
+    const code = await readBarcode(file).catch(() => null);
+    if (!code) { toast("Couldn't read a barcode. Try again, or pick a saved food."); return; }
+    await addCode(code);
+  };
+  const addCode = async (code: string) => {
     setBusy(true);
     try {
-      const code = await readBarcode(file).catch(() => null);
-      if (!code) { toast("Couldn't read a barcode. Try again, or pick a saved food."); return; }
       const known = await foodByBarcode(code);
       if (known) { setAdding(known); return; }
       const r = await lookUpBarcode(code);
@@ -233,7 +238,9 @@ function RecipeSheet({ recipe, foods, energy, onClose }: { recipe?: Food; foods:
         ) : (
           <div className="space-y-2">
             <input ref={scanInput} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { void scan(e.target.files?.[0]); e.target.value = ''; }} />
-            <Button variant="secondary" className="w-full flex items-center justify-center gap-2" disabled={busy} onClick={() => scanInput.current?.click()}><Barcode size={18} aria-hidden="true" /> {busy ? 'Looking it up…' : 'Scan a pack'}</Button>
+            <Button variant="secondary" className="w-full flex items-center justify-center gap-2" disabled={busy} onClick={() => setLive(true)}><Barcode size={18} aria-hidden="true" /> {busy ? 'Looking it up…' : 'Scan a pack'}</Button>
+            {live && <LiveScanner onClose={() => setLive(false)} onCode={(code) => { setLive(false); void addCode(code); }}
+              onPhoto={() => { setLive(false); scanInput.current?.click(); }} onType={() => setLive(false)} />}
             <TextInput label="Or pick something saved" value={pick} onChange={(e) => setPick(e.target.value)} placeholder="Search" />
             <ul className="divide-y divide-border">
               {matches.map((f) => <li key={f.id}><button type="button" className="w-full min-h-[48px] text-left" onClick={() => { setAdding(f); setAmount(f.per100 ? String(f.servingQty ?? 100) : '1'); }}>{f.name}<span className="text-sm text-muted"> · {f.serving ?? ''}</span></button></li>)}

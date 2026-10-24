@@ -787,3 +787,7 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
   count it) and its caffeine makes a caffeine check-in (so the caffeine-and-sleep finding counts it); removing
   the entry takes both off. Food and food logs are backed up and synced.
 - logic/nutrition.ts (34 nutrients, Open Food Facts mapping, panel parser, portions) with tests; db v10.
+- Live camera scanning: Scan a barcode opens the camera full screen with a guide and reads a few frames a second
+  (BarcodeDetector, or ZXing on the middle of the frame) until the same valid code is seen twice; torch where the
+  phone has one; Photo instead / Type numbers; camera stopped as soon as it reads. Android declares CAMERA
+  (Capacitor asks when it's first used); the iOS camera text mentions barcodes.
