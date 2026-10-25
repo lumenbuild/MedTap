@@ -226,8 +226,12 @@ function Amount({ food, personId, energy, onBack, onClose }: { food: Food; perso
   const toast = useToast();
   const meal = food.kind === 'meal';
   const options = meal ? MEAL_SIZES.map((x) => ({ f: x.f, label: x.label })) : [0.5, 1, 1.5, 2].map((f) => ({ f, label: food.kind === 'recipe' ? `${f} serve${f === 1 ? '' : 's'}` : `${f}` }));
-  const [f, setF] = useState(1);
+  const [pick, setF] = useState(1);
   const [qty, setQty] = useState('');
+  // Any number of servings (or times the usual meal), not just the buttons: 3 eggs, three-quarters of a bar.
+  const [count, setCount] = useState('');
+  const own = toNum(count) !== undefined && toNum(count)! > 0 ? toNum(count)! : undefined;
+  const f = own ?? pick;
   const [at, setAt] = useState(format(new Date(), 'HH:mm'));
   const byWeight = !!food.per100 && toNum(qty) !== undefined && toNum(qty)! > 0;
   const nutrients = byWeight ? scaleNutrients(food.per100!, toNum(qty)! / 100) : scaleNutrients(food.nutrients, f);
@@ -244,11 +248,13 @@ function Amount({ food, personId, energy, onBack, onClose }: { food: Food; perso
         <p className="text-sm text-muted">{meal && food.portions ? `Your usual: ${fmtPortions(food.portions)}` : food.serving ? `1 = ${food.serving}` : ''}</p>
         <div role="radiogroup" aria-label={meal ? 'Size' : 'How many'} className="grid grid-cols-4 gap-2">
           {options.map((o) => (
-            <button key={o.f} type="button" role="radio" aria-checked={!byWeight && f === o.f} onClick={() => { setF(o.f); setQty(''); }}
-              className={`min-h-[48px] rounded-btn text-[15px] font-medium ${!byWeight && f === o.f ? 'bg-primary text-on-primary' : 'bg-surface-2'}`}>{o.label}</button>
+            <button key={o.f} type="button" role="radio" aria-checked={!byWeight && !own && pick === o.f} onClick={() => { setF(o.f); setQty(''); setCount(''); }}
+              className={`min-h-[48px] rounded-btn text-[15px] font-medium ${!byWeight && !own && pick === o.f ? 'bg-primary text-on-primary' : 'bg-surface-2'}`}>{o.label}</button>
           ))}
         </div>
-        {food.per100 && <TextInput label={`Or how much (${food.servingUnit ?? 'g'})`} type="number" inputMode="decimal" min="0" step="any" value={qty} onChange={(e) => setQty(e.target.value)} />}
+        <TextInput label={meal ? 'Or how many times your usual' : food.kind === 'recipe' ? 'Or how many serves' : 'Or how many'} type="number" inputMode="decimal" min="0" step="any" value={count}
+          onChange={(e) => { setCount(e.target.value); setQty(''); }} />
+        {food.per100 && <TextInput label={`Or how much (${food.servingUnit ?? 'g'})`} type="number" inputMode="decimal" min="0" step="any" value={qty} onChange={(e) => { setQty(e.target.value); setCount(''); }} />}
         <When at={at} setAt={setAt} />
         <NutrientList n={nutrients} energy={energy} />
         <SheetActions>

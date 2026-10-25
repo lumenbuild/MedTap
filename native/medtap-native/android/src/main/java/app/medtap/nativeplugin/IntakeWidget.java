@@ -4,7 +4,8 @@ import android.content.Context;
 import android.widget.RemoteViews;
 import org.json.JSONObject;
 
-/** 4. Protein and water: rings towards the day's targets and +25 g / +250 mL without opening the app. */
+/** 4. Protein and water: rings towards the day's targets, and + buttons with the person's own amounts (their cup, their
+ *  scoop: the ones they last used in the app) without opening it. */
 public class IntakeWidget extends BaseWidget {
     @Override
     RemoteViews render(Context ctx, JSONObject d) {
@@ -19,11 +20,12 @@ public class IntakeWidget extends BaseWidget {
         v.setTextViewText(R.id.mw_w_val, (w >= 1000 ? (Math.round(w / 100) / 10.0) + " L" : Math.round(w) + " mL"));
         v.setTextViewText(R.id.mw_p_label, "Protein");
         v.setTextViewText(R.id.mw_w_label, wt > 0 ? "Water of " + (Math.round(wt / 100) / 10.0) + " L" : "Water");
-        v.setTextViewText(R.id.mw_p_add, "+25 g");
-        v.setTextViewText(R.id.mw_w_add, "+250 mL");
+        int pa = in == null ? 25 : Math.max(1, in.optInt("proteinAdd", 25)), wa = in == null ? 250 : Math.max(1, in.optInt("waterAdd", 250));
+        v.setTextViewText(R.id.mw_p_add, "+" + pa + " g");
+        v.setTextViewText(R.id.mw_w_add, "+" + wa + " mL");
         try {
-            v.setOnClickPendingIntent(R.id.mw_p_add, WidgetStore.action(ctx, new JSONObject().put("kind", "intake").put("field", "proteinG").put("amount", 25).put("toast", "+25 g protein"), 40));
-            v.setOnClickPendingIntent(R.id.mw_w_add, WidgetStore.action(ctx, new JSONObject().put("kind", "intake").put("field", "waterMl").put("amount", 250).put("toast", "+250 mL water"), 41));
+            v.setOnClickPendingIntent(R.id.mw_p_add, WidgetStore.action(ctx, new JSONObject().put("kind", "intake").put("field", "proteinG").put("amount", pa).put("toast", "+" + pa + " g protein"), 40));
+            v.setOnClickPendingIntent(R.id.mw_w_add, WidgetStore.action(ctx, new JSONObject().put("kind", "intake").put("field", "waterMl").put("amount", wa).put("toast", "+" + wa + " mL water"), 41));
         } catch (Exception ignored) { }
         return v;
     }

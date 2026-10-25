@@ -88,6 +88,24 @@ export interface Person extends Stamped {
   goals?: BodyGoal[];
   /** Strength, cardio and training-days goals. */
   fitnessGoals?: FitnessGoal[];
+  /** The training plan the app runs for them (see logic/coach). */
+  coach?: CoachPlan;
+}
+
+/** Training plan set-up: what it's for, how often and with what, and the programme being run (from when). */
+export interface CoachPlan {
+  goal: 'strength' | 'muscle' | 'fitness' | 'bodyweight';
+  days: number; minutes: number;
+  kit: 'gym' | 'home' | 'none';
+  /** Training before starting: 0 new, 1 some (months), 2 a lot (years). */
+  experience: 0 | 1 | 2;
+  /** Strength standards to compare with, or none. */
+  standards: 'f' | 'm' | null;
+  programId: string;
+  /** When this programme started (ISO): its weeks and sessions count from here. */
+  startedAt: string;
+  /** Training max per main lift (kg), for wave and block programmes; set from the estimated max when they start. */
+  maxes?: Record<string, number>;
 }
 export const DEFAULT_PERSON = 'me';
 

@@ -16,7 +16,7 @@ import { autoImportHealth } from './health';
 import { APP_NAME } from '../config';
 import { getDayBounds, getExpectedAmount, getRecentDose } from '../logic/schedule';
 import { logDose } from '../db/repos/doses';
-import { liveSnoozes, planReminders, snoozeOf, SNOOZE_MIN, withoutSnoozed } from '../logic/notify';
+import { liveSnoozes, planReminders, snoozeOf, withoutSnoozed } from '../logic/notify';
 import { planTrainingReminders } from '../logic/trainingPlan';
 import { trainingVsPeptide } from '../logic/training';
 import { wearOffToday } from '../logic/wearOff';
@@ -48,6 +48,24 @@ function openUrl(url: string | null) {
   if (id) go(`/tag/${encodeURIComponent(id)}`);
 }
 
+/** The notification buttons. The dose one's Snooze names the person's snooze length, so it's registered again when that
+ *  changes. */
+let actionsFor: number | null = null;
+async function registerActions(snoozeMin: number) {
+  if (actionsFor === snoozeMin) return;
+  actionsFor = snoozeMin;
+  const snooze = snoozeMin % 60 ? `In ${snoozeMin} min` : `In ${snoozeMin / 60} hour${snoozeMin === 60 ? '' : 's'}`;
+  await LocalNotifications.registerActionTypes({ types: [
+    // Check-ins answered from the notification; usual drinks confirmed from it.
+    { id: CHECKIN_ACTIONS, actions: [{ id: 'ci-4', title: 'Good' }, { id: 'ci-3', title: 'OK' }, { id: 'ci-2', title: 'Rough' }] },
+    { id: USUAL_ACTIONS, actions: [{ id: 'usual-yes', title: 'Yes' }, { id: 'usual-no', title: 'Not today' }] },
+    { id: ACTIONS, actions: [
+    { id: 'log', title: 'Log it', foreground: true },
+    { id: 'snooze', title: snooze },
+    { id: 'skip', title: 'Skip', destructive: true },
+  ] }] });
+}
+
 export async function initNative() {
   if (!isNative) return;
   await MedTapNative.addListener('tag', (e) => openUrl(e.url));
@@ -63,15 +81,7 @@ export async function initNative() {
   }
   void autoImportHealth();
 
-  await LocalNotifications.registerActionTypes({ types: [
-    // Check-ins answered from the notification; usual drinks confirmed from it.
-    { id: CHECKIN_ACTIONS, actions: [{ id: 'ci-4', title: 'Good' }, { id: 'ci-3', title: 'OK' }, { id: 'ci-2', title: 'Rough' }] },
-    { id: USUAL_ACTIONS, actions: [{ id: 'usual-yes', title: 'Yes' }, { id: 'usual-no', title: 'Not today' }] },
-    { id: ACTIONS, actions: [
-    { id: 'log', title: 'Log it', foreground: true },
-    { id: 'snooze', title: `In ${SNOOZE_MIN} min` },
-    { id: 'skip', title: 'Skip', destructive: true },
-  ] }] });
+  await registerActions((await getSettings()).snoozeMin);
   if (isNativeAndroid) {
     await LocalNotifications.createChannel({ id: CHANNEL, name: 'Dose reminders', description: 'When a dose is due', importance: 4, vibration: true, visibility: 0 });
     await LocalNotifications.createChannel({ id: TRAINING_CHANNEL, name: 'Training', description: 'Rest timer and training-day reminders', importance: 4, vibration: true, visibility: 1 });
@@ -156,7 +166,7 @@ async function syncExtras() {
     const payload = widgetsPayload({
       app: APP_NAME, meds: mine, doses: live, checkIns: theirs(checkIns), body: theirs(body), daily: theirs(daily), workouts: theirs(workouts),
       events: events.filter((e) => ids.has(e.medicationId)), own, goals: people.find((p) => p.id === who)?.goals ?? [], units: settings.units,
-      proteinTarget: settings.proteinTargetG, waterTarget: settings.waterTargetMl, body_: HAS_BODY, training: settings.trainingTools,
+      proteinTarget: settings.proteinTargetG, waterTarget: settings.waterTargetMl, amounts: settings.intakeAmounts, body_: HAS_BODY, training: settings.trainingTools,
       peptides: HAS_PEPTIDES && settings.peptideTools && !(settings.privacyPinHash && settings.privacyHidePeptides),
     }, Date.now(), scheduleSettings(settings));
     await MedTapNative.setWidget({ json: JSON.stringify(payload) });
@@ -164,7 +174,7 @@ async function syncExtras() {
   } catch (e) { console.error('widget/shortcuts', e); }
 }
 
-/** "Log it" logs the planned amount straight away; "In 15 min" reminds again then; "Skip" records the dose as skipped
+/** "Log it" logs the planned amount straight away; Snooze reminds again after the person's snooze length; "Skip" records the dose as skipped
  *  (it covers its place in the plan); tapping the notification opens Log dose. */
 async function onAction({ actionId, notification }: ActionPerformed) {
   const { medId, amount, route, dueAt, doseId, usual } = (notification.extra ?? {}) as { medId?: string; amount?: number; route?: string; dueAt?: number;
@@ -192,7 +202,7 @@ async function onAction({ actionId, notification }: ActionPerformed) {
   const settings = await getSettings();
   const doses = (await db.doses.where('medicationId').equals(medId).toArray()).filter((d) => !d.deletedAt);
   if (actionId === 'snooze' && amount !== undefined) {
-    const z = snoozeOf({ medId, amount, dueAt: dueAt ?? Date.now() }, Date.now());
+    const z = snoozeOf({ medId, amount, dueAt: dueAt ?? Date.now() }, Date.now(), settings.snoozeMin);
     await setSetting('snoozes', [...liveSnoozes(settings.snoozes, doses, Date.now()).filter((x) => !(x.medId === medId && x.dueAt === z.dueAt)), z]);
     await syncReminders();
     return;
@@ -263,6 +273,7 @@ async function doSync() {
   if (stale.length) await LocalNotifications.cancel({ notifications: stale.map((n) => ({ id: n.id })) });
   const settings = await getSettings();
   if ((await reminderPermission()) !== 'granted') return;
+  await registerActions(settings.snoozeMin).catch((e) => console.error('actions', e));
   // Each kind on its own, so one that fails can't stop the others (check-ins used to sit behind all of these).
   const safe = async (what: string, f: () => Promise<void>) => { try { await f(); } catch (e) { console.error(what, e); } };
   await safe('check-ins', () => scheduleCheckIns(settings));

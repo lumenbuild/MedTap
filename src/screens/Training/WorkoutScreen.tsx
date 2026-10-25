@@ -10,6 +10,7 @@ import { finishWorkout, newSetId, removeWorkout, restoreWorkout, saveRoutine, sa
 import { allExercises, swapsFor, type ExerciseDef } from '../../logic/exercises';
 import { newPBs, nextTarget, personalBests, restFor, working } from '../../logic/training';
 import { adjustAfterSet, smartTarget, type SmartTarget } from '../../logic/progression';
+import { PROGRAMS } from '../../logic/coach';
 import { useTrainingContext } from './useTrainingContext';
 import { pbWithinReach, warmupSets } from '../../logic/trainingExtras';
 import { plannedSets } from '../../logic/tagActions';
@@ -98,8 +99,18 @@ export function WorkoutScreen({ id }: { id: string }) {
   const mins = Math.round(((w.endedAt ? Date.parse(w.endedAt) : now) - Date.parse(w.startedAt)) / 60_000);
   const pbs = newPBs(w, [...others, w], defs, units);
   const routineItem = (exId: string) => routines?.find((r) => r.id === w.routineId)?.items.find((i) => i.exerciseId === exId);
-  // Today's aim for each exercise: the smart target, judged as at the start of this workout.
-  const aimFor = (def: ExerciseDef): SmartTarget => smartTarget(def, others, { item: routineItem(def.id), units, readiness: today?.readiness, weakDay: today?.weakDay, lighter: today?.lighter, now: Date.parse(w.startedAt) });
+  // A session from the training plan: its aim is the sets the plan laid out (waves, light days and all), not a fresh
+  // guess. Otherwise the smart target, judged as at the start of this workout.
+  const fromPlan = !!w.name && PROGRAMS.some((p) => w.name!.startsWith(`${p.short} · `));
+  const planned = (def: ExerciseDef): SmartTarget | undefined => {
+    const ss = w.sets.filter((x) => x.exerciseId === def.id && !x.warmup);
+    if (!fromPlan || !ss.length) return undefined;
+    const top = Math.max(...ss.map((x) => x.weightKg));
+    const varied = new Set(ss.map((x) => `${x.weightKg}×${x.reps}`)).size > 1;
+    return { sets: ss.length, reps: ss[ss.length - 1].reps, weightKg: top, why: 'same',
+      reason: varied ? `From your plan: ${ss.map((x) => `${x.reps}${x.weightKg ? ` at ${fmtLoad(x.weightKg, units)}` : ''}`).join(', ')}.` : 'From your plan.' };
+  };
+  const aimFor = (def: ExerciseDef): SmartTarget => planned(def) ?? smartTarget(def, others, { item: routineItem(def.id), units, readiness: today?.readiness, weakDay: today?.weakDay, lighter: today?.lighter, now: Date.parse(w.startedAt) });
 
   /** Clearly too easy or too hard: change the weight of this exercise's remaining sets at that weight (with Undo). */
   const adjustFrom = (cur: Workout, s: WorkoutSet, def: ExerciseDef): Workout => {

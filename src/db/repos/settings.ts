@@ -136,6 +136,12 @@ export interface AppSettings {
   milestonesSeen: string[];
   usualAsk: boolean;
   usualDismissed: string[];
+  /** "Ready for the next programme" put off until then (ms). */
+  coachMoveSnooze: number;
+  /** The water and protein buttons on Today: the person's own amounts (a cup, a bottle, a scoop), most recently used first. */
+  intakeAmounts: { waterMl: number[]; proteinG: number[] };
+  /** How long Snooze on a dose reminder waits. */
+  snoozeMin: number;
 }
 
 export interface Snooze { id: number; medId: string; amount: number; dueAt: number; at: number; made: number }
@@ -220,6 +226,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   milestonesSeen: [],
   usualAsk: true,
   usualDismissed: [],
+  coachMoveSnooze: 0,
+  intakeAmounts: { waterMl: [250, 500], proteinG: [10, 25, 40] },
+  snoozeMin: 15,
 };
 
 export async function getSettings(): Promise<AppSettings> {
