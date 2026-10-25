@@ -66,7 +66,7 @@ export function DayStrip({ ring, streaks, milestones }: { ring: Ring | null; str
                   </li>
                 ))}
               </ul>
-              <p className="text-xs text-muted mt-2">Forgiving: one off day in any week doesn't end a daily streak, and one off week in four doesn't end the training one. Doses skipped on purpose count as on track.</p>
+              <p className="text-xs text-muted mt-2">Forgiving: one off day in any week doesn't end a daily streak, and one off week in four doesn't end the training one. The doses streak counts only days with doses due (a weekly injection's other days, or a break, don't add to it or end it), and doses skipped on purpose count as on track.</p>
             </div>
           )}
           <div>
