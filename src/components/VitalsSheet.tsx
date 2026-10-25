@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { Vital } from '../db/schema';
 import { addVital, removeVital, restoreVital, updateVital } from '../db/repos/vitals';
 import { storedPerson } from '../db/repos/people';
 import { fmtTime, fmtWhen, fromLocalInput, toLocalInput } from '../logic/format';
 import { useToast } from '../app/toast';
-import { Sheet, SheetActions } from './ui/Sheet';
+import { Sheet, SheetActions, useFreshKey } from './ui/Sheet';
 import { Button } from './ui/Button';
 
 /** "120/80 mmHg · 72 bpm" */
@@ -18,8 +18,7 @@ const numCls = 'w-full min-h-[64px] rounded-btn bg-surface-2 border border-borde
 
 /** Log a blood pressure and/or heart rate reading. */
 export function VitalsSheet({ state, onClose, personId }: { state: VitalsSheetState; onClose: () => void; personId: string }) {
-  const [n, setN] = useState(0);
-  useEffect(() => { if (state) setN((x) => x + 1); }, [state]);
+  const n = useFreshKey(state);
   return state ? <VitalsForm key={n} editing={state.editing} onClose={onClose} personId={personId} /> : null;
 }
 
