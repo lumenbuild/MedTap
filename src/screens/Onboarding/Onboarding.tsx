@@ -151,7 +151,7 @@ export function Onboarding({ again = false }: { again?: boolean }) {
         </>
       ) : isNative ? (
         <>
-          <p>{APP_NAME} can remind you when a set-time dose is due, and again if it's late. Each reminder has Log it, In 15 min and Skip.</p>
+          <p>{APP_NAME} can remind you when a set-time dose is due, and again if it's late. Each reminder has Log it, Snooze (15 minutes, or as long as you like in Settings) and Skip.</p>
           {settings && (
             <div className="space-y-3">
               <Switch label="Remind me when doses are due" checked={settings.remindersEnabled} onChange={async (v) => {

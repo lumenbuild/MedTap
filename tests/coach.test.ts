@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { BodyEntry, CoachPlan, Workout, WorkoutSet } from '../src/db/schema';
 import { allExercises } from '../src/logic/exercises';
-import { assessLevel, ladderSteps, nextSession, readyToMoveOn, recommend, PROGRAMS } from '../src/logic/coach';
+import { assessLevel, fitToTime, ladderSteps, nextSession, readyToMoveOn, recommend, sessionMinutes, PROGRAMS } from '../src/logic/coach';
 
 const DAY = 86_400_000, WEEK = 7 * DAY;
 const NOW = Date.parse('2026-10-25T09:00:00Z');
@@ -83,6 +83,29 @@ describe('the next session', () => {
     expect(ladderSteps([], 2, 'none')).toMatchObject({ push: 2, vpush: 0, legs: 1, core: 1 });
     // Without a bar the pull ladder stays at table rows.
     expect(ladderSteps([], 2, 'none').pull).toBe(0);
+  });
+});
+
+describe('the time there is', () => {
+  it('cuts extras first, then sets of the main lifts, and says what went', () => {
+    const p = plan({ programId: 'mus-1', goal: 'muscle', minutes: 60 });
+    const full = nextSession(p, [], body, defs, NOW)!;
+    expect(full.cut).toBeUndefined();
+    const short = nextSession({ ...p, minutes: 30 }, [], body, defs, NOW)!;
+    expect(short.minutes).toBeLessThanOrEqual(30);
+    expect(short.items.length).toBeLessThan(full.items.length);
+    expect(short.items.filter((i) => i.main).length).toBe(full.items.filter((i) => i.main).length);
+    expect(short.cut).toMatch(/^Cut to fit 30 min: .+ left out/);
+    // A wave's sets are set week by week: never cut.
+    const wave = nextSession(plan({ programId: 'str-4', days: 4, minutes: 20, maxes: { squat: 100 } }), [], body, defs, NOW)!;
+    expect(wave.items.find((i) => i.exerciseId === 'squat')!.sets).toBe(3);
+  });
+  it('weights stay one per set when sets are cut', () => {
+    const items = [{ exerciseId: 'a', name: 'A', sets: 5, reps: 5, main: true, weights: [100, 100, 100, 100, 100] }];
+    const r = fitToTime(items, undefined, 20);
+    expect(r.items[0].sets).toBe(3);
+    expect(r.items[0].weights).toHaveLength(3);
+    expect(sessionMinutes(r.items)).toBeGreaterThan(0);
   });
 });
 

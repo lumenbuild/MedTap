@@ -53,6 +53,8 @@ describe('snooze', () => {
     expect(liveSnoozes([z], [], z.at + 1)).toHaveLength(0);
     const d = { id: 'd', medicationId: 'm', takenAt: new Date(NOW).toISOString(), amount: 50, source: 'manual', createdAt: new Date(NOW + 120_000).toISOString(), updatedAt: '' } as Dose;
     expect(liveSnoozes([z], [d], NOW + 180_000)).toHaveLength(0);
+    // The person's own snooze length.
+    expect(snoozeOf({ medId: 'm', amount: 50, dueAt: NOW }, NOW, 40).at - NOW).toBe(40 * 60_000);
   });
   it('replaces the same dose\'s earlier reminders, not later ones', () => {
     const r = (at: number, dueAt = z.dueAt): PlannedReminder => ({ id: at, at, medId: 'm', amount: 50, kind: 'nudge', dueAt });

@@ -20,7 +20,7 @@ import { useToast } from '../../app/toast';
 import { useTrainingContext } from './useTrainingContext';
 import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
-import { Segmented } from '../../components/ui/Field';
+import { Segmented, TextInput } from '../../components/ui/Field';
 
 const DAY = 86_400_000;
 
@@ -134,7 +134,8 @@ export function PathCard({ personId, person, workouts, body, defs, units, moveSn
           <h3 className="text-sm font-medium text-muted flex-1">Next: {prog.name}</h3>
           <button type="button" className="text-sm font-medium underline underline-offset-4 min-h-[44px]" onClick={() => setSheet('library')}>Change</button>
         </div>
-        <p className="font-semibold text-[17px]">{s.day.name}{s.phase ? <span className="font-normal text-muted"> · {s.phase}</span> : null}</p>
+        <p className="font-semibold text-[17px]">{s.day.name}{s.phase ? <span className="font-normal text-muted"> · {s.phase}</span> : null}<span className="font-normal text-muted tnum"> · about {s.minutes} min</span></p>
+        {s.cut && <p className="text-sm text-muted">{s.cut}</p>}
         <ul className="divide-y divide-border">
           {preview.map((p) => (
             <li key={p.it.exerciseId + p.it.reps} className="py-2">
@@ -209,6 +210,8 @@ function Setup({ personId, plan, workouts, body, now, onClose }: { personId: str
   const [goal, setGoal] = useState<Goal>(plan?.goal ?? 'strength');
   const [days, setDays] = useState(plan?.days ?? 3);
   const [minutes, setMinutes] = useState(plan?.minutes ?? 60);
+  const [ownTime, setOwnTime] = useState(![30, 45, 60, 90].includes(plan?.minutes ?? 60));
+  const [timeText, setTimeText] = useState(String(plan?.minutes ?? 60));
   const [kit, setKit] = useState<Kit>(plan?.kit ?? 'gym');
   const [experience, setExperience] = useState<CoachPlan['experience']>(plan?.experience ?? 0);
   const [standards, setStandards] = useState<CoachPlan['standards']>(plan?.standards ?? null);
@@ -244,7 +247,10 @@ function Setup({ personId, plan, workouts, body, now, onClose }: { personId: str
         </div>
         <div className="space-y-1.5">
           <span className="block text-sm font-medium">About how long</span>
-          <Segmented label="Minutes a session" value={String(minutes)} onChange={(v) => setMinutes(Number(v))} options={[30, 45, 60, 90].map((m) => ({ value: String(m), label: `${m} min` }))} />
+          <Segmented label="Minutes a session" value={ownTime ? 'other' : String(minutes)} onChange={(v) => { if (v === 'other') setOwnTime(true); else { setOwnTime(false); setMinutes(Number(v)); } }}
+            options={[...[30, 45, 60, 90].map((m) => ({ value: String(m), label: `${m} min` })), { value: 'other', label: 'Other' }]} />
+          {ownTime && <TextInput label="Minutes a session" type="number" inputMode="numeric" min="15" max="240" step="5" value={timeText} onChange={(e) => {
+            setTimeText(e.target.value); const n = Math.round(Number(e.target.value)); if (n >= 15 && n <= 240) setMinutes(n); }} help="15 to 240. Sessions are cut to fit, extras first." />}
         </div>
         <Pick label="Where" value={kit} onChange={setKit} options={KITS.map((k) => ({ v: k.id, name: k.name, what: k.what }))} />
         <Pick label="Training before now" value={experience} onChange={setExperience} options={[

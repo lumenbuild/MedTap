@@ -383,7 +383,7 @@ export function Today() {
         const mineDaily = daily.filter((d) => !d.deletedAt && personOf(d) === fam.personId);
         const today = format(now, 'yyyy-MM-dd');
         return <IntakeCard personId={fam.personId} today={today} day={mineDaily.find((d) => d.date === today)} proteinTarget={settings.proteinTargetG} waterTarget={settings.waterTargetMl}
-          ready={FOCUS === 'training' ? null : readiness(mineDaily, viewCheckIns, now, s)} />;
+          ready={FOCUS === 'training' ? null : readiness(mineDaily, viewCheckIns, now, s)} amounts={settings.intakeAmounts} />;
       })()}
 
       {!fam.everyone && daily && <SleepAsk checkIns={viewCheckIns} daily={daily.filter(mine)} personId={storedPerson(fam.personId)} checkFrom={settings.caffeineCheckFrom} now={now} s={s} />}

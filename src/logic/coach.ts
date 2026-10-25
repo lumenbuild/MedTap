@@ -364,7 +364,41 @@ export function pickExercise(role: Role, kit: Kit, defs: ExerciseDef[], o: { lad
 // ── The next session ─────────────────────────────────────────────────────────────────────────────────
 
 export interface PlannedItem { exerciseId: string; name: string; sets: number; reps: number; repsMax?: number; /** Prescribed weights per set (waves, blocks, light days). */ weights?: number[]; repsBySet?: number[]; note?: string; main?: boolean }
-export interface PlannedSession { program: Program; day: Day; title: string; n: number; week: number; phase?: string; items: PlannedItem[]; cardio?: Day['cardio'] }
+export interface PlannedSession {
+  program: Program; day: Day; title: string; n: number; week: number; phase?: string; items: PlannedItem[]; cardio?: Day['cardio'];
+  /** About how long it takes, after fitting it to the person's time; and what was cut to fit, if anything. */
+  minutes: number; cut?: string;
+}
+
+/** About how long: a warm-up, then each set with its rest (longer for main lifts), then any cardio. */
+export function sessionMinutes(items: PlannedItem[], cardio?: Day['cardio']): number {
+  const sets = items.reduce((a, it) => a + it.sets * (it.main ? 3.5 : 2.5), 0);
+  return Math.round((items.length ? 8 : 0) + sets + (cardio?.minutes ?? 0));
+}
+
+/** Cut a session to the time there is, from the end: the last extras lose sets down to two and then go, keeping the
+ *  first two moves; then any extra down to two sets; then main lifts down to three (never a wave's or block's, which are
+ *  set week by week). */
+export function fitToTime(items: PlannedItem[], cardio: Day['cardio'] | undefined, minutes: number): { items: PlannedItem[]; cut?: string } {
+  let out = items.map((x) => ({ ...x }));
+  const was = new Map(out.map((x) => [x, x.sets]));
+  const dropped = new Set<PlannedItem>();
+  const over = () => sessionMinutes(out.filter((x) => !dropped.has(x)), cardio) > minutes;
+  const less = (x: PlannedItem, floor: number) => { while (over() && x.sets > floor) { x.sets -= 1; if (x.weights) x.weights = x.weights.slice(0, x.sets); } };
+  const extras = out.filter((x) => !x.main && !x.repsBySet);
+  for (const x of [...extras].reverse()) {
+    if (!over()) break;
+    less(x, 2);
+    if (over() && out.indexOf(x) >= 2) dropped.add(x);
+  }
+  for (const x of extras) if (!dropped.has(x)) less(x, 2);
+  for (const x of out) if (x.main && !x.repsBySet) less(x, 3);
+  const names = out.filter((x) => dropped.has(x)).map((x) => x.name);
+  out = out.filter((x) => !dropped.has(x));
+  const fewer = out.some((x) => x.sets < was.get(x)!);
+  const cut = names.length ? `Cut to fit ${minutes} min: ${names.join(', ')} left out${fewer ? ', and fewer sets' : ''}` : fewer ? `Fewer sets to fit ${minutes} min` : undefined;
+  return { items: out, cut };
+}
 
 const WAVE = [[0.65, 0.75, 0.85], [0.7, 0.8, 0.9], [0.75, 0.85, 0.95], [0.4, 0.5, 0.6]];
 const WAVE_REPS = [[5, 5, 5], [3, 3, 3], [5, 3, 1], [5, 5, 5]];
@@ -443,7 +477,8 @@ export function nextSession(plan: CoachPlan, workouts: Workout[], body: BodyEntr
     }
     items.push(item);
   }
-  return { program: prog, day, title: `${prog.short} · ${day.name}`, n, week, phase, items, cardio: day.cardio };
+  const fit = plan.minutes > 0 ? fitToTime(items, day.cardio, plan.minutes) : { items };
+  return { program: prog, day, title: `${prog.short} · ${day.name}`, n, week, phase, items: fit.items, cardio: day.cardio, minutes: sessionMinutes(fit.items, day.cardio), cut: fit.cut };
 }
 
 /** The two muscles with the fewest working sets over the last four weeks (of those trained at all). */

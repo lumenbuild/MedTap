@@ -1,13 +1,19 @@
 // Fitness cards used on Training, Body, Protocol and Today: readiness, lean mass while losing weight, strength against
 // the peptide, and one timeline for every goal.
-import { Beef, Dumbbell, GlassWater, Moon, Pill, Scale, Smile, Trophy, type LucideIcon } from 'lucide-react';
+import { Beef, Dumbbell, GlassWater, Moon, Pill, Plus, Scale, Smile, Trophy, X, type LucideIcon } from 'lucide-react';
+import { useState } from 'react';
 import { Bar, IconRow, MiniRing, Stat, ZeroBars } from './ui/Visual';
 import { format } from 'date-fns';
 import type { BodyEntry, BodyGoal, DailyHealth, Dose, FitnessGoal, Medication, Workout } from '../db/schema';
 import type { Digest } from '../logic/digest';
 import { addIntake } from '../db/repos/training';
 import { useToast } from '../app/toast';
-import type { Units } from '../db/repos/settings';
+import { setSetting, type AppSettings, type Units } from '../db/repos/settings';
+import { INTAKE_LIMIT, keepAmount, MAX_AMOUNTS, parseAmount, shownAmounts, usedAmount, type IntakeField } from '../logic/intake';
+import { Sheet, SheetActions } from './ui/Sheet';
+import { Button } from './ui/Button';
+import { TextInput } from './ui/Field';
+import { Switch } from './ui/Switch';
 import type { ScheduleSettings } from '../logic/schedule';
 import { muscleWatch, trainingVsPeptide, fitnessGoalStatus, type Readiness, type TrainingSummary } from '../logic/training';
 import { fmtLoad } from '../logic/load';
@@ -121,15 +127,18 @@ export function GoalTimeline({ bodyGoals, fitnessGoals, body, workouts, defs, un
 }
 
 /** Today: protein and water, one tap each, with the day's total against your own target. */
-export function IntakeCard({ personId, today, day, proteinTarget, waterTarget, ready }: {
-  personId: string; today: string; day?: DailyHealth; proteinTarget: number | null; waterTarget: number | null; ready: Readiness | null;
+export function IntakeCard({ personId, today, day, proteinTarget, waterTarget, ready, amounts }: {
+  personId: string; today: string; day?: DailyHealth; proteinTarget: number | null; waterTarget: number | null; ready: Readiness | null; amounts: AppSettings['intakeAmounts'];
 }) {
   const toast = useToast();
-  const add = async (field: 'proteinG' | 'waterMl', amount: number, unit: string) => {
+  const [other, setOther] = useState<IntakeField | null>(null);
+  const add = async (field: IntakeField, amount: number, unit: string) => {
     const total = await addIntake(personId, today, field, amount);
     toast(`+${amount} ${unit} · ${total} ${unit} today`, { onAction: () => addIntake(personId, today, field, -amount) });
+    const list = usedAmount(amounts[field], amount);
+    if (list !== amounts[field]) void setSetting('intakeAmounts', { ...amounts, [field]: list });
   };
-  const row = (label: string, Icon: LucideIcon, field: 'proteinG' | 'waterMl', unit: string, target: number | null, steps: number[]) => {
+  const row = (label: string, Icon: LucideIcon, field: IntakeField, unit: string, target: number | null) => {
     const v = day?.[field] ?? 0;
     return (
       <div className="space-y-2">
@@ -140,7 +149,10 @@ export function IntakeCard({ personId, today, day, proteinTarget, waterTarget, r
         </div>
         {target ? <Bar value={v} max={target} tone={v >= target ? 'good' : 'primary'} label={`${v} of ${target} ${unit}`} /> : null}
         <div className="flex gap-2">
-          {steps.map((a) => <button key={a} type="button" onClick={() => add(field, a, unit)} aria-label={`Add ${a} ${unit} of ${label.toLowerCase()}`} className="flex-1 min-h-[44px] rounded-chip bg-surface-2 text-sm font-medium tnum">+{a}</button>)}
+          {shownAmounts(amounts[field]).map((a) => <button key={a} type="button" onClick={() => add(field, a, unit)} aria-label={`Add ${a} ${unit} of ${label.toLowerCase()}`} className="flex-1 min-h-[44px] rounded-chip bg-surface-2 text-sm font-medium tnum">+{a}</button>)}
+          <button type="button" onClick={() => setOther(field)} aria-label={`Add another amount of ${label.toLowerCase()}`} className="flex-1 min-h-[44px] rounded-chip bg-surface-2 text-sm font-medium flex items-center justify-center gap-1">
+            <Plus size={16} aria-hidden="true" />Other
+          </button>
         </div>
       </div>
     );
@@ -148,9 +160,56 @@ export function IntakeCard({ personId, today, day, proteinTarget, waterTarget, r
   return (
     <section className="border-t border-border pt-4 space-y-4" aria-label="Protein, water and readiness">
       {ready && <div className="pb-4 border-b border-border"><ReadinessBlock r={ready} compact /></div>}
-      {row('Protein', Beef, 'proteinG', 'g', proteinTarget, [10, 25, 40])}
-      {row('Water', GlassWater, 'waterMl', 'mL', waterTarget, [250, 500])}
+      {row('Protein', Beef, 'proteinG', 'g', proteinTarget)}
+      {row('Water', GlassWater, 'waterMl', 'mL', waterTarget)}
+      {other && <OtherAmount field={other} total={day?.[other] ?? 0} amounts={amounts} onClose={() => setOther(null)}
+        onAdd={(n, keep) => { setOther(null); void add(other, n, other === 'waterMl' ? 'mL' : 'g').then(() => { if (keep) void setSetting('intakeAmounts', { ...amounts, [other]: keepAmount(amounts[other], n) }); }); }}
+        onSet={async (n) => { const field = other, before = day?.[field] ?? 0, unit = field === 'waterMl' ? 'mL' : 'g'; setOther(null);
+          await addIntake(personId, today, field, n - before); toast(`${n} ${unit} today`, { onAction: () => addIntake(personId, today, field, before - n) }); }} />}
     </section>
+  );
+}
+
+/** Any amount: add it (and keep it as a button, for a cup or bottle used again), or set the day's total to it. The
+ *  buttons can be taken off here too. */
+function OtherAmount({ field, total, amounts, onAdd, onSet, onClose }: {
+  field: IntakeField; total: number; amounts: AppSettings['intakeAmounts']; onAdd: (n: number, keep: boolean) => void; onSet: (n: number) => void; onClose: () => void;
+}) {
+  const water = field === 'waterMl', unit = water ? 'mL' : 'g';
+  const [text, setText] = useState('');
+  const [keep, setKeep] = useState(true);
+  const n = parseAmount(text, field);
+  const list = amounts[field];
+  const kept = n !== null && list.includes(n);
+  return (
+    <Sheet open onClose={onClose} title={water ? 'Water' : 'Protein'}>
+      <div className="space-y-4">
+        <TextInput label={water ? 'How much (mL)' : 'How much protein (g)'} type="number" inputMode="numeric" min="1" step="1" autoFocus value={text}
+          placeholder={water ? 'Like 350 for your cup' : 'Like 30 for a scoop'} onChange={(e) => setText(e.target.value)}
+          error={text.trim() && n === null ? `A whole number up to ${INTAKE_LIMIT[field]}` : undefined} />
+        {!kept && <Switch label="Keep as a button" checked={keep} onChange={setKeep}>{list.length >= MAX_AMOUNTS ? `Replaces +${list[list.length - 1]}, the one used longest ago` : 'Next to the others on Today'}</Switch>}
+        {list.length > 0 && (
+          <div>
+            <span className="block text-sm font-medium mb-2">Your buttons</span>
+            <ul className="flex flex-wrap gap-2">
+              {shownAmounts(list).map((a) => (
+                <li key={a} className="flex items-center gap-1 pl-4 pr-1 min-h-[44px] rounded-chip bg-surface-2 text-sm tnum">
+                  {a} {unit}
+                  <button type="button" onClick={() => setSetting('intakeAmounts', { ...amounts, [field]: list.filter((x) => x !== a) })} aria-label={`Remove the ${a} ${unit} button`}
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-muted"><X size={16} aria-hidden="true" /></button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <SheetActions>
+          <Button className="w-full min-h-[56px]" disabled={n === null} onClick={() => n !== null && onAdd(n, keep && !kept)}>{n === null ? 'Add' : `Add ${n} ${unit}`}</Button>
+          <Button variant="secondary" className="w-full" disabled={n === null} onClick={() => n !== null && onSet(n)}>
+            {n === null ? 'Set today’s total' : `Set today’s total to ${n} ${unit}`}{total ? ` (now ${Math.round(total)})` : ''}
+          </Button>
+        </SheetActions>
+      </div>
+    </Sheet>
   );
 }
 

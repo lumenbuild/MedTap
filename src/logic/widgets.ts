@@ -33,7 +33,8 @@ export interface WidgetsPayload extends WidgetData {
   done: number; total: number;
   wear?: { name: string; dosedAt: number; at: number; early: number; late: number };
   shot?: { name: string; days: { label: string; state: string; today: boolean }[]; next: string; feel?: string; left?: string };
-  intake?: { date: string; protein: number; proteinTarget?: number; water: number; waterTarget?: number };
+  /** `proteinAdd`/`waterAdd`: the widget's + buttons, the person's most recently used amounts. */
+  intake?: { date: string; protein: number; proteinTarget?: number; water: number; waterTarget?: number; proteinAdd: number; waterAdd: number };
   quick: QuickItem[];
   weight?: { unit: string; points: number[]; forecast: number[]; latest: string; text: string };
   training?: { score?: number; label?: string; lift?: string; target?: string };
@@ -42,7 +43,7 @@ export interface WidgetsPayload extends WidgetData {
 
 export interface WidgetsInput {
   app: string; meds: Medication[]; doses: Dose[]; checkIns: CheckIn[]; body: BodyEntry[]; daily: DailyHealth[]; workouts: Workout[]; events: MedEvent[];
-  own: Parameters<typeof allExercises>[0]; goals: BodyGoal[]; units: Units; proteinTarget: number | null; waterTarget: number | null; body_: boolean; training: boolean; peptides: boolean;
+  own: Parameters<typeof allExercises>[0]; goals: BodyGoal[]; units: Units; proteinTarget: number | null; waterTarget: number | null; amounts?: { waterMl: number[]; proteinG: number[] }; body_: boolean; training: boolean; peptides: boolean;
 }
 
 export function widgetsPayload(d: WidgetsInput, now: number, s: ScheduleSettings): WidgetsPayload {
@@ -81,7 +82,8 @@ export function widgetsPayload(d: WidgetsInput, now: number, s: ScheduleSettings
   const todayK = dayKey(now, s);
   if (d.body_ && d.training) {
     const row = d.daily.find((x) => !x.deletedAt && x.date === todayK);
-    out.intake = { date: todayK, protein: Math.round(row?.proteinG ?? 0), proteinTarget: d.proteinTarget ?? undefined, water: row?.waterMl ?? 0, waterTarget: d.waterTarget ?? undefined };
+    out.intake = { date: todayK, protein: Math.round(row?.proteinG ?? 0), proteinTarget: d.proteinTarget ?? undefined, water: row?.waterMl ?? 0, waterTarget: d.waterTarget ?? undefined,
+      proteinAdd: d.amounts?.proteinG[0] ?? 25, waterAdd: d.amounts?.waterMl[0] ?? 250 };
   }
 
   // 5. Quick log: as-needed medicines, then coffee, then a check-in.

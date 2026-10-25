@@ -8,7 +8,7 @@ import { Button } from '../components/ui/Button';
 import { Sheet, SheetActions } from '../components/ui/Sheet';
 import { Segmented, TextInput } from '../components/ui/Field';
 import { Switch } from '../components/ui/Switch';
-import { BARS, fromLoad, loadUnit } from '../logic/load';
+import { BARS, fromLoad, loadUnit, showLoad } from '../logic/load';
 import { getTheme, setTheme, type Theme } from '../app/theme';
 import { APP_NAME } from '../config';
 import { useFamily, useSettings } from '../app/data';
@@ -43,6 +43,8 @@ export const SECTION_TITLE: Record<SettingsSection, string> = {
 };
 
 const restLabel = (x: number) => (x === 0 ? 'Off' : x % 60 ? `${Math.floor(x / 60) ? `${Math.floor(x / 60)} min ` : ''}${x % 60} s` : `${x / 60} min`);
+/** 90 → "1½ hours", 45 → "45 minutes", 150 → "2 h 30 min". */
+const minutesLabel = (m: number) => (m < 60 ? `${m} minute${m === 1 ? '' : 's'}` : m === 90 ? '1½ hours' : m % 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m / 60} hour${m === 60 ? '' : 's'}`);
 const THEMES: [Theme, string][] = [['system', 'Auto'], ['light', 'Light'], ['dark', 'Dark']];
 
 /** Settings: the features as switches, then one row per area, each opening a short page. */
@@ -79,6 +81,11 @@ export function Settings({ section }: { section?: string }) {
       <>
         <Suspense fallback={null}><RemindersCard enabled={settings.remindersEnabled} nudges={settings.lateNudges} /></Suspense>
         <Card className="space-y-2">
+          {isNative && HAS_MEDS && (
+            <Pick id="snooze" label="Snooze for" hint="The Snooze button on a dose reminder">
+              <NumberPick id="snooze" value={settings.snoozeMin} presets={[5, 10, 15, 30, 60]} fmt={minutesLabel} unit="minutes" min={1} max={240} onChange={(v) => setSetting('snoozeMin', v)} />
+            </Pick>
+          )}
           <Switch label="Hide medicine names" checked={settings.discreetReminders} onChange={async (v) => { await setSetting('discreetReminders', v); void syncReminders(); }}>
             Reminders say only “Reminder” and the time
           </Switch>
@@ -98,9 +105,8 @@ export function Settings({ section }: { section?: string }) {
           <input id="day-start" type="time" value={settings.dayStartsAt} required onChange={(e) => e.target.value && setSetting('dayStartsAt', e.target.value)} className={`${selectCls} tnum`} />
         </Pick>
         <Pick id="guard" label="Ask before logging twice within">
-          <select id="guard" value={settings.guardMinutes} onChange={(e) => setSetting('guardMinutes', Number(e.target.value))} className={selectCls}>
-            {[2, 5, 10, 15, 30, 60].map((m) => <option key={m} value={m}>{m} minutes</option>)}
-          </select>
+          <NumberPick id="guard" value={settings.guardMinutes} presets={[2, 5, 10, 15, 30, 60]} fmt={(m) => `${m} minute${m === 1 ? '' : 's'}`} unit="minutes" min={1} max={240}
+            onChange={(v) => setSetting('guardMinutes', v)} />
         </Pick>
         <Pick id="time-mode" label="When travelling, dose times follow">
           <select id="time-mode" value={settings.timeMode} onChange={(e) => setSetting('timeMode', e.target.value as 'device' | 'home')} className={selectCls}>
@@ -109,9 +115,8 @@ export function Settings({ section }: { section?: string }) {
           </select>
         </Pick>
         <Pick id="refill-warn" label="Warn before running out">
-          <select id="refill-warn" value={settings.refillWarnDays} onChange={(e) => setSetting('refillWarnDays', Number(e.target.value))} className={selectCls}>
-            {[3, 5, 7, 10, 14, 21].map((d) => <option key={d} value={d}>{d} days ahead</option>)}
-          </select>
+          <NumberPick id="refill-warn" value={settings.refillWarnDays} presets={[3, 5, 7, 10, 14, 21]} fmt={(d) => `${d} day${d === 1 ? '' : 's'} ahead`} unit="days" min={1} max={120}
+            onChange={(v) => setSetting('refillWarnDays', v)} />
         </Pick>
         <div className="grid grid-cols-2 gap-3">
           <SettingText id="ph-name" label="Pharmacy" value={settings.pharmacyName} placeholder="Name" onSave={(v) => setSetting('pharmacyName', v)} />
@@ -123,15 +128,13 @@ export function Settings({ section }: { section?: string }) {
       <Card className="space-y-5">
         <div className="grid grid-cols-2 gap-3">
           <Pick id="rest" label="Rest timer">
-            <select id="rest" value={settings.restSeconds} onChange={(e) => setSetting('restSeconds', Number(e.target.value))} className={selectCls}>
-              {[0, 60, 90, 120, 150, 180, 240, 300].map((x) => <option key={x} value={x}>{restLabel(x)}</option>)}
-            </select>
+            <NumberPick id="rest" value={settings.restSeconds} presets={[0, 60, 90, 120, 150, 180, 240, 300]} fmt={restLabel} unit="seconds" min={0} max={900} step={5}
+              onChange={(v) => setSetting('restSeconds', v)} />
           </Pick>
           <Pick id="bar" label="Barbell">
-            <select id="bar" value={String(BARS[settings.units].reduce((b, x) => (Math.abs(fromLoad(x, settings.units) - settings.barKg) < Math.abs(fromLoad(b, settings.units) - settings.barKg) ? x : b)))}
-              onChange={(e) => setSetting('barKg', fromLoad(Number(e.target.value), settings.units))} className={selectCls}>
-              {BARS[settings.units].map((x) => <option key={x} value={x}>{x} {loadUnit(settings.units)}</option>)}
-            </select>
+            {/* Shown in the person's unit; 20 kg is "45 lb" for someone in lb, as the bar is sold. */}
+            <NumberPick id="bar" value={showLoad(settings.barKg, settings.units)} near={settings.units === 'imperial' ? 1.5 : 0.01} presets={[...BARS[settings.units]]} fmt={(x) => `${x} ${loadUnit(settings.units)}`}
+              unit={loadUnit(settings.units)} min={0} max={settings.units === 'imperial' ? 120 : 55} step={0.5} onChange={(v) => setSetting('barKg', fromLoad(v, settings.units))} />
           </Pick>
         </div>
         <Switch label="Smart rest" checked={settings.smartRest} onChange={(v) => setSetting('smartRest', v)}>Longer after heavy sets</Switch>
@@ -152,9 +155,8 @@ export function Settings({ section }: { section?: string }) {
           </Pick>
         </div>
         <Pick id="caf-hl" label="How fast you clear caffeine" hint="Half of it is gone in about this long. It varies a lot from person to person; if Today's estimate feels off, try another.">
-          <select id="caf-hl" value={settings.caffeineHalfLifeH} onChange={(e) => setSetting('caffeineHalfLifeH', Number(e.target.value))} className={selectCls}>
-            {HALF_LIVES.map((x) => <option key={x.h} value={x.h}>{x.label}</option>)}
-          </select>
+          <NumberPick id="caf-hl" value={settings.caffeineHalfLifeH} presets={HALF_LIVES.map((x) => x.h)} fmt={(h) => HALF_LIVES.find((x) => x.h === h)?.label ?? `About ${h} hours`}
+            unit="hours" min={1} max={15} step={0.5} onChange={(v) => setSetting('caffeineHalfLifeH', v)} />
         </Pick>
         <Pick id="caf-cut" label="Your cut-off" hint="The latest you want caffeine. Today marks it, and a drink logged after it says so. Leave empty for none.">
           <input id="caf-cut" type="time" value={settings.caffeineCutoff ?? ''} className={`${selectCls} tnum`}
@@ -168,10 +170,8 @@ export function Settings({ section }: { section?: string }) {
     checkins: () => (
       <Card className="space-y-5">
         {HAS_MEDS && <Pick id="ci-delay" label="Ask how I feel after a dose">
-          <select id="ci-delay" value={settings.checkInDelayMin} onChange={(e) => setSetting('checkInDelayMin', Number(e.target.value))} className={selectCls}>
-            <option value={0}>Off</option>
-            {[30, 60, 90, 120, 180].map((m) => <option key={m} value={m}>{m < 60 ? `${m} minutes` : m === 90 ? '1½ hours' : `${m / 60} hour${m === 60 ? '' : 's'}`} later</option>)}
-          </select>
+          <NumberPick id="ci-delay" value={settings.checkInDelayMin} presets={[0, 30, 60, 90, 120, 180]} fmt={(m) => (m ? `${minutesLabel(m)} later` : 'Off')} unit="minutes" min={5} max={720}
+            onChange={(v) => setSetting('checkInDelayMin', v)} />
         </Pick>}
         <div>
           <span className="block text-sm font-medium mb-2">Ask how the day went at</span>
@@ -239,10 +239,8 @@ export function Settings({ section }: { section?: string }) {
           {settings.lockEnabled ? (
             <>
               <Pick id="lock-after" label="Lock">
-                <select id="lock-after" value={settings.lockAfterMin} onChange={(e) => setSetting('lockAfterMin', Number(e.target.value))} className={selectCls}>
-                  <option value={0}>When I leave the app</option>
-                  {[1, 5, 15, 60].map((m) => <option key={m} value={m}>After {m === 60 ? '1 hour' : `${m} minute${m === 1 ? '' : 's'}`}</option>)}
-                </select>
+                <NumberPick id="lock-after" value={settings.lockAfterMin} presets={[0, 1, 5, 15, 60]} fmt={(m) => (m ? `After ${minutesLabel(m)}` : 'When I leave the app')} unit="minutes" min={1} max={240}
+                  onChange={(v) => setSetting('lockAfterMin', v)} />
               </Pick>
               <Button variant="secondary" className="w-full flex items-center justify-center gap-2" onClick={lockNow}><Lock size={18} aria-hidden="true" /> Lock now</Button>
               {/* The private view can't change or turn off the lock (that would open the full view next time). */}
@@ -408,6 +406,36 @@ function Pick({ id, label, hint, children }: { id: string; label: string; hint?:
       {children}
       {hint && <p className="text-sm text-muted">{hint}</p>}
     </div>
+  );
+}
+
+/** A few usual values to pick from, and Other… for any number: what's typed is kept and shown in the list after. */
+function NumberPick({ id, value, presets, fmt, unit, min, max, step = 1, near = 1e-6, onChange }: {
+  id: string; value: number; presets: number[]; fmt: (v: number) => string; unit: string; min: number; max: number; step?: number; near?: number; onChange: (v: number) => void;
+}) {
+  const preset = presets.find((p) => Math.abs(p - value) < near);
+  const [typing, setTyping] = useState(false);
+  const [text, setText] = useState('');
+  const n = Number(text.replace(',', '.'));
+  const ok = text.trim() !== '' && Number.isFinite(n) && n >= min && n <= max;
+  const commit = () => { if (!ok) return; onChange(Number((Math.round(n / step) * step).toFixed(2))); setTyping(false); };
+  return (
+    <>
+      <select id={id} value={typing ? 'other' : preset !== undefined ? String(preset) : 'own'} className={selectCls}
+        onChange={(e) => { const v = e.target.value; if (v === 'other') { setText(String(value)); setTyping(true); } else if (v !== 'own') { setTyping(false); onChange(Number(v)); } }}>
+        {presets.map((p) => <option key={p} value={p}>{fmt(p)}</option>)}
+        {preset === undefined && <option value="own">{fmt(value)}</option>}
+        <option value="other">Other…</option>
+      </select>
+      {typing && (
+        <div className="flex gap-2 mt-2">
+          <input type="number" inputMode="decimal" min={min} max={max} step={step} autoFocus value={text} aria-label={`How many ${unit}`} aria-describedby={`${id}-range`}
+            onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && commit()} className={`${selectCls} tnum`} />
+          <Button variant="secondary" onClick={commit} disabled={!ok}>Set</Button>
+        </div>
+      )}
+      {typing && <p id={`${id}-range`} className="text-sm text-muted mt-1">{min} to {max} {unit}</p>}
+    </>
   );
 }
 

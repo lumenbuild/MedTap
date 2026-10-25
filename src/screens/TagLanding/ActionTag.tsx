@@ -10,6 +10,7 @@ import { personOf } from '../../db/repos/people';
 import { addExerciseNow, addIntake, finishCardio, startCardio, startWorkout, newSetId } from '../../db/repos/training';
 import { setSetting } from '../../db/repos/settings';
 import { allExercises } from '../../logic/exercises';
+import { parseAmount } from '../../logic/intake';
 import { actionTitle, openWorkout, plannedSets } from '../../logic/tagActions';
 import { smartTarget } from '../../logic/progression';
 import { useTrainingContext } from '../Training/useTrainingContext';
@@ -51,6 +52,7 @@ export function ActionTag({ tag, personName }: { tag: Tag; personName?: string }
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [km, setKm] = useState('');
+  const [amt, setAmt] = useState('');
   const close = () => replace('/today');
   if (!workouts || !own || !routines || !daily || !ss || !checkIns || !doses || !meds) return <div className="h-[420px] rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
   const [settings, s] = ss;
@@ -131,14 +133,20 @@ export function ActionTag({ tag, personName }: { tag: Tag; personName?: string }
       const today = format(now, 'yyyy-MM-dd');
       const total = daily.filter(mine).find((d) => d.date === today)?.[field] ?? 0;
       const target = a.kind === 'water' ? settings.waterTargetMl : settings.proteinTargetG;
+      const logIntake = (n: number) => run(async () => {
+        const t = await addIntake(personId, today, field, n);
+        toast(`+${n} ${unit} · ${t} ${unit} today`, { duration: 10_000, onAction: () => addIntake(personId, today, field, -n) });
+        close();
+      });
       return (
         <section>
           {head(`${total}${target ? ` of ${target}` : ''} ${unit} so far today`)}
-          <Button className="w-full min-h-[64px] text-lg" disabled={busy} onClick={() => run(async () => {
-            const n = await addIntake(personId, today, field, amount);
-            toast(`+${amount} ${unit} · ${n} ${unit} today`, { duration: 10_000, onAction: () => addIntake(personId, today, field, -amount) });
-            close();
-          })}>Add {amount} {unit}</Button>
+          <Button className="w-full min-h-[64px] text-lg" disabled={busy} onClick={() => logIntake(amount)}>Add {amount} {unit}</Button>
+          {/* Half the bottle, or a refill of a different size: any amount, just this once. */}
+          <div className="flex gap-2 items-end mt-4">
+            <div className="flex-1"><TextInput label={`Or a different amount (${unit})`} type="number" inputMode="numeric" min="1" step="1" value={amt} onChange={(e) => setAmt(e.target.value)} /></div>
+            <Button variant="secondary" className="min-h-[48px]" disabled={busy || parseAmount(amt, field) === null} onClick={() => { const n = parseAmount(amt, field); if (n !== null) logIntake(n); }}>Add</Button>
+          </div>
           <Button variant="secondary" className="w-full mt-3" onClick={close}>Cancel</Button>
         </section>
       );

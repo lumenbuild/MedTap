@@ -80,11 +80,10 @@ export function planReminders(meds: Medication[], doses: Dose[], now: number, s:
   return out.sort((a, b) => a.at - b.at).slice(0, max);
 }
 
-export const SNOOZE_MIN = 15;
-
-/** A snoozed reminder: the same dose, `SNOOZE_MIN` minutes from now. Its own id range so it never replaces a plan one. */
-export function snoozeOf(r: { medId: string; amount: number; dueAt: number }, now: number): Snooze {
-  return { id: (reminderId(`${r.medId}~snooze`, now) % 900_000_000) || 1, medId: r.medId, amount: r.amount, dueAt: r.dueAt, at: now + SNOOZE_MIN * 60_000, made: now };
+/** A snoozed reminder: the same dose, `minutes` (the person's snooze length) from now. Its own id range so it never
+ *  replaces a plan one. */
+export function snoozeOf(r: { medId: string; amount: number; dueAt: number }, now: number, minutes = 15): Snooze {
+  return { id: (reminderId(`${r.medId}~snooze`, now) % 900_000_000) || 1, medId: r.medId, amount: r.amount, dueAt: r.dueAt, at: now + Math.max(1, minutes) * 60_000, made: now };
 }
 
 /** Snoozes still to go off: not yet due and nothing logged for the medicine since (a skip counts). */
