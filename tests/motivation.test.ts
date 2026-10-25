@@ -42,6 +42,18 @@ describe('streaks', () => {
     expect(x.todayDone).toBe(false);
     expect(x.hits.map((h) => h.length)).toEqual([7, 14, 30]);
   });
+  it('doses: only days with a dose due count; a weekly injection’s other days neither add nor break', () => {
+    const weekly: Medication = { ...med, id: 'w', schedule: { type: 'fixed', times: ['09:00'], days: [5] } as Medication['schedule'] }; // Fridays
+    const doses: Dose[] = [];
+    for (let n = 28; n >= 1; n--) { const t = at(daysBack(n), '09:00'); if (new Date(daysBack(n) + 'T12:00:00+11:00').getUTCDay() === 5) doses.push(dose(t, { medicationId: 'w' })); }
+    const [x] = streaks({ ...none, meds: [weekly], doses }, NOW, S, { training: false, checkIns: false });
+    expect(x.length).toBe(4); // four Fridays, not 28 days
+    expect(x.todayDone).toBe(false); // today (a Friday) still to do
+    // And the ring leaves it out on a day it isn't due.
+    const thu = at('2026-10-29', '21:00');
+    expect(todayRing({ meds: [weekly], doses, checkIns: [], daily: [] }, thu, S, { checkInTimes: [], water: null, protein: null, intake: false })).toBeNull();
+    expect(todayRing({ meds: [weekly, med], doses: [dose(at('2026-10-29', '08:00'))], checkIns: [], daily: [] }, thu, S, { checkInTimes: [], water: null, protein: null, intake: false })!.parts[0].text).toBe('1 of 1');
+  });
   it('check-ins: only ones that say how you are', () => {
     const cis: CheckIn[] = [];
     for (let n = 9; n >= 0; n--) cis.push({ id: `c${n}`, at: new Date(at(daysBack(n), '20:00')).toISOString(), chips: [], mood: 4, ...st });

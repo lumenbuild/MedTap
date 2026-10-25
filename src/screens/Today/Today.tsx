@@ -12,7 +12,7 @@ import { useNow } from '../../app/useNow';
 import { useToast } from '../../app/toast';
 import { go } from '../../app/router';
 import { addToCalendar } from '../../app/calendar';
-import { byUrgency, getLastDose, getNextDue, getStatus, nextUp } from '../../logic/schedule';
+import { byUrgency, getLastDose, getNextDue, getStatus, isScheduledDay, nextUp } from '../../logic/schedule';
 import { checkInDue, needsBackup, refillAlerts } from '../../logic/reminders';
 import { RefillCards } from '../../components/Refill';
 import { VialAlerts } from '../Meds/VialCard';
@@ -267,16 +267,19 @@ export function Today() {
       {scheduled.length > 1 && (
         <section aria-labelledby="today-meds" className="border-t border-border pt-4">
           {(() => {
-            const done = scheduled.filter((m) => getStatus(m, doses, now, s) === 'done-today').length;
+            // Only what's due today counts: a weekly injection on its off day, or a medicine on a break, is listed
+            // (so it's still one tap away) but isn't part of today's total.
+            const due = scheduled.filter((m) => isScheduledDay(m, now, s));
+            const done = due.filter((m) => getStatus(m, doses, now, s) === 'done-today').length;
             return (
               <div className="flex items-center justify-between">
                 <h2 id="today-meds" className="text-sm font-medium text-muted">Today</h2>
-                <MiniRing value={done} max={scheduled.length} tone={done === scheduled.length ? 'good' : 'primary'} label={`${done} of ${scheduled.length} done`} />
+                {due.length > 0 && <MiniRing value={done} max={due.length} tone={done === due.length ? 'good' : 'primary'} label={`${done} of ${due.length} due today done`} />}
               </div>
             );
           })()}
           <ul className="mt-1">
-            {scheduled.map((m) => <TodayRow key={m.id} med={m} doses={viewDoses} s={s} now={now} person={whose(m)} onLog={() => setLogFor(m)} />)}
+            {[...scheduled.filter((m) => isScheduledDay(m, now, s)), ...scheduled.filter((m) => !isScheduledDay(m, now, s))].map((m) => <TodayRow key={m.id} med={m} doses={viewDoses} s={s} now={now} person={whose(m)} onLog={() => setLogFor(m)} />)}
           </ul>
         </section>
       )}

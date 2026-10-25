@@ -15,8 +15,9 @@ import { kgTo, weightUnit } from './units';
 const DAY = 86_400_000;
 const live = <T extends { deletedAt?: string }>(x: T) => !x.deletedAt;
 
-/** A day (or week) in a streak: done, missed, nothing to do (keeps the run going), still open (today, not done yet:
- *  neither adds nor breaks), or before there were any records (where a run can't reach back to). */
+/** A day (or week) in a streak: done, missed, nothing due (a weekly injection's other days, a break: neither adds
+ *  nor breaks, so only days with something due count), still open (today, not done yet: neither adds nor breaks), or
+ *  before there were any records (where a run can't reach back to). */
 export type Mark = 'done' | 'miss' | 'none' | 'open' | 'before';
 
 export interface Run { length: number; best: number; forgiven: number; hits: { length: number; at: number }[] }
@@ -28,7 +29,7 @@ export function runOf(marks: Mark[], window: number, at: (i: number) => number, 
   const hits: Run['hits'] = [];
   marks.forEach((m, i) => {
     if (m === 'before') { length = 0; lastForgiven = -Infinity; forgiven = 0; return; }
-    if (m === 'open') return;
+    if (m === 'open' || m === 'none') return;
     if (m === 'miss') {
       if (i - lastForgiven < window) { length = 0; lastForgiven = -Infinity; forgiven = 0; return; }
       lastForgiven = i; forgiven++;
@@ -83,7 +84,7 @@ export function streaks(d: MotivationData, now: number, s: ScheduleSettings, opt
       return i === keys.length - 1 ? 'open' : 'miss';
     });
     const r = runOf(marks, 7, endOf, DAY_MILESTONES);
-    if (r.best) out.push({ key: 'doses', label: 'Doses on track', unit: 'day', length: r.length, best: r.best, todayDone: marks.at(-1) === 'done' || marks.at(-1) === 'none', hits: r.hits });
+    if (r.best) out.push({ key: 'doses', label: 'Doses on track', unit: 'day', length: r.length, best: r.best, todayDone: marks.at(-1) === 'done', hits: r.hits });
   }
 
   // Check-ins: a day with one that says how you are.
@@ -127,7 +128,8 @@ export function milestones(d: MotivationData, st: Streak[], now: number, units: 
   const out: Milestone[] = [];
   for (const x of st) for (const h of x.hits) {
     out.push({ id: `streak:${x.key}:${h.length}:${Math.round(h.at / DAY)}`, at: h.at, kind: 'streak',
-      title: `${h.length} ${x.unit}s: ${x.label.toLowerCase()}`, detail: x.unit === 'day' ? 'A run with no more than one off day in any week.' : 'Weeks with your sessions, one off week in four allowed.' });
+      title: `${h.length} ${x.unit}s: ${x.label.toLowerCase()}`, detail: x.key === 'doses' ? 'Days with doses due, every one taken, with no more than one off day in any week.'
+        : x.unit === 'day' ? 'A run with no more than one off day in any week.' : 'Weeks with your sessions, one off week in four allowed.' });
   }
   if (opts.training) {
     const ws = d.workouts.filter((w) => live(w) && (working(w.sets).length || w.cardio)).sort((a, b) => a.startedAt.localeCompare(b.startedAt));

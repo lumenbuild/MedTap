@@ -3,7 +3,7 @@
 // watch. Pure; names follow the privacy setting.
 import type { BodyEntry, CheckIn, DailyHealth, Dose, MedEvent, Medication, Workout, BodyGoal } from '../db/schema';
 import type { ScheduleSettings } from './schedule';
-import { byUrgency, getStatus } from './schedule';
+import { byUrgency, getStatus, isScheduledDay } from './schedule';
 import { widgetData, type WidgetData } from './widget';
 import { wearOffToday } from './wearOff';
 import { weekStrip } from './protocol';
@@ -49,8 +49,10 @@ export function widgetsPayload(d: WidgetsInput, now: number, s: ScheduleSettings
   const base = widgetData(d.app, d.meds, d.doses, now, s);
   const active = d.meds.filter((m) => !m.archived);
   const scheduled = byUrgency(active.filter((m) => m.schedule.type !== 'prn'), d.doses, now, s);
-  const done = scheduled.filter((m) => getStatus(m, d.doses, now, s) === 'done-today').length;
-  const out: WidgetsPayload = { ...base, v: 2, t: now, done, total: scheduled.length, quick: [], glance: { next: base.title ? `${base.label}: ${base.title}${base.when ? ` · ${base.when}` : ''}` : 'Nothing scheduled' } };
+  // Today's count is what's due today: a weekly injection's other days, or a break, don't count.
+  const dueToday = scheduled.filter((m) => isScheduledDay(m, now, s));
+  const done = dueToday.filter((m) => getStatus(m, d.doses, now, s) === 'done-today').length;
+  const out: WidgetsPayload = { ...base, v: 2, t: now, done, total: dueToday.length, quick: [], glance: { next: base.title ? `${base.label}: ${base.title}${base.when ? ` · ${base.when}` : ''}` : 'Nothing scheduled' } };
 
   // 2. Wear-off: the first medicine with a forecast today.
   for (const m of active.filter((x) => !x.peptide)) {
