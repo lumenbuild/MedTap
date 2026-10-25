@@ -13,11 +13,25 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
   const ref = useRef<HTMLDivElement>(null);
   const [footer, setFooter] = useState<HTMLElement | null>(null);
 
+  // The latest onClose, without re-running the effect below: callers pass a new function on every render, and screens
+  // re-render often (Today every second). Re-running it moved focus to the sheet, which closed the phone's keyboard as
+  // soon as a field was tapped.
+  const close = useRef(onClose);
+  close.current = onClose;
+
+  // What had focus before the sheet opened, taken while rendering: by the time the effect runs, a field with autoFocus
+  // inside the sheet already has it.
+  const opener = useRef<HTMLElement | null>(null);
+  const wasOpen = useRef(false);
+  if (open && !wasOpen.current) opener.current = document.activeElement as HTMLElement | null;
+  wasOpen.current = open;
+
   useEffect(() => {
     if (!open) return;
-    const prev = document.activeElement as HTMLElement | null;
-    ref.current?.focus();
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const prev = opener.current;
+    // Into the sheet, unless a field in it already has focus (taking it would close the keyboard straight away).
+    if (!ref.current?.contains(document.activeElement)) ref.current?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close.current(); };
     document.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
     // Counted, for a sheet opened from a sheet. While any is open, toasts show at the top (index.css).
@@ -28,9 +42,10 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
       const n = Number(b.sheets ?? 1) - 1;
       if (n > 0) b.sheets = String(n); else delete b.sheets;
       if (!n) document.body.style.overflow = '';
-      prev?.focus?.();
+      const now = document.activeElement;
+      if (prev?.isConnected && (!now || now === document.body || ref.current?.contains(now))) prev.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
   return createPortal(
@@ -58,6 +73,16 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
     </div>,
     document.body,
   );
+}
+
+/** A key that changes each time `value` becomes a new value, so a form in a sheet starts fresh each time it opens. Worked
+ *  out while rendering: bumping a key from an effect rebuilt the form just after it opened, which moved focus off the
+ *  field and shut the phone's keyboard as soon as it appeared. */
+export function useFreshKey(value: unknown): number {
+  const last = useRef<unknown>(undefined);
+  const n = useRef(0);
+  if (value !== last.current) { last.current = value; if (value) n.current += 1; }
+  return n.current;
 }
 
 /** The sheet's main buttons: pinned to the bottom of the sheet so they never need scrolling to.

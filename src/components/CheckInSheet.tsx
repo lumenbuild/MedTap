@@ -1,5 +1,5 @@
 import { chipsFromNote } from '../logic/records';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { shownName } from '../logic/privacy';
 import { Plus } from 'lucide-react';
 import type { CheckIn, Dose, Medication } from '../db/schema';
@@ -10,7 +10,7 @@ import { usualAnswers } from '../logic/reminders';
 import { getDayBounds, type ScheduleSettings } from '../logic/schedule';
 import { fmtAmount, fmtTime, fmtWhen, fromLocalInput, toLocalInput } from '../logic/format';
 import { useToast } from '../app/toast';
-import { Sheet, SheetActions } from './ui/Sheet';
+import { Sheet, SheetActions, useFreshKey } from './ui/Sheet';
 import { Button } from './ui/Button';
 import { Stepper } from './ui/Stepper';
 import { MOOD_LABELS, MoodPicker, Rating } from './ui/Rating';
@@ -24,8 +24,7 @@ type Props = { onClose: () => void; doses: Dose[]; checkIns: CheckIn[]; meds: Me
 /** A check-in in under 20 seconds. Everything is optional. */
 export function CheckInSheet({ seed, ...rest }: Props & { seed: CheckInSeed | null }) {
   // Remount per opening so the form starts from the seed on its very first render.
-  const [n, setN] = useState(0);
-  useEffect(() => { if (seed) setN((x) => x + 1); }, [seed]);
+  const n = useFreshKey(seed);
   return seed ? <CheckInForm key={n} seed={seed} {...rest} /> : null;
 }
 

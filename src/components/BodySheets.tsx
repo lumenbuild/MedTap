@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { format } from 'date-fns';
 import type { BodyEntry } from '../db/schema';
 import type { Units } from '../db/repos/settings';
 import { removeBody, restoreBody, saveBody, undoBody, upsertBody, type BodyFields } from '../db/repos/body';
 import { cmTo, kgTo, lengthUnit, MEASUREMENTS, toCm, toKg, weightUnit, fmtWeight } from '../logic/units';
 import { useToast } from '../app/toast';
-import { Sheet, SheetActions } from './ui/Sheet';
+import { Sheet, SheetActions, useFreshKey } from './ui/Sheet';
 import { Button } from './ui/Button';
 import { HAS_BODY } from '../edition';
 
@@ -19,8 +19,7 @@ const numIn = 'w-full min-h-[48px] rounded-btn bg-surface-2 border border-border
 
 /** Log weight, add measurements, or edit a day's entry. */
 export function BodySheet({ state, onClose, units, personId }: { state: BodySheetState; onClose: () => void; units: Units; personId: string }) {
-  const [n, setN] = useState(0);
-  useEffect(() => { if (state) setN((x) => x + 1); }, [state]);
+  const n = useFreshKey(state);
   return state ? <BodyForm key={n} state={state} onClose={onClose} units={units} personId={personId} /> : null;
 }
 
