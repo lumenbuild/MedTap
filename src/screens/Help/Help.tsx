@@ -172,6 +172,15 @@ const CONTENT: Record<string, ReactNode> = {
         <H>Turning it on</H>
         <p>Settings → <strong>Training</strong>. This adds a Training tab, protein and water on Today, and a soreness rating in check-ins. Turning it off hides them; nothing is deleted.</p>
       </>}
+      <H>Your training path</H>
+      <p>Training → <strong>Set up my plan</strong>: your goal (strength, muscle, general fitness or bodyweight), days a week, time, where you train, how much you've trained before, and whether to compare your strength with women's or men's standards. The app picks a programme for your level and writes each session; <strong>Start this session</strong> lays it out with the weights to use.</p>
+      <ul className="list-disc pl-5 space-y-1">
+        <li><strong>Levels</strong> go Beginner, Novice, Intermediate, Advanced, Expert. Your level is the lowest of: weeks of regular training, strength for body weight on squat, bench, deadlift and press (if you compare), and for bodyweight training, how far along each ladder you are. The card shows what the next level needs.</li>
+        <li><strong>Programmes</strong> change with level: a simple A/B session with weight added every time; then heavy, light and medium days; upper/lower; four-week waves from a training max; and twelve-week blocks. For muscle: full body, upper/lower, push/pull/legs, volume blocks and specialisation. Bodyweight follows ladders, from incline push-ups to one-arm push-ups.</li>
+        <li><strong>Moving up</strong>: when your level passes the programme's, or most main lifts stop going up after its minimum weeks, Training says you're ready, with why, and one tap moves you on.</li>
+        <li>Prefer a named programme? <strong>Programmes</strong> lists them all by goal and level.</li>
+      </ul>
+      <p className="text-sm text-muted">The strength standards are rough guides from widely shared tables, not targets. Training with an injury or a health condition: check with your doctor or a physio first.</p>
       <H>Logging a workout</H>
       <ol className="list-decimal pl-5 space-y-1">
         <li>On Training, tap <strong>Start a workout</strong>: empty, from a routine, or a repeat of a past session.</li>

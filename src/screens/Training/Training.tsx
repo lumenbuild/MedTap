@@ -29,6 +29,7 @@ import { useToast } from '../../app/toast';
 import { isNative } from '../../platform';
 import type { Workout } from '../../db/schema';
 import { TrendChart } from '../../components/charts/TrendChart';
+import { PathCard } from './Coach';
 
 const DAY = 86_400_000;
 
@@ -67,6 +68,7 @@ export function Training({ start = false }: { start?: boolean }) {
   return (
     <div className="space-y-2">
       <PersonSwitcher />
+      <PathCard personId={fam.personId} person={person} workouts={ws} body={body.filter(mine)} defs={defs} units={settings.units} moveSnooze={settings.coachMoveSnooze} now={now} />
       <section className="border-t border-border pt-5 pb-3 space-y-2">
         {open ? <Button className="w-full min-h-[56px]" onClick={() => go(`/training/workout/${open.id}`)}>Continue workout ({Math.round((now - Date.parse(open.startedAt)) / 60_000)} min)</Button>
           : <Button className="w-full min-h-[56px]" onClick={() => setSheet('start')}>Start a workout</Button>}

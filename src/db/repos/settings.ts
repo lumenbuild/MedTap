@@ -136,6 +136,8 @@ export interface AppSettings {
   milestonesSeen: string[];
   usualAsk: boolean;
   usualDismissed: string[];
+  /** "Ready for the next programme" put off until then (ms). */
+  coachMoveSnooze: number;
 }
 
 export interface Snooze { id: number; medId: string; amount: number; dueAt: number; at: number; made: number }
@@ -220,6 +222,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   milestonesSeen: [],
   usualAsk: true,
   usualDismissed: [],
+  coachMoveSnooze: 0,
 };
 
 export async function getSettings(): Promise<AppSettings> {

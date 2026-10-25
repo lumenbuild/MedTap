@@ -1,6 +1,6 @@
 // Workouts, routines, the person's own exercises and fitness goals (MedTap), and protein / water for the day.
 import { db } from '../db';
-import { DEFAULT_PERSON, type CardioEntry, type DailyHealth, type Exercise, type FitnessGoal, type Routine, type RoutineItem, type Workout, type WorkoutSet } from '../schema';
+import { DEFAULT_PERSON, type CardioEntry, type CoachPlan, type DailyHealth, type Exercise, type FitnessGoal, type Routine, type RoutineItem, type Workout, type WorkoutSet } from '../schema';
 
 import type { ExerciseDef } from '../../logic/exercises';
 import type { Units } from './settings';
@@ -55,6 +55,14 @@ export async function setFitnessGoal(personId: string, goal: FitnessGoal, remove
   const goals = [...(before ?? []).filter((g) => g.id !== goal.id), ...(remove ? [] : [goal])];
   await db.people.put({ ...base, fitnessGoals: goals.length ? goals : undefined, updatedAt: now });
   return before;
+}
+/** Set (or clear) the training plan the coach runs for this person. Returns the one before, for undo. */
+export async function setCoach(personId: string, plan: CoachPlan | undefined): Promise<CoachPlan | undefined> {
+  const now = nowIso();
+  const p = await db.people.get(personId);
+  const base = p ?? { id: personId, name: 'Me', createdAt: now, updatedAt: now };
+  await db.people.put({ ...base, coach: plan, updatedAt: now });
+  return p?.coach;
 }
 export async function restoreFitnessGoals(personId: string, goals: FitnessGoal[] | undefined) {
   const p = await db.people.get(personId);

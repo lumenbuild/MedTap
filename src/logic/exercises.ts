@@ -113,6 +113,17 @@ export const BUILT_IN: ExerciseDef[] = [
   B('hollow-hold', 'Hollow hold', ['core'], 'core', 'none', 0, ['Lower back pressed down', 'Easier: knees bent'], { timed: true }),
   B('mountain-climber', 'Mountain climber', ['core', 'shoulders'], 'core', 'none', 0, ['Hands under shoulders', 'Knees drive in quickly'], { timed: true }),
   B('bear-plank', 'Bear plank', ['core', 'shoulders'], 'core', 'none', 0, ['Knees just off the floor', 'Back flat'], { timed: true }),
+  // Harder bodyweight steps, for the bodyweight progressions (they need a bar, a door frame or something sturdy where said).
+  B('archer-push-up', 'Archer push-up', ['chest', 'triceps', 'shoulders'], 'push', 'none', 0, ['Hands wide', 'Lower towards one hand, the other arm straight'], { compound: true }),
+  B('one-arm-push-up', 'One-arm push-up', ['chest', 'triceps', 'core'], 'push', 'none', 0, ['Feet wide', 'Hips square to the floor', 'Easier: hand on a bench'], { compound: true }),
+  B('elevated-pike', 'Feet-up pike push-up', ['shoulders', 'triceps'], 'push', 'none', 0, ['Feet on a chair or box', 'Head lowers between your hands'], { compound: true }),
+  B('wall-hspu', 'Wall handstand push-up', ['shoulders', 'triceps'], 'push', 'none', 0, ['Kick up facing the wall, or walk up it', 'Lower your head to a cushion', 'Only once feet-up pike push-ups are easy'], { compound: true }),
+  B('negative-pull-up', 'Pull-up negative', ['back', 'biceps'], 'pull', 'bodyweight', 0, ['Jump or step to the top', 'Lower for 3–5 seconds'], { compound: true }),
+  B('archer-pull-up', 'Archer pull-up', ['back', 'biceps'], 'pull', 'bodyweight', 0, ['Pull towards one hand', 'Other arm nearly straight'], { compound: true }),
+  B('shrimp-squat', 'Shrimp squat', ['quads', 'glutes'], 'legs', 'none', 0, ['Hold your back foot', 'Back knee to the floor, slowly', 'Easier: hold a door frame'], { compound: true }),
+  B('pistol-squat', 'Pistol squat', ['quads', 'glutes'], 'legs', 'none', 0, ['Other leg straight in front', 'Sit to a chair first while learning'], { compound: true }),
+  B('nordic-curl', 'Nordic curl', ['hamstrings'], 'legs', 'none', 0, ['Feet anchored under a sofa or a partner', 'Lower as slowly as you can, push back up with your hands']),
+  B('l-sit', 'L-sit', ['core', 'triceps'], 'core', 'none', 0, ['Hands on two chairs or the floor', 'Legs straight out in front', 'Easier: one leg, or knees tucked'], { timed: true }),
   B('burpee', 'Burpee', ['quads', 'chest', 'core'], 'legs', 'none', 0, ['Chest to the floor, jump at the top', 'Easier: step back instead of jumping'], { compound: true }),
 ];
 
