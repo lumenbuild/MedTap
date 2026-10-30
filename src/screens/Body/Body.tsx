@@ -11,7 +11,7 @@ import { Button } from '../../components/ui/Button';
 import { Segmented } from '../../components/ui/Field';
 import { JumpBar } from '../../components/ui/JumpBar';
 import { BodySheet, todayYmd, type BodySheetState } from '../../components/BodySheets';
-import { MeasurementCharts, WeightChart } from '../../components/charts/Charts';
+import { MeasurementCharts, WeeklyChangeChart, WeightChart } from '../../components/charts/Charts';
 import { GoalForecastCharts } from '../../components/charts/GoalCharts';
 import { StallBlock } from '../../components/Insights';
 import { ProgressPhotos } from './ProgressPhotos';
@@ -99,12 +99,13 @@ export function Body() {
     <div className="space-y-4">
       <PersonSwitcher />
       {rangePicker}
-      <WeightChart entries={entries} units={units} {...common} marks={marks} goalKg={wGoal?.target} forecast={forecast}
+      <WeightChart entries={entries} units={units} {...common} marks={marks} goalKg={wGoal?.target} goalEta={gv?.f.eta} forecast={forecast}
         extra={stall ? <StallBlock stall={stall} /> : null}
         actions={<>
           <Button className="w-full min-h-[56px]" onClick={() => setSheet({ kind: 'weight' })}>Log weight</Button>
           <p className="text-xs text-muted mt-2">Weigh at the same time of day, ideally in the morning before eating, for the most useful trend.</p>
         </>} />
+      <WeeklyChangeChart entries={entries} units={units} goalKg={wGoal?.target} now={now} />
 
       <GoalsSection personId={fam.personId} goals={[...goals].sort((a, b) => Number(b.metric === 'weightKg') - Number(a.metric === 'weightKg'))} entries={entries} units={units} now={now}
         chartFor={(g) => g.metric === 'weightKg' ? null : <GoalForecastCharts goals={[g]} entries={entries} units={units} now={now} />} />

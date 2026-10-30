@@ -41,12 +41,20 @@ export interface TrendChartProps {
   actions?: ReactNode;
   /** The number the chart is about, big above it. */
   headline?: Headline | null;
+  /** A light wash under a single line (default on). */
+  wash?: boolean;
   /** Hide the date axis (a row in a stack of charts that share the bottom one's). */
   hideX?: boolean;
   /** Bare charts: leave out the key (the caller explains the marks). */
   noLegend?: boolean;
   /** How the value at a line's end is written (default: one decimal at most, no unit). */
   labelFmt?: (v: number) => string;
+  /** Label the line's lowest or highest point too ("Lowest 91.8"), when it isn't the latest. */
+  extreme?: 'min' | 'max';
+  /** Milestones on the line: a ringed dot and a short tag ("−5 kg"). */
+  tags?: { t: number; v: number; text: string }[];
+  /** Where the goal is likely reached: a flag on the goal line at that date, or an arrow at the edge if it's beyond. */
+  goalFlag?: { v: number; at?: number; text: string; below?: boolean };
 }
 
 const fmtDay = (t: number) => format(t, 'EEE d MMM');
@@ -77,6 +85,77 @@ const endLabels: Plugin<'line'> = {
       ctx.fillStyle = opts.text ?? '#111';
       ctx.fillText(lbl, x, last.y);
     });
+    ctx.restore();
+  },
+};
+
+/** Milestone tags and the best point: a ringed dot on the line with a few words above it (or below, near the top). */
+const pointTags: Plugin<'line'> = {
+  id: 'pointTags',
+  afterDatasetsDraw(chart, _a, opts: { tags?: { t: number; v: number; text: string }[]; text?: string; surface?: string; ink?: string }) {
+    const tags = opts?.tags ?? [];
+    if (!tags.length) return;
+    const { ctx, chartArea, scales } = chart;
+    ctx.save();
+    ctx.font = '600 11px "Geist Variable", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const placed: { x: number; y: number }[] = [];
+    for (const g of tags) {
+      const x = scales.x.getPixelForValue(g.t), y = scales.y.getPixelForValue(g.v);
+      if (x < chartArea.left || x > chartArea.right || y < chartArea.top || y > chartArea.bottom) continue;
+      ctx.beginPath(); ctx.arc(x, y, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = opts.ink ?? '#111'; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = opts.surface ?? '#fff'; ctx.stroke();
+      const w = ctx.measureText(g.text).width + 8;
+      const ty = y - 16 < chartArea.top + 8 ? y + 16 : y - 16;
+      if (placed.some((p) => Math.abs(p.x - x) < w && Math.abs(p.y - ty) < 14)) continue;
+      placed.push({ x, y: ty });
+      const tx = Math.min(Math.max(x, chartArea.left + w / 2), chartArea.right - w / 2);
+      ctx.fillStyle = opts.surface ?? '#fff';
+      ctx.fillRect(tx - w / 2, ty - 8, w, 16);
+      ctx.fillStyle = opts.text ?? '#111';
+      ctx.fillText(g.text, tx, ty);
+    }
+    ctx.restore();
+  },
+};
+
+/** The goal flag: where the goal is likely reached, on the goal line; past the edge, an arrow with the date. */
+const goalFlag: Plugin<'line'> = {
+  id: 'goalFlag',
+  afterDatasetsDraw(chart, _a, opts: { v?: number; at?: number; text?: string; below?: boolean; color?: string; surface?: string }) {
+    if (opts?.v === undefined || !opts.text) return;
+    const { ctx, chartArea, scales } = chart;
+    const y = scales.y.getPixelForValue(opts.v);
+    if (y < chartArea.top || y > chartArea.bottom) return;
+    const x = opts.at !== undefined ? scales.x.getPixelForValue(opts.at) : undefined;
+    ctx.save();
+    ctx.font = '600 11px "Geist Variable", system-ui, sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = opts.color ?? '#111';
+    ctx.strokeStyle = opts.color ?? '#111';
+    const label = (text: string, lx: number, align: CanvasTextAlign) => {
+      const w = ctx.measureText(text).width;
+      const left = align === 'right' ? lx - w : lx;
+      // Above the goal line, or below it where the line comes from above (out of the forecast's way).
+      const ty = opts.below ? y + 14 : y - 14;
+      ctx.fillStyle = opts.surface ?? '#fff'; ctx.fillRect(left - 3, ty - 8, w + 6, 16);
+      ctx.fillStyle = opts.color ?? '#111'; ctx.textAlign = align; ctx.fillText(text, lx, ty);
+    };
+    if (x !== undefined && x >= chartArea.left && x <= chartArea.right) {
+      // A small flag on a pole at the date.
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - 18); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, y - 18); ctx.lineTo(x + 10, y - 14); ctx.lineTo(x, y - 10); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill();
+      label(opts.text, x > chartArea.right - 120 ? x - 4 : x + 14, x > chartArea.right - 120 ? 'right' : 'left');
+    } else {
+      // Beyond the chart: an arrow at the right edge, pointing on.
+      const ax = chartArea.right;
+      ctx.beginPath(); ctx.moveTo(ax - 8, y - 5); ctx.lineTo(ax, y); ctx.lineTo(ax - 8, y + 5); ctx.closePath(); ctx.fill();
+      label(opts.text, ax - 12, 'right');
+    }
     ctx.restore();
   },
 };
@@ -156,8 +235,19 @@ export function TrendChart(p: TrendChartProps) {
         { ...base, borderWidth: 2, borderDash: [6, 4], pointRadius: (ctx: { dataIndex: number }) => (ctx.dataIndex === n - 1 ? 3.5 : 0), endLabel: multi ? undefined : short(lastV) },
       ];
     }
-    // Only the latest dot gets a ring (a ring on every dot cuts the line into dashes).
-    return [{ ...base, order: 0, pointRadius: lineDot(3), pointBorderWidth: (ctx: { dataIndex: number }) => (isLast(ctx) ? 2 : 0), endLabel: multi ? s.label : short(lastV) }];
+    // Only the latest dot gets a ring (a ring on every dot cuts the line into dashes). A single line gets a light wash
+    // under it, fading to nothing at the bottom, so its shape reads at a glance.
+    const wash = !multi && p.wash !== false ? {
+      fill: 'start' as const,
+      backgroundColor: (ctx: { chart: { ctx: CanvasRenderingContext2D; chartArea?: { top: number; bottom: number } } }) => {
+        const area = ctx.chart.chartArea;
+        if (!area) return 'transparent';
+        const g = ctx.chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+        g.addColorStop(0, `${c}1f`); g.addColorStop(1, `${c}00`);
+        return g;
+      },
+    } : {};
+    return [{ ...base, ...wash, order: 0, borderWidth: 2.25, pointRadius: lineDot(3), pointBorderWidth: (ctx: { dataIndex: number }) => (isLast(ctx) ? 2 : 0), endLabel: multi ? s.label : short(lastV) }];
   });
 
   const legend: LegendItem[] = p.series.filter((s) => s.points.length).flatMap((s): LegendItem[] => {
@@ -167,6 +257,11 @@ export function TrendChart(p: TrendChartProps) {
     if (s.style === 'forecast') return [{ label: s.label, colour: c, kind: 'dashed' }, ...(s.band?.length ? [{ label: 'Likely range', colour: `${th.muted}40`, kind: 'band' as const }] : [])];
     return [{ label: s.label, colour: c, kind: 'line' }];
   });
+  // The best point on the main line, labelled when it isn't the latest (the latest has its own label).
+  const main = lines[0];
+  const inView = main ? main.points.filter((x) => x.t >= p.start && x.t <= p.end) : [];
+  const ext = p.extreme && inView.length >= 3 ? inView.reduce((m, x) => (p.extreme === 'min' ? x.v < m.v : x.v > m.v) ? x : m, inView[0]) : undefined;
+  const tags = [...(p.tags ?? []), ...(ext && ext !== inView[inView.length - 1] ? [{ t: ext.t, v: ext.v, text: `${p.extreme === 'min' ? 'Lowest' : 'Highest'} ${short(ext.v)}` }] : [])];
   const fc = p.series.find((s) => s.style === 'forecast' && s.points.length);
   const today = fc ? fc.points[0].t : undefined;
 
@@ -179,7 +274,7 @@ export function TrendChart(p: TrendChartProps) {
   const chart = (
     <Line
       data={{ datasets: datasets as never }}
-      plugins={[endLabels, crosshair, todayLine]}
+      plugins={[endLabels, crosshair, todayLine, pointTags, goalFlag]}
       options={{ ...o,
         interaction: { mode: 'nearest', axis: 'x', intersect: false },
         layout: { padding: { right: multi ? 64 : 36, top: today ? 4 : 0 } },
@@ -192,11 +287,13 @@ export function TrendChart(p: TrendChartProps) {
           endLabels: { enabled: true, text: th.text, surface: th.surface },
           crosshair: { color: th.muted },
           todayLine: { at: today, color: th.muted, text: th.muted },
+          pointTags: { tags, text: th.text, surface: th.surface, ink: th.text },
+          goalFlag: p.goalFlag ? { ...p.goalFlag, color: th.text, surface: th.surface } : {},
           // Numbered when the list under the chart explains them; a plain line in a compact chart.
           vlines: { lines: marks.map((m, i) => ({ x: m.at, label: p.bare ? undefined : String(i + 1) })), color: th.muted, text: th.text } },
         scales: { x: { ...timeAxis(th, p.start, p.end), display: !p.hideX },
           y: { ...o.scales.y, min: p.yMin, max: p.yMax, grace: p.yMin === undefined ? '5%' : 0,
-            ticks: { ...o.scales.y.ticks, maxTicksLimit: (p.height ?? 230) < 120 ? 3 : 5, stepSize: p.step,
+            ticks: { ...o.scales.y.ticks, maxTicksLimit: (p.height ?? 300) < 120 ? 3 : 6, stepSize: p.step,
               // The unit once, on the top value.
               callback: (v, i, all) => `${Number(Number(v).toFixed(2))}${p.unit && i === all.length - 1 ? ` ${p.unit}` : ''}` } } } }}
     />
@@ -204,11 +301,11 @@ export function TrendChart(p: TrendChartProps) {
   if (p.bare) return (
     <div key={th.key}>
       {!p.noLegend && legend.length > 1 && <div className="mb-2"><ChartLegend items={legend} /></div>}
-      <div style={{ height: p.height ?? 170 }}>{chart}</div>
+      <div style={{ height: p.height ?? 200 }}>{chart}</div>
     </div>
   );
   return (
-    <ChartCard title={p.title} key={th.key} height={p.height ?? 230} headline={p.headline} legend={legend} actions={p.actions} empty={any ? null : p.empty ?? 'Nothing logged in this range.'} summary={p.summary} table={table}
+    <ChartCard title={p.title} key={th.key} height={p.height ?? 300} headline={p.headline} legend={legend} actions={p.actions} empty={any ? null : p.empty ?? 'Nothing logged in this range.'} summary={p.summary} table={table}
       footer={<>
         {marks.length > 0 && (
           <ol className="mt-3 space-y-1 text-sm">

@@ -293,7 +293,7 @@ function PaceChart({ cardio, now }: { cardio: Workout[]; now: number }) {
   return (
     <div className="mt-3">
       <p className="text-sm text-muted">{name} pace, minutes per km (lower is faster)</p>
-      <TrendChart bare noLegend height={120} title={`${name} pace`} start={pts[0].t - 86_400_000} end={now} labelFmt={(v) => paceText(v).replace(' /km', '')}
+      <TrendChart bare noLegend height={170} title={`${name} pace`} start={pts[0].t - 86_400_000} end={now} labelFmt={(v) => paceText(v).replace(' /km', '')}
         fmt={(v) => paceText(v)} series={[{ label: 'Pace', style: 'line', points: pts }]} />
     </div>
   );

@@ -22,7 +22,7 @@ export default function LevelProjection({ med, doses, s, now }: { med: Medicatio
         <span className="text-sm text-muted">Estimated level</span>
         <span className="text-sm tnum"><span className="font-semibold">{fmtAmount(r3(nowV), med.unit)}</span> now · peak {fmtAmount(r3(peak), med.unit)}</span>
       </figcaption>
-      <TrendChart bare height={150} title="Estimated level" unit={med.unit} start={from} end={to} yMin={0} fmt={(v) => `about ${r3(v)} ${med.unit}`}
+      <TrendChart bare height={210} title="Estimated level" unit={med.unit} start={from} end={to} yMin={0} fmt={(v) => `about ${r3(v)} ${med.unit}`}
         series={[
           { label: 'Taken', style: 'line', points: past },
           { label: 'Plan', style: 'forecast', points: future },

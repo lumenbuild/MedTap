@@ -91,7 +91,7 @@ export function AskBox({ data, now }: { data: AskData; now: number }) {
           <p className="text-sm text-muted flex items-center gap-1.5"><Sparkles size={14} aria-hidden="true" />{result.title}</p>
           <p className="text-[17px] font-medium tnum">{result.answer}</p>
           {result.trend && (
-            <TrendChart bare height={150} title={result.title} start={result.trend.start} end={result.trend.end} unit={result.unit.startsWith('%') || result.unit === 'of 5' ? undefined : result.unit}
+            <TrendChart bare height={200} title={result.title} start={result.trend.start} end={result.trend.end} unit={result.unit.startsWith('%') || result.unit === 'of 5' ? undefined : result.unit}
               marks={result.trend.split ? [{ at: result.trend.split, text: 'From here' }] : []}
               series={[{ label: result.title, style: 'dots', points: result.trend.points }, { label: '7-day average', style: 'line', points: rolling(result.trend.points) }]} />
           )}

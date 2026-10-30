@@ -60,7 +60,7 @@ export function DailyHabitsCard({ habits, foodLogs, energy, start, end, prevDays
     <ChartCard title="Daily habits" height={null} headline={headline} summary={`${summary}.`}
       controls={habits.length > 1 && <ChipPicker label="Habit" value={h.key} onChange={pick} options={habits.map((x) => ({ value: x.key, label: x.label }))} />}
       table={{ head: ['Date', `${h.label} (${unit})`], rows: [...pts].reverse().map((p) => [format(p.t, 'EEE d MMM'), p.v]) }}>
-      <TrendChart bare height={170} title={h.label} start={start} end={end} fmt={(v) => `${num(v)} ${unit}`}
+      <TrendChart bare height={230} title={h.label} start={start} end={end} fmt={(v) => `${num(v)} ${unit}`}
         series={[
           { label: 'Each day', style: 'dots', points: pts },
           ...(pts.length >= 7 ? [{ label: '7-day average', style: 'line' as const, points: rollingAverage(pts) }] : []),

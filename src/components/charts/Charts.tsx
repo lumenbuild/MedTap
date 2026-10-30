@@ -29,9 +29,11 @@ const point = (th: ChartTheme, color: string) => ({ pointRadius: 4, pointHoverRa
 // 1. Weight, the one weight chart: weigh-ins, the 7-day average, the goal, and where it's heading (through the dose
 // plan when there is one, else towards the goal) with its likely range.
 export interface WeightForecast { points: { t: number; v: number; low?: number; high?: number }[]; text?: string }
-export function WeightChart({ entries, start, end, units, marks = [], goalKg, forecast, extra, actions }: RangeProps & { entries: BodyEntry[]; units: Units; extra?: ReactNode; actions?: ReactNode;
+export function WeightChart({ entries, start, end, units, marks = [], goalKg, goalEta, forecast, extra, actions }: RangeProps & { entries: BodyEntry[]; units: Units; extra?: ReactNode; actions?: ReactNode;
   /** Dose changes to mark on the chart (peptide tools: titration steps). */
-  marks?: { at: number; text: string }[]; goalKg?: number; forecast?: WeightForecast | null }) {
+  marks?: { at: number; text: string }[]; goalKg?: number;
+  /** When the goal is likely reached (from its forecast): flagged on the goal line. */
+  goalEta?: number; forecast?: WeightForecast | null }) {
   const all = bodySeries(entries, 'weightKg', -Infinity, Infinity);
   const inRange = (p: Pt) => p.t >= start - DAY / 2 && p.t <= end + DAY / 2;
   const pts = all.filter(inRange);
@@ -51,10 +53,85 @@ export function WeightChart({ entries, start, end, units, marks = [], goalKg, fo
   // so one light or heavy morning doesn't swing it. Both are named, since they differ.
   const trend = trendHeadline(avg.length ? avg : pts, (v) => String(k(v)), u, start, end);
   const lastW = pts[pts.length - 1], lastAvg = avg[avg.length - 1];
+  // Milestones: every 5 kg (or 10 lb) from the first weigh-in, the way the goal points, where the 7-day average first
+  // passed it.
+  const down = goalKg === undefined || goalKg < (all[0]?.v ?? 0);
+  const stepKg = units === 'imperial' ? 4.5359237 : 5;
+  const allAvg = rollingAverage(all);
+  const tags: { t: number; v: number; text: string }[] = [];
+  if (allAvg.length) {
+    const first = all[0].v;
+    for (let n = 1; n <= 40; n++) {
+      const line = down ? first - n * stepKg : first + n * stepKg;
+      const hit = allAvg.find((p) => (down ? p.v <= line : p.v >= line));
+      if (!hit) break;
+      tags.push({ t: hit.t, v: k(hit.v), text: `${down ? '−' : '+'}${units === 'imperial' ? n * 10 : n * 5} ${u}` });
+    }
+  }
   const headline = trend && lastW ? { ...trend, value: String(k(lastW.v)),
     note: `Last weigh-in, ${fmtDay(lastW.t)}${lastAvg && Math.abs(k(lastAvg.v) - k(lastW.v)) >= 0.1 ? ` · 7-day average ${k(lastAvg.v)} ${u}` : ''}` } : trend;
+  const flag = goalKg !== undefined && goalEta ? { v: k(goalKg), at: goalEta <= to ? goalEta : undefined, text: `Goal ${format(goalEta, goalEta - Date.now() > 300 * DAY ? 'MMM yyyy' : 'd MMM')}`, below: down } : undefined;
   return <TrendChart title="Weight" series={series} start={start} end={to} unit={u} marks={marks} summary={fc?.text ?? null} extra={extra} actions={actions} headline={headline}
+    extreme={down ? 'min' : 'max'} tags={tags.slice(-4)} goalFlag={flag}
     empty={pts.length ? null : 'No weigh-ins in this range.'} />;
+}
+
+/** Week by week: how much the weekly average moved, one column a week (toward the goal in green, away from it in
+ *  amber), with the average pace and how many weeks went the right way. The latest week and the biggest are labelled. */
+export function WeeklyChangeChart({ entries, units, goalKg, now, weeks = 12 }: { entries: BodyEntry[]; units: Units; goalKg?: number; now: number; weeks?: number }) {
+  const th = useChartTheme();
+  const all = bodySeries(entries, 'weightKg', -Infinity, Infinity);
+  const down = goalKg === undefined || goalKg < (all[0]?.v ?? 0);
+  const avgIn = (a: number, b: number) => { const xs = all.filter((p) => p.t > a && p.t <= b).map((p) => p.v); return xs.length ? xs.reduce((x, y) => x + y, 0) / xs.length : undefined; };
+  const rows: { end: number; change: number }[] = [];
+  for (let i = weeks - 1; i >= 0; i--) {
+    const end = now - i * 7 * DAY, cur = avgIn(end - 7 * DAY, end), prev = avgIn(end - 14 * DAY, end - 7 * DAY);
+    if (cur !== undefined && prev !== undefined) rows.push({ end, change: kgTo(cur, units) - kgTo(prev, units) });
+  }
+  if (rows.length < 3) return null;
+  const u = weightUnit(units);
+  const good = (c: number) => (down ? c < 0 : c > 0);
+  const r1 = (v: number) => Math.round(v * 10) / 10;
+  const pace = r1(rows.reduce((a, r) => a + r.change, 0) / rows.length);
+  const right = rows.filter((r) => good(r.change)).length;
+  const biggest = rows.reduce((m, r, i) => (Math.abs(r.change) > Math.abs(rows[m].change) ? i : m), 0);
+  const label = (i: number) => i === rows.length - 1 || i === biggest;
+  const colour = (c: number) => resolveColour(good(c) ? 'var(--success)' : 'var(--caution)');
+  const signed = (v: number) => `${r1(v) > 0 ? '+' : r1(v) < 0 ? '−' : ''}${Math.abs(r1(v)).toFixed(1)}`;
+  const capLabels = {
+    id: 'capLabels',
+    afterDatasetsDraw(chart: import('chart.js').Chart) {
+      const { ctx } = chart;
+      ctx.save();
+      ctx.font = '600 12px "Geist Variable", system-ui, sans-serif';
+      ctx.fillStyle = th.text; ctx.textAlign = 'center';
+      chart.getDatasetMeta(0).data.forEach((bar, i) => {
+        if (!label(i)) return;
+        const v = rows[i].change;
+        ctx.textBaseline = v < 0 ? 'top' : 'bottom';
+        ctx.fillText(signed(v), bar.x, v < 0 ? bar.y + 4 : bar.y - 4);
+      });
+      ctx.restore();
+    },
+  };
+  const o = baseOptions(th);
+  const headline: Headline = { value: signed(pace), unit: `${u} a week`, dir: pace === 0 ? 'flat' : pace < 0 ? 'down' : 'up', tone: good(pace) ? 'good' : pace === 0 ? 'plain' : 'watch' };
+  return (
+    <ChartCard title="Week by week" key={th.key} height={220} headline={headline}
+      summary={`${right} of ${rows.length} weeks ${down ? 'down' : 'up'}. Each column is how much the week's average moved.`}
+      table={{ head: ['Week to', `Change (${u})`], rows: rows.map((r) => [format(r.end, 'd MMM'), signed(r.change)]).reverse() }}>
+      <Bar
+        data={{ labels: rows.map((r) => format(r.end, 'd MMM')),
+          datasets: [{ label: 'Change', data: rows.map((r) => r1(r.change)), backgroundColor: rows.map((r) => colour(r.change)), borderRadius: 4, minBarLength: 2, maxBarThickness: 24, categoryPercentage: 0.8, barPercentage: 0.9 }] }}
+        plugins={[capLabels]}
+        options={{ ...o, layout: { padding: { top: 18, bottom: 4 } },
+          plugins: { ...o.plugins, legend: { display: false },
+            tooltip: { ...o.plugins.tooltip, displayColors: false, callbacks: { title: (c) => `Week to ${c[0].label}`, label: (c) => `${signed(c.parsed.y as number)} ${u}` } } },
+          scales: { x: { ...o.scales.x, ticks: { ...o.scales.x.ticks, autoSkip: true, maxTicksLimit: 6 } },
+            y: { ...o.scales.y, grace: '15%', ticks: { ...o.scales.y.ticks, maxTicksLimit: 5, callback: (v) => { const n = Number(v); return `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n)}`; } } } } }}
+      />
+    </ChartCard>
+  );
 }
 
 /** The latest value, and how far it moved over the range shown ("−2.9 kg in 30 days"). */
@@ -86,7 +163,7 @@ export function MeasurementCharts({ entries, start, end, units, skip = [], foote
               <p className="text-sm font-semibold">{m.label}</p>
               <p className="text-xs text-muted tnum">{fmtLength(last.v, units)}{m.pts.length > 1 && Math.abs(diff) >= 0.1 ? ` · ${diff > 0 ? '+' : '−'}${Math.abs(diff).toFixed(1)}` : ''}</p>
               <div className="mt-1">
-                <TrendChart bare noLegend hideX height={96} title={m.label} start={start} end={end} fmt={(v) => `${v} ${u}`}
+                <TrendChart bare noLegend hideX height={120} title={m.label} start={start} end={end} fmt={(v) => `${v} ${u}`}
                   series={[{ label: m.label, style: 'line', points: m.pts.map((p) => ({ t: p.t, v: cmTo(p.v, units) })) }]} />
               </div>
             </div>
@@ -312,7 +389,7 @@ export function IntervalCharts({ meds, doses, start, end, s, realNames, oneMed }
             <div key={med.id}>
               {!oneMed && <p className="font-medium">{realNames ? fmtMedName(med) : shownMedName(med)}</p>}
               <p className="text-sm text-muted tnum">Usually {fmtDuration(med1 * 3_600_000).replace(/(\d)([dhm])\b/g, (_, n, u) => `${n} ${u === 'd' ? 'd' : u === 'h' ? 'h' : 'min'}`)} between doses ({gaps.length} gap{gaps.length === 1 ? '' : 's'}).{sched}</p>
-              {gaps.length >= 4 && <div style={{ height: 150 }} className="mt-2">
+              {gaps.length >= 4 && <div style={{ height: 190 }} className="mt-2">
                 <Bar data={{ labels: bins.map((b) => `${b.from}–${b.to}h`), datasets: [{ label: nameOf(med), data: bins.map((b) => b.count), backgroundColor: color, borderRadius: 4, borderSkipped: 'start', maxBarThickness: 24 }] }}
                   options={{ ...baseOptions(th), interaction: { mode: 'nearest', intersect: true },
                     plugins: { ...baseOptions(th).plugins, tooltip: { ...baseOptions(th).plugins.tooltip, callbacks: { label: (c) => `${c.parsed.y} time${c.parsed.y === 1 ? '' : 's'}` } } },
@@ -350,7 +427,7 @@ export function VitalsCharts({ vitals, start, end, footer, actions, empty }: Ran
         {bp.length > 0 && (
           <div>
             <p className="text-sm font-semibold">Blood pressure (mmHg)</p>
-            <div style={{ height: 170 }}>
+            <div style={{ height: 220 }}>
               <Bar data={{ datasets: [{ label: 'Blood pressure', data: bp.map((v) => ({ x: at(v), y: [v.diastolic!, v.systolic!] })) as never, backgroundColor: th.text, borderRadius: 3, borderSkipped: false, barThickness: 6 }] }}
                 options={{ ...baseOptions(th), interaction: { mode: 'nearest', intersect: false, axis: 'x' },
                   plugins: { ...baseOptions(th).plugins, tooltip: { ...baseOptions(th).plugins.tooltip, displayColors: false, callbacks: {
@@ -364,7 +441,7 @@ export function VitalsCharts({ vitals, start, end, footer, actions, empty }: Ran
         {hr.length > 0 && (
           <div>
             <p className="text-sm font-semibold">Heart rate (bpm)</p>
-            <TrendChart bare height={130} title="Heart rate" start={start} end={end} fmt={(v) => `${Math.round(v)} bpm`}
+            <TrendChart bare height={170} title="Heart rate" start={start} end={end} fmt={(v) => `${Math.round(v)} bpm`}
               series={[{ label: 'Heart rate', style: 'line', points: hr.map((v) => ({ t: at(v), v: v.heartRate! })) }]} />
           </div>
         )}
