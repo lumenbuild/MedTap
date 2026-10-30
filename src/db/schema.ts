@@ -106,6 +106,8 @@ export interface CoachPlan {
   startedAt: string;
   /** Training max per main lift (kg), for wave and block programmes; set from the estimated max when they start. */
   maxes?: Record<string, number>;
+  /** The weekdays the person trains (0 Sunday … 6 Saturday), if they've picked them: reminders come on these. */
+  weekdays?: number[];
 }
 export const DEFAULT_PERSON = 'me';
 

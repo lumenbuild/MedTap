@@ -14,7 +14,7 @@ import {
 } from '../../logic/coach';
 import { e1rmSeries } from '../../logic/training';
 import { plannedSets } from '../../logic/tagActions';
-import { fmtLoad } from '../../logic/load';
+import { fmtLoad, roundLoad } from '../../logic/load';
 import { go } from '../../app/router';
 import { useToast } from '../../app/toast';
 import { useTrainingContext } from './useTrainingContext';
@@ -26,9 +26,14 @@ const DAY = 86_400_000;
 
 /** The sets to log for a planned item: its prescribed weights, else the usual smart target for its sets and reps. */
 function setsFor(it: PlannedItem, def: ExerciseDef, workouts: Workout[], units: Units, ctx: ReturnType<typeof useTrainingContext>, now: number): WorkoutSet[] {
-  if (it.weights) return it.weights.map((w, i) => ({ id: newSetId(), exerciseId: def.id, weightKg: w, reps: it.repsBySet?.[i] ?? it.reps, done: false }));
+  // A wave's or block's weights are set; on a low day (readiness under 50, or a usually weak day after a shot) they
+  // come down about 10%, the same as the smart targets do.
+  const ease = easeToday(ctx) ? 0.9 : 1;
+  if (it.weights) return it.weights.map((w, i) => ({ id: newSetId(), exerciseId: def.id, weightKg: ease < 1 ? roundLoad(w * ease, def, units) : w, reps: it.repsBySet?.[i] ?? it.reps, done: false }));
   return plannedSets(def, workouts, { exerciseId: def.id, sets: it.sets, reps: it.reps, repsMax: it.repsMax }, newSetId, units, ctx ? { ...ctx, now } : undefined);
 }
+
+const easeToday = (ctx: ReturnType<typeof useTrainingContext>) => !!ctx && ((ctx.readiness !== null && ctx.readiness < 50) || ctx.weakDay);
 
 /** Training maxes for the main lifts (90% of the recent estimated max), for wave and block programmes. */
 function startMaxes(prog: Program, workouts: Workout[]): Record<string, number> | undefined {
@@ -37,6 +42,8 @@ function startMaxes(prog: Program, workouts: Workout[]): Record<string, number> 
   for (const l of MAIN_LIFTS) { const pts = e1rmSeries(l.id, workouts); if (pts.length) out[l.id] = Math.round(Math.max(...pts.slice(-4).map((p) => p.v)) * 0.9 * 2) / 2; }
   return out;
 }
+
+const WEEKDAY_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export function PathCard({ personId, person, workouts, body, defs, units, moveSnooze, now }: {
   personId: string; person?: Person; workouts: Workout[]; body: BodyEntry[]; defs: ExerciseDef[]; units: Units; moveSnooze: number; now: number;
@@ -134,6 +141,8 @@ export function PathCard({ personId, person, workouts, body, defs, units, moveSn
           <h3 className="text-sm font-medium text-muted flex-1">Next: {prog.name}</h3>
           <button type="button" className="text-sm font-medium underline underline-offset-4 min-h-[44px]" onClick={() => setSheet('library')}>Change</button>
         </div>
+        {easeToday(ctx) && <p className="text-sm rounded-btn bg-caution-soft px-3 py-2">{ctx!.weakDay ? 'Usually one of your weaker days after a shot' : `Readiness ${ctx!.readiness} today`}: weights about 10% lighter. Same sets and reps.</p>}
+        {ctx?.strongest && <p className="text-sm text-muted">Your strongest sessions are usually on {ctx.strongest.weekday}s ({ctx.strongest.day === 0 ? 'shot day' : `day ${ctx.strongest.day} after your shot`}){plan.weekdays?.length && !plan.weekdays.some((w) => WEEKDAY_LONG[w] === ctx.strongest!.weekday) ? '. It isn’t one of your training days: worth moving one there' : ': put the heaviest session there'}.</p>}
         <p className="font-semibold text-[17px]">{s.day.name}{s.phase ? <span className="font-normal text-muted"> · {s.phase}</span> : null}<span className="font-normal text-muted tnum"> · about {s.minutes} min</span></p>
         {s.cut && <p className="text-sm text-muted">{s.cut}</p>}
         <ul className="divide-y divide-border">
@@ -209,6 +218,7 @@ function Setup({ personId, plan, workouts, body, now, onClose }: { personId: str
   const toast = useToast();
   const [goal, setGoal] = useState<Goal>(plan?.goal ?? 'strength');
   const [days, setDays] = useState(plan?.days ?? 3);
+  const [weekdays, setWeekdays] = useState<number[]>(plan?.weekdays ?? []);
   const [minutes, setMinutes] = useState(plan?.minutes ?? 60);
   const [ownTime, setOwnTime] = useState(![30, 45, 60, 90].includes(plan?.minutes ?? 60));
   const [timeText, setTimeText] = useState(String(plan?.minutes ?? 60));
@@ -220,7 +230,7 @@ function Setup({ personId, plan, workouts, body, now, onClose }: { personId: str
   const rec = recommend(goal, level, kit, days);
   const save = async () => {
     const same = plan?.programId === rec.id;
-    const before = await setCoach(personId, { goal, days, minutes, kit, experience, standards, programId: rec.id,
+    const before = await setCoach(personId, { goal, days, minutes, kit, experience, standards, programId: rec.id, weekdays: weekdays.length === days ? weekdays : undefined,
       startedAt: same ? plan!.startedAt : new Date().toISOString(), maxes: same ? plan!.maxes : startMaxes(rec, workouts) });
     toast(same ? 'Plan updated' : `Your plan: ${rec.name}`, { onAction: () => setCoach(personId, before) });
     onClose();
@@ -243,7 +253,18 @@ function Setup({ personId, plan, workouts, body, now, onClose }: { personId: str
         <Pick label="What it's for" value={goal} onChange={setGoal} options={GOALS.map((g) => ({ v: g.id, name: g.name, what: g.what }))} />
         <div className="space-y-1.5">
           <span className="block text-sm font-medium">Days a week</span>
-          <Segmented label="Days a week" value={String(days)} onChange={(v) => setDays(Number(v))} options={[2, 3, 4, 5, 6].map((d) => ({ value: String(d), label: String(d) }))} />
+          <Segmented label="Days a week" value={String(days)} onChange={(v) => { setDays(Number(v)); if (weekdays.length && weekdays.length !== Number(v)) setWeekdays([]); }} options={[2, 3, 4, 5, 6].map((d) => ({ value: String(d), label: String(d) }))} />
+          <fieldset>
+            <legend className="text-sm text-muted mt-2 mb-1">Which days (optional: reminders come on these)</legend>
+            <div className="grid grid-cols-7 gap-1">
+              {[1, 2, 3, 4, 5, 6, 0].map((w) => {
+                const on = weekdays.includes(w);
+                return <button key={w} type="button" role="checkbox" aria-checked={on} aria-label={WEEKDAY_LONG[w]}
+                  onClick={() => { const next = on ? weekdays.filter((x) => x !== w) : [...weekdays, w].sort(); setWeekdays(next); if (next.length >= 2 && next.length <= 6) setDays(next.length); }}
+                  className={`min-h-[44px] rounded-btn text-sm font-medium ${on ? 'bg-primary text-on-primary' : 'bg-surface-2'}`}>{WEEKDAY_LONG[w].slice(0, 2)}</button>;
+              })}
+            </div>
+          </fieldset>
         </div>
         <div className="space-y-1.5">
           <span className="block text-sm font-medium">About how long</span>
