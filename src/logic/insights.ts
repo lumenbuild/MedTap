@@ -16,6 +16,7 @@ import { calorieTarget, expenditure, latestWeight, leanAlert, proteinTarget } fr
 import { robustFit } from './forecast';
 import { sleepRegularity, stepsChange } from './movement';
 import { gutLinks } from './gut';
+import { eatingPatterns, WHY_LABEL } from './eating';
 import { dayKey } from './stats';
 import { kgTo, weightUnit } from './units';
 import { shownName } from './privacy';
@@ -26,7 +27,7 @@ const WEEK = 7 * DAY;
 const day = (t: number) => format(t, 'EEE d MMM');
 const hourText = (h: number) => (h === 12 ? '12 pm' : h > 12 ? `${h - 12} pm` : `${h} am`);
 
-export type InsightKind = 'script' | 'reading' | 'stall' | 'wearoff' | 'change' | 'odd' | 'cutoff' | 'calories' | 'protein' | 'lean' | 'appointment' | 'followup' | 'steps' | 'sleep' | 'gut';
+export type InsightKind = 'script' | 'reading' | 'stall' | 'wearoff' | 'change' | 'odd' | 'cutoff' | 'calories' | 'protein' | 'lean' | 'appointment' | 'followup' | 'steps' | 'sleep' | 'gut' | 'eating';
 
 export type InsightAction =
   | { kind: 'go'; label: string; href: string }
@@ -188,6 +189,19 @@ export function insights(d: InsightInput, now: number, s: ScheduleSettings): Ins
       headline: `${g.chip} came up more after days with ${g.text}`,
       evidence: `${g.withPct}% of those days, against ${g.withoutPct}% of the others (${g.withN} and ${g.withoutN} days). A link in your records, not proof of cause.`,
       action: g.factor === 'big-meal' ? { kind: 'go', label: 'See your meals', href: '#/food' } : g.factor === 'water' ? { kind: 'go', label: 'Water', href: '#/today' } : { kind: 'go', label: 'Fibre on Food', href: '#/food' }, snoozeDays: 21 });
+  }
+
+  // Eating without hunger, and what goes with it.
+  if (d.has.food) {
+    const e = eatingPatterns(d.foodLogs, d.daily, now, s, st.proteinTargetG);
+    const link = e && ([['shortSleep', 'after a short night'], ['lowProtein', 'on low-protein days']] as const)
+      .map(([k, when]) => ({ when, r: e[k] })).filter((x) => x.r && x.r.withPct - x.r.withoutPct >= 20).sort((a, b) => (b.r!.withPct - b.r!.withoutPct) - (a.r!.withPct - a.r!.withoutPct))[0];
+    if (e && link) {
+      out.push({ id: `eating:${link.when}`, kind: 'eating', importance: 50, confidence: e.answered >= 25 ? 'high' : 'medium', tone: 'plain',
+        headline: `More eating without hunger ${link.when}`,
+        evidence: `${link.r!.withPct}% of those days, against ${link.r!.withoutPct}% of the others${e.topWhy ? `; most often ${WHY_LABEL[e.topWhy.why]}` : ''}${e.eveningPct !== undefined && e.eveningPct >= 60 ? `, mostly in the evening` : ''}.`,
+        action: link.when.includes('protein') && st.proteinTargetG ? { kind: 'go', label: 'Protein today', href: '#/today' } : { kind: 'go', label: 'Food', href: '#/food' }, snoozeDays: 21 });
+    }
   }
 
   // Moving less: a drop in steps is a quiet way calories burned fall while eating less.

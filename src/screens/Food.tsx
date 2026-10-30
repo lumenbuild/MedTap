@@ -6,7 +6,8 @@ import { Barcode, ChevronLeft, ChevronRight, CookingPot, Plus, Star, Trash2 } fr
 import type { BodyEntry, Food, FoodLog, Nutrients } from '../db/schema';
 import { useLive } from '../db/live';
 import { db } from '../db/db';
-import { useBodyEntries, useFamily, useSettings } from '../app/data';
+import { useBodyEntries, useDaily, useFamily, useSettings } from '../app/data';
+import { eatingPatterns, WHY_LABEL } from '../logic/eating';
 import { updateCalorieTarget } from '../app/maintenance';
 import { calorieTarget, expenditure } from '../logic/energy';
 import { kgTo, toKg, weightUnit } from '../logic/units';
@@ -38,6 +39,7 @@ export function FoodScreen() {
   const logs = useLive(() => db.foodLogs.toArray(), []);
   const foods = useLive(() => db.foods.toArray(), []);
   const body = useBodyEntries();
+  const daily = useDaily();
   const [back, setBack] = useState(0);
   const [logging, setLogging] = useState(false);
   const [editing, setEditing] = useState<FoodLog | null>(null);
@@ -130,6 +132,26 @@ export function FoodScreen() {
               defaultValue={target ? String(energy === 'kJ' ? Math.round(target * 4.184) : target) : ''}
               onBlur={(e) => { const v = Number(e.target.value); setSetting('energyTargetKcal', v > 0 ? Math.round(energy === 'kJ' ? v / 4.184 : v) : null); }} help="Your own number, or your dietitian's." />}
       </Card>
+
+      {(() => {
+        // Why you eat: from the logs where you said how hungry, or why.
+        const e = eatingPatterns(mine, daily?.filter((x) => personOf(x) === fam.personId) ?? [], now, scheduleSettings(settings), settings.proteinTargetG);
+        if (!e) return null;
+        return (
+          <Card className="space-y-2">
+            <h2 className="text-sm font-medium text-muted">Why you eat · last 30 days</h2>
+            <p className="tnum"><span className="text-[24px] font-semibold">{e.notHungryPct}%</span> <span className="text-muted">without real hunger, of {e.answered} you noted</span></p>
+            <Bar value={e.notHungryPct} max={100} tone={e.notHungryPct > 40 ? 'watch' : 'plain'} label={`${e.notHungryPct}% eaten without real hunger`} />
+            <ul className="text-[15px] space-y-0.5">
+              {e.topWhy && <li>Most often: {WHY_LABEL[e.topWhy.why]} ({e.topWhy.n})</li>}
+              {e.eveningPct !== undefined && <li>{e.eveningPct}% of it after 6 pm</li>}
+              {e.shortSleep && <li>After a short night: {e.shortSleep.withPct}% of days, against {e.shortSleep.withoutPct}%</li>}
+              {e.lowProtein && <li>On low-protein days: {e.lowProtein.withPct}% of days, against {e.lowProtein.withoutPct}%</li>}
+            </ul>
+            <p className="text-xs text-muted">From “How hungry were you?” when logging. Links, not causes.</p>
+          </Card>
+        );
+      })()}
 
       {logging && <LogFoodSheet personId={fam.personId} energy={energy} onClose={() => setLogging(false)} />}
       {editing && <EditLogSheet log={editing} energy={energy} onClose={() => setEditing(null)} />}

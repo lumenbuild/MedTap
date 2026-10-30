@@ -423,5 +423,8 @@ export interface FoodLog extends Stamped {
   nutrients: Nutrients;
   /** Protein added to the day's protein total (taken off again if this is removed), and the caffeine check-in made. */
   proteinPosted?: number; caffeineCheckInId?: string;
+  /** How hungry they were (1 not at all … 5 very), and why they ate, if they said. */
+  hunger?: number; why?: EatWhy;
   personId?: string; deletedAt?: string;
 }
+export type EatWhy = 'hungry' | 'craving' | 'stress' | 'bored' | 'habit' | 'social';
