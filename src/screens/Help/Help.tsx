@@ -444,6 +444,9 @@ const CONTENT: Record<string, ReactNode> = {
         <li>Back in {APP_NAME}, tap <strong>I've written the tag</strong>.</li>
       </ol>
       <p className="text-sm text-muted">Every tag link starts with {tagBase()}?t= followed by a code. The code means nothing on its own: if someone else taps your tag, their phone just shows “New tag found”.</p>
+      <H>Reusing a tag</H>
+      <p>A tag can be used again for something else. <strong>Tags</strong> → <strong>Erase a tag to reuse it</strong> (or on a tag's own page, <strong>Erase this tag</strong>), then hold it to your phone: it's wiped, and its link in {APP_NAME} goes with it. Your history stays. Then link it as new.</p>
+      <p>Or skip erasing: link it straight to the new medicine and write over it. {APP_NAME} sees what was on it and drops the old link. Without NFC in this browser, erase it with NFC Tools (<strong>Other</strong> → <strong>Erase tag</strong>) and remove its link here.</p>
       <H>Tags that don't read</H>
       <ul className="list-disc pl-5 space-y-1">
         <li>iPhone: the phone must be unlocked with the screen on. iPhones older than the XS need the Control Centre NFC reader.</li>

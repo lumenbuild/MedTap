@@ -47,7 +47,12 @@ export function WeightChart({ entries, start, end, units, marks = [], goalKg, fo
       band: fc.points.filter((p) => p.low !== undefined && p.high !== undefined).map((p) => ({ t: p.t, low: k(p.low!), high: k(p.high!) })) }] : []),
     ...(goalKg !== undefined ? [{ label: 'Goal', style: 'goal' as const, points: [{ t: start, v: k(goalKg) }, { t: to, v: k(goalKg) }] }] : []),
   ];
-  const headline = trendHeadline(avg.length ? avg : pts, (v) => String(k(v)), u, start, end);
+  // The number is the latest weigh-in (what was just logged); the change over the range comes from the 7-day average,
+  // so one light or heavy morning doesn't swing it. Both are named, since they differ.
+  const trend = trendHeadline(avg.length ? avg : pts, (v) => String(k(v)), u, start, end);
+  const lastW = pts[pts.length - 1], lastAvg = avg[avg.length - 1];
+  const headline = trend && lastW ? { ...trend, value: String(k(lastW.v)),
+    note: `Last weigh-in, ${fmtDay(lastW.t)}${lastAvg && Math.abs(k(lastAvg.v) - k(lastW.v)) >= 0.1 ? ` · 7-day average ${k(lastAvg.v)} ${u}` : ''}` } : trend;
   return <TrendChart title="Weight" series={series} start={start} end={to} unit={u} marks={marks} summary={fc?.text ?? null} extra={extra} actions={actions} headline={headline}
     empty={pts.length ? null : 'No weigh-ins in this range.'} />;
 }

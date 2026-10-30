@@ -2,6 +2,7 @@ import { db } from '../db';
 import type { Tag, TagAction } from '../schema';
 import { storedPerson } from './people';
 import { removePendingTag } from './settings';
+import { tagIdFromUrl } from '../../nfc/url';
 
 const nowIso = () => new Date().toISOString();
 
@@ -31,6 +32,19 @@ export async function unlinkTag(id: string): Promise<Tag | undefined> {
   const tag = await db.tags.get(id);
   await db.tags.delete(id);
   return tag;
+}
+
+/** A tag that held `previousUrl` has just been erased or written with something new: its old link in the app goes (it
+ *  would point at the wrong thing now). Returns that link and what it was for, or null if it wasn't one of ours. */
+export async function forgetOldTag(previousUrl: string | null, keepId?: string): Promise<{ tag: Tag; what: string } | null> {
+  const id = previousUrl ? tagIdFromUrl(previousUrl) : null;
+  if (!id || id === keepId) return null;
+  const tag = await db.tags.get(id);
+  if (!tag) return null;
+  await db.tags.delete(id);
+  const med = tag.medicationId ? await db.medications.get(tag.medicationId) : undefined;
+  const what = med ? (med.nickname || med.name) : tag.label || 'a tag';
+  return { tag, what };
 }
 
 export async function restoreTag(tag: Tag) {

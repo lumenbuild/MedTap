@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { shownName } from '../../logic/privacy';
 import { Check, Copy, Nfc, QrCode } from 'lucide-react';
 import type { Medication } from '../../db/schema';
-import { linkTag } from '../../db/repos/tags';
+import { forgetOldTag, linkTag } from '../../db/repos/tags';
 import { newTagId } from '../../logic/tagId';
 import { isTemporaryTagBase, tagUrl } from '../../nfc/url';
 import { NFC_ERROR_TEXT, NfcError, writeUrlToTag } from '../../nfc/write';
@@ -33,6 +33,7 @@ export function WriteTagSheet({ open, onClose, onQr, name, title, defaultLabel =
   open: boolean; onClose: () => void; onQr: (url: string) => void; name: string; title: string; defaultLabel?: string; placeholder: string;
   onSave: (id: string, label: string) => Promise<void>;
 }) {
+  const toast = useToast();
   const [id, setId] = useState(newTagId);
   const [label, setLabel] = useState('');
   const [step, setStep] = useState<Step>(canWriteNFC ? 'intro' : 'manual');
@@ -56,8 +57,11 @@ export function WriteTagSheet({ open, onClose, onQr, name, title, defaultLabel =
     ctrl.current = new AbortController();
     setStep('writing');
     try {
-      await writeUrlToTag(url, ctrl.current.signal);
+      const { previous } = await writeUrlToTag(url, ctrl.current.signal);
       await save();
+      // A tag that was in use (another medicine, a water bottle…) now does this instead: its old link goes.
+      const old = await forgetOldTag(previous, id);
+      if (old) toast(`This tag was for ${old.what}. It's for ${name} now.`, { duration: 8000 });
     } catch (e) {
       if (e instanceof NfcError && e.kind === 'cancelled') { setStep('intro'); return; }
       setError(e instanceof NfcError ? NFC_ERROR_TEXT[e.kind] : String(e));

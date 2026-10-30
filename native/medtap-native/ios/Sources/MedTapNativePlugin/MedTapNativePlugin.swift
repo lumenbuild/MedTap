@@ -16,6 +16,7 @@ public class MedTapNativePlugin: CAPPlugin, CAPBridgedPlugin, NFCNDEFReaderSessi
         CAPPluginMethod(name: "nfcListen", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "nfcWrite", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "nfcRead", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "nfcErase", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "nfcCancel", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openNfcSettings", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "print", returnType: CAPPluginReturnPromise),
@@ -44,6 +45,8 @@ public class MedTapNativePlugin: CAPPlugin, CAPBridgedPlugin, NFCNDEFReaderSessi
     private var session: NFCNDEFReaderSession?
     private var pending: CAPPluginCall?
     private var writeURL: URL?
+    /// Wipe the tag (one empty record) instead of writing a link.
+    private var erasing = false
     private var timeoutWork: DispatchWorkItem?
     private var folderCall: CAPPluginCall?
 
@@ -66,6 +69,11 @@ public class MedTapNativePlugin: CAPPlugin, CAPBridgedPlugin, NFCNDEFReaderSessi
             return
         }
         begin(call, write: url, message: "Hold the top of your iPhone near the tag.")
+    }
+
+    /// Wipes the next tag so it can be written again for something else; resolves with `previous`, the link it had.
+    @objc func nfcErase(_ call: CAPPluginCall) {
+        begin(call, write: nil, message: "Hold the top of your iPhone near the tag to erase it.", erase: true)
     }
 
     @objc func nfcRead(_ call: CAPPluginCall) {
@@ -249,7 +257,7 @@ public class MedTapNativePlugin: CAPPlugin, CAPBridgedPlugin, NFCNDEFReaderSessi
 
     // MARK: - One write or read at a time
 
-    private func begin(_ call: CAPPluginCall, write: URL?, message: String) {
+    private func begin(_ call: CAPPluginCall, write: URL?, message: String, erase: Bool = false) {
         guard NFCNDEFReaderSession.readingAvailable else {
             call.reject("This iPhone can't read tags", "unavailable")
             return
@@ -259,6 +267,7 @@ public class MedTapNativePlugin: CAPPlugin, CAPBridgedPlugin, NFCNDEFReaderSessi
             self.finish(error: ("Replaced by a new request", "cancelled"))
             self.pending = call
             self.writeURL = write
+            self.erasing = erase
             let s = NFCNDEFReaderSession(delegate: self, queue: nil, invalidateAfterFirstRead: false)
             s.alertMessage = message
             self.session = s
@@ -284,6 +293,7 @@ public class MedTapNativePlugin: CAPPlugin, CAPBridgedPlugin, NFCNDEFReaderSessi
         guard let call = pending else { return }
         pending = nil
         writeURL = nil
+        erasing = false
         session = nil
         if let error = error {
             call.reject(error.0, error.1)
@@ -319,6 +329,7 @@ public class MedTapNativePlugin: CAPPlugin, CAPBridgedPlugin, NFCNDEFReaderSessi
     public func readerSession(_ session: NFCNDEFReaderSession, didDetect tags: [NFCNDEFTag]) {
         guard let tag = tags.first else { return }
         let url = writeURL
+        let erase = erasing
         session.connect(to: tag) { error in
             if error != nil {
                 self.fail(session, "Couldn't read the tag. Hold it still and try again.", "io")
@@ -329,7 +340,7 @@ public class MedTapNativePlugin: CAPPlugin, CAPBridgedPlugin, NFCNDEFReaderSessi
                     self.fail(session, "Couldn't read the tag. Hold it still and try again.", "io")
                     return
                 }
-                if let url = url {
+                if url != nil || erase {
                     self.write(url, to: tag, status: status, capacity: capacity, session: session)
                 } else {
                     self.read(tag, status: status, session: session)
@@ -338,29 +349,40 @@ public class MedTapNativePlugin: CAPPlugin, CAPBridgedPlugin, NFCNDEFReaderSessi
         }
     }
 
-    private func write(_ url: URL, to tag: NFCNDEFTag, status: NFCNDEFStatus, capacity: Int, session: NFCNDEFReaderSession) {
+    /// Writes `url`, or with nil wipes the tag (one empty record). Resolves with `previous`, the link it had.
+    private func write(_ url: URL?, to tag: NFCNDEFTag, status: NFCNDEFStatus, capacity: Int, session: NFCNDEFReaderSession) {
         switch status {
         case .notSupported:
             fail(session, "This kind of tag can't hold a link.", "unsupported-tag")
         case .readOnly:
             fail(session, "This tag is locked.", "read-only")
         case .readWrite:
-            guard let payload = NFCNDEFPayload.wellKnownTypeURIPayload(url: url) else {
-                fail(session, "Couldn't write the link.", "io")
-                return
+            let record: NFCNDEFPayload
+            if let url = url {
+                guard let payload = NFCNDEFPayload.wellKnownTypeURIPayload(url: url) else {
+                    fail(session, "Couldn't write the link.", "io")
+                    return
+                }
+                record = payload
+            } else {
+                record = NFCNDEFPayload(format: .empty, type: Data(), identifier: Data(), payload: Data())
             }
-            let message = NFCNDEFMessage(records: [payload])
+            let message = NFCNDEFMessage(records: [record])
             if message.length > capacity {
                 fail(session, "This tag is too small for the link.", "too-small")
                 return
             }
-            tag.writeNDEF(message) { error in
-                if error != nil {
-                    self.fail(session, "The tag moved away. Try again.", "io")
-                } else {
-                    session.alertMessage = "Tag written."
-                    session.invalidate()
-                    self.finish(result: [:])
+            // What was on it before, so the app can drop that tag's old link.
+            tag.readNDEF { old, _ in
+                let previous = old?.records.compactMap { $0.wellKnownTypeURIPayload()?.absoluteString }.first
+                tag.writeNDEF(message) { error in
+                    if error != nil {
+                        self.fail(session, "The tag moved away. Try again.", "io")
+                    } else {
+                        session.alertMessage = url == nil ? "Tag erased." : "Tag written."
+                        session.invalidate()
+                        self.finish(result: ["previous": previous ?? NSNull()])
+                    }
                 }
             }
         @unknown default:

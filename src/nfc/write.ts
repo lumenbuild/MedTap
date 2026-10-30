@@ -86,13 +86,39 @@ async function nativeCall<T>(run: () => Promise<T>, signal?: AbortSignal): Promi
 }
 
 /** Write a single URL record to the next tag held to the phone.
- *  The Android app also adds a record so tapping the tag opens the app; without it, Android hands the link to Chrome. */
-export async function writeUrlToTag(url: string, signal?: AbortSignal): Promise<void> {
-  if (isNative) return nativeCall(() => MedTapNative.nfcWrite({ url, timeoutMs: TIMEOUT_MS, openInApp: nativePlatform === 'android' }), signal);
+ *  The Android app also adds a record so tapping the tag opens the app; without it, Android hands the link to Chrome.
+ *  `previous`: the link the tag had before (the app only; the website can't read and write in one tap). */
+export async function writeUrlToTag(url: string, signal?: AbortSignal): Promise<{ previous: string | null }> {
+  if (isNative) {
+    const r = await nativeCall(() => MedTapNative.nfcWrite({ url, timeoutMs: TIMEOUT_MS, openInApp: nativePlatform === 'android' }), signal);
+    return { previous: r?.previous ?? null };
+  }
   if (!hasWebNfc()) throw new NfcError('unavailable');
   const t = withTimeout(signal);
   try {
     await new NDEFReader().write({ records: [{ recordType: 'url', data: url }] }, { signal: t.signal });
+    return { previous: null };
+  } catch (e) {
+    throw e instanceof NfcError ? e : classifyWebNfcError(e, t.timedOut());
+  } finally {
+    t.done();
+  }
+}
+
+/** Wipe the next tag held to the phone so it can be written again for something else, and say what it held. The app
+ *  does it in one tap; the website reads it first, then (after `onSecondTap`) needs it held again to erase it. */
+export async function eraseTag(signal?: AbortSignal, onSecondTap?: () => void): Promise<{ previous: string | null }> {
+  if (isNative) {
+    const r = await nativeCall(() => MedTapNative.nfcErase({ timeoutMs: TIMEOUT_MS }), signal);
+    return { previous: r?.previous ?? null };
+  }
+  if (!hasWebNfc()) throw new NfcError('unavailable');
+  const previous = await readUrlFromTag(signal);
+  onSecondTap?.();
+  const t = withTimeout(signal);
+  try {
+    await new NDEFReader().write({ records: [{ recordType: 'empty' }] }, { signal: t.signal });
+    return { previous };
   } catch (e) {
     throw e instanceof NfcError ? e : classifyWebNfcError(e, t.timedOut());
   } finally {
