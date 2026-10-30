@@ -324,7 +324,7 @@ const CONTENT: Record<string, ReactNode> = {
       </ul>
       <p>Each says what it's based on. They're estimates from your own records, not advice: they show links, not causes, and never suggest a dose.</p>
       <H>Peptide guide</H>
-      <p>Protocol → <strong>Guide</strong>: retatrutide, glutathione, GHK-Cu, DSIP, BPC-157, NAD+ and epitalon. What each one is and where the evidence stands, a mixing table, how it’s taken and stored, the doses from trials or user reports, side effects, and when to get help. <strong>Set it up</strong> fills in the injection form for you; check the dose against your own plan.</p>
+      <p>Protocol → <strong>Guide</strong>: retatrutide, glutathione, GHK-Cu, DSIP, BPC-157, NAD+, Semax and epitalon. What each one is, what the research shows and what people notice, a mixing table, how it’s taken and stored, the doses used, side effects, and when to get help. <strong>Set it up</strong> fills in the injection form, once or twice a week for retatrutide; change the dose to yours.</p>
       <H>Calculator</H>
       <p>Protocol → <strong>Calculator</strong> (also in Settings, under Tools): units for a dose, the dose for a number of units, or the water that makes your dose an easy number of units.</p>
       <H>Check your numbers</H>

@@ -13,7 +13,7 @@ describe('peptide guide', () => {
   });
   it('mixing tables in syringe units', () => {
     const reta = guideById('retatrutide')!;
-    expect(mixTable(reta, { amount: 10, waterMl: 1 }).map((r) => [r.dose, r.units])).toEqual([[1, 10], [2, 20], [4, 40], [6, 60], [8, 80]]);
+    expect(mixTable(reta, { amount: 10, waterMl: 1 }).map((r) => [r.dose, r.units])).toEqual([[0.5, 5], [1, 10], [2, 20], [3, 30], [4, 40], [6, 60], [8, 80]]);
     expect(mixTable(guideById('bpc-157')!, { amount: 5000, waterMl: 2 }).map((r) => r.units)).toEqual([10, 20]);
     expect(mixTable(guideById('nad')!, { amount: 500, waterMl: 5 }).map((r) => r.units)).toEqual([25, 50, 100]);
     expect(mixTable(guideById('dsip')!, { amount: 5, waterMl: 2 }).find((r) => r.dose === 0.25)?.units).toBe(10);
@@ -32,7 +32,7 @@ describe('peptide guide', () => {
     expect(guideMed(guideById('epitalon')!, now).schedule.course).toEqual({ start: '2026-11-02', days: 20 });
     expect(guideMed(guideById('nad')!, now).schedule.days).toEqual([1, 3, 5]);
   });
-  it('the trial step-up as dated changes', () => {
+  it('the step-up as dated changes', () => {
     expect(stepChanges(guideById('retatrutide')!, '2026-11-02')).toEqual([
       { from: '2026-11-30', amount: 4 }, { from: '2026-12-28', amount: 8 }, { from: '2027-01-25', amount: 12 }]);
     expect(stepChanges(guideById('bpc-157')!, '2026-11-02')).toEqual([]);

@@ -1,9 +1,9 @@
 // The peptide guide (peptide tools): every peptide in one list with the basics of mixing and injecting, and a page for
-// each: what it is and where the evidence stands, a mixing table for its usual vials, how it's taken, the doses people
-// report (labelled trial or user reports), storage, side effects, when to get help, and one tap to set it up.
+// each: what it is, what the research shows and what people notice, a mixing table for its usual vials, how it's taken,
+// the doses used, storage, side effects, when to get help, and one tap to set it up. Neutral and factual throughout.
 import { useState } from 'react';
-import { AlertTriangle, BookOpen, Calculator, ChevronDown, ChevronRight, FlaskConical, Plus, Snowflake, Syringe } from 'lucide-react';
-import { BASICS, canSplit, EVIDENCE, fmtDose, GUIDE, guideById, guideFor, mixTable, splitView, type GuideEntry } from '../logic/peptideGuide';
+import { AlertTriangle, BookOpen, Calculator, ChevronDown, ChevronRight, FlaskConical, Plus, Snowflake, Sparkles, Syringe } from 'lucide-react';
+import { BASICS, canSplit, fmtDose, GUIDE, guideById, guideFor, mixTable, splitView, type GuideEntry } from '../logic/peptideGuide';
 import { SwingBars } from '../components/SwingBars';
 import { fmtMl } from '../logic/peptide';
 import { useFamily, useMeds } from '../app/data';
@@ -11,16 +11,6 @@ import { medIsFor } from '../db/repos/people';
 import { go } from '../app/router';
 import { Button } from '../components/ui/Button';
 import { ChipPicker } from '../components/ui/Field';
-
-const EV_TONE = { trials: 'var(--success)', small: 'var(--primary)', animal: 'var(--caution)' } as const;
-
-function EvidenceTag({ g }: { g: GuideEntry }) {
-  return (
-    <span className="inline-flex items-center gap-1 text-[12px] font-medium rounded-chip bg-surface-2 px-2 py-0.5">
-      <FlaskConical size={13} aria-hidden="true" style={{ color: EV_TONE[g.evidence] }} />{EVIDENCE[g.evidence].label}
-    </span>
-  );
-}
 
 /** The person's own medication set up from this entry, if there is one. */
 function useMine(g?: GuideEntry) {
@@ -39,13 +29,13 @@ function GuideList() {
   const mine = new Set((meds ?? []).filter((m) => !m.archived && fam && medIsFor(m, fam.personId)).map((m) => guideFor(m.name)?.id).filter(Boolean));
   return (
     <div className="space-y-5">
-      <p className="text-muted">What each one is, how it’s mixed, taken and stored, the doses people report, and what to watch for. Tap one to read it or set it up.</p>
+      <p className="text-muted">What each one is, what the research shows, how it’s mixed, taken and stored, the doses used, and side effects. Tap one to read it or set it up.</p>
       <ul className="divide-y divide-border border-y border-border">
         {GUIDE.map((g) => (
           <li key={g.id}>
             <a href={`#/guide/${g.id}`} className="flex items-center gap-3 py-3 min-h-[64px]">
               <span className="flex-1 min-w-0">
-                <span className="flex items-center gap-2 flex-wrap"><span className="font-medium">{g.name}</span><EvidenceTag g={g} />{mine.has(g.id) && <span className="text-[12px] text-success font-medium">Yours</span>}</span>
+                <span className="flex items-center gap-2 flex-wrap"><span className="font-medium">{g.name}</span>{mine.has(g.id) && <span className="text-[12px] text-success font-medium">Yours</span>}</span>
                 <span className="block text-sm text-muted line-clamp-2">{g.what}</span>
               </span>
               <ChevronRight size={18} className="text-muted shrink-0" aria-hidden="true" />
@@ -64,7 +54,6 @@ function GuideList() {
           </details>
         ))}
       </section>
-      <Footnote />
     </div>
   );
 }
@@ -92,9 +81,6 @@ function Section({ title, Icon, children }: { title: string; Icon?: typeof Syrin
   );
 }
 
-function Footnote() {
-  return <p className="text-sm text-muted">For reference only. The doses are what’s been published or what people report, not advice for you. Check with a doctor before starting, especially if you take other medicines or have a health condition.</p>;
-}
 
 function GuidePage({ g }: { g: GuideEntry }) {
   const mine = useMine(g);
@@ -106,8 +92,6 @@ function GuidePage({ g }: { g: GuideEntry }) {
     <div className="space-y-4 pb-8">
       <div className="space-y-2">
         <p className="text-[15px] leading-snug">{g.what}</p>
-        <EvidenceTag g={g} />
-        <p className="text-sm text-muted leading-snug">{g.status}</p>
         {g.aka.length > 0 && <p className="text-sm text-muted">Also called {g.aka.join(', ')}.</p>}
       </div>
       <div className="grid grid-cols-2 gap-2">
@@ -136,6 +120,9 @@ function GuidePage({ g }: { g: GuideEntry }) {
         <p className="mt-2 text-sm text-muted">Once it’s set up, the app works out the draw from your own vial and water every time you log a shot.</p>
       </Section>
 
+      <Section title="What the research shows" Icon={FlaskConical}><Points items={g.research} /></Section>
+      <Section title="What people notice" Icon={Sparkles}><Points items={g.notice} /></Section>
+
       <Section title="How it’s taken">
         <dl className="space-y-2">
           <div><dt className="text-sm text-muted">Where</dt><dd>{g.route}</dd></div>
@@ -144,17 +131,11 @@ function GuidePage({ g }: { g: GuideEntry }) {
         </dl>
       </Section>
 
-      <Section title="Doses people report">
-        <ul className="space-y-2">
-          {g.reported.map((r) => (
-            <li key={r.text} className="leading-snug">
-              <span className={`mr-1.5 inline-block text-[11px] font-semibold uppercase tracking-wide rounded px-1.5 py-0.5 align-[1px] ${r.source === 'users' ? 'bg-surface-2 text-muted' : 'bg-success-soft text-success'}`}>{r.source === 'trial' ? 'Trial' : r.source === 'label' ? 'Label' : 'User reports'}</span>
-              {r.text}
-            </li>
-          ))}
-        </ul>
+      <Section title="Doses">
+        <Points items={g.doses} />
         {g.steps && (
-          <ol className="mt-3 rounded-card bg-surface-2 p-3 space-y-1.5 tnum" aria-label="The trial step-up">
+          <ol className="mt-1 rounded-card bg-surface-2 p-3 space-y-1.5 tnum" aria-label="Step-up, weekly amount">
+            <li className="text-sm text-muted">Step-up (weekly amount)</li>
             {g.steps.map((s, i) => {
               const start = g.steps!.slice(0, i).reduce((a, x) => a + x.weeks, 0) + 1;
               const d = s.amount <= vial.amount ? mixTable({ ...g, tableDoses: [s.amount] }, vial)[0] : undefined;
@@ -188,13 +169,12 @@ function GuidePage({ g }: { g: GuideEntry }) {
 
       <Section title="Side effects"><Points items={g.sideEffects} /></Section>
       <Section title="Get help now if" Icon={AlertTriangle}><Points items={g.getHelp} tone="watch" /></Section>
-      <Section title="Check first"><Points items={g.checkFirst} /></Section>
+      <Section title="Worth knowing"><Points items={g.worthKnowing} /></Section>
       <Section title="Tips"><Points items={g.tips} /></Section>
       <Section title="Sources">
         <Points items={g.sources} />
-        <a href="#/guide" className="min-h-[44px] inline-flex items-center text-sm font-medium underline underline-offset-4">The basics: supplies, mixing, injecting, quality</a>
+        <a href="#/guide" className="min-h-[44px] inline-flex items-center text-sm font-medium underline underline-offset-4">The basics: supplies, mixing, injecting, checking a batch</a>
       </Section>
-      <Footnote />
     </div>
   );
 }

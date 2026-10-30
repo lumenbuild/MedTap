@@ -1,19 +1,8 @@
-// The peptide guide: what each one is, where the evidence stands, how it's mixed, taken and stored, the doses people
-// report (each labelled with where it comes from: a published trial, or user reports only), side effects, when to get
-// help, and what's worth tracking. Each entry also fills in the injection form, so a peptide is set up in one tap.
-// Reference text only: the numbers are what's published or commonly reported, never a recommendation for anyone.
+// The peptide guide: what each one is, what the research shows and what people notice, how it's mixed, taken and
+// stored, the doses used, side effects, when to get help, and what's worth tracking. Each entry also fills in the
+// injection form, so a peptide is set up in one tap. Neutral reference text: the facts, for the person to decide.
 import type { Medication, Schedule } from '../db/schema';
 import { drawFor } from './peptide';
-
-export type Evidence = 'trials' | 'small' | 'animal';
-export const EVIDENCE: Record<Evidence, { label: string; long: string }> = {
-  trials: { label: 'In clinical trials', long: 'Tested in large human trials, not yet approved' },
-  small: { label: 'Small human studies', long: 'Only small or older human studies' },
-  animal: { label: 'Mostly animal studies', long: 'Mostly lab and animal studies; little human data' },
-};
-
-/** A dose people report, and where the figure comes from. */
-export interface Reported { text: string; source: 'trial' | 'label' | 'users' }
 
 export interface GuideEntry {
   id: string; name: string;
@@ -22,8 +11,10 @@ export interface GuideEntry {
   /** Other spellings and short forms, matched but not shown. */
   match?: string[];
   what: string;
-  evidence: Evidence;
-  status: string;
+  /** What studies have found, the good and the limits. */
+  research: string[];
+  /** What people commonly notice. */
+  notice: string[];
   /** Common vial sizes, in `unit`, and the water that gives easy-to-read draws for each. */
   vials: { amount: number; waterMl: number }[];
   unit: 'mg' | 'mcg';
@@ -32,14 +23,15 @@ export interface GuideEntry {
   route: string;
   when: string;
   cycle?: string;
-  reported: Reported[];
-  /** A published step-up, in `unit` per dose, each step lasting `weeks`. */
+  doses: string[];
+  /** A step-up, in `unit` per dose, each step lasting `weeks`. */
   steps?: { amount: number; weeks: number }[];
   storage: { powder: string; mixed: string; useWithinDays: number };
   halfLifeHours?: number;
   sideEffects: string[];
   getHelp: string[];
-  checkFirst: string[];
+  /** Interactions and conditions worth knowing about. */
+  worthKnowing: string[];
   tips: string[];
   /** Check-in words worth one tap (added to the check-in chips when it's set up). */
   chips: string[];
@@ -49,22 +41,28 @@ export interface GuideEntry {
 }
 
 const daily = (time: string, extra: Partial<Schedule> = {}): Schedule => ({ type: 'fixed', slots: [{ time }], ...extra });
+const SITE = 'Swelling of the face or throat, or trouble breathing: call 000.';
+const INFECTION = 'Redness spreading out from the site, heat, pus or a fever.';
 
 export const GUIDE: GuideEntry[] = [
   {
     id: 'retatrutide', name: 'Retatrutide', aka: ['LY3437943'], match: ['reta'],
     what: 'A weekly injection that acts on three hunger and metabolism hormones at once: GLP-1, GIP and glucagon. It lowers appetite, slows the stomach and raises energy use.',
-    evidence: 'trials',
-    status: 'Made by Eli Lilly and still in phase 3 trials (TRIUMPH). It isn’t approved anywhere yet, so anything sold now isn’t the trial medicine and its purity is unknown.',
+    research: [
+      'Phase 2 trial (338 adults, 48 weeks): average weight loss of 8.7% at 1 mg, 17.1% at 4 mg, 22.8% at 8 mg and 24.2% at 12 mg, against 2.1% on placebo. On the higher doses, weight was still falling at 48 weeks.',
+      'Waist, blood pressure, triglycerides and blood sugar improved too. In people with fatty liver, liver fat returned to normal in most of those on 8 or 12 mg.',
+      'Made by Eli Lilly; larger phase 3 trials (TRIUMPH) are running.',
+    ],
+    notice: ['Much less appetite and “food noise”.', 'Full sooner, smaller portions.', 'Steady weekly weight loss, often faster than with semaglutide or tirzepatide.'],
     vials: [{ amount: 10, waterMl: 1 }, { amount: 5, waterMl: 1 }, { amount: 20, waterMl: 2 }],
-    unit: 'mg', tableDoses: [1, 2, 4, 6, 8, 12],
-    route: 'Under the skin (subcutaneous): belly at least 5 cm from the navel, front of the thigh, or back of the upper arm. Rotate sites.',
-    when: 'Once a week, on the same day. Any time of day, with or without food.',
-    reported: [
-      { text: 'Phase 2 trial: weekly 1, 4, 8 or 12 mg for 48 weeks. Average weight loss was 8.7%, 17.1%, 22.8% and 24.2% (placebo 2.1%).', source: 'trial' },
-      { text: 'The 12 mg group started at 2 mg and stepped up every 4 weeks: 2 → 4 → 8 → 12 mg. Starting at 2 mg rather than 4 mg meant less nausea.', source: 'trial' },
-      { text: 'Many people stay on the lowest dose that’s still working, rather than climbing to the top, and some step up more slowly than every 4 weeks.', source: 'users' },
-      { text: 'Some split the weekly amount into two shots 3–4 days apart (e.g. 1 mg Monday and Thursday instead of 2 mg Monday) for a steadier level and less nausea after each shot. The trials only tested once a week.', source: 'users' },
+    unit: 'mg', tableDoses: [0.5, 1, 2, 3, 4, 6, 8, 12],
+    route: 'Under the skin: belly at least 5 cm from the navel, front of the thigh, or back of the upper arm. Rotate sites.',
+    when: 'Once a week on the same day, or the weekly amount split into two shots 3–4 days apart. Any time of day, with or without food.',
+    doses: [
+      'Trial doses: 1, 4, 8 or 12 mg once a week.',
+      'The 12 mg group started at 2 mg and stepped up every 4 weeks: 2 → 4 → 8 → 12 mg. Starting at 2 mg rather than 4 mg meant less nausea.',
+      'Many people stay on the lowest dose that keeps working rather than climbing to the top, and step up more slowly than every 4 weeks.',
+      'Splitting the weekly amount into two shots (e.g. 1 mg Monday and Thursday instead of 2 mg Monday) gives a steadier level and, for many, less nausea after each shot.',
     ],
     steps: [{ amount: 2, weeks: 4 }, { amount: 4, weeks: 4 }, { amount: 8, weeks: 4 }, { amount: 12, weeks: 4 }],
     storage: { powder: 'Fridge (2–8 °C). The freezer for long-term storage.', mixed: 'Fridge, away from light. Commonly used within 4 weeks of mixing.', useWithinDays: 28 },
@@ -72,8 +70,8 @@ export const GUIDE: GuideEntry[] = [
     sideEffects: [
       'Nausea, diarrhoea, vomiting and constipation: the most common, mostly mild, worst after each step up and settling over a few weeks.',
       'Faster resting heart rate (in the trial it peaked around week 24, then eased).',
-      'Less appetite, early fullness, burping, heartburn, tiredness.',
-      'Tingling or sensitive skin (dysaesthesia), reported in a phase 3 trial.',
+      'Early fullness, burping, heartburn, tiredness.',
+      'Tingling or sensitive skin (dysaesthesia), seen in a phase 3 trial.',
       'Hair shedding with fast weight loss.',
     ],
     getHelp: [
@@ -81,89 +79,93 @@ export const GUIDE: GuideEntry[] = [
       'Pain under the right ribs, fever, or yellow skin or eyes (gallbladder).',
       'Vomiting or diarrhoea so much you can’t keep fluids down, or very little urine (dehydration can hurt the kidneys).',
       'A racing or irregular heartbeat at rest, chest pain or fainting.',
-      'Swelling of the face or throat, trouble breathing, a widespread rash: call 000.',
+      SITE,
       'A lump in the neck, a hoarse voice or trouble swallowing.',
     ],
-    checkFirst: [
-      'Not for anyone with medullary thyroid cancer or MEN2 (or a family history), or a past pancreatitis: the same warnings as semaglutide and tirzepatide.',
-      'Don’t combine with another GLP-1 medicine (Ozempic, Wegovy, Mounjaro).',
-      'With insulin or a sulfonylurea (e.g. gliclazide), blood sugar can go too low: those doses usually need lowering. Talk to your doctor first.',
-      'Contraceptive pill: tirzepatide’s label says to use a backup method for 4 weeks after starting and after each step up. Retatrutide hasn’t been studied for this, so the same care makes sense.',
-      'Not in pregnancy or breastfeeding. Stop well before trying to conceive (semaglutide’s label says 2 months).',
-      'Before surgery or a scope, tell the anaesthetist: food stays in the stomach longer.',
+    worthKnowing: [
+      'The same cautions as semaglutide and tirzepatide: medullary thyroid cancer or MEN2 (or a family history), and past pancreatitis.',
+      'Not combined with another GLP-1 medicine (Ozempic, Wegovy, Mounjaro).',
+      'With insulin or a sulfonylurea (e.g. gliclazide), blood sugar can go too low: those doses usually come down.',
+      'Contraceptive pill: tirzepatide’s label advises a backup method for 4 weeks after starting and after each step up, as the pill can be absorbed less well. The same applies in principle here.',
+      'Pregnancy: semaglutide’s label says stop 2 months before trying to conceive.',
+      'Before surgery or a scope, the anaesthetist will want to know: food stays in the stomach longer.',
     ],
     tips: [
-      'Eat smaller meals, stop at the first sign of fullness, and go easy on fatty and fried food, especially in the days after a shot.',
+      'Smaller meals, stopping at the first sign of fullness, and going easy on fatty food in the days after a shot all ease nausea.',
       'Protein at every meal and some strength training help keep muscle while losing fat.',
-      'Drink plenty of water and get enough fibre for constipation.',
-      'Missed a shot? The trials don’t give a rule. Tirzepatide’s label says take it within 4 days, otherwise skip it and keep your usual day.',
+      'Water and fibre for constipation.',
+      'Missed a shot: tirzepatide’s rule is to take it within 4 days, otherwise skip it and keep your usual day. On a split schedule, many take it if the next shot is more than 2 days away.',
     ],
     chips: ['Nausea', 'Constipation', 'Heart racing', 'Reflux'],
-    sources: ['Jastreboff et al., N Engl J Med 2023: phase 2 obesity trial, 338 adults, 48 weeks.', 'Eli Lilly TRIUMPH phase 3 programme (ongoing).'],
+    sources: ['Jastreboff et al., N Engl J Med 2023: phase 2 obesity trial, 338 adults, 48 weeks.', 'Sanyal et al., Nat Med 2024: retatrutide and liver fat.', 'Eli Lilly TRIUMPH phase 3 programme.'],
     setup: { defaultAmount: 2, syringeUnits: 50, schedule: (_t, dow) => daily('08:00', { days: [dow] }) },
   },
   {
     id: 'glutathione', name: 'Glutathione', aka: ['GSH', 'L-glutathione'],
     what: 'An antioxidant the body makes itself, from three amino acids. Injected to raise levels, often for skin, liver or recovery.',
-    evidence: 'small',
-    status: 'Sold as a supplement by mouth. Injections are offered by clinics, but the evidence for injecting it is limited. Regulators (the TGA and FDA) have warned about injections marketed for skin lightening.',
+    research: [
+      'Injected glutathione raises blood levels quickly; taken by mouth, much of it is broken down (liposomal forms do better).',
+      'Small trials found skin lightening and more even tone with injected and oral use.',
+      'IV glutathione has been studied alongside some chemotherapy to reduce nerve damage. Studies for energy, liver and recovery are small.',
+    ],
+    notice: ['Brighter, more even skin over weeks to months.', 'Some notice better recovery or less fatigue.'],
     vials: [{ amount: 600, waterMl: 3 }, { amount: 1500, waterMl: 10 }],
     unit: 'mg', tableDoses: [100, 200, 300, 600],
-    route: 'Into a muscle (IM: buttock or thigh, which needs a longer needle than an insulin syringe) or slowly under the skin. Clinics also give it through a drip.',
+    route: 'Into a muscle (buttock or thigh: this needs a longer needle than an insulin syringe) or slowly under the skin. Clinics also give it by drip.',
     when: 'One to three times a week. Any time of day.',
-    reported: [
-      { text: 'Commonly 200–600 mg, one to three times a week, by injection.', source: 'users' },
-      { text: 'Clinic drips are often 600–1,200 mg.', source: 'users' },
-    ],
+    doses: ['Commonly 200–600 mg, one to three times a week, by injection.', 'Clinic drips are often 600–1,200 mg.'],
     storage: { powder: 'Fridge, away from light.', mixed: 'Fridge, away from light. It breaks down once mixed: commonly used within 2 weeks.', useWithinDays: 14 },
     sideEffects: ['Stinging, redness or a lump where it went in.', 'Stomach cramps or bloating.', 'Rash.', 'Lighter skin with high doses over time.'],
-    getHelp: ['Swelling of the face or throat, trouble breathing, or a widespread rash: call 000.', 'Spreading redness, heat or pus at the injection site, or a fever.'],
-    checkFirst: [
-      'If you’re having chemotherapy, ask your oncologist first: antioxidants may interfere with some treatments.',
-      'Not studied in pregnancy or breastfeeding.',
-      'Asthma: breathing it in (nebulised) can trigger wheezing. That doesn’t apply to injections, but worth mentioning to your doctor.',
-    ],
-    tips: ['A dose of 200 mg from a 600 mg vial in 3 mL is 1 mL: use a 1 mL (100-unit) syringe.', 'If it’s yellow, cloudy or has bits in it, don’t use it.'],
+    getHelp: [SITE, INFECTION],
+    worthKnowing: ['During chemotherapy, antioxidants may interfere with some treatments: worth raising with the oncologist.', 'Not studied in pregnancy or breastfeeding.', 'Breathed in (nebulised) it can trigger wheezing in asthma; injections don’t do this.'],
+    tips: ['200 mg from a 600 mg vial in 3 mL is 1 mL: use a 1 mL (100-unit) syringe.', 'Yellowing or cloudiness means it has broken down.'],
     chips: ['Site sting'],
-    sources: ['TGA and FDA safety alerts on injectable glutathione for skin lightening.', 'No published dosing trials for injected glutathione; figures are from user and clinic reports.'],
+    sources: ['Sonthalia et al., Indian J Dermatol Venereol Leprol 2016: glutathione for the skin.', 'Cascinu et al., J Clin Oncol 1995: glutathione and nerve damage from cisplatin.'],
     setup: { defaultAmount: 200, syringeUnits: 100, schedule: () => daily('08:00', { days: [1, 3, 5] }) },
   },
   {
     id: 'ghk-cu', name: 'GHK-Cu', aka: ['copper peptide'], match: ['ghk', 'ghk cu'],
     what: 'A small copper-carrying peptide found naturally in blood, which falls with age. Used for skin, hair and healing.',
-    evidence: 'animal',
-    status: 'There’s good evidence for it in skin creams. There are no human trials of injecting it; the injected doses come from user reports.',
+    research: [
+      'In skin creams it’s well studied: more collagen, firmer skin, fewer fine lines and faster wound healing.',
+      'Lab studies show it switches on many tissue-repair and antioxidant genes.',
+      'Injected use comes from people’s experience rather than published trials.',
+    ],
+    notice: ['Better skin texture and firmness.', 'Thicker hair for some.', 'Faster healing of cuts and minor injuries.'],
     vials: [{ amount: 50, waterMl: 2.5 }, { amount: 100, waterMl: 5 }],
     unit: 'mg', tableDoses: [0.5, 1, 2],
     route: 'Under the skin: belly or thigh. Rotate sites.',
     when: 'Once a day, usually in the evening.',
     cycle: 'Usually 4–8 weeks, then a break of a few weeks.',
-    reported: [{ text: 'Commonly 1–2 mg a day under the skin, for 4–8 weeks.', source: 'users' }],
+    doses: ['Commonly 1–2 mg a day under the skin, for 4–8 weeks.'],
     storage: { powder: 'Fridge, away from light.', mixed: 'Fridge, away from light. Commonly used within 4 weeks of mixing. A blue colour is normal.', useWithinDays: 28 },
-    sideEffects: ['Stinging or burning as it goes in: very common. More water (a weaker mix) and going slowly helps.', 'Redness or a small lump at the site.', 'Some report tiredness or a metallic taste.'],
-    getHelp: ['Swelling of the face or throat, or trouble breathing: call 000.', 'Spreading redness, heat or pus at the injection site, or a fever.'],
-    checkFirst: ['Not with Wilson’s disease or anything else that affects copper.', 'Not studied in pregnancy or breastfeeding.', 'Don’t take extra copper supplements alongside it.'],
+    sideEffects: ['Stinging or burning as it goes in: very common. More water (a weaker mix) and going slowly helps.', 'Redness or a small lump at the site.', 'Some notice tiredness or a metallic taste.'],
+    getHelp: [SITE, INFECTION],
+    worthKnowing: ['Wilson’s disease or anything else that affects copper.', 'Extra copper supplements alongside it add up.', 'Not studied in pregnancy or breastfeeding.'],
     tips: ['If it stings a lot, mix it with more water so the same dose is a bigger, weaker draw.'],
     chips: ['Site sting'],
-    sources: ['Pickart & Margolina, Int J Mol Sci 2018: review of GHK-Cu (mostly skin and lab studies).'],
+    sources: ['Pickart & Margolina, Int J Mol Sci 2018: review of GHK-Cu.'],
     setup: { defaultAmount: 1, syringeUnits: 30, schedule: (t) => daily('20:00', { course: { start: t, days: 42 } }) },
   },
   {
     id: 'dsip', name: 'DSIP', aka: ['delta sleep-inducing peptide'], match: ['delta sleep inducing peptide', 'disp'],
     what: 'Delta sleep-inducing peptide: a small brain peptide first found in 1977. Used for deeper sleep and stress.',
-    evidence: 'small',
-    status: 'A few small human studies from the 1980s and 1990s (sleep problems, withdrawal) with mixed results. Not approved anywhere.',
+    research: [
+      'Small human studies in the 1980s and 1990s found better sleep in some people with insomnia, and eased symptoms during alcohol and opioid withdrawal. Others found little effect.',
+      'It also seems to lower stress hormones. How it works is still not fully understood.',
+    ],
+    notice: ['Deeper, more refreshing sleep for some.', 'Calmer in the evening.'],
     vials: [{ amount: 5, waterMl: 2 }, { amount: 2, waterMl: 1 }],
     unit: 'mg', tableDoses: [0.1, 0.2, 0.25, 0.3, 0.5],
     route: 'Under the skin: belly or thigh.',
     when: 'In the evening, 30 minutes to 3 hours before bed.',
-    cycle: 'Usually short runs (a week or two), or a few nights a week, rather than every night long-term.',
-    reported: [{ text: 'Commonly 100–300 mcg (0.1–0.3 mg) before bed; some use up to 500 mcg.', source: 'users' }],
+    cycle: 'Usually short runs (a week or two), or a few nights a week.',
+    doses: ['Commonly 100–300 mcg (0.1–0.3 mg) before bed; some use up to 500 mcg.'],
     storage: { powder: 'Fridge or freezer.', mixed: 'Fridge. Commonly used within 4 weeks of mixing.', useWithinDays: 28 },
     sideEffects: ['Headache.', 'Grogginess the next morning.', 'Vivid dreams.', 'Nausea.'],
-    getHelp: ['Swelling of the face or throat, or trouble breathing: call 000.', 'Spreading redness, heat or pus at the injection site, or a fever.'],
-    checkFirst: ['Careful with alcohol, sleeping tablets, opioids or anything else that makes you drowsy.', 'Don’t drive until you know how it affects you the next morning.', 'Not studied in pregnancy or breastfeeding.'],
-    tips: ['Log how you slept the next morning: the check-in’s sleep score shows whether it’s doing anything.'],
+    getHelp: [SITE, INFECTION],
+    worthKnowing: ['Alcohol, sleeping tablets, opioids and other sedatives add to the drowsiness.', 'Next-morning grogginess matters for driving.', 'Not studied in pregnancy or breastfeeding.'],
+    tips: ['Log how you slept the next morning: the check-in’s sleep score shows whether it’s doing anything for you.'],
     chips: ['Slept well', 'Groggy'],
     sources: ['Kovalzon & Strekalova, J Neurochem 2006: review of DSIP research.'],
     setup: { defaultAmount: 0.25, syringeUnits: 30, schedule: (t) => daily('21:00', { course: { start: t, days: 14 } }) },
@@ -171,45 +173,45 @@ export const GUIDE: GuideEntry[] = [
   {
     id: 'bpc-157', name: 'BPC-157', aka: ['body protection compound'], match: ['bpc', 'bpc 157', 'bpc157'],
     what: 'A 15-amino-acid peptide based on a protein in stomach juice. Used for tendon, ligament, muscle and gut healing.',
-    evidence: 'animal',
-    status: 'Many rat studies, but only a handful of small human reports. Not approved anywhere. The FDA lists it as a safety concern for compounding, and WADA bans it in sport.',
+    research: [
+      'Many animal studies show faster healing of tendons, ligaments, muscle, bone and the gut lining, and protection against stomach damage from anti-inflammatories.',
+      'In people: small reports of less knee pain and bladder pain after injections, and a small 2025 pilot that found intravenous doses well tolerated. Larger human trials haven’t been done yet.',
+    ],
+    notice: ['Less pain and faster recovery from injuries.', 'Calmer gut for some.'],
     vials: [{ amount: 5000, waterMl: 2 }, { amount: 10000, waterMl: 2 }],
     unit: 'mcg', tableDoses: [250, 500],
     route: 'Under the skin: belly, or near the injured area. Rotate sites.',
     when: 'Once or twice a day.',
     cycle: 'Usually 4–6 weeks, then a break.',
-    reported: [{ text: 'Commonly 250–500 mcg once or twice a day, for 4–6 weeks.', source: 'users' }],
+    doses: ['Commonly 250–500 mcg once or twice a day, for 4–6 weeks.'],
     storage: { powder: 'Fridge or freezer.', mixed: 'Fridge. Commonly used within 4 weeks of mixing.', useWithinDays: 28 },
     sideEffects: ['Redness, itch or a small lump at the site.', 'Nausea, dizziness or headache.', 'Flushing.'],
-    getHelp: ['Swelling of the face or throat, or trouble breathing: call 000.', 'Spreading redness, heat or pus at the injection site, or a fever.'],
-    checkFirst: [
-      'It encourages new blood vessels to grow. That’s why it’s used for healing, but it’s a worry with any current or past cancer. Talk to your doctor.',
-      'Not studied in pregnancy or breastfeeding.',
-      'Banned in tested sport (WADA S0).',
-    ],
-    tips: ['Log pain or how the injury feels in check-ins, so you can see whether it’s helping.'],
+    getHelp: [SITE, INFECTION],
+    worthKnowing: ['It encourages new blood vessels to grow, which is part of how it helps healing. That’s a consideration with any current or past cancer.', 'Not studied in pregnancy or breastfeeding.', 'On the banned list in tested sport (WADA).'],
+    tips: ['Log pain or how the injury feels in check-ins, so you can see the trend.'],
     chips: ['Pain better', 'Pain worse'],
-    sources: ['Vasireddi et al., HSS J 2025: review of BPC-157 for musculoskeletal healing (mostly animal studies).', 'FDA bulk substances list, category 2 (2023).'],
+    sources: ['Vasireddi et al., HSS J 2025: review of BPC-157 for musculoskeletal healing.', 'Sikiric et al.: animal studies of BPC-157 (1990s–2020s).'],
     setup: { defaultAmount: 250, syringeUnits: 30, schedule: (t) => daily('08:00', { course: { start: t, days: 28 } }) },
   },
   {
     id: 'nad', name: 'NAD+', aka: ['nicotinamide adenine dinucleotide'], match: ['nad', 'nad 500', 'nad500'],
     what: 'A coenzyme every cell uses to make energy, which falls with age. Injected for energy, recovery and healthy ageing.',
-    evidence: 'small',
-    status: 'Taking its building blocks by mouth (NR, NMN) raises NAD levels in people. Whether injecting NAD+ itself helps hasn’t been shown. Clinics give it by drip.',
+    research: [
+      'NAD+ levels fall with age, and low levels are linked to age-related decline in animal studies.',
+      'Building blocks by mouth (NR, NMN) reliably raise NAD+ in people; effects on energy and health markers so far are modest and mixed.',
+      'Injected NAD+ itself has little published research yet; clinics have used drips for years.',
+    ],
+    notice: ['More energy and mental clarity, often within a day or two.', 'Better recovery after training for some.'],
     vials: [{ amount: 500, waterMl: 5 }, { amount: 1000, waterMl: 10 }],
     unit: 'mg', tableDoses: [25, 50, 100],
     route: 'Under the skin (belly or thigh) or into a muscle. Inject slowly.',
     when: 'In the morning: it can be stimulating and keep you up.',
-    reported: [
-      { text: 'Commonly 50–100 mg under the skin, two to three times a week. Many start at 25–50 mg to see how they react.', source: 'users' },
-      { text: 'Clinic drips are often 250–1,000 mg over a few hours.', source: 'users' },
-    ],
+    doses: ['Commonly 50–100 mg under the skin, two to three times a week. Many start at 25–50 mg to see how they react.', 'Clinic drips are often 250–1,000 mg over a few hours.'],
     storage: { powder: 'Fridge, away from light.', mixed: 'Fridge, away from light. Commonly used within 2–4 weeks of mixing.', useWithinDays: 28 },
-    sideEffects: ['Flushing, warmth or a racing feeling soon after: worse when injected fast or at higher doses.', 'Nausea, stomach cramps or tightness in the chest.', 'Stinging at the site.', 'Headache.'],
-    getHelp: ['Chest pain that doesn’t ease within a few minutes.', 'Swelling of the face or throat, or trouble breathing: call 000.', 'Spreading redness, heat or pus at the injection site, or a fever.'],
-    checkFirst: ['Not studied in pregnancy or breastfeeding.', 'With any current cancer, ask your doctor first.'],
-    tips: ['Inject slowly over 30–60 seconds: that’s what makes the biggest difference to flushing and cramps.', 'A 500 mg vial with 5 mL of water is 100 mg per mL: 50 mg is 50 units on a 1 mL syringe.'],
+    sideEffects: ['Flushing, warmth or a racing feeling soon after: more with a fast push or higher doses.', 'Nausea, stomach cramps or tightness in the chest.', 'Stinging at the site.', 'Headache.'],
+    getHelp: ['Chest pain that doesn’t ease within a few minutes.', SITE, INFECTION],
+    worthKnowing: ['Not studied in pregnancy or breastfeeding.', 'With an active cancer, raising NAD+ is a debated question.'],
+    tips: ['Injecting slowly over 30–60 seconds makes the biggest difference to flushing and cramps.', 'A 500 mg vial with 5 mL of water is 100 mg per mL: 50 mg is 50 units on a 1 mL syringe.'],
     chips: ['Flushing', 'Energy up'],
     sources: ['Rajman et al., Cell Metab 2018: review of NAD+ in people.'],
     setup: { defaultAmount: 50, syringeUnits: 100, schedule: () => daily('08:00', { days: [1, 3, 5] }) },
@@ -217,82 +219,88 @@ export const GUIDE: GuideEntry[] = [
   {
     id: 'semax', name: 'Semax', aka: ['N-Acetyl Semax', 'ACTH(4-10) analogue'], match: ['na semax'],
     what: 'A small peptide (Met-Glu-His-Phe-Pro-Gly-Pro) based on a fragment of the stress hormone ACTH. Used for focus, memory and mental energy.',
-    evidence: 'small',
-    status: 'A prescription medicine in Russia (nose drops, 0.1% and 1%) for stroke recovery and some brain conditions, with Russian human studies behind it. Not approved in Australia, the US or Europe.',
+    research: [
+      'A prescription medicine in Russia (nose drops, 0.1% and 1%) for stroke recovery, attention and some other brain conditions, backed by Russian clinical studies.',
+      'Animal studies show it raises BDNF, a growth factor that supports brain cells and learning.',
+    ],
+    notice: ['Sharper focus and mental energy within minutes to hours.', 'Better mood for some.'],
     vials: [{ amount: 5000, waterMl: 2.5 }, { amount: 10000, waterMl: 5 }],
     unit: 'mcg', tableDoses: [100, 200, 300, 500],
     route: 'Usually in the nose (drops or a spray). Some inject it under the skin (belly or thigh) from a mixed vial.',
     when: 'In the morning or early afternoon: it’s stimulating and can keep you up if taken late.',
     cycle: 'Usually 1–2 weeks on, then a break of a week or more.',
-    reported: [
-      { text: 'The Russian 0.1% drops have 1 mg per mL: one drop is about 50 mcg. For focus, 2–3 drops in each nostril, 2–3 times a day (about 400–900 mcg a day).', source: 'label' },
-      { text: 'Commonly 200–600 mcg a day in the nose, or 200–500 mcg once a day under the skin, for 1–2 weeks at a time.', source: 'users' },
+    doses: [
+      'The Russian 0.1% drops have 1 mg per mL: one drop is about 50 mcg. For focus, 2–3 drops in each nostril, 2–3 times a day (about 400–900 mcg a day).',
+      'Commonly 200–600 mcg a day in the nose, or 200–500 mcg once a day under the skin, for 1–2 weeks at a time.',
     ],
     storage: { powder: 'Fridge or freezer.', mixed: 'Fridge. Commonly used within 4 weeks of mixing (sprays: about 2 weeks).', useWithinDays: 28 },
     sideEffects: ['Irritation in the nose.', 'Headache.', 'Feeling wired, anxious or irritable.', 'Poor sleep if taken late in the day.'],
-    getHelp: ['Chest pain, a racing heart that doesn’t settle, or fainting.', 'Swelling of the face or throat, or trouble breathing: call 000.', 'Spreading redness, heat or pus at the injection site, or a fever.'],
-    checkFirst: [
-      'It’s stimulating. With Ritalin, Vyvanse, dexamphetamine or lots of caffeine the effects can add up: more anxiety, a faster heart, worse sleep. Start low and keep it to mornings.',
-      'Careful with anxiety, and not with a history of psychosis, mania or seizures without talking to your doctor.',
+    getHelp: ['Chest pain, a racing heart that doesn’t settle, or fainting.', SITE, INFECTION],
+    worthKnowing: [
+      'It’s stimulating. With Ritalin, Vyvanse, dexamphetamine or lots of caffeine the effects add up: more anxiety, a faster heart, worse sleep. A low start and mornings only keeps that in check.',
+      'Anxiety, and any history of psychosis, mania or seizures, can be affected by stimulating peptides.',
       'Not studied in pregnancy or breastfeeding.',
     ],
-    tips: ['Log focus and anxiety in check-ins for a week on and a week off: the difference shows whether it’s doing anything for you.', 'For a nose spray, a typical pump gives about 0.1 mL a spray: in a 1 mg per mL mix that’s about 100 mcg.'],
+    tips: ['Log focus and anxiety in check-ins for a week on and a week off: the difference shows what it’s doing for you.', 'For a nose spray, a typical pump gives about 0.1 mL a spray: in a 1 mg per mL mix that’s about 100 mcg.'],
     chips: ['Focus', 'Anxious'],
-    sources: ['Russian State Register: Semax 0.1% and 1% nasal drops.', 'Dolotov et al., Brain Res 2006: Semax and BDNF (animal study).'],
+    sources: ['Russian State Register: Semax 0.1% and 1% nasal drops.', 'Dolotov et al., Brain Res 2006: Semax and BDNF.'],
     setup: { defaultAmount: 200, syringeUnits: 30, schedule: (t) => daily('08:00', { course: { start: t, days: 14 } }) },
   },
   {
     id: 'epitalon', name: 'Epitalon', aka: ['Epithalon', 'AEDG'], match: ['epithilian', 'epithalamin'],
-    what: 'A small synthetic peptide (Ala-Glu-Asp-Gly) based on an extract from the pineal gland. Used for sleep, and as an anti-ageing peptide.',
-    evidence: 'small',
-    status: 'Mostly lab and animal work, plus small studies in older people from one Russian research group. Lab studies suggest it can switch on telomerase. Not approved anywhere.',
+    what: 'A small synthetic peptide (Ala-Glu-Asp-Gly) based on an extract from the pineal gland. Used for sleep and healthy ageing.',
+    research: [
+      'Russian studies in older people found better sleep and a restored melatonin rhythm, and long-term follow-up reported lower death rates in those treated.',
+      'Lab studies show it switches on telomerase and lengthens telomeres in human cells; animal studies show longer lifespan.',
+      'Most of this work comes from one research group (Khavinson, St Petersburg).',
+    ],
+    notice: ['Deeper sleep and vivid dreams during a course.', 'A general sense of wellbeing for some.'],
     vials: [{ amount: 10, waterMl: 1 }, { amount: 50, waterMl: 5 }],
     unit: 'mg', tableDoses: [1, 5, 10],
     route: 'Under the skin: belly or thigh.',
     when: 'Once a day, usually in the evening.',
     cycle: 'A short course (10–20 days), repeated once or twice a year.',
-    reported: [{ text: 'Commonly 5–10 mg a day for 10–20 days, repeated every 4–6 months. Some use 1–2 mg a day over a longer course.', source: 'users' }],
+    doses: ['Commonly 5–10 mg a day for 10–20 days, repeated every 4–6 months. Some use 1–2 mg a day over a longer course.'],
     storage: { powder: 'Fridge or freezer.', mixed: 'Fridge. Commonly used within 4 weeks of mixing.', useWithinDays: 28 },
     sideEffects: ['Few reported.', 'Redness at the site.', 'Changes in sleep, vivid dreams.'],
-    getHelp: ['Swelling of the face or throat, or trouble breathing: call 000.', 'Spreading redness, heat or pus at the injection site, or a fever.'],
-    checkFirst: ['Not studied in pregnancy or breastfeeding.', 'With any current cancer, ask your doctor first (it’s claimed to act on telomeres).'],
+    getHelp: [SITE, INFECTION],
+    worthKnowing: ['Not studied in pregnancy or breastfeeding.', 'Because it acts on telomerase, its use with an active cancer is a debated question.'],
     tips: ['A 10 mg vial with 1 mL of water is 10 mg per mL: 5 mg is 50 units.'],
     chips: ['Slept well'],
-    sources: ['Khavinson et al.: studies of epithalamin and epitalon (1990s–2000s), mostly animal and small human studies.'],
+    sources: ['Khavinson et al.: studies of epithalamin and epitalon (1990s–2000s).', 'Khavinson et al., Bull Exp Biol Med 2003: epitalon and telomerase in human cells.'],
     setup: { defaultAmount: 5, syringeUnits: 100, schedule: (t) => daily('21:00', { course: { start: t, days: 20 } }) },
   },
 ];
 
-/** Before starting any of them: supplies, mixing, injecting and staying safe. */
+/** For all of them: supplies, mixing, injecting, checking a batch and getting help. */
 export const BASICS: { title: string; points: string[] }[] = [
   { title: 'What you need', points: [
-    'Bacteriostatic water (with 0.9% benzyl alcohol): it keeps a vial you use more than once safe. Sterile water is only for a single use.',
-    'Insulin syringes: U-100, 29–31 gauge, 8 mm or shorter. Choose 0.3 mL (30 units) for small doses, 0.5 mL (50 units) or 1 mL (100 units) for bigger ones.',
+    'Bacteriostatic water (with 0.9% benzyl alcohol): it keeps a vial you use more than once clean. Sterile water is for a single use.',
+    'Insulin syringes: U-100, 29–31 gauge, 8 mm or shorter. 0.3 mL (30 units) for small doses, 0.5 mL (50 units) or 1 mL (100 units) for bigger ones.',
     'A bigger syringe to add the water (e.g. 3 mL with a drawing-up needle), alcohol swabs and a sharps container.',
   ] },
   { title: 'Mixing a vial', points: [
     'Wash your hands. Swab the rubber tops of both vials and let them dry.',
-    'Draw up the water, then let it run slowly down the inside wall of the peptide vial. Don’t squirt it onto the powder.',
-    'Swirl gently or let it sit until clear. Never shake it.',
+    'Draw up the water, then let it run slowly down the inside wall of the peptide vial rather than onto the powder.',
+    'Swirl gently or let it sit until clear. Shaking can damage peptides.',
     'Write the date and strength on the vial (or add it in the app: it works out the draw for you). Keep it in the fridge.',
   ] },
   { title: 'Injecting', points: [
-    'A new syringe every time. Never share one.',
+    'A new syringe every time.',
     'Swab the vial and the skin, and let both dry.',
     'Pinch a fold of skin, go in at 45–90°, push slowly, wait a few seconds, then withdraw.',
-    'Rotate sites, at least 2–3 cm from the last one. Stay 5 cm away from your navel. Avoid bruises, scars and moles.',
-    'Straight into the sharps container: don’t recap.',
+    'Rotate sites, at least 2–3 cm from the last one, 5 cm from the navel, away from bruises, scars and moles.',
+    'Straight into the sharps container without recapping.',
   ] },
-  { title: 'Quality', points: [
-    'Most of these are sold as “research chemicals”, so nothing checks what’s in the vial. Buy only where each batch has an independent test (HPLC purity and mass), and ideally an endotoxin test.',
-    'Don’t use a vial that’s cloudy, has bits in it, or has changed colour (GHK-Cu is meant to be blue).',
-    'In Australia, most of these are prescription-only or not approved, and importing them without a prescription can break TGA rules.',
-    'In tested sport, WADA bans substances not approved for human use (S0): that covers most of these.',
+  { title: 'Checking a batch', points: [
+    'A third-party test report shows what’s in a batch: HPLC for purity, mass spec for identity, and ideally an endotoxin test.',
+    'Mixed peptides are normally clear (GHK-Cu is blue). Cloudiness, bits or a colour change mean it has broken down.',
+    'The app keeps the lot, supplier and purity for each vial, and compares results by batch on Protocol.',
   ] },
   { title: 'Get help', points: [
     'Swelling of the face, lips or throat, trouble breathing, or a widespread rash: call 000.',
-    'Redness spreading out from a site, heat, pus or a fever: see a doctor the same day.',
-    'Tell your doctor what you take. The app’s Protocol report has everything on one page.',
+    'Redness spreading out from a site, heat, pus or a fever: a doctor the same day.',
+    'The Protocol report puts everything you take on one page, for any appointment.',
   ] },
 ];
 
@@ -319,7 +327,6 @@ export function fmtDose(n: number, unit: string): string {
   return `${r3(n).toLocaleString('en-AU')} ${unit}`;
 }
 
-/** A medication set up from the guide: the first vial size, its water, U-100 syringes, its schedule and starting amount. */
 /** A once-a-week entry can be split into two shots a week. */
 export const canSplit = (g: GuideEntry) => g.setup.schedule('2026-01-01', 1).days?.length === 1;
 
@@ -338,7 +345,7 @@ export function guideMed(g: GuideEntry, now: number, split = false): Omit<Medica
   };
 }
 
-/** The published step-up as planned changes from `start` ('YYYY-MM-DD'): each later step on its own date. */
+/** The step-up as planned changes from `start` ('YYYY-MM-DD'): each later step on its own date. */
 export function stepChanges(g: GuideEntry, start: string, split = false): { from: string; amount: number }[] {
   if (!g.steps) return [];
   const out: { from: string; amount: number }[] = [];

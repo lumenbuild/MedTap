@@ -203,7 +203,7 @@ export function MedEditor({ id, tagId, guideId }: { id?: string; tagId?: string;
   const [typed, setTyped] = useState('');
   /** Bottle expiry from a scanned label, added once the new medication is saved. */
   const [labelExpiry, setLabelExpiry] = useState<string | undefined>();
-  /** Filled in from the peptide guide: which entry, and whether to add its published step-up as planned changes. */
+  /** Filled in from the peptide guide: which entry, and whether to add its step-up as planned changes. */
   const [fromGuideId, setFromGuideId] = useState<string | undefined>(guideId && guideById(guideId) ? guideId : undefined);
   const [addSteps, setAddSteps] = useState(false);
   const [split, setSplit] = useState(false);
@@ -273,8 +273,8 @@ export function MedEditor({ id, tagId, guideId }: { id?: string; tagId?: string;
     } else {
       const g = fromGuideId ? guideById(fromGuideId) : undefined;
       if (g) {
-        // The published step-up, as planned changes from today; and the guide's check-in words, one tap each.
-        if (addSteps && g.steps) input = { ...input, plannedChanges: stepChanges(g, format(Date.now(), 'yyyy-MM-dd'), split && canSplit(g)).map((c) => ({ id: crypto.randomUUID(), from: c.from, defaultAmount: c.amount, schedule: input.schedule, note: 'Trial step-up' })) };
+        // The step-up, as planned changes from today; and the guide's check-in words, one tap each.
+        if (addSteps && g.steps) input = { ...input, plannedChanges: stepChanges(g, format(Date.now(), 'yyyy-MM-dd'), split && canSplit(g)).map((c) => ({ id: crypto.randomUUID(), from: c.from, defaultAmount: c.amount, schedule: input.schedule, note: 'Step-up' })) };
         const st = await getSettings();
         const add = g.chips.filter((w) => !st.chips.some((c) => c.toLowerCase() === w.toLowerCase()));
         if (add.length) await setSetting('chips', [...st.chips, ...add]);
@@ -332,13 +332,12 @@ export function MedEditor({ id, tagId, guideId }: { id?: string; tagId?: string;
             <span className="flex-1"><span className="block font-medium">Fill in from the {g.name} guide</span><span className="block text-sm text-muted">Vial, water, syringe, schedule and storage</span></span>
           </button>
         );
-        const first = g.reported[0];
-        return (
+                return (
           <Card className="bg-primary-soft shadow-none space-y-2">
             <p>Filled in from the <a href={`#/guide/${g.id}`} className="underline underline-offset-4 font-medium">{g.name} guide</a>: a {fmtDose(g.vials[0].amount, g.unit)} vial with {g.vials[0].waterMl} mL of water, U-100 syringes and its usual schedule.</p>
-            <p className="text-sm">The dose is set to {fmtDose(split ? g.setup.defaultAmount / 2 : g.setup.defaultAmount, g.unit)}{split ? ' a shot' : ''}, {first?.source === 'trial' ? `${split ? 'half ' : ''}the trial starting dose` : 'the low end of what people report'}. Change anything to match your vial and your plan.</p>
+            <p className="text-sm">The dose is set to {fmtDose(split ? g.setup.defaultAmount / 2 : g.setup.defaultAmount, g.unit)}{split ? ' a shot' : ''}, {split ? 'half the usual weekly starting dose' : 'the usual starting dose'}. Change anything to match your vial and your plan.</p>
             {canSplit(g) && <Switch label="Two shots a week" checked={split} onChange={(v) => { setSplit(v); setF((p) => fromGuide(p, g, p.name, v)); }}>Half the weekly amount, 3 and 4 days apart, for a steadier level.</Switch>}
-            {g.steps && <Switch label="Add the trial step-up" checked={addSteps} onChange={setAddSteps}>{g.steps.map((x) => (split ? x.amount / 2 : x.amount)).join(' → ')} {g.unit}{split ? ' a shot' : ''}, every {g.steps[0].weeks} weeks. You can change or remove the steps later in its dose plan.</Switch>}
+            {g.steps && <Switch label="Add the step-up" checked={addSteps} onChange={setAddSteps}>{g.steps.map((x) => (split ? x.amount / 2 : x.amount)).join(' → ')} {g.unit}{split ? ' a shot' : ''}, every {g.steps[0].weeks} weeks. You can change or remove the steps later in its dose plan.</Switch>}
           </Card>
         );
       })()}
