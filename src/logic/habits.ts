@@ -1,6 +1,7 @@
 // Learning from the person's own logs (both apps): when each dose is actually taken, how much that varies, which slots
 // tend to be missed, when a medicine's effect starts and wears off, how late doses go with sleep, and what the coming
 // days usually look like. Pure; `now` and settings are passed in. Estimates with their basis, never advice.
+import { plausibleHours } from './durations';
 import type { CheckIn, Dose, Medication, ReminderTime } from '../db/schema';
 import { getDayBounds, getSlots, isScheduledDay, timeInDay, weekdayOf, type ScheduleSettings } from './schedule';
 import { medOn } from './plans';
@@ -153,7 +154,9 @@ export function effectWindow(med: Medication, doses: Dose[], checkIns: CheckIn[]
     if (h <= 12) {
       const b = byHour[Math.floor(h)];
       if (typeof c.focus === 'number') b.vals.push(c.focus);
-      if (c.chips.includes('Wearing off')) b.wearing++;
+      // "Wearing off" soon after a dose is about something earlier (the dose before, or another medicine fading), not
+      // this one: a dose can't wear off before it's had time to work. Counted only where it's believable.
+      if (c.chips.includes('Wearing off') && h >= 1.5 && plausibleHours(med, h)) b.wearing++;
       used++; usedDoses.add(before!);
     } else if (typeof c.focus === 'number') baseline.push(c.focus);
   }
@@ -173,6 +176,8 @@ export function effectWindow(med: Medication, doses: Dose[], checkIns: CheckIn[]
     const drop = known.find((x) => x.h > onsetH! && x.focus! <= peak - 1);
     wearOffH = drop?.h;
   }
+  // Still not believable for this medicine (a few noisy check-ins): leave it to the usual time, or nothing.
+  if (wearOffH !== undefined && !plausibleHours(med, wearOffH)) wearOffH = undefined;
   if (onsetH === undefined && wearOffH === undefined) return null;
   return { onsetH, wearOffH, byHour: rows.map(({ h, focus, n }) => ({ h, focus, n })), checkIns: used, doses: usedDoses.size };
 }

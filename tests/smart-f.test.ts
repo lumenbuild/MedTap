@@ -40,6 +40,32 @@ describe('wear-off forecast', () => {
   });
 });
 
+describe('wear-off: believable for the medicine', () => {
+  it('a "Wearing off" note an hour after a Ritalin top-up (Vyvanse fading) is not Ritalin wearing off', () => {
+    const rit = med({ id: 'r', name: 'Ritalin', strength: 10, defaultAmount: 10, schedule: { type: 'prn' } as Medication['schedule'] });
+    const doses: Dose[] = [], cis: CheckIn[] = [];
+    for (let k = 1; k <= 14; k++) {
+      const t = at(k, 14);
+      doses.push(dose('r', t, 10));
+      cis.push(ci(t + HOUR, { focus: 2, chips: ['Wearing off'] }), ci(t + 2 * HOUR, { focus: 4 }), ci(t - HOUR, { focus: 2 }));
+    }
+    const today = dose('r', NOW - HOUR, 10);
+    const w = wearOffToday(rit, [...doses, today], cis, [], NOW, S)!;
+    expect(w).toBeTruthy();
+    // Not "wearing off since" an hour in: the usual 3 to 5 hours for methylphenidate.
+    expect((w.at - (NOW - HOUR)) / HOUR).toBeGreaterThanOrEqual(3);
+    expect(w.reasons.join()).toMatch(/usual for methylphenidate/);
+  });
+  it('a learned time still counts when it is believable', () => {
+    const rit = med({ id: 'r', name: 'Ritalin 10 mg' });
+    const doses: Dose[] = [], cis: CheckIn[] = [];
+    for (let k = 1; k <= 14; k++) { const t = at(k, 8); doses.push(dose('r', t, 10)); cis.push(ci(t + HOUR, { focus: 4 }), ci(t + 3.5 * HOUR, { focus: 2, chips: ['Wearing off'] }), ci(t - HOUR, { focus: 2 })); }
+    const w = wearOffToday(rit, [...doses, dose('r', NOW - HOUR, 10)], cis, [], NOW, S)!;
+    expect((w.at - (NOW - HOUR)) / HOUR).toBeCloseTo(3.5, 0);
+    expect(w.reasons.join()).not.toMatch(/usual/);
+  });
+});
+
 describe('stall detector', () => {
   const body: BodyEntry[] = [], daily: DailyHealth[] = [];
   for (let k = 70; k >= 0; k -= 2) {
