@@ -29,7 +29,8 @@ const LABS: { key: string; label: string; re: RegExp; lowerBetter: boolean; high
 
 export function healthMarkers(d: { labs: LabResult[]; vitals: Vital[]; body: BodyEntry[]; daily: DailyHealth[] }, heightCm: number | undefined, now: number): Marker[] {
   const out: Marker[] = [];
-  const better = (first: number, latest: number, lowerBetter: boolean) => (Math.abs(latest - first) < 1e-9 ? undefined : lowerBetter ? latest < first : latest > first);
+  // A move smaller than `same` is noise, not better or worse.
+  const better = (first: number, latest: number, lowerBetter: boolean, same = 1e-9) => (Math.abs(latest - first) < same ? undefined : lowerBetter ? latest < first : latest > first);
 
   // Blood pressure: the last two weeks' average against the first two weeks recorded.
   const bp = d.vitals.filter((v) => !v.deletedAt && v.systolic && v.diastolic).map((v) => ({ t: Date.parse(v.at), s: v.systolic!, d: v.diastolic! })).filter((p) => p.t <= now).sort((a, b) => a.t - b.t);
@@ -40,7 +41,7 @@ export function healthMarkers(d: { labs: LabResult[]; vitals: Vital[]; body: Bod
     const first = bp[bp.length - 1].t - bp[0].t > 21 * DAY ? mean(firstW) : undefined;
     const high = last.s >= 140 || last.d >= 90, raised = last.s >= 130 || last.d >= 85;
     out.push({ key: 'bp', label: 'Blood pressure', latest: `${last.s}/${last.d}`, unit: 'mmHg', at: bp[bp.length - 1].t,
-      first: first ? `${first.s}/${first.d}` : undefined, firstAt: first ? bp[0].t : undefined, better: first ? better(first.s + first.d, last.s + last.d, true) : undefined,
+      first: first ? `${first.s}/${first.d}` : undefined, firstAt: first ? bp[0].t : undefined, better: first ? better(first.s + first.d, last.s + last.d, true, 5) : undefined,
       note: high ? 'High: worth raising with your doctor' : raised ? 'A little high' : 'In the usual range', tone: high ? 'watch' : raised ? 'plain' : 'good' });
   }
 
@@ -51,7 +52,7 @@ export function healthMarkers(d: { labs: LabResult[]; vitals: Vital[]; body: Bod
     const last = mean(hr.filter((p) => p.t > hr[hr.length - 1].t - 14 * DAY));
     const first = hr[hr.length - 1].t - hr[0].t > 21 * DAY ? mean(hr.filter((p) => p.t < hr[0].t + 14 * DAY)) : undefined;
     out.push({ key: 'rhr', label: 'Resting heart rate', latest: String(last), unit: 'bpm', at: hr[hr.length - 1].t, first: first !== undefined ? String(first) : undefined, firstAt: first !== undefined ? hr[0].t : undefined,
-      better: first !== undefined ? better(first, last, true) : undefined, tone: 'plain' });
+      better: first !== undefined ? better(first, last, true, 2) : undefined, tone: 'plain' });
   }
 
   // With a height: waist-to-height (under 0.5 is the usual healthy line) and BMI.
