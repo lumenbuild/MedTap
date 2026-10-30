@@ -55,6 +55,14 @@ describe('4-hour interval schedule', () => {
     expect(getStatus(med(), doses, now, S)).toBe('done-today');
   });
 
+  it('set times: a dose taken early, outside its slot, still makes the next one tomorrow', () => {
+    const daily = med({ schedule: { type: 'fixed', times: ['07:30'] } });
+    const early = [dose(syd(day, '04:36'))];
+    const now = syd(day, '06:32');
+    expect(getStatus(daily, early, now, S)).toBe('done-today');
+    expect(getNextDue(daily, early, now, S)).toBe(syd('2026-07-16', '07:30'));
+  });
+
   it('reports no doses yet today before the first one', () => {
     const now = syd(day, '06:00');
     expect(getNextDue(med(), doses, now, S)).toBeNull();

@@ -187,7 +187,8 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
             <p className="tnum"><span className="font-medium">{vial!.dosesLeft} dose{vial!.dosesLeft === 1 ? '' : 's'} left</span> in this {word}{vial!.useBy ? <span className="text-muted"> · use by {day(vial!.useBy)}</span> : null}</p>
           )}
           {vial && <p className="text-sm text-muted tnum">{pen ? 'Started' : 'Mixed'} {day(vial.startedAt)}{problem ? ` · ${vial.dosesLeft} dose${vial.dosesLeft === 1 ? '' : 's'} left` : ''}</p>}
-          {restText && <p className={`text-sm tnum ${rest?.ends === 'use-by' && rest.leftover > 0 ? 'text-caution' : 'text-muted'}`}>{restText}</p>}
+          {/* With a problem shown, the vial's own "not enough for the next dose" would only say it again. */}
+          {restText && !problem && <p className={`text-sm tnum ${rest?.ends === 'use-by' && rest.leftover > 0 ? 'text-caution' : 'text-muted'}`}>{restText}</p>}
         </div>
         <div className="grid grid-cols-2 gap-2">
           {problem
@@ -222,9 +223,12 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
               <span>{!busy.length ? 'Mark your busy days' : shotDay ? shotDay.options.filter((o) => o.score === shotDay.options[0].score).map((o) => DAY_NAMES[o.weekday]).slice(0, 2).join(' or ') : 'Needs more check-ins'}</span>
             </Row>
           )}
-          <Row label="Patterns" onClick={() => setSheet('patterns')}>
-            <span className="tnum">{findings.length ? `${findings.length} found` : weeksWithCheckIns < 4 ? 'Needs more weeks' : 'No clear differences'}</span>
-          </Row>
+          {/* Only with something to say: "no clear differences" is a row of nothing. */}
+          {findings.length > 0 && (
+            <Row label="Patterns" onClick={() => setSheet('patterns')}>
+              <span className="tnum">{findings.length} found</span>
+            </Row>
+          )}
         </dl>
       </section>
 
@@ -279,12 +283,12 @@ function MedStock({ med, doses, s, now, body, checkIns }: { med: Medication; dos
           ? <span className={`block text-sm tnum ${orderSoon ? 'text-caution font-medium' : 'text-muted'}`}>Order by {day(sp.orderBy!)} · runs out {day(sp.forecast.runOutAt)}</span>
           : <span className="block text-sm text-muted">{sp.forecast ? 'Enough for over a year' : 'Add a stock count to forecast'}</span>}
       </Row>
-      <Row label="Cost" onClick={() => go(`/meds/${med.id}`)}>
-        {c ? <>
+      {c && <Row label="Cost" onClick={() => go(`/meds/${med.id}`)}>
+        {<>
           <span className="tnum">{c.perWeek !== undefined ? `${money(c.perWeek)} a week` : c.perUnit !== undefined ? `${money(c.perUnit)} per ${med.unit}` : `${money(c.spent)} so far`}</span>
           {c.next12Weeks !== undefined && <span className="block text-sm text-muted tnum">Next 12 weeks {money(c.next12Weeks)} with your plan</span>}
-        </> : <span className="text-muted underline underline-offset-4">Add a price</span>}
-      </Row>
+        </>}
+      </Row>}
       {batches.length > 0 && (
         <Row label="Batches" onClick={() => setLots(true)}>
           <span className="tnum">{batches.length} used</span>

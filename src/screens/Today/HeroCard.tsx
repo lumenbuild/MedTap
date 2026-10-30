@@ -42,7 +42,7 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer, pe
     const sameDay = next < getDayBounds(now, s.dayStartsAt, s.tz).end;
     label = sameDay ? 'Next' : `Next · ${fmtDay(next)}`;
     big = <>{hm}<span className="text-[28px] tracking-normal ml-1.5">{ap.toLowerCase()}</span></>;
-    sub = `Done for today · in ${fmtCountdownLong(next - now)}`;
+    sub = `Done for today · next in ${fmtCountdownLong(next - now)}`;
   } else if (status === 'done-today') {
     big = 'Done'; label = 'Today'; sub = 'All taken';
   } else if (status === 'past-latest-time') {

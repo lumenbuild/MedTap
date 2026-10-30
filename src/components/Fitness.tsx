@@ -72,7 +72,9 @@ export function MuscleWatchCard({ body, units, med, doses, now }: { body: BodyEn
 /** Strength by days since the shot and by dose. */
 export function PeptideTrainingCard({ med, doses, workouts, tz }: { med: Medication; doses: Dose[]; workouts: Workout[]; tz?: string }) {
   const r = trainingVsPeptide(med, doses, workouts);
-  if (!r) return null;
+  // Only once it says something: at least three days after the shot with enough sessions, and a real gap between them.
+  const known = r ? r.byDay.filter((d) => d.pct !== undefined).map((d) => d.pct!) : [];
+  if (!r || known.length < 3 || Math.max(...known) - Math.min(...known) < 3) return null;
   const shots = doses.filter((d) => d.medicationId === med.id && !d.deletedAt && !d.skipped).map((d) => Date.parse(d.takenAt)).sort((a, b) => a - b).slice(-6);
   const plan = tz ? strongestWeekday(shots, r.bestDays, tz) : null;
   return (

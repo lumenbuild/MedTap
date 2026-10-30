@@ -228,7 +228,10 @@ export function getNextDue(med: Medication, doses: Dose[], now: number, s: Sched
     return at(today[today.length - 1]) + sc.intervalHours * HOUR;
   }
   if (sc.type === 'fixed') {
-    const open = openSlotToday(med, doses, now, s);
+    // Once the day's doses are all in (even taken early, outside their slots), the next one is on the next day.
+    const target = getDailyTarget(med, now, s);
+    const done = !!target && getDosesToday(doses, med.id, now, s).length >= target;
+    const open = done ? null : openSlotToday(med, doses, now, s);
     if (open) return open.at;
     const nextDay = nextScheduledDayStart(med, now, s);
     if (nextDay === null) return null;
