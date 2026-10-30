@@ -3,7 +3,7 @@ import type { BodyEntry, CheckIn, DailyHealth, Dose, FoodLog, Medication } from 
 import type { ScheduleSettings } from '../src/logic/schedule';
 import { doseResponse, eveningCrash, focusAsk, secondDose, stimulantLoad } from '../src/logic/stimulant';
 import { heartWatch, underEating } from '../src/logic/crossSmart';
-import { costPerKg, missedShot, siteRotation, siteTooSoon } from '../src/logic/peptideSmart';
+import { costPerKg, missedShot } from '../src/logic/peptideSmart';
 import { stepStatus } from '../src/logic/dosePlan';
 import { lowestPlan, guideById } from '../src/logic/peptideGuide';
 import { stepSummary } from '../src/components/DosePlan';
@@ -107,13 +107,6 @@ describe('peptides', () => {
     expect(missedShot(reta, [dose('g', at(4, 8), 1)], sun, S)?.take).toBe(false);
     // Taken: nothing.
     expect(missedShot(reta, [dose('g', at(1, 8), 1)], NOW, S)).toBeNull();
-  });
-  it('rotates injection sites', () => {
-    const doses = [dose('g', at(1), 1, { site: 'Belly, upper left' }), dose('g', at(4), 1, { site: 'Belly, upper right' })];
-    const r = siteRotation(doses, NOW);
-    expect(r.next).toBe('Belly, lower left');
-    expect(siteTooSoon(r.sites.find((x) => x.site === 'Belly, upper left'), NOW)).toBe('Used 1 day ago');
-    expect(siteTooSoon(r.sites.find((x) => x.site === 'Thigh, left'), NOW)).toBeUndefined();
   });
   it('cost per kg lost, by dose', () => {
     const priced = { ...reta, costPerUnit: 100, strength: 10, peptide: { waterMl: 1, syringe: 'U-100' as const, syringeUnits: 50 } };

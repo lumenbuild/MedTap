@@ -1,5 +1,5 @@
-// Peptides, day to day: what to do about a missed shot (once or twice a week), where to inject next (rotating sites),
-// and what each dose has cost per kg lost. From the person's own records. Pure.
+// Peptides, day to day: what to do about a missed shot (once or twice a week), and what each dose has cost per kg
+// lost. From the person's own records. Pure.
 import type { BodyEntry, CheckIn, Dose, Medication } from '../db/schema';
 import { getDayBounds, type ScheduleSettings } from './schedule';
 import { pricePerUnit } from './cost';
@@ -39,30 +39,6 @@ export function missedShot(med: Medication, doses: Dose[], now: number, s: Sched
   return { dueAt, nextAt, take, text: take
     ? `Missed ${new Date(dueAt).toLocaleDateString('en-AU', { weekday: 'long' })}’s shot: there’s still time to take it now, then carry on with ${nextDay}’s as usual.`
     : `Missed ${new Date(dueAt).toLocaleDateString('en-AU', { weekday: 'long' })}’s shot: ${nextDay}’s is close, so the usual approach is to skip it and take ${nextDay}’s as normal. Doubling up isn’t needed.` };
-}
-
-// ── Injection sites ─────────────────────────────────────────────────────────────────────────────────
-
-export const SITES = ['Belly, upper left', 'Belly, upper right', 'Belly, lower left', 'Belly, lower right', 'Thigh, left', 'Thigh, right', 'Arm, left', 'Arm, right'] as const;
-
-export interface SiteUse { site: string; lastAt?: number; uses: number }
-
-/** Every site with when it was last used (any injection), and the one to use next: never used, else the longest ago. */
-export function siteRotation(doses: Dose[], now: number): { sites: SiteUse[]; next: string } {
-  const used = doses.filter((d) => live(d) && !d.skipped && d.site && Date.parse(d.takenAt) <= now);
-  const sites = SITES.map((site) => {
-    const xs = used.filter((d) => d.site === site).map((d) => Date.parse(d.takenAt));
-    return { site, lastAt: xs.length ? Math.max(...xs) : undefined, uses: xs.length };
-  });
-  const next = [...sites].sort((a, b) => (a.lastAt ?? -Infinity) - (b.lastAt ?? -Infinity))[0].site;
-  return { sites, next };
-}
-
-/** "Used 3 days ago" when a site was used within the last week. */
-export function siteTooSoon(u: SiteUse | undefined, now: number): string | undefined {
-  if (!u?.lastAt || now - u.lastAt > 7 * DAY) return undefined;
-  const d = Math.floor((now - u.lastAt) / DAY);
-  return d === 0 ? 'Used earlier today' : `Used ${d} day${d === 1 ? '' : 's'} ago`;
 }
 
 // ── Cost per kg lost ────────────────────────────────────────────────────────────────────────────────

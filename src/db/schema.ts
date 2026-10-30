@@ -257,8 +257,6 @@ export interface Dose extends Stamped {
   personId?: string;
   /** The vial or pen it came from (peptide tools). */
   vialId?: string;
-  /** Where it was injected (one of SITES in logic/peptideSmart). */
-  site?: string;
 }
 export interface CheckIn extends Stamped {
   at: string; mood?: number; energy?: number; focus?: number; appetite?: number;
