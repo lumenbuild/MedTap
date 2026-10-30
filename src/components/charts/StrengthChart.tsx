@@ -13,7 +13,7 @@ export default function StrengthChart({ points, target, f, now, units = 'metric'
   const from = points[0]?.t ?? now - 60 * DAY;
   const to = Math.max(now + 7 * DAY, f?.eta ? Math.min(f.eta + 7 * DAY, now + 365 * DAY) : 0);
   return (
-    <TrendChart bare height={170} title="Estimated max" unit={u} start={from} end={to}
+    <TrendChart bare height={220} title="Estimated max" unit={u} start={from} end={to}
       series={[
         { label: 'Estimated max', style: 'line', points: points.map((p) => ({ t: p.t, v: v(p.v) })) },
         ...(f?.eta && f.level !== undefined && target ? [{ label: 'Trend', style: 'forecast' as const, points: [{ t: now, v: v(f.level) }, { t: f.eta, v: v(target) }] }] : []),
