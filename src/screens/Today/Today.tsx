@@ -1,10 +1,10 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { clearCheckInRequest, clearLogRequest, onCheckInRequest, onLogRequest } from '../../app/pendingLog';
 import { shownMedName, shownName } from '../../logic/privacy';
-import { CalendarDays, CalendarPlus, Coffee, HeartPulse, Lock, Nfc, Pill, Ruler, Scale, Smile, Wine } from 'lucide-react';
-import { IconRow, MiniRing, Tile } from '../../components/ui/Visual';
+import { CalendarPlus, Coffee, HeartPulse, Lock, Nfc, Pill, Ruler, Scale, Smile, Wine } from 'lucide-react';
+import { Tile } from '../../components/ui/Visual';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
-import { useBodyEntries, useCheckIns, useDaily, useDoses, useExercises, useWorkouts, useFamily, useMedEvents, useMeds, useScheduleSettings, useSupplies, useTags, useVitals } from '../../app/data';
+import { useBodyEntries, useCheckIns, useDaily, useDoses, useExercises, useWorkouts, useFamily, useMeds, useScheduleSettings, useSupplies, useTags, useVitals } from '../../app/data';
 import { VitalsSheet, type VitalsSheetState } from '../../components/VitalsSheet';
 import { dosesForPerson, medIsFor, personOf, storedPerson } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
@@ -15,10 +15,10 @@ import { addToCalendar } from '../../app/calendar';
 import { byUrgency, getLastDose, getNextDue, getStatus, isScheduledDay, nextUp } from '../../logic/schedule';
 import { checkInDue, needsBackup, refillAlerts } from '../../logic/reminders';
 import { RefillCards } from '../../components/Refill';
-import { VialAlerts } from '../Meds/VialCard';
+import { VialAlerts, vialAlerts } from '../Meds/VialCard';
 import { GoalLines } from '../Body/Goals';
 import { SupplyAlerts } from '../Supplies';
-import { supplyAlerts } from '../../logic/peptide';
+import { isPen, SUPPLY_LABELS, supplyAlerts } from '../../logic/peptide';
 import { fmtAgo, fmtAmount, fmtTime, fmtWhen } from '../../logic/format';
 import { logDose, removeDose } from '../../db/repos/doses';
 import { Card } from '../../components/ui/Card';
@@ -32,19 +32,12 @@ import { BodySheet, type BodySheetState } from '../../components/BodySheets';
 import { HeroCard, HeroGroup } from './HeroCard';
 import { currentVial } from '../../logic/peptide';
 import { TodayRow } from './TodayRow';
-import { MentionsLine, OddRecordsLine, ScriptToday } from '../../components/Smart';
-import { ChangeLine, StallLine, WearOffLines } from '../../components/Insights';
-import { weightStall } from '../../logic/stall';
-import { whatChanged } from '../../logic/changes';
-import { appointmentsAround } from '../../logic/appointments';
 import { ALCOHOL } from '../../logic/lifestyle';
 import { intakesOf, isDrink, usualHabits, usualToAsk } from '../../logic/caffeine';
 import { CaffeineCard, CaffeineSheet, SleepAsk, UsualCard } from '../../components/Caffeine';
 import { DayStrip, MilestoneCard } from '../../components/Motivation';
 import { milestones, streaks, todayRing } from '../../logic/motivation';
 import { addCheckIn, removeCheckIn } from '../../db/repos/checkIns';
-import { useAppointments } from '../../app/data';
-import { dayKey } from '../../logic/stats';
 import { format } from 'date-fns';
 import { PrnCard } from './PrnCard';
 import { Timeline } from './Timeline';
@@ -52,8 +45,9 @@ import { DoseEditSheet } from './DoseEditSheet';
 import { planRecords, RestartCard, StepPrompt } from '../../components/DosePlan';
 import { restartPrompt, stepStatus } from '../../logic/dosePlan';
 import { TrainingHero, WeightHero } from './FocusHero';
-import { AutoBackupPermission, BackupReminder, CheckInAutoOpen, CheckInPrompt, InstallCard, UpdateCard } from './PromptCards';
-import { HAS_MEDS, HAS_BODY, HAS_TRAINING, HAS_FOOD, FOCUS, HAS_PEPTIDES, HAS_VISITS } from '../../edition';
+import { AutoBackupPermission, BackupReminder, CheckInAutoOpen, CheckInPrompt, InstallCard, NeedsAttention, UpdateCard } from './PromptCards';
+import { TopInsights } from '../../components/InsightList';
+import { HAS_MEDS, HAS_BODY, HAS_TRAINING, HAS_FOOD, FOCUS, HAS_PEPTIDES } from '../../edition';
 import { DigestCard, IntakeCard } from '../../components/Fitness';
 import { weeklyDigest } from '../../logic/digest';
 import { allExercises } from '../../logic/exercises';
@@ -77,8 +71,6 @@ export function Today() {
   const daily = useDaily();
   const workouts = useWorkouts();
   const own = useExercises();
-  const appointments = useAppointments();
-  const events = useMedEvents();
   const [vitalSheet, setVitalSheet] = useState<VitalsSheetState>(null);
   const ss = useScheduleSettings();
   const fam = useFamily();
@@ -91,21 +83,6 @@ export function Today() {
   const [drink, setDrink] = useState<{ editing?: CheckIn } | null>(null);
 
   const medMap = useMemo(() => new Map((meds ?? []).map((m) => [m.id, m])), [meds]);
-  // The heavier detectors run once a minute (or when the records change), not on every clock tick.
-  const minute = Math.floor(now / 60_000);
-  const insights = useMemo(() => {
-    if (!meds || !doses || !checkIns || !body || !fam || fam.everyone || !ss) return null;
-    const t = minute * 60_000;
-    const me = <T extends { personId?: string }>(r: T) => personOf(r) === fam.personId;
-    const pm = meds.filter((m) => medIsFor(m, fam.personId));
-    const ids = new Set(pm.map((m) => m.id));
-    const pd = dosesForPerson(doses.filter((d) => ids.has(d.medicationId)), pm, fam.personId);
-    const pc = checkIns.filter(me), pb = body.filter(me), daily1 = (daily ?? []).filter(me);
-    return {
-      stall: HAS_BODY && workouts ? weightStall({ body: pb, checkIns: pc, daily: daily1, doses: pd, meds: pm, workouts: workouts.filter(me) }, t) : null,
-      recent: whatChanged({ meds: pm, doses: pd, checkIns: pc, daily: daily1, events: (events ?? []).filter((e) => ids.has(e.medicationId)) }, t).filter((c) => t - c.at < 10 * 86_400_000)[0],
-    };
-  }, [minute, meds, doses, checkIns, body, daily, workouts, events, fam, ss]);
   // Streaks, milestones and today's ring for the person shown, worked out again every ten minutes or when the
   // records change (not on every clock tick).
   const tenMin = Math.floor(now / 600_000);
@@ -136,6 +113,8 @@ export function Today() {
 
   if (!meds || !doses || !checkIns || !body || !vitals || !ss || !fam) return <TodaySkeleton />;
   const [settings, s] = ss;
+  const reached = motivation?.milestones.find((m) => m.kind === 'streak' && now - m.at < 3 * 86_400_000 && !settings.milestonesSeen.includes(m.id));
+  const streakNews = reached ? { title: `New: ${reached.title}`, onDone: () => setSetting('milestonesSeen', [reached.id, ...settings.milestonesSeen].slice(0, 200)) } : undefined;
   // One tap: a check-in with just that chip, now (Undo removes it). Used in Trends' patterns.
   const quick = async (chip: string, what: string) => {
     const c = await addCheckIn({ at: new Date().toISOString(), chips: [chip], personId: storedPerson(fam.personId) });
@@ -220,14 +199,6 @@ export function Today() {
       <IOSBanner dismissed={settings.iosBannerDismissed} />
       <TravelBanner settings={settings} />
 
-      {settings.pendingTags.length > 0 && (
-        <Card className="flex items-center gap-3">
-          <Nfc className="text-primary shrink-0" aria-hidden="true" />
-          <p className="flex-1">{settings.pendingTags.length === 1 ? 'A new tag is' : `${settings.pendingTags.length} new tags are`} waiting to be linked.</p>
-          <Button variant="secondary" onClick={() => go(`/tag/${settings.pendingTags[0]}`)}>Link</Button>
-        </Card>
-      )}
-
       {HAS_MEDS && active.length === 0 && (
         <Card className="text-center py-8">
           <Pill className="mx-auto text-primary" size={32} aria-hidden="true" />
@@ -266,18 +237,9 @@ export function Today() {
         : headline && hero(headline)}
       {scheduled.length > 1 && (
         <section aria-labelledby="today-meds" className="border-t border-border pt-4">
-          {(() => {
-            // Only what's due today counts: a weekly injection on its off day, or a medicine on a break, is listed
-            // (so it's still one tap away) but isn't part of today's total.
-            const due = scheduled.filter((m) => isScheduledDay(m, now, s));
-            const done = due.filter((m) => getStatus(m, doses, now, s) === 'done-today').length;
-            return (
-              <div className="flex items-center justify-between">
-                <h2 id="today-meds" className="text-sm font-medium text-muted">Today</h2>
-                {due.length > 0 && <MiniRing value={done} max={due.length} tone={done === due.length ? 'good' : 'primary'} label={`${done} of ${due.length} due today done`} />}
-              </div>
-            );
-          })()}
+          {/* One ring for the day (doses due today, check-in, water, protein), with the streak, heading the list. */}
+          <h2 id="today-meds" className="sr-only">Today</h2>
+          {motivation && !fam.everyone && <DayStrip ring={motivation.ring} streaks={motivation.streaks} milestones={motivation.milestones} bare news={streakNews} />}
           <ul className="mt-1">
             {[...scheduled.filter((m) => isScheduledDay(m, now, s)), ...scheduled.filter((m) => !isScheduledDay(m, now, s))].map((m) => <TodayRow key={m.id} med={m} doses={viewDoses} s={s} now={now} person={whose(m)} onLog={() => setLogFor(m)} />)}
           </ul>
@@ -286,41 +248,18 @@ export function Today() {
 
       {!fam.everyone && (() => {
         if (!motivation) return null;
-        const unseen = motivation.milestones.filter((m) => now - m.at < 3 * 86_400_000 && !settings.milestonesSeen.includes(m.id));
+        // Streaks reached are said on the day ring's line; the rest (bests, workouts, goal steps) get a moment of their own.
+        const unseen = motivation.milestones.filter((m) => m.kind !== 'streak' && now - m.at < 3 * 86_400_000 && !settings.milestonesSeen.includes(m.id));
         return <>
           {unseen.length > 0 && <MilestoneCard m={unseen[0]} more={unseen.length - 1}
             onDone={() => setSetting('milestonesSeen', [...unseen.map((m) => m.id), ...settings.milestonesSeen].slice(0, 200))} />}
-          <DayStrip ring={motivation.ring} streaks={motivation.streaks} milestones={motivation.milestones} />
+          {scheduled.length <= 1 && <DayStrip ring={motivation.ring} streaks={motivation.streaks} milestones={motivation.milestones} news={streakNews} />}
         </>;
       })()}
       {!fam.everyone && settings.usualAsk && (
         <UsualCard asks={usualToAsk(usualHabits(intakes, now, s), intakes, now, settings.usualDismissed, s)} personId={storedPerson(fam.personId)} now={now} s={s}
           onNotToday={(k) => setSetting('usualDismissed', [k, ...settings.usualDismissed].slice(0, 60))} />
       )}
-
-      {!fam.everyone && (() => {
-        const visit = HAS_VISITS && appointments ? appointmentsAround(appointments.filter(mine), dayKey(now, s)).next : undefined;
-        const mineDaily = (daily ?? []).filter((d) => personOf(d) === fam.personId);
-        const { stall, recent } = insights ?? {};
-        const lines = [
-          <WearOffLines key="w" meds={viewMeds} doses={viewDoses} checkIns={viewCheckIns} daily={mineDaily} now={now} s={s} />,
-          stall ? <StallLine key="st" stall={stall} /> : null,
-          recent ? <ChangeLine key="ch" c={recent} /> : null,
-          <ScriptToday key="s" meds={viewMeds} doses={viewDoses} s={s} now={now} />,
-          <MentionsLine key="m" vitals={viewVitals} daily={(daily ?? []).filter((d) => personOf(d) === fam.personId)} dismissed={settings.mentionsDismissed} now={now} />,
-          <OddRecordsLine key="o" meds={viewMeds} doses={viewDoses} body={HAS_BODY ? viewBody : []} checkIns={viewCheckIns} vitals={viewVitals} dismissed={settings.oddDismissed} now={now} />,
-        ];
-        return (
-          <section className="border-t border-border pt-3 empty:hidden" aria-label="Notes">
-            {lines}
-            {visit && Date.parse(`${visit.date}T00:00`) - now < 14 * 86_400_000 && (
-              <IconRow Icon={CalendarDays} tone="primary" href="#/appointments">
-                Appointment {format(new Date(`${visit.date}T12:00`), 'EEE d MMM')}{visit.with ? ` · ${visit.with}` : ''}
-              </IconRow>
-            )}
-          </section>
-        );
-      })()}
 
       {ask && <CheckInPrompt ask={ask} med={ask.dose && medMap.get(ask.dose.medicationId)} now={now} onCheckIn={(mood) => setCheckIn({ relatedDoseId: ask.dose?.id, mood })} />}
       <CheckInAutoOpen ask={ask} enabled={settings.checkInPopup} shown={settings.checkInPopupShown} busy={!!(checkIn || logFor || editing || bodySheet)}
@@ -332,9 +271,7 @@ export function Today() {
         const p = restartPrompt(m, r.checkIns, now, s);
         return [v?.ready ? <StepPrompt key={`step-${m.id}`} med={m} v={v} /> : null, p ? <RestartCard key={`course-${m.id}`} med={m} prompt={p} /> : null];
       })}
-      <RefillCards alerts={refills} settings={settings} now={now} />
-      {HAS_PEPTIDES && <VialAlerts meds={viewMeds} doses={doses} now={now} />}
-      {settings.peptideTools && supplies && <SupplyAlerts alerts={supplyAlerts(supplies, meds, doses)} />}
+      {!fam.everyone && <TopInsights />}
 
       {prn.length > 0 && (
         <section className="border-t border-border pt-4" aria-label="As needed">
@@ -383,7 +320,7 @@ export function Today() {
         const mineDaily = daily.filter((d) => !d.deletedAt && personOf(d) === fam.personId);
         const today = format(now, 'yyyy-MM-dd');
         return <IntakeCard personId={fam.personId} today={today} day={mineDaily.find((d) => d.date === today)} proteinTarget={settings.proteinTargetG} waterTarget={settings.waterTargetMl}
-          ready={FOCUS === 'training' ? null : readiness(mineDaily, viewCheckIns, now, s)} amounts={settings.intakeAmounts} />;
+          ready={null} amounts={settings.intakeAmounts} />;
       })()}
 
       {!fam.everyone && daily && <SleepAsk checkIns={viewCheckIns} daily={daily.filter(mine)} personId={storedPerson(fam.personId)} checkFrom={settings.caffeineCheckFrom} now={now} s={s} />}
@@ -391,7 +328,25 @@ export function Today() {
 
       {HAS_BODY && !fam.everyone && <GoalLines goals={fam.people.find((p) => p.id === fam.personId)?.goals ?? []} entries={viewBody} units={settings.units} now={now} />}
 
-      {needsBackup(settings.lastBackupAt, firstRecord, now, settings.backupReminderDays) && <BackupReminder days={settings.backupReminderDays} />}
+      {(() => {
+        // Chores, gathered: one shows as it is, more fold into one line.
+        const vials = HAS_PEPTIDES ? vialAlerts(viewMeds, doses, now) : [];
+        const sup = settings.peptideTools && supplies ? supplyAlerts(supplies, meds, doses) : [];
+        const items = [
+          ...refills.map((r) => ({ key: `refill-${r.med.id}`, label: `${shownName(r.med)} ${r.runningOut || r.low ? 'running low' : r.scriptExpiring ? 'script' : 'bottle expiring'}`, node: <RefillCards alerts={[r]} settings={settings} now={now} /> })),
+          ...vials.map(({ m, v }) => ({ key: `vial-${m.id}`, label: `${shownName(m)} ${isPen(m) ? 'pen' : 'vial'} ${v.expired ? 'past use-by' : v.dosesLeft === 0 ? 'empty' : 'nearly empty'}`, node: <VialAlerts meds={[m]} doses={doses} now={now} /> })),
+          ...(sup.length ? [{ key: 'supplies', label: sup.length === 1 ? `${SUPPLY_LABELS[sup[0].supply.kind].name} low` : 'Supplies low', node: <SupplyAlerts alerts={sup} /> }] : []),
+          ...(settings.pendingTags.length ? [{ key: 'tags', label: `${settings.pendingTags.length} tag${settings.pendingTags.length === 1 ? '' : 's'} to link`, node: (
+            <Card className="flex items-center gap-3">
+              <Nfc className="text-primary shrink-0" aria-hidden="true" />
+              <p className="flex-1">{settings.pendingTags.length === 1 ? 'A new tag is' : `${settings.pendingTags.length} new tags are`} waiting to be linked.</p>
+              <Button variant="secondary" onClick={() => go(`/tag/${settings.pendingTags[0]}`)}>Link</Button>
+            </Card>
+          ) }] : []),
+          ...(needsBackup(settings.lastBackupAt, firstRecord, now, settings.backupReminderDays) ? [{ key: 'backup', label: 'Backup', node: <BackupReminder days={settings.backupReminderDays} /> }] : []),
+        ];
+        return <NeedsAttention items={items} />;
+      })()}
       <AutoBackupPermission enabled={settings.autoBackupEnabled} />
       <UpdateCard dismissed={settings.updateDismissed} />
       <InstallCard hasDoses={firstRecord !== null} dismissed={settings.installCardDismissed} />

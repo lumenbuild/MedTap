@@ -334,9 +334,12 @@ function DetailsSheet({ med, vial, doses, onClose }: { med: Medication; vial: Pe
 }
 
 /** Today: a vial or pen past its use-within date, or about to run out. */
+/** Vials or pens past use-by, empty or down to their last dose. */
+export const vialAlerts = (meds: Medication[], doses: Dose[], now: number) => meds.filter((m) => m.peptide && !m.archived).map((m) => ({ m, v: vialStatus(m, doses, now) }))
+  .filter((x): x is { m: Medication; v: NonNullable<typeof x.v> } => !!x.v && (x.v.expired || x.v.dosesLeft <= 1));
+
 export function VialAlerts({ meds, doses, now }: { meds: Medication[]; doses: Dose[]; now: number }) {
-  const alerts = meds.filter((m) => m.peptide && !m.archived).map((m) => ({ m, v: vialStatus(m, doses, now) }))
-    .filter((x): x is { m: Medication; v: NonNullable<typeof x.v> } => !!x.v && (x.v.expired || x.v.dosesLeft <= 1));
+  const alerts = vialAlerts(meds, doses, now);
   if (!alerts.length) return null;
   return (
     <>

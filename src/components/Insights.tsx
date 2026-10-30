@@ -1,61 +1,18 @@
-// The smart insights, each in one place: today's wear-off forecast, a weight stall and recent
-// changes as one line on Today; "What changed" and "Ask your data" on Trends (the step-up checklist is part of the dose plan, components/DosePlan).
+// Smart views on Progress: the stall under the weight chart, "What changed" and "Ask your data". Today's notes (wear-off,
+// a stall, a recent change, scripts, readings, odd records) are insights now, ranked in logic/insights.
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { ArrowDownRight, ArrowUpRight, CircleHelp, Droplet, Search, Sparkles, TrendingDown, X, Zap } from 'lucide-react';
-import type { CheckIn, DailyHealth, Dose, Medication } from '../db/schema';
-import type { ScheduleSettings } from '../logic/schedule';
-import { wearOffToday, type WearOff } from '../logic/wearOff';
+import { CircleHelp, Search, Sparkles, X } from 'lucide-react';
 import type { Stall } from '../logic/stall';
 import { fmtChangeValue, type Change, type SignalKey } from '../logic/changes';
 import { ask, askSuggestions, type AskData } from '../logic/ask';
-import { shownName } from '../logic/privacy';
-import { fmtTime } from '../logic/format';
 import { Bar, IconRow, Sparkline } from './ui/Visual';
 import { TrendChart } from './charts/TrendChart';
 import { HAS_MEDS, FOCUS } from '../edition';
 
 const day = (t: number) => format(t, 'EEE d MMM');
 
-// ── Wear-off (Today) ───────────────────────────────────────────────────────────────────────────────
-
-/** Today's forecast for each medicine with a learned effect window: a bar from the dose to the likely drop. */
-export function WearOffLines({ meds, doses, checkIns, daily, now, s }: { meds: Medication[]; doses: Dose[]; checkIns: CheckIn[]; daily: DailyHealth[]; now: number; s: ScheduleSettings }) {
-  const list = meds.filter((m) => !m.archived && !m.peptide).map((m) => wearOffToday(m, doses, checkIns, daily, now, s)).filter((w): w is WearOff => !!w && w.late > now - 2 * 3_600_000);
-  if (!list.length) return null;
-  return <ul aria-label="Wear-off forecast">{list.map((w) => <li key={w.med.id}><WearOffRow w={w} now={now} /></li>)}</ul>;
-}
-
-function WearOffRow({ w, now }: { w: WearOff; now: number }) {
-  const past = now > w.at;
-  const span = w.late - w.dosedAt;
-  const pct = (t: number) => Math.min(100, Math.max(0, ((t - w.dosedAt) / span) * 100));
-  return (
-    <div className="py-1.5">
-      <IconRow Icon={Zap} tone={past ? 'plain' : 'good'}>
-        <span className="font-medium">{shownName(w.med)}</span> · {past ? `likely wearing off since ${fmtTime(w.at)}` : `focus likely drops about ${fmtTime(w.at)}`}
-        {w.reasons.length > 0 && <span className="block text-sm text-muted">{w.reasons.join(' · ')}</span>}
-      </IconRow>
-      <div className="ml-12 mt-1 relative h-2 rounded-full bg-surface-2" role="img" aria-label={`From the dose at ${fmtTime(w.dosedAt)} to a likely drop between ${fmtTime(w.early)} and ${fmtTime(w.late)}`}>
-        <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${pct(w.early)}%`, background: 'var(--success)' }} />
-        <div className="absolute inset-y-0 rounded-full" style={{ left: `${pct(w.early)}%`, width: `${pct(w.late) - pct(w.early)}%`, background: 'var(--caution-soft)' }} />
-        <div className="absolute -top-1 -bottom-1 w-0.5 bg-text" style={{ left: `${pct(now)}%` }} />
-      </div>
-      <div className="ml-12 mt-0.5 flex justify-between text-[11px] text-muted tnum"><span>{fmtTime(w.dosedAt)}</span><span>{fmtTime(w.early)}–{fmtTime(w.late)}</span></div>
-    </div>
-  );
-}
-
 // ── Stall ──────────────────────────────────────────────────────────────────────────────────────────
-
-export function StallLine({ stall }: { stall: Stall }) {
-  return (
-    <IconRow Icon={stall.likelyWater ? Droplet : TrendingDown} tone="watch" href="#/progress/body">
-      {stall.likelyWater ? `Weight steady ${stall.days} days, probably water` : `Weight steady for ${stall.days} days`}
-      {!stall.likelyWater && stall.diffs.length > 0 && <span className="block text-sm text-muted">{stall.diffs.slice(0, 2).map((d) => `${d.label} ${d.before} → ${d.during}`).join(' · ')}</span>}
-    </IconRow>
-  );
-}
 
 /** Under the weight chart: since when, the rate before and during, water reasons, and what's different. */
 export function StallBlock({ stall }: { stall: Stall }) {
@@ -77,15 +34,6 @@ export function StallBlock({ stall }: { stall: Stall }) {
 // ── What changed ───────────────────────────────────────────────────────────────────────────────────
 
 const toneOf = (c: Change) => (c.good === undefined ? 'var(--text-muted)' : c.good ? 'var(--success)' : 'var(--caution)');
-
-export function ChangeLine({ c }: { c: Change }) {
-  return (
-    <IconRow Icon={c.after > c.before ? ArrowUpRight : ArrowDownRight} tone={c.good === undefined ? 'plain' : c.good ? 'good' : 'watch'} href="#/progress/trends">
-      {c.label} {c.after > c.before ? 'up' : 'down'}: {fmtChangeValue(c, c.before)} → {fmtChangeValue(c, c.after)}
-      {c.event && <span className="block text-sm text-muted">After {c.event.text}</span>}
-    </IconRow>
-  );
-}
 
 /** A timeline of genuine shifts, newest first, each beside what happened just before. */
 export function ChangesCard({ changes, series }: { changes: Change[]; series?: Partial<Record<SignalKey, { t: number; v: number }[]>> }) {

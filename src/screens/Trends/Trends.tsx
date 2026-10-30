@@ -15,6 +15,7 @@ import { dayKey } from '../../logic/stats';
 import { dosesForPerson, medIsFor, personOf } from '../../db/repos/people';
 import { JumpBar } from '../../components/ui/JumpBar';
 import { AskBox, ChangesCard } from '../../components/Insights';
+import { InsightFeed } from '../../components/InsightList';
 import { whatChanged, dailySignals } from '../../logic/changes';
 import { Tile } from '../../components/ui/Visual';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
@@ -92,6 +93,7 @@ export function Trends() {
   return (
     <div className="space-y-4">
       <PersonSwitcher />
+      <InsightFeed />
       <AskBox data={{ meds, doses, checkIns, body, daily, vitals, events }} now={now} />
       <div className="sticky top-0 z-10 -mx-6 px-6 py-2 bg-bg">
         <Segmented<Range | 'appt'> label="Date range" value={r} onChange={pick}
