@@ -22,6 +22,7 @@ import { trainingVsPeptide } from '../logic/training';
 import { nextSession } from '../logic/coach';
 import { allExercises } from '../logic/exercises';
 import { wearOffToday } from '../logic/wearOff';
+import { secondDose } from '../logic/stimulant';
 import { planCheckInNotes } from '../logic/reminders';
 import { fmtAmount, fmtTime } from '../logic/format';
 import { shownName } from '../logic/privacy';
@@ -353,14 +354,20 @@ async function scheduleWearOff(settings: Awaited<ReturnType<typeof getSettings>>
   const mine = meds.filter((m) => !m.archived && !m.peptide && medIsFor(m, me))
     .map((m) => (settings.privacyPinHash ? (() => { const n = discreetName(m, settings.privacyHidePeptides, shownName); return n === null ? null : { ...m, name: n, nickname: undefined }; })() : m))
     .filter((m): m is Medication => !!m);
-  const notes = mine.map((m) => wearOffToday(m, doses, checkIns.filter((c) => personOf(c) === me), daily.filter((d) => personOf(d) === me), now, s))
-    .filter((w): w is NonNullable<typeof w> => !!w && w.at - 30 * 60_000 > now);
+  const myCis = checkIns.filter((c) => personOf(c) === me), myDaily = daily.filter((d) => personOf(d) === me);
+  // A second dose to time: remind at that time. Otherwise half an hour before the first wears off.
+  const notes = mine.map((m) => {
+    const sd = secondDose(m, doses, myCis, myDaily, now, s);
+    if (sd) return sd.at > now ? { at: sd.at, title: `Second ${shownName(m)} now`, body: `Working before the first wears off about ${fmtTime(sd.wearAt)}` } : null;
+    const w = wearOffToday(m, doses, myCis, myDaily, now, s);
+    return w && w.at - 30 * 60_000 > now ? { at: w.at - 30 * 60_000, title: `${shownName(m)} wearing off soon`, body: `Focus likely drops about ${fmtTime(w.at)}` } : null;
+  }).filter((n): n is NonNullable<typeof n> => !!n);
   if (!notes.length) return;
   await LocalNotifications.schedule({
-    notifications: notes.map((w, i) => ({ id: 900_400_000 + i,
-      title: settings.discreetReminders ? 'Heads-up' : `${shownName(w.med)} wearing off soon`,
-      body: settings.discreetReminders ? `About ${fmtTime(w.at)}` : `Focus likely drops about ${fmtTime(w.at)}`,
-      schedule: { at: new Date(w.at - 30 * 60_000), allowWhileIdle: true }, channelId: CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/today' } })),
+    notifications: notes.map((n, i) => ({ id: 900_400_000 + i,
+      title: settings.discreetReminders ? 'Heads-up' : n.title,
+      body: settings.discreetReminders ? `About ${fmtTime(n.at)}` : n.body,
+      schedule: { at: new Date(n.at), allowWhileIdle: true }, channelId: CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/today' } })),
   });
 }
 

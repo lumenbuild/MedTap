@@ -77,7 +77,7 @@ export function stepStatus(med: Medication, doses: Dose[], checkIns: CheckIn[], 
 export function describeStepPlan(med: Medication, p: StepPlan): string {
   const amt = stepAmount(med, p);
   const by = p.byUnits ? `${fmtUnits(p.by)}${amt ? ` (${fmtAmount(r4(amt), med.unit)})` : ''}` : fmtAmount(p.by, med.unit);
-  return `${p.down ? 'Down' : 'Up'} ${by} when ready, ${p.down ? 'down' : 'up'} to ${fmtAmount(p.max, med.unit)} a ${p.maxPer}`;
+  return `${p.down ? 'Down' : 'Up'} ${by} ${p.lowest ? 'only once loss slows' : 'when ready'}, ${p.down ? 'down' : 'up'} to ${fmtAmount(p.max, med.unit)} a ${p.maxPer}`;
 }
 
 // ── Courses ────────────────────────────────────────────────────────────────────────────────────────

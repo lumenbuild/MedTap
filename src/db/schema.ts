@@ -51,6 +51,8 @@ export interface StepPlan {
   max: number; maxPer: 'dose' | 'week';
   /** "Not yet": don't ask again before this date ('YYYY-MM-DD'). */
   snoozedUntil?: string;
+  /** The lowest dose that works: stay while it's working, step only once loss slows (worded that way). */
+  lowest?: boolean;
 }
 
 interface Stamped { id: string; createdAt: string; updatedAt: string }
@@ -255,6 +257,8 @@ export interface Dose extends Stamped {
   personId?: string;
   /** The vial or pen it came from (peptide tools). */
   vialId?: string;
+  /** Where it was injected (one of SITES in logic/peptideSmart). */
+  site?: string;
 }
 export interface CheckIn extends Stamped {
   at: string; mood?: number; energy?: number; focus?: number; appetite?: number;

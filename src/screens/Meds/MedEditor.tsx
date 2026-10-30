@@ -22,7 +22,7 @@ import { stockUnitsFor } from '../../logic/stock';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Sheet, SheetActions } from '../../components/ui/Sheet';
-import { Select, TextArea, TextInput } from '../../components/ui/Field';
+import { Segmented, Select, TextArea, TextInput } from '../../components/ui/Field';
 import { MedBadge, MED_ICON_COMPONENTS } from '../../components/MedBadge';
 import { describeChange } from '../../logic/plans';
 import {
@@ -41,7 +41,7 @@ import { DrawGuide, syringeSizes } from '../../components/Syringe';
 import { SYRINGES } from '../../logic/peptide';
 import type { LabelDetails } from '../../logic/label';
 import { HAS_PEPTIDES } from '../../edition';
-import { canSplit, guideById, guideFor, guideMed, stepChanges, fmtDose, type GuideEntry } from '../../logic/peptideGuide';
+import { canSplit, guideById, guideFor, guideMed, lowestPlan, stepChanges, fmtDose, type GuideEntry } from '../../logic/peptideGuide';
 import { Switch } from '../../components/ui/Switch';
 import { fmtAmount, fmtSchedule } from '../../logic/format';
 
@@ -205,7 +205,7 @@ export function MedEditor({ id, tagId, guideId }: { id?: string; tagId?: string;
   const [labelExpiry, setLabelExpiry] = useState<string | undefined>();
   /** Filled in from the peptide guide: which entry, and whether to add its step-up as planned changes. */
   const [fromGuideId, setFromGuideId] = useState<string | undefined>(guideId && guideById(guideId) ? guideId : undefined);
-  const [addSteps, setAddSteps] = useState(false);
+  const [stepMode, setStepMode] = useState<'lowest' | 'ladder' | 'none'>('lowest');
   const [split, setSplit] = useState(false);
   useEffect(() => { const g = guideId ? guideById(guideId) : undefined; if (g) setF((p) => fromGuide(p, g)); }, [guideId]);
   const loadedId = existing?.id;
@@ -274,7 +274,9 @@ export function MedEditor({ id, tagId, guideId }: { id?: string; tagId?: string;
       const g = fromGuideId ? guideById(fromGuideId) : undefined;
       if (g) {
         // The step-up, as planned changes from today; and the guide's check-in words, one tap each.
-        if (addSteps && g.steps) input = { ...input, plannedChanges: stepChanges(g, format(Date.now(), 'yyyy-MM-dd'), split && canSplit(g)).map((c) => ({ id: crypto.randomUUID(), from: c.from, defaultAmount: c.amount, schedule: input.schedule, note: 'Step-up' })) };
+        const lp = stepMode === 'lowest' ? lowestPlan(g, split && canSplit(g) ? 2 : 1) : null;
+        if (lp) input = { ...input, stepPlan: lp.plan, stepUp: lp.criteria };
+        if (stepMode === 'ladder' && g.steps) input = { ...input, plannedChanges: stepChanges(g, format(Date.now(), 'yyyy-MM-dd'), split && canSplit(g)).map((c) => ({ id: crypto.randomUUID(), from: c.from, defaultAmount: c.amount, schedule: input.schedule, note: 'Step-up' })) };
         const st = await getSettings();
         const add = g.chips.filter((w) => !st.chips.some((c) => c.toLowerCase() === w.toLowerCase()));
         if (add.length) await setSetting('chips', [...st.chips, ...add]);
@@ -337,7 +339,16 @@ export function MedEditor({ id, tagId, guideId }: { id?: string; tagId?: string;
             <p>Filled in from the <a href={`#/guide/${g.id}`} className="underline underline-offset-4 font-medium">{g.name} guide</a>: a {fmtDose(g.vials[0].amount, g.unit)} vial with {g.vials[0].waterMl} mL of water, U-100 syringes and its usual schedule.</p>
             <p className="text-sm">The dose is set to {fmtDose(split ? g.setup.defaultAmount / 2 : g.setup.defaultAmount, g.unit)}{split ? ' a shot' : ''}, {split ? 'half the usual weekly starting dose' : 'the usual starting dose'}. Change anything to match your vial and your plan.</p>
             {canSplit(g) && <Switch label="Two shots a week" checked={split} onChange={(v) => { setSplit(v); setF((p) => fromGuide(p, g, p.name, v)); }}>Half the weekly amount, 3 and 4 days apart, for a steadier level.</Switch>}
-            {g.steps && <Switch label="Add the step-up" checked={addSteps} onChange={setAddSteps}>{g.steps.map((x) => (split ? x.amount / 2 : x.amount)).join(' → ')} {g.unit}{split ? ' a shot' : ''}, every {g.steps[0].weeks} weeks. You can change or remove the steps later in its dose plan.</Switch>}
+            {(g.steps || g.lowest) && (
+              <div className="space-y-1.5 pt-1">
+                <Segmented label="Stepping up" value={stepMode} onChange={setStepMode}
+                  options={[...(g.lowest ? [{ value: 'lowest' as const, label: 'When loss slows' }] : []), ...(g.steps ? [{ value: 'ladder' as const, label: `Every ${g.steps[0].weeks} weeks` }] : []), { value: 'none' as const, label: 'I’ll decide' }]} />
+                <p className="text-sm">{stepMode === 'lowest' && g.lowest
+                  ? `Stays on the lowest dose that works. While you’re losing more than 0.25 kg a week it holds the dose; once loss slows for 3 weeks (and side effects are settled) it asks about going up by ${fmtDose(split ? g.lowest.by / 2 : g.lowest.by, g.unit)}${split ? ' a shot' : ''}.`
+                  : stepMode === 'ladder' && g.steps ? `${g.steps.map((x) => (split ? x.amount / 2 : x.amount)).join(' → ')} ${g.unit}${split ? ' a shot' : ''}, every ${g.steps[0].weeks} weeks, as dated changes.`
+                  : 'No plan: change the dose yourself whenever you like.'} You can change this later in its dose plan.</p>
+              </div>
+            )}
           </Card>
         );
       })()}

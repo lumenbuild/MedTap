@@ -46,7 +46,8 @@ import { DoseEditSheet } from './DoseEditSheet';
 import { planRecords, RestartCard, StepPrompt } from '../../components/DosePlan';
 import { restartPrompt, stepStatus } from '../../logic/dosePlan';
 import { TrainingHero, WeightHero } from './FocusHero';
-import { AutoBackupPermission, BackupReminder, CheckInAutoOpen, CheckInPrompt, InstallCard, NeedsAttention, UpdateCard } from './PromptCards';
+import { AutoBackupPermission, BackupReminder, CheckInAutoOpen, CheckInPrompt, FocusQuick, InstallCard, NeedsAttention, UpdateCard } from './PromptCards';
+import { focusAsk } from '../../logic/stimulant';
 import { TopInsights } from '../../components/InsightList';
 import { HAS_MEDS, HAS_BODY, HAS_TRAINING, HAS_FOOD, FOCUS, HAS_PEPTIDES } from '../../edition';
 import { IntakeCard } from '../../components/Fitness';
@@ -261,7 +262,14 @@ export function Today() {
           onNotToday={(k) => setSetting('usualDismissed', [k, ...settings.usualDismissed].slice(0, 60))} />
       )}
 
-      {ask && <CheckInPrompt ask={ask} med={ask.dose && medMap.get(ask.dose.medicationId)} now={now} onCheckIn={(mood) => setCheckIn({ relatedDoseId: ask.dose?.id, mood })} />}
+      {(() => {
+        // A stimulant dose a while ago: one tap for focus (in place of the mood prompt for that same dose).
+        const fa = fam.everyone ? null : focusAsk(active, viewDoses, checkIns, now);
+        return <>
+          {fa && <FocusQuick key={fa.dose.id} med={fa.med} dose={fa.dose} now={now} personId={storedPerson(fam.personId)} />}
+          {ask && ask.dose?.id !== fa?.dose.id && <CheckInPrompt ask={ask} med={ask.dose && medMap.get(ask.dose.medicationId)} now={now} onCheckIn={(mood) => setCheckIn({ relatedDoseId: ask.dose?.id, mood })} />}
+        </>;
+      })()}
       <CheckInAutoOpen ask={ask} enabled={settings.checkInPopup} shown={settings.checkInPopupShown} busy={!!(checkIn || logFor || editing || bodySheet)}
         onOpen={(a) => setCheckIn({ relatedDoseId: a.dose?.id })} />
       {active.map((m) => {

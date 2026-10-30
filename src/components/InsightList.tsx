@@ -2,7 +2,7 @@
 // Today shows the top couple (TopInsights); Progress shows every one (InsightFeed). Acting on one that changes a
 // setting also notes it, so the app can check back a few weeks later on what happened.
 import { useMemo, useState } from 'react';
-import { ArrowDownRight, CalendarDays, Footprints, Moon, Scale, Coffee, Droplet, Dumbbell, FileText, HeartPulse, Lightbulb, SearchCheck, Sparkles, Utensils, X, Zap, type LucideIcon } from 'lucide-react';
+import { Activity, ArrowDownRight, BatteryLow, CalendarDays, CalendarX, Clock, Footprints, Moon, Scale, Coffee, Droplet, Dumbbell, FileText, HeartPulse, Layers, Lightbulb, SearchCheck, Sparkles, Target, Utensils, X, Zap, type LucideIcon } from 'lucide-react';
 import { insights, type Insight, type InsightKind } from '../logic/insights';
 import { fmtTime } from '../logic/format';
 import { oddRecords } from '../logic/records';
@@ -20,6 +20,7 @@ import { Button } from './ui/Button';
 const ICON: Record<InsightKind, LucideIcon> = {
   script: FileText, reading: HeartPulse, stall: Droplet, wearoff: Zap, change: ArrowDownRight, odd: SearchCheck, cutoff: Coffee,
   calories: Utensils, protein: Dumbbell, lean: Dumbbell, appointment: CalendarDays, followup: Sparkles, steps: Footprints, sleep: Moon, gut: Utensils, eating: Utensils, regain: Scale, maintain: Scale,
+  second: Clock, dosecut: Moon, bestdose: Target, crash: BatteryLow, load: Layers, heart: Activity, undereat: Utensils, missed: CalendarX,
 };
 const TONE = { watch: { bg: 'var(--caution-soft)', fg: 'var(--caution)' }, good: { bg: 'var(--success-soft)', fg: 'var(--success)' }, plain: { bg: 'var(--surface-2)', fg: 'var(--primary)' } };
 
@@ -95,6 +96,7 @@ export function InsightRow({ x, settings }: { x: Insight; settings: AppSettings 
             <div className="mt-0.5 flex justify-between text-[11px] text-muted tnum"><span>{fmtTime(x.bar.from)}</span><span>{fmtTime(x.bar.early)}–{fmtTime(x.bar.late)}</span></div>
           </>
         )}
+        {x.lanes && x.lanes.length > 0 && <Lanes lanes={x.lanes} now={now} />}
         {x.action && <Button variant="secondary" className="mt-2 min-h-[44px]" onClick={act}>{x.action.label}</Button>}
       </div>
       <button type="button" onClick={() => hide(x.snoozeDays)} aria-label={`Not now: ${x.headline}`} className="w-11 h-11 -mr-2 -mt-1.5 rounded-full flex items-center justify-center text-muted shrink-0">
@@ -145,5 +147,26 @@ export function InsightFeed({ max = 3 }: { max?: number }) {
       <ul className="divide-y divide-border">{shown.map((x) => <InsightRow key={x.id} x={x} settings={r.settings} />)}</ul>
       {r.list.length > max && <button type="button" aria-expanded={all} onClick={() => setAll((x) => !x)} className="min-h-[44px] text-sm font-medium underline underline-offset-4">{all ? 'Show fewer' : `Show all ${r.list.length}`}</button>}
     </section>
+  );
+}
+
+/** A day's timeline (6 am to midnight) with a bar for each lane: what's working when, and where it overlaps. */
+function Lanes({ lanes, now }: { lanes: { label: string; from: number; to: number }[]; now: number }) {
+  const d0 = new Date(now); d0.setHours(6, 0, 0, 0);
+  const from = d0.getTime(), span = 18 * 3_600_000;
+  const pct = (t: number) => Math.min(100, Math.max(0, ((t - from) / span) * 100));
+  return (
+    <div className="mt-2 space-y-1" role="img" aria-label={lanes.map((l) => `${l.label} ${fmtTime(l.from)} to ${fmtTime(l.to)}`).join(', ')}>
+      {lanes.map((l, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className="w-16 shrink-0 text-[11px] text-muted truncate">{l.label}</span>
+          <div className="relative flex-1 h-2 rounded-full bg-surface-2">
+            <div className="absolute inset-y-0 rounded-full" style={{ left: `${pct(l.from)}%`, width: `${Math.max(2, pct(l.to) - pct(l.from))}%`, background: 'var(--primary)' }} />
+            <div className="absolute -top-0.5 -bottom-0.5 w-0.5 bg-text" style={{ left: `${pct(now)}%` }} />
+          </div>
+        </div>
+      ))}
+      <div className="flex justify-between pl-[72px] text-[11px] text-muted tnum"><span>6 am</span><span>noon</span><span>6 pm</span><span>12</span></div>
+    </div>
   );
 }

@@ -1,8 +1,9 @@
 // The peptide guide: what each one is, what the research shows and what people notice, how it's mixed, taken and
 // stored, the doses used, side effects, when to get help, and what's worth tracking. Each entry also fills in the
 // injection form, so a peptide is set up in one tap. Neutral reference text: the facts, for the person to decide.
-import type { Medication, Schedule } from '../db/schema';
+import type { Medication, Schedule, StepPlan, StepUpCriteria } from '../db/schema';
 import { drawFor } from './peptide';
+import { LOWEST_STEP_UP } from './stepUp';
 
 export interface GuideEntry {
   id: string; name: string;
@@ -26,6 +27,8 @@ export interface GuideEntry {
   doses: string[];
   /** A step-up, in `unit` per dose, each step lasting `weeks`. */
   steps?: { amount: number; weeks: number }[];
+  /** The lowest dose that works: step by this much (weekly amount) only once loss slows, up to `max` a week. */
+  lowest?: { by: number; max: number };
   storage: { powder: string; mixed: string; useWithinDays: number };
   halfLifeHours?: number;
   sideEffects: string[];
@@ -61,10 +64,11 @@ export const GUIDE: GuideEntry[] = [
     doses: [
       'Trial doses: 1, 4, 8 or 12 mg once a week.',
       'The 12 mg group started at 2 mg and stepped up every 4 weeks: 2 → 4 → 8 → 12 mg. Starting at 2 mg rather than 4 mg meant less nausea.',
-      'Many people stay on the lowest dose that keeps working rather than climbing to the top, and step up more slowly than every 4 weeks.',
+      'Many people stay on the lowest dose that keeps working rather than climbing to the top, stepping up only when loss slows. The app can do this for you: it holds the dose while you’re losing and asks about a step only once loss has slowed for 3 weeks.',
       'Splitting the weekly amount into two shots (e.g. 1 mg Monday and Thursday instead of 2 mg Monday) gives a steadier level and, for many, less nausea after each shot.',
     ],
     steps: [{ amount: 2, weeks: 4 }, { amount: 4, weeks: 4 }, { amount: 8, weeks: 4 }, { amount: 12, weeks: 4 }],
+    lowest: { by: 1, max: 12 },
     storage: { powder: 'Fridge (2–8 °C). The freezer for long-term storage.', mixed: 'Fridge, away from light. Commonly used within 4 weeks of mixing.', useWithinDays: 28 },
     halfLifeHours: 144,
     sideEffects: [
@@ -145,7 +149,7 @@ export const GUIDE: GuideEntry[] = [
     tips: ['If it stings a lot, mix it with more water so the same dose is a bigger, weaker draw.'],
     chips: ['Site sting'],
     sources: ['Pickart & Margolina, Int J Mol Sci 2018: review of GHK-Cu.'],
-    setup: { defaultAmount: 1, syringeUnits: 30, schedule: (t) => daily('20:00', { course: { start: t, days: 42 } }) },
+    setup: { defaultAmount: 1, syringeUnits: 30, schedule: (t) => daily('20:00', { course: { start: t, days: 42, remindAfterDays: 28 } }) },
   },
   {
     id: 'dsip', name: 'DSIP', aka: ['delta sleep-inducing peptide'], match: ['delta sleep inducing peptide', 'disp'],
@@ -168,7 +172,7 @@ export const GUIDE: GuideEntry[] = [
     tips: ['Log how you slept the next morning: the check-in’s sleep score shows whether it’s doing anything for you.'],
     chips: ['Slept well', 'Groggy'],
     sources: ['Kovalzon & Strekalova, J Neurochem 2006: review of DSIP research.'],
-    setup: { defaultAmount: 0.25, syringeUnits: 30, schedule: (t) => daily('21:00', { course: { start: t, days: 14 } }) },
+    setup: { defaultAmount: 0.25, syringeUnits: 30, schedule: (t) => daily('21:00', { course: { start: t, days: 14, remindAfterDays: 14 } }) },
   },
   {
     id: 'bpc-157', name: 'BPC-157', aka: ['body protection compound'], match: ['bpc', 'bpc 157', 'bpc157'],
@@ -191,7 +195,7 @@ export const GUIDE: GuideEntry[] = [
     tips: ['Log pain or how the injury feels in check-ins, so you can see the trend.'],
     chips: ['Pain better', 'Pain worse'],
     sources: ['Vasireddi et al., HSS J 2025: review of BPC-157 for musculoskeletal healing.', 'Sikiric et al.: animal studies of BPC-157 (1990s–2020s).'],
-    setup: { defaultAmount: 250, syringeUnits: 30, schedule: (t) => daily('08:00', { course: { start: t, days: 28 } }) },
+    setup: { defaultAmount: 250, syringeUnits: 30, schedule: (t) => daily('08:00', { course: { start: t, days: 28, remindAfterDays: 28 } }) },
   },
   {
     id: 'nad', name: 'NAD+', aka: ['nicotinamide adenine dinucleotide'], match: ['nad', 'nad 500', 'nad500'],
@@ -244,7 +248,7 @@ export const GUIDE: GuideEntry[] = [
     tips: ['Log focus and anxiety in check-ins for a week on and a week off: the difference shows what it’s doing for you.', 'For a nose spray, a typical pump gives about 0.1 mL a spray: in a 1 mg per mL mix that’s about 100 mcg.'],
     chips: ['Focus', 'Anxious'],
     sources: ['Russian State Register: Semax 0.1% and 1% nasal drops.', 'Dolotov et al., Brain Res 2006: Semax and BDNF.'],
-    setup: { defaultAmount: 200, syringeUnits: 30, schedule: (t) => daily('08:00', { course: { start: t, days: 14 } }) },
+    setup: { defaultAmount: 200, syringeUnits: 30, schedule: (t) => daily('08:00', { course: { start: t, days: 14, remindAfterDays: 7 } }) },
   },
   {
     id: 'epitalon', name: 'Epitalon', aka: ['Epithalon', 'AEDG'], match: ['epithilian', 'epithalamin'],
@@ -268,7 +272,7 @@ export const GUIDE: GuideEntry[] = [
     tips: ['A 10 mg vial with 1 mL of water is 10 mg per mL: 5 mg is 50 units.'],
     chips: ['Slept well'],
     sources: ['Khavinson et al.: studies of epithalamin and epitalon (1990s–2000s).', 'Khavinson et al., Bull Exp Biol Med 2003: epitalon and telomerase in human cells.'],
-    setup: { defaultAmount: 5, syringeUnits: 100, schedule: (t) => daily('21:00', { course: { start: t, days: 20 } }) },
+    setup: { defaultAmount: 5, syringeUnits: 100, schedule: (t) => daily('21:00', { course: { start: t, days: 20, remindAfterDays: 140 } }) },
   },
 ];
 
@@ -386,4 +390,10 @@ export function splitView(halfLifeHours: number | undefined, days: number[] | un
   return days.length === 1
     ? { perWeek: 1, swing, other: { perWeek: 2, swing: levelSwing(halfLifeHours, 4 * 24) } }
     : { perWeek: days.length, swing, other: { perWeek: 1, swing: levelSwing(halfLifeHours, 7 * 24) } };
+}
+
+/** The lowest-dose plan for a guide entry: step by `by` (a weekly amount, halved per shot when split) once loss slows. */
+export function lowestPlan(g: GuideEntry, perWeek: number): { plan: StepPlan; criteria: StepUpCriteria } | null {
+  if (!g.lowest) return null;
+  return { plan: { by: g.lowest.by / Math.max(1, perWeek), max: g.lowest.max, maxPer: 'week', lowest: true }, criteria: LOWEST_STEP_UP };
 }

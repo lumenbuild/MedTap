@@ -24,6 +24,8 @@ export interface NewDose {
   personId?: string;
   /** The vial or pen it came from (peptide tools). */
   vialId?: string;
+  /** Where it was injected. */
+  site?: string;
 }
 
 /** Save a dose and take it off the stock count. */

@@ -25,15 +25,18 @@ import { Button } from '../../components/ui/Button';
 import { WeekStrip } from './WeekStrip';
 import { Tile } from '../../components/ui/Visual';
 import { AlertTriangle, BookOpen, Calculator, CalendarRange, ChevronRight, FileText, Package, TrendingDown } from 'lucide-react';
-import { guideFor, splitView } from '../../logic/peptideGuide';
+import { guideFor, lowestPlan, splitView } from '../../logic/peptideGuide';
+import { dosesPerWeek } from '../../logic/dosePlan';
 import { SwingBars } from '../../components/SwingBars';
+import { CourseBar } from '../../components/CourseBar';
+import { costPerKg, missedShot } from '../../logic/peptideSmart';
 import { ChipPicker } from '../../components/ui/Field';
 import { Sheet } from '../../components/ui/Sheet';
 import { LogDoseFlow } from '../../components/LogDoseFlow';
 import { StartVialSheet } from '../Meds/VialCard';
 
 import { useToast } from '../../app/toast';
-import { setHalfLife } from '../../db/repos/meds';
+import { saveStepPlan, setHalfLife } from '../../db/repos/meds';
 import { removeDose } from '../../db/repos/doses';
 import { LeadTimeSheet, LotSheet } from './ProtocolSheets';
 
@@ -144,6 +147,7 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
   const nextAmount = next !== null ? getExpectedAmount(med, doses, next, s) : med.defaultAmount;
   const guide = guideText(med, nextAmount);
   const plan = planLine(med, now, s);
+  const missed = missedShot(med, doses, now, s);
   const vial = vialStatus(med, doses, now);
   const rest = vialRest(med, doses, now, s);
   const restText = rest ? vialRestText(rest, med.unit, pen) : '';
@@ -186,6 +190,8 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
           <p className="text-[28px] leading-8 font-semibold tnum">{when}</p>
           {nextAmount > 0 && <p className="text-[17px] tnum mt-1">{fmtAmount(nextAmount, med.unit)}{guide ? <> · <span className="font-semibold">{pen ? guide : `draw ${guide}`}</span></> : null}</p>}
           {plan && <p className="text-sm text-muted mt-1">{plan}</p>}
+          {missed && <p className={`text-sm mt-2 rounded-btn p-2.5 ${missed.take ? 'bg-caution-soft' : 'bg-surface-2'}`}>{missed.text}</p>}
+          <CourseBar med={med} now={now} s={s} />
         </div>
         <WeekStrip med={med} doses={doses} s={s} now={now} label={false} />
         <div className={`rounded-btn p-3 ${problem ? 'bg-caution-soft' : 'bg-surface'}`}>
@@ -241,6 +247,18 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
 
       {/* 3. The dose plan: every way the dose changes, in one place (also the home for editing it), then the
           estimated level through it. */}
+      {guideEntry?.lowest && !med.stepPlan && (() => {
+        const lp = lowestPlan(guideEntry, dosesPerWeek(med, now, s));
+        return lp && (
+          <button type="button" className="w-full text-left rounded-card bg-surface-2 p-3 min-h-[56px]" onClick={async () => {
+            await saveStepPlan(med.id, lp.plan, lp.criteria);
+            toast(`Staying on ${fmtAmount(med.defaultAmount, med.unit)} while it works`, { onAction: () => saveStepPlan(med.id, undefined, med.stepUp) });
+          }}>
+            <span className="block font-medium">Stay on the lowest dose that works</span>
+            <span className="block text-sm text-muted">Holds {fmtAmount(med.defaultAmount, med.unit)} while you’re losing, and asks about a step only once loss slows under 0.25 kg a week for 3 weeks.</span>
+          </button>
+        );
+      })()}
       <DosePlanCard med={med} flat />
       <section aria-label="Estimated level" className="space-y-3">
         {med.peptide?.halfLifeHours
@@ -301,6 +319,14 @@ function MedStock({ med, doses, s, now, body, checkIns }: { med: Medication; dos
           {c.next12Weeks !== undefined && <span className="block text-sm text-muted tnum">Next 12 weeks {money(c.next12Weeks)} with your plan</span>}
         </>}
       </Row>}
+      {(() => {
+        const per = HAS_BODY ? costPerKg(med, doses, body, checkIns, now) : [];
+        return per.length > 0 && (
+          <Row label="Per kg lost">
+            {per.map((x) => <span key={x.dose} className="block tnum">{money(x.perKg)} <span className="text-sm text-muted">on {fmtAmount(x.dose, med.unit)} ({x.kgLost} kg in {x.weeks} wk)</span></span>)}
+          </Row>
+        );
+      })()}
       {batches.length > 0 && (
         <Row label="Batches" onClick={() => setLots(true)}>
           <span className="tnum">{batches.length} used</span>

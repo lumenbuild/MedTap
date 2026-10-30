@@ -29,7 +29,7 @@ describe('peptide guide', () => {
     const m = guideMed(guideById('retatrutide')!, now);
     expect(m).toMatchObject({ name: 'Retatrutide', strength: 10, unit: 'mg', defaultAmount: 2, form: 'injection', schedule: { type: 'fixed', days: [1] },
       peptide: { waterMl: 1, syringe: 'U-100', syringeUnits: 50, useWithinDays: 28, halfLifeHours: 144 } });
-    expect(guideMed(guideById('epitalon')!, now).schedule.course).toEqual({ start: '2026-11-02', days: 20 });
+    expect(guideMed(guideById('epitalon')!, now).schedule.course).toEqual({ start: '2026-11-02', days: 20, remindAfterDays: 140 });
     expect(guideMed(guideById('nad')!, now).schedule.days).toEqual([1, 3, 5]);
   });
   it('the step-up as dated changes', () => {

@@ -22,13 +22,17 @@ import { dayKey } from './stats';
 import { kgTo, weightUnit } from './units';
 import { shownName } from './privacy';
 import { fmtTime } from './format';
+import { doseResponse, eveningCrash, isStimulant, secondDose, stimulantLoad, type Lane } from './stimulant';
+import { heartWatch, underEating } from './crossSmart';
+import { missedShot } from './peptideSmart';
+import { sleepImpact } from './habits';
 
 const DAY = 86_400_000;
 const WEEK = 7 * DAY;
 const day = (t: number) => format(t, 'EEE d MMM');
 const hourText = (h: number) => (h === 12 ? '12 pm' : h > 12 ? `${h - 12} pm` : `${h} am`);
 
-export type InsightKind = 'script' | 'reading' | 'stall' | 'wearoff' | 'change' | 'odd' | 'cutoff' | 'calories' | 'protein' | 'lean' | 'appointment' | 'followup' | 'steps' | 'sleep' | 'gut' | 'eating' | 'regain' | 'maintain';
+export type InsightKind = 'script' | 'reading' | 'stall' | 'wearoff' | 'change' | 'odd' | 'cutoff' | 'calories' | 'protein' | 'lean' | 'appointment' | 'followup' | 'steps' | 'sleep' | 'gut' | 'eating' | 'regain' | 'maintain' | 'second' | 'dosecut' | 'bestdose' | 'crash' | 'load' | 'heart' | 'undereat' | 'missed';
 
 export type InsightAction =
   | { kind: 'go'; label: string; href: string }
@@ -52,6 +56,8 @@ export interface Insight {
   snoozeDays: number;
   /** A time bar: from the dose to the likely wear-off (the wear-off forecast). */
   bar?: { from: number; early: number; late: number };
+  /** Lanes on a day's timeline (what's stacking up today). */
+  lanes?: Lane[];
 }
 
 export interface InsightInput {
@@ -88,6 +94,15 @@ export function insights(d: InsightInput, now: number, s: ScheduleSettings): Ins
   // Today's wear-off, while it's ahead or just past.
   if (d.has.meds) {
     for (const m of d.meds.filter((x) => !x.archived && !x.peptide)) {
+      // A second dose to time: says when to take it, instead of only when the first wears off.
+      const sd = secondDose(m, d.doses, d.checkIns, d.daily, now, s);
+      if (sd) {
+        out.push({ id: `second:${m.id}:${Math.floor(sd.firstAt / DAY)}`, kind: 'second', importance: sd.at - now < 45 * 60_000 ? 75 : 62, confidence: 'medium', tone: 'good',
+          headline: `${shownName(m)}: second dose ${sd.at <= now ? 'now' : `about ${fmtTime(sd.at)}`}`,
+          evidence: `So it’s working before the first wears off about ${fmtTime(sd.wearAt)} (it takes about ${sd.leadMin} min to kick in)${sd.afterCutoff !== undefined ? `. That’s after ${hourText(sd.afterCutoff)}, when a dose tends to cost you sleep` : ''}`,
+          snoozeDays: 1, bar: { from: sd.firstAt, early: sd.at, late: sd.wearAt } });
+        continue;
+      }
       const w = wearOffToday(m, d.doses, d.checkIns, d.daily, now, s);
       if (!w || w.late < now - 2 * 3_600_000) continue;
       const past = now > w.at;
@@ -95,6 +110,65 @@ export function insights(d: InsightInput, now: number, s: ScheduleSettings): Ins
         headline: `${shownName(m)}: ${past ? `likely wearing off since ${fmtTime(w.at)}` : `focus likely drops about ${fmtTime(w.at)}`}`,
         evidence: w.reasons.length ? w.reasons.join(' · ') : 'From when your focus usually drops after a dose', snoozeDays: 1,
         bar: { from: w.dosedAt, early: w.early, late: w.late } });
+    }
+  }
+
+  // Stimulants: the latest dose time that's kind to sleep, which dose and time works best, evening crashes.
+  if (d.has.meds) {
+    const stims = d.meds.filter((m) => !m.archived && isStimulant(m));
+    for (const m of stims) {
+      const cut = sleepImpact([m], d.doses, d.checkIns, now, s);
+      if (cut) {
+        const q = (x: { quality?: number; hours?: number }) => (x.quality !== undefined ? `sleep ${x.quality} of 5` : `${x.hours} h sleep`);
+        const lateToday = d.doses.some((x) => !x.deletedAt && !x.skipped && x.medicationId === m.id && dayKey(Date.parse(x.takenAt), s) === dayKey(now, s) && new Date(x.takenAt).getHours() >= cut.cutoffHour);
+        out.push({ id: `dosecut:${m.id}:${cut.cutoffHour}${lateToday ? `:${dayKey(now, s)}` : ''}`, kind: 'dosecut', importance: lateToday ? 55 : 40, confidence: cut.before.nights + cut.after.nights >= 20 ? 'high' : 'medium', tone: lateToday ? 'watch' : 'plain',
+          headline: lateToday ? `Tonight: ${shownName(m)} today was after ${hourText(cut.cutoffHour)}` : `${shownName(m)} after ${hourText(cut.cutoffHour)} costs you sleep`,
+          evidence: `${q(cut.before)} when the last dose is earlier, ${q(cut.after)} when it’s later (${cut.before.nights + cut.after.nights} nights)`, snoozeDays: lateToday ? 1 : 30 });
+      }
+      const br = doseResponse(m, d.doses, d.checkIns, now, s);
+      if (br) out.push({ id: `bestdose:${m.id}:${br.by}:${br.better}`, kind: 'bestdose', importance: 42, confidence: br.n >= 16 ? 'high' : 'medium', tone: 'good',
+        headline: br.by === 'amount' ? `${shownName(m)}: your focus is best on ${br.better}` : `${shownName(m)}: focus is better when taken ${br.better}`,
+        evidence: `Focus ${br.focusBetter} of 5 ${br.by === 'amount' ? `on ${br.better}` : br.better}, against ${br.focusWorse} ${br.by === 'amount' ? `on ${br.worse}` : br.worse} (${br.n} check-ins)`, snoozeDays: 30 });
+    }
+    const cr = eveningCrash(stims, d.doses, d.checkIns, now, s);
+    if (cr) {
+      const why = cr.lastDoseCrash ? `On crash days your last dose was about ${cr.lastDoseCrash}, against ${cr.lastDoseOk} on others`
+        : cr.withSecond && cr.withoutSecond ? `With a second dose: ${cr.withSecond.crash} of ${cr.withSecond.of} evenings; without: ${cr.withoutSecond.crash} of ${cr.withoutSecond.of}` : 'Mood or energy at 2 or under, or a crash noted';
+      out.push({ id: `crash:${Math.floor(now / WEEK)}`, kind: 'crash', importance: 45, confidence: cr.days >= 20 ? 'high' : 'medium', tone: 'plain',
+        headline: `Evening crash on ${cr.crashDays} of ${cr.days} days`, evidence: why, action: { kind: 'go', label: 'See patterns', href: '#/progress/trends' }, snoozeDays: 14 });
+    }
+    // What's stacking up today: stimulants and caffeine overlapping.
+    const load = stimulantLoad(d.meds, d.doses, intakesOf(d.checkIns, d.foodLogs), d.checkIns, now, s, st.caffeineHalfLifeH);
+    if (load && load.overlapFrom !== undefined && load.overlapTo! > now - 3_600_000) {
+      const names = [...new Set(load.lanes.map((l) => l.label))];
+      out.push({ id: `load:${dayKey(now, s)}`, kind: 'load', importance: load.edgy && load.edgy.withLoad / load.edgy.of >= 0.5 ? 58 : 38, confidence: 'medium', tone: 'plain',
+        headline: `${names.join(' + ')}${load.caffeinePeakMg >= 100 ? ` + ${load.caffeinePeakMg} mg caffeine` : ''} overlap ${fmtTime(load.overlapFrom)}–${fmtTime(load.overlapTo!)}`,
+        evidence: load.edgy ? `On ${load.edgy.withLoad} of ${load.edgy.of} days like this you noted feeling jittery, anxious or a racing heart` : 'Stimulant effects add up: heart rate, appetite and sleep',
+        lanes: load.lanes, snoozeDays: 1 });
+    }
+    // Resting heart rate drifting up.
+    const hw = heartWatch(d.meds, d.doses, d.daily, now, s);
+    if (hw) out.push({ id: `heart:${Math.floor(now / WEEK)}`, kind: 'heart', importance: hw.now - hw.before >= 10 ? 68 : 50, confidence: 'medium', tone: 'watch',
+      headline: `Resting heart rate up ${hw.now - hw.before} bpm (${hw.before} → ${hw.now})`,
+      evidence: [hw.change ? `Since ${hw.change}` : null, hw.stimDays ? `${hw.stimDays.on} bpm on stimulant days, ${hw.stimDays.off} on others` : null].filter(Boolean).join(' · ') || 'The last 2 weeks against the 4 before',
+      action: { kind: 'go', label: 'See heart rate', href: '#/progress/body' }, snoozeDays: 7 });
+    // Eating very little with a GLP-1 and a stimulant together.
+    if (d.has.food) {
+      const ue = underEating(d.meds, d.doses, d.foodLogs, { kcal: st.energyTargetKcal, protein: st.proteinTargetG }, now, s);
+      if (ue?.today) out.push({ id: `undereat:${dayKey(now, s)}`, kind: 'undereat', importance: 64, confidence: 'medium', tone: 'watch',
+        headline: `${ue.today.kcal} Cal and ${ue.today.protein} g protein so far today`,
+        evidence: `Appetite is low with both on board${ue.today.proteinTarget ? `: ${ue.today.proteinTarget - ue.today.protein} g protein to go` : ''}. A protein shake or yoghurt is an easy catch-up`,
+        action: { kind: 'go', label: 'Log food', href: '#/food' }, snoozeDays: 1 });
+      else if (ue?.pattern) out.push({ id: `undereat:pattern:${Math.floor(now / (4 * WEEK))}`, kind: 'undereat', importance: 48, confidence: 'medium', tone: 'plain',
+        headline: `Days with both: ${ue.pattern.both.kcal} Cal, ${ue.pattern.both.protein} g protein`,
+        evidence: `Against ${ue.pattern.other.kcal} Cal and ${ue.pattern.other.protein} g on other days (${ue.pattern.both.days} and ${ue.pattern.other.days} days)`, snoozeDays: 21 });
+    }
+    // A missed peptide shot: take it or skip it.
+    for (const m of d.meds.filter((x) => !x.archived && x.peptide)) {
+      const ms = missedShot(m, d.doses, now, s);
+      if (ms) out.push({ id: `missed:${m.id}:${Math.floor(ms.dueAt / DAY)}`, kind: 'missed', importance: 78, confidence: 'high', tone: 'watch',
+        headline: `${shownName(m)}: ${ms.take ? 'take the missed shot now' : 'skip the missed shot'}`, evidence: ms.text,
+        action: { kind: 'go', label: 'Protocol', href: '#/protocol' }, snoozeDays: 1 });
     }
   }
 

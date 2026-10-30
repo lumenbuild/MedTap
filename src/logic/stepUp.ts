@@ -13,6 +13,10 @@ const WEEK = 7 * DAY;
 /** A starting point to edit: the GLP-1 labels' "at least 4 weeks on a dose", and settled side effects. */
 export const DEFAULT_STEP_UP: StepUpCriteria = { minWeeks: 4, maxEffectPct: 30, maxLossKgWeek: 0.5, noMissedWeeks: 4 };
 
+/** The lowest dose that works: at least 4 weeks on a dose, and loss slowed under 0.25 kg a week over 3 weeks, with side
+ *  effects settled. While loss is faster than that, the dose stays. */
+export const LOWEST_STEP_UP: StepUpCriteria = { minWeeks: 4, maxLossKgWeek: 0.25, maxEffectPct: 30 };
+
 export interface StepCheck { key: keyof StepUpCriteria; label: string; ok: boolean | null; value: string }
 export interface StepUpView { amount: number; since: number; checks: StepCheck[]; met: number; known: number; next?: { from: string; amount: number } }
 

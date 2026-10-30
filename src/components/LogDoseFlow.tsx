@@ -17,6 +17,8 @@ import { Button } from './ui/Button';
 import { Bar } from './ui/Visual';
 import { Stepper } from './ui/Stepper';
 import { SheetActions } from './ui/Sheet';
+import { SitePicker } from './SitePicker';
+import { siteRotation } from '../logic/peptideSmart';
 
 export const SKIP_REASONS = ['Felt unwell', 'Planned break', 'Too late in the day', 'Ran out', 'Prescriber said to', 'Other'];
 
@@ -59,6 +61,9 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, vialId, onLog
   const doses = choosing && who ? allDoses.filter((d) => d.medicationId !== med.id || personOf(d) === who) : allDoses;
   // The amount follows the plan for this dose (e.g. 20, 20, then 10 mg) until the person changes it.
   const [amountEdit, setAmountEdit] = useState<number | null>(null);
+  // Injections: the site, starting on the next one in the rotation.
+  const injected = !!med.peptide || med.form === 'injection';
+  const [site, setSite] = useState<string | undefined>(() => (injected ? siteRotation(allDoses, now).next : undefined));
   // Peptide tools: syringe units for mixed vials.
   // Units come from the vial in use (its own amount and water); pens are dialled, not drawn.
   const inUse = med.peptide ? vialForTag(med, vialId).vial ?? currentVial(med) : undefined;
@@ -142,6 +147,7 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, vialId, onLog
         tagId,
         personId: choosing && who ? storedPerson(who) : undefined,
         vialId: inUse && inUse.id !== 'legacy' ? inUse.id : undefined,
+        site: injected ? site : undefined,
       });
       if (canVibrate) navigator.vibrate(30);
       navigator.storage?.persist?.().catch(() => {}); // ask the browser to keep data once there's something worth keeping
@@ -255,6 +261,8 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, vialId, onLog
           </div>
         )}
       </div>
+
+      {injected && <SitePicker doses={allDoses} now={now} value={site} onChange={setSite} />}
 
       {combined.map((c) => (
         <div key={c.ingredient} className="rounded-btn bg-surface-2 px-4 py-3 space-y-2" role="alert">

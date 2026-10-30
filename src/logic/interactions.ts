@@ -67,6 +67,9 @@ const groupsOf = (m: Medication) => {
   return new Set((Object.keys(GROUPS) as Group[]).filter((g) => GROUPS[g].some((n) => names.includes(n))));
 };
 
+/** Whether a medicine belongs to a group (e.g. a GLP-1, a stimulant), from its ingredients. */
+export const inGroup = (m: Medication, g: Group) => groupsOf(m).has(g);
+
 export interface Interaction { key: string; a: Medication; b: Medication; why: string }
 
 /** Pairs of active medicines (for the same person, or shared) on the list above. One flag per pair. */
