@@ -17,6 +17,7 @@ import { robustFit } from './forecast';
 import { sleepRegularity, stepsChange } from './movement';
 import { gutLinks } from './gut';
 import { eatingPatterns, WHY_LABEL } from './eating';
+import { goalReached, regainWatch } from './maintenance';
 import { dayKey } from './stats';
 import { kgTo, weightUnit } from './units';
 import { shownName } from './privacy';
@@ -27,7 +28,7 @@ const WEEK = 7 * DAY;
 const day = (t: number) => format(t, 'EEE d MMM');
 const hourText = (h: number) => (h === 12 ? '12 pm' : h > 12 ? `${h - 12} pm` : `${h} am`);
 
-export type InsightKind = 'script' | 'reading' | 'stall' | 'wearoff' | 'change' | 'odd' | 'cutoff' | 'calories' | 'protein' | 'lean' | 'appointment' | 'followup' | 'steps' | 'sleep' | 'gut' | 'eating';
+export type InsightKind = 'script' | 'reading' | 'stall' | 'wearoff' | 'change' | 'odd' | 'cutoff' | 'calories' | 'protein' | 'lean' | 'appointment' | 'followup' | 'steps' | 'sleep' | 'gut' | 'eating' | 'regain' | 'maintain';
 
 export type InsightAction =
   | { kind: 'go'; label: string; href: string }
@@ -219,6 +220,25 @@ export function insights(d: InsightInput, now: number, s: ScheduleSettings): Ins
     out.push({ id: `sleep:${Math.floor(now / WEEK)}`, kind: 'sleep', importance: 35, confidence: 'medium', tone: 'plain',
       headline: `Your sleep varies by about ${sr.spreadH} h night to night`, evidence: `${sr.avgH} h on average over ${sr.nights} nights. A steadier bedtime usually helps appetite and energy.`,
       action: st.bedtime ? undefined : { kind: 'go', label: 'Set a bedtime', href: '#/settings/caffeine' }, snoozeDays: 14 });
+  }
+
+  // After the loss: weight creeping back, and the goal reached (aim to keep it).
+  if (d.has.body) {
+    const rg = regainWatch(d.body, d.meds, d.doses, d.goals, now, kg, shownName);
+    if (rg) {
+      out.push({ id: `regain:${Math.floor(rg.lowAt / WEEK)}:${Math.round(rg.up)}`, kind: 'regain', importance: 72, confidence: rg.up >= 2.5 ? 'high' : 'medium', tone: 'watch',
+        headline: `Up ${kg(rg.up)} from your lowest, ${day(rg.lowAt)}`,
+        evidence: `${rg.why ? `${rg.why}. ` : ''}Caught early, a few weeks of steady habits usually turns it round: protein, steps, and calories at what you burn.`,
+        action: d.has.food && st.lossRateKgWeek > 0 ? { kind: 'setting', label: 'Aim to keep my weight', key: 'lossRateKgWeek', value: 0, done: 'Calorie target set to keep your weight' } : { kind: 'go', label: 'See weight', href: '#/progress/body' },
+        snoozeDays: 14 });
+    }
+    const reached = goalReached(d.body, d.goals);
+    if (reached && d.has.food && st.lossRateKgWeek > 0) {
+      out.push({ id: `maintain:${reached.target}`, kind: 'maintain', importance: 70, confidence: 'high', tone: 'good',
+        headline: `You've reached ${kg(reached.target)}: aim to keep it?`,
+        evidence: 'Your calorie target moves to what you burn, kept up to date each week, so it holds.',
+        action: { kind: 'setting', label: 'Aim to keep my weight', key: 'lossRateKgWeek', value: 0, done: 'Calorie target set to keep your weight' }, snoozeDays: 30 });
+    }
   }
 
   // Checking back on what was done from an insight.

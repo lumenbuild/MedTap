@@ -253,6 +253,17 @@ const CONTENT: Record<string, ReactNode> = {
       <p>Today's ring fills as you take your set doses, check in and reach your water and protein. Under it, your longest streak; tap for every streak, your best runs and the milestones you've reached (runs of days, workouts, personal bests and every 5 kg towards a weight goal). Streaks are forgiving: one off day in any week, or one off week in four for training, doesn't end them, and a dose skipped on purpose counts. Your week (last week against the week before, wins first) is at the top of Progress; on Monday to Wednesday Today has a line for it.</p>
       <H>For you</H>
       <p>Everything the app notices, in one list, most important first: a script to book, readings to raise, a plateau, today's wear-off, a genuine change, odd records, an appointment, a caffeine cut-off found in your sleep{HAS_BODY ? ', a calorie target from what you actually burn, protein to keep muscle, and muscle lost while losing weight' : ''}. Today shows the top two; Progress shows them all. Each says what it rests on and has one thing to do; × puts it away for a while. Do something from one (set a cut-off, a target) and a few weeks later it checks back on what happened.</p>
+      {HAS_BODY && <>
+        <H>Losing weight well, and keeping it off</H>
+        <ul className="list-disc pl-5 space-y-1">
+          <li><strong>Calories</strong>: Food → Daily target → <strong>Worked out for me</strong>. From four weeks of food and weigh-ins, what you burn, and a target for the loss you choose (0 to keep your weight), updated each week.</li>
+          <li><strong>Fibre</strong>: on Food, against a daily target. If constipation, nausea or reflux comes up more after low-fibre, low-water or big-meal days, an insight says so.</li>
+          <li><strong>Hunger</strong>: when logging food, <strong>How hungry were you?</strong> and why (optional). Food → <strong>Why you eat</strong> shows how much is without real hunger, the usual reason, and whether short nights or low-protein days go with more of it.</li>
+          <li><strong>Steps</strong>: a target a little above your usual, in today's ring once steps come in (or your own in Settings → Training). Sleep that swings night to night, and an optional stress rating in check-ins, are watched too.</li>
+          <li><strong>After the loss</strong>: when your weight creeps up from its lowest (and why, if a dose came down or stopped), or you reach your goal, an insight offers to aim to keep it.</li>
+          <li><strong>Health markers</strong> on Body: blood pressure, resting heart rate, waist-to-height and BMI (add your height), and lab results such as HbA1c and cholesterol, each against where it started.</li>
+        </ul>
+      </>}
       <H>How Trends is laid out</H>
       <ul className="list-disc pl-5 space-y-1">
         <li><strong>How you've felt</strong>: your check-ins, what you noticed most and the coming days, in one place.</li>
