@@ -90,6 +90,8 @@ export interface Person extends Stamped {
   fitnessGoals?: FitnessGoal[];
   /** The training plan the app runs for them (see logic/coach). */
   coach?: CoachPlan;
+  /** Height (cm), for waist-to-height and BMI. */
+  heightCm?: number;
 }
 
 /** Training plan set-up: what it's for, how often and with what, and the programme being run (from when). */
