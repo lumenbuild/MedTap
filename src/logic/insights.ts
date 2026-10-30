@@ -14,6 +14,7 @@ import { wearOffToday } from './wearOff';
 import { caffeineDays, findCutoff, intakesOf } from './caffeine';
 import { calorieTarget, expenditure, latestWeight, leanAlert, proteinTarget } from './energy';
 import { robustFit } from './forecast';
+import { sleepRegularity, stepsChange } from './movement';
 import { dayKey } from './stats';
 import { kgTo, weightUnit } from './units';
 import { shownName } from './privacy';
@@ -24,7 +25,7 @@ const WEEK = 7 * DAY;
 const day = (t: number) => format(t, 'EEE d MMM');
 const hourText = (h: number) => (h === 12 ? '12 pm' : h > 12 ? `${h - 12} pm` : `${h} am`);
 
-export type InsightKind = 'script' | 'reading' | 'stall' | 'wearoff' | 'change' | 'odd' | 'cutoff' | 'calories' | 'protein' | 'lean' | 'appointment' | 'followup';
+export type InsightKind = 'script' | 'reading' | 'stall' | 'wearoff' | 'change' | 'odd' | 'cutoff' | 'calories' | 'protein' | 'lean' | 'appointment' | 'followup' | 'steps' | 'sleep';
 
 export type InsightAction =
   | { kind: 'go'; label: string; href: string }
@@ -177,6 +178,23 @@ export function insights(d: InsightInput, now: number, s: ScheduleSettings): Ins
         headline: `About ${want} g of protein a day keeps muscle while losing`, evidence: `1.6 g for each kg of ${goal && goal.target < (latestWeight(d.body) ?? 0) ? 'your goal weight' : 'your weight'}${st.proteinTargetG ? `; your target is ${st.proteinTargetG} g` : ''}`,
         action: { kind: 'setting', label: `Aim for ${want} g`, key: 'proteinTargetG', value: want, followUp: { kind: 'protein', value: want }, done: `Protein target: ${want} g a day` }, snoozeDays: 30 });
     }
+  }
+
+  // Moving less: a drop in steps is a quiet way calories burned fall while eating less.
+  const st2 = stepsChange(d.daily, now);
+  if (st2 && st2.before >= 3000 && st2.now < st2.before * 0.8) {
+    const diff = st2.before - st2.now;
+    out.push({ id: `steps:${Math.floor(now / WEEK)}`, kind: 'steps', importance: 40, confidence: 'medium', tone: 'watch',
+      headline: `Steps down to ${st2.now.toLocaleString()} a day, from ${st2.before.toLocaleString()}`,
+      evidence: `About ${Math.round((diff * 0.04) / 10) * 10} Cal a day less burned. The last 2 weeks against the 4 before.`,
+      action: { kind: 'go', label: 'See steps', href: '#/progress/trends' }, snoozeDays: 7 });
+  }
+  // Sleep that swings a lot night to night.
+  const sr = sleepRegularity(d.daily, now);
+  if (sr && sr.spreadH >= 1) {
+    out.push({ id: `sleep:${Math.floor(now / WEEK)}`, kind: 'sleep', importance: 35, confidence: 'medium', tone: 'plain',
+      headline: `Your sleep varies by about ${sr.spreadH} h night to night`, evidence: `${sr.avgH} h on average over ${sr.nights} nights. A steadier bedtime usually helps appetite and energy.`,
+      action: st.bedtime ? undefined : { kind: 'go', label: 'Set a bedtime', href: '#/settings/caffeine' }, snoozeDays: 14 });
   }
 
   // Checking back on what was done from an insight.

@@ -260,6 +260,8 @@ export interface CheckIn extends Stamped {
   at: string; mood?: number; energy?: number; focus?: number; appetite?: number;
   /** Muscle soreness 1 (none) to 5 (very sore), for training readiness. */
   soreness?: number;
+  /** Stress 1 (calm) to 5 (very stressed); optional. */
+  stress?: number;
   sleepHours?: number; sleepQuality?: number; chips: string[]; note?: string;
   relatedDoseId?: string; deletedAt?: string; personId?: string;
   /** A caffeine drink (with the Caffeine chip): its mg; the note is the drink's name. */

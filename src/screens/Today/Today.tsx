@@ -37,6 +37,7 @@ import { intakesOf, isDrink, usualHabits, usualToAsk } from '../../logic/caffein
 import { CaffeineCard, CaffeineSheet, SleepAsk, UsualCard } from '../../components/Caffeine';
 import { DayStrip, MilestoneCard } from '../../components/Motivation';
 import { milestones, streaks, todayRing } from '../../logic/motivation';
+import { stepsTarget } from '../../logic/movement';
 import { addCheckIn, removeCheckIn } from '../../db/repos/checkIns';
 import { format } from 'date-fns';
 import { PrnCard } from './PrnCard';
@@ -99,7 +100,7 @@ export function Today() {
       perWeek: person?.fitnessGoals?.find((g) => g.kind === 'sessions')?.perWeek, defs: allExercises(own ?? []) };
     const run = streaks(data, t, sc, { training, checkIns: true });
     return { streaks: run, milestones: milestones(data, run, t, st.units, { training, body: HAS_BODY }),
-      ring: todayRing(data, t, sc, { checkInTimes: st.checkInTimes, water: st.waterTargetMl, protein: st.proteinTargetG, intake: training }) };
+      ring: todayRing(data, t, sc, { checkInTimes: st.checkInTimes, water: st.waterTargetMl, protein: st.proteinTargetG, intake: training, steps: st.stepsTargetOwn ?? stepsTarget(data.daily, t) }) };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenMin, meds, doses, checkIns, body, daily, workouts, own, fam, ss]);
   // A tapped reminder notification opens Log dose for that medication.

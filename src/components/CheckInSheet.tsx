@@ -100,6 +100,7 @@ function CheckInForm({ seed, onClose, doses, checkIns, meds, chips, s, personId,
         <Rating label="Energy" low="Drained" high="Energised" value={f.energy} onChange={(v) => set('energy', v)} />
         <Rating label="Focus" low="Scattered" high="Sharp" value={f.focus} onChange={(v) => set('focus', v)} />
         <Rating label="Appetite" low="None" high="Very hungry" value={f.appetite} onChange={(v) => set('appetite', v)} />
+        <Rating label="Stress" low="Calm" high="Very stressed" value={f.stress} onChange={(v) => set('stress', v)} />
         {(soreness || f.soreness !== undefined) && <Rating label="Muscle soreness" low="None" high="Very sore" value={f.soreness} onChange={(v) => set('soreness', v)} />}
 
         {showSleep && (

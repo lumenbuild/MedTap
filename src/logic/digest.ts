@@ -104,6 +104,12 @@ export function periodReview(d: DigestData, start: number, end: number, s: Sched
   if (mn !== null && mp !== null && mn - mp >= 0.3) wins.push(`Mood up to ${r1(mn)} of 5`);
   if (mn !== null) lines.push({ key: 'mood', label: 'Mood', text: `${r1(mn)} of 5${mp !== null && Math.abs(mn - mp) >= 0.2 ? `, ${mn > mp ? 'up' : 'down'} from ${r1(mp)}` : ''}`, tone: mp !== null && mn < mp - 0.4 ? 'watch' : 'plain' });
 
+  // Stress from check-ins (when asked).
+  const stress = (a: number, b: number) => avg(d.checkIns.filter((c) => !c.deletedAt && c.stress && inR(Date.parse(c.at), a, b)).map((c) => c.stress!));
+  const xn = stress(start, end), xp = stress(prevStart, start);
+  if (xn !== null && xp !== null && xp - xn >= 0.4) wins.push(`Stress down to ${r1(xn)} of 5`);
+  if (xn !== null) lines.push({ key: 'stress', label: 'Stress', text: `${r1(xn)} of 5${xp !== null && Math.abs(xn - xp) >= 0.2 ? `, ${xn < xp ? 'down' : 'up'} from ${r1(xp)}` : ''}`, tone: xp !== null && xn > xp + 0.5 ? 'watch' : 'plain' });
+
   // Side effects, for injections (the weekly review is also the injection's week: Protocol links here).
   if (d.meds.some((m) => m.peptide && !m.archived)) {
     const fx = (a: number, b: number) => { const cs = d.checkIns.filter((c) => !c.deletedAt && inR(Date.parse(c.at), a, b) && (c.mood !== undefined || c.chips.length)); return cs.length >= 3 ? Math.round((cs.filter((c) => c.chips.some((x) => EFFECT_CHIPS.includes(x))).length / cs.length) * 100) : null; };

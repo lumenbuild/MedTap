@@ -20,6 +20,7 @@ import { WeekReviewSection } from '../../components/WeekReview';
 import { whatChanged, dailySignals } from '../../logic/changes';
 import { Stat, Tile } from '../../components/ui/Visual';
 import { glance } from '../../logic/digest';
+import { stepsTarget } from '../../logic/movement';
 import { kgTo, weightUnit } from '../../logic/units';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
@@ -88,7 +89,7 @@ export function Trends() {
   const training = HAS_TRAINING && settings.trainingTools;
   const habits = dailyHabits({ daily, foodLogs: allFood.filter((l) => personOf(l) === fam.personId), checkIns }, start, end, prevStart, s, {
     food: HAS_FOOD && settings.foodTracking, intake: training, readiness: training,
-    targets: { energy: settings.energyTargetKcal, protein: settings.proteinTargetG, water: settings.waterTargetMl, caffeineLimit: settings.caffeineLimitMg },
+    targets: { energy: settings.energyTargetKcal, protein: settings.proteinTargetG, water: settings.waterTargetMl, steps: settings.stepsTargetOwn ?? stepsTarget(daily, now), caffeineLimit: settings.caffeineLimitMg },
   });
   const sleep = sleepImpact(meds.filter((m) => !m.peptide && !m.archived), doses, checkIns, now, s);
   const ciForecast = checkInForecast(meds, doses, checkIns, now, s);

@@ -3,7 +3,7 @@
 // of Progress; Today has a line for it on Monday to Wednesday, and the Monday notification opens it.
 import { useMemo } from 'react';
 import { format } from 'date-fns';
-import { Beef, CalendarRange, Dumbbell, Frown, Moon, Pill, Scale, Smile, Trophy, X, type LucideIcon } from 'lucide-react';
+import { Beef, Brain, CalendarRange, Dumbbell, Frown, Moon, Pill, Scale, Smile, Trophy, X, type LucideIcon } from 'lucide-react';
 import { weeklyDigest, type Digest } from '../logic/digest';
 import { milestones, streaks } from '../logic/motivation';
 import { allExercises } from '../logic/exercises';
@@ -17,7 +17,7 @@ import { isNative } from '../platform';
 import { HAS_BODY, HAS_TRAINING } from '../edition';
 import { IconRow } from './ui/Visual';
 
-const ICON: Record<string, LucideIcon> = { doses: Pill, weight: Scale, training: Dumbbell, protein: Beef, sleep: Moon, mood: Smile, effects: Frown };
+const ICON: Record<string, LucideIcon> = { doses: Pill, weight: Scale, training: Dumbbell, protein: Beef, sleep: Moon, mood: Smile, effects: Frown, stress: Brain };
 
 /** Last week's review for the person shown (null in everyone's view, or with nothing to say). */
 export function useWeekReview(): { d: Digest; seen: number; notify: boolean } | null {

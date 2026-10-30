@@ -2,7 +2,7 @@
 // Today shows the top couple (TopInsights); Progress shows every one (InsightFeed). Acting on one that changes a
 // setting also notes it, so the app can check back a few weeks later on what happened.
 import { useMemo, useState } from 'react';
-import { ArrowDownRight, CalendarDays, Coffee, Droplet, Dumbbell, FileText, HeartPulse, Lightbulb, SearchCheck, Sparkles, Utensils, X, Zap, type LucideIcon } from 'lucide-react';
+import { ArrowDownRight, CalendarDays, Footprints, Moon, Coffee, Droplet, Dumbbell, FileText, HeartPulse, Lightbulb, SearchCheck, Sparkles, Utensils, X, Zap, type LucideIcon } from 'lucide-react';
 import { insights, type Insight, type InsightKind } from '../logic/insights';
 import { fmtTime } from '../logic/format';
 import { oddRecords } from '../logic/records';
@@ -19,7 +19,7 @@ import { Button } from './ui/Button';
 
 const ICON: Record<InsightKind, LucideIcon> = {
   script: FileText, reading: HeartPulse, stall: Droplet, wearoff: Zap, change: ArrowDownRight, odd: SearchCheck, cutoff: Coffee,
-  calories: Utensils, protein: Dumbbell, lean: Dumbbell, appointment: CalendarDays, followup: Sparkles,
+  calories: Utensils, protein: Dumbbell, lean: Dumbbell, appointment: CalendarDays, followup: Sparkles, steps: Footprints, sleep: Moon,
 };
 const TONE = { watch: { bg: 'var(--caution-soft)', fg: 'var(--caution)' }, good: { bg: 'var(--success-soft)', fg: 'var(--success)' }, plain: { bg: 'var(--surface-2)', fg: 'var(--primary)' } };
 
