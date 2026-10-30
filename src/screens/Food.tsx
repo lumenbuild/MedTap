@@ -67,6 +67,11 @@ export function FoodScreen() {
         <p className="tnum"><span className="text-[28px] font-semibold">{fmtEnergy(tot.kcal ?? 0, energy).split(' ')[0]}</span> <span className="text-muted">{energy === 'kJ' ? 'kJ' : 'Cal'}{target ? ` of ${fmtEnergy(target, energy)}` : ''}</span></p>
         {target ? <Bar value={tot.kcal ?? 0} max={Math.max(target, tot.kcal ?? 0)} tone={(tot.kcal ?? 0) > target * 1.1 ? 'watch' : 'plain'} label={`Energy ${fmtEnergy(tot.kcal ?? 0, energy)} of ${fmtEnergy(target, energy)}`} /> : null}
         <MacroSplit n={tot} />
+        {/* Fibre: low on GLP-1s, and the usual first help for constipation. */}
+        <div className="space-y-1">
+          <p className="text-sm tnum flex justify-between"><span>Fibre</span><span className="text-muted">{Math.round(tot.fibre ?? 0)} of {settings.fibreTargetG} g</span></p>
+          <Bar value={tot.fibre ?? 0} max={settings.fibreTargetG} tone={(tot.fibre ?? 0) >= settings.fibreTargetG ? 'good' : 'plain'} label={`Fibre ${Math.round(tot.fibre ?? 0)} of ${settings.fibreTargetG} g`} />
+        </div>
         {today.length === 0 ? <p className="text-muted">Nothing logged {back === 0 ? 'yet today' : 'this day'}.</p> : (
           <ol className="-mx-2">
             {today.map((l) => (
@@ -115,6 +120,8 @@ export function FoodScreen() {
       <Card className="space-y-3">
         <h2 className="text-sm font-medium text-muted">Energy</h2>
         <Segmented<EnergyUnit> label="Show energy in" value={energy} onChange={(v) => setSetting('energyUnit', v)} options={[{ value: 'kcal', label: 'Calories' }, { value: 'kJ', label: 'Kilojoules' }]} />
+        <TextInput key={`fibre-${settings.fibreTargetG}`} label="Fibre a day (g)" type="number" inputMode="numeric" min="5" max="80" step="1" defaultValue={String(settings.fibreTargetG)}
+          onBlur={(e) => { const v = Math.round(Number(e.target.value)); if (v >= 5 && v <= 80) void setSetting('fibreTargetG', v); }} help="25 to 30 g is the usual aim. More vegetables, fruit, oats, beans and wholegrains." />
         {HAS_BODY && <Segmented label="Daily target" value={settings.energyAuto ? 'auto' : 'own'} options={[{ value: 'own', label: 'My own number' }, { value: 'auto', label: 'Worked out for me' }]}
           onChange={async (v) => { await setSetting('energyAuto', v === 'auto'); if (v === 'auto') { await setSetting('energyAutoAt', 0); await updateCalorieTarget(); } }} />}
         {HAS_BODY && settings.energyAuto

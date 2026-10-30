@@ -15,6 +15,7 @@ import { caffeineDays, findCutoff, intakesOf } from './caffeine';
 import { calorieTarget, expenditure, latestWeight, leanAlert, proteinTarget } from './energy';
 import { robustFit } from './forecast';
 import { sleepRegularity, stepsChange } from './movement';
+import { gutLinks } from './gut';
 import { dayKey } from './stats';
 import { kgTo, weightUnit } from './units';
 import { shownName } from './privacy';
@@ -25,7 +26,7 @@ const WEEK = 7 * DAY;
 const day = (t: number) => format(t, 'EEE d MMM');
 const hourText = (h: number) => (h === 12 ? '12 pm' : h > 12 ? `${h - 12} pm` : `${h} am`);
 
-export type InsightKind = 'script' | 'reading' | 'stall' | 'wearoff' | 'change' | 'odd' | 'cutoff' | 'calories' | 'protein' | 'lean' | 'appointment' | 'followup' | 'steps' | 'sleep';
+export type InsightKind = 'script' | 'reading' | 'stall' | 'wearoff' | 'change' | 'odd' | 'cutoff' | 'calories' | 'protein' | 'lean' | 'appointment' | 'followup' | 'steps' | 'sleep' | 'gut';
 
 export type InsightAction =
   | { kind: 'go'; label: string; href: string }
@@ -54,7 +55,7 @@ export interface Insight {
 export interface InsightInput {
   meds: Medication[]; doses: Dose[]; checkIns: CheckIn[]; daily: DailyHealth[]; body: BodyEntry[]; vitals: Vital[];
   workouts: Workout[]; events: MedEvent[]; foodLogs: FoodLog[]; appointments: Appointment[]; goals: BodyGoal[];
-  settings: Pick<AppSettings, 'bedtime' | 'caffeineHalfLifeH' | 'caffeineCutoff' | 'proteinTargetG' | 'energyTargetKcal' | 'energyAuto' | 'lossRateKgWeek'
+  settings: Pick<AppSettings, 'bedtime' | 'caffeineHalfLifeH' | 'fibreTargetG' | 'caffeineCutoff' | 'proteinTargetG' | 'energyTargetKcal' | 'energyAuto' | 'lossRateKgWeek'
     | 'mentionsDismissed' | 'oddDismissed' | 'insightsHidden' | 'followUps'>;
   units: Units;
   has: { body: boolean; food: boolean; training: boolean; meds: boolean };
@@ -178,6 +179,15 @@ export function insights(d: InsightInput, now: number, s: ScheduleSettings): Ins
         headline: `About ${want} g of protein a day keeps muscle while losing`, evidence: `1.6 g for each kg of ${goal && goal.target < (latestWeight(d.body) ?? 0) ? 'your goal weight' : 'your weight'}${st.proteinTargetG ? `; your target is ${st.proteinTargetG} g` : ''}`,
         action: { kind: 'setting', label: `Aim for ${want} g`, key: 'proteinTargetG', value: want, followUp: { kind: 'protein', value: want }, done: `Protein target: ${want} g a day` }, snoozeDays: 30 });
     }
+  }
+
+  // Side effects against food and water.
+  if (d.has.food) {
+    const g = gutLinks(d.foodLogs, d.daily, d.checkIns, now, s, st.fibreTargetG)[0];
+    if (g) out.push({ id: `gut:${g.chip}:${g.factor}`, kind: 'gut', importance: 50, confidence: g.withN + g.withoutN >= 20 ? 'high' : 'medium', tone: 'plain',
+      headline: `${g.chip} came up more after days with ${g.text}`,
+      evidence: `${g.withPct}% of those days, against ${g.withoutPct}% of the others (${g.withN} and ${g.withoutN} days). A link in your records, not proof of cause.`,
+      action: g.factor === 'big-meal' ? { kind: 'go', label: 'See your meals', href: '#/food' } : g.factor === 'water' ? { kind: 'go', label: 'Water', href: '#/today' } : { kind: 'go', label: 'Fibre on Food', href: '#/food' }, snoozeDays: 21 });
   }
 
   // Moving less: a drop in steps is a quiet way calories burned fall while eating less.

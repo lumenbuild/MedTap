@@ -150,6 +150,8 @@ export interface AppSettings {
   lossRateKgWeek: number;
   /** A steps target of the person's own; null: worked out from their recent days (logic/movement). */
   stepsTargetOwn: number | null;
+  /** Fibre a day (g). */
+  fibreTargetG: number;
   /** Insights put away: id → until when (ms); a far-future time for good. */
   insightsHidden: Record<string, number>;
   /** Things done from an insight, to check back on a few weeks later ("since your 2 pm cut-off, sleep …"). */
@@ -247,6 +249,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   energyAutoAt: 0,
   lossRateKgWeek: 0.5,
   stepsTargetOwn: null,
+  fibreTargetG: 25,
   insightsHidden: {},
   followUps: [],
 };

@@ -19,7 +19,7 @@ import { Button } from './ui/Button';
 
 const ICON: Record<InsightKind, LucideIcon> = {
   script: FileText, reading: HeartPulse, stall: Droplet, wearoff: Zap, change: ArrowDownRight, odd: SearchCheck, cutoff: Coffee,
-  calories: Utensils, protein: Dumbbell, lean: Dumbbell, appointment: CalendarDays, followup: Sparkles, steps: Footprints, sleep: Moon,
+  calories: Utensils, protein: Dumbbell, lean: Dumbbell, appointment: CalendarDays, followup: Sparkles, steps: Footprints, sleep: Moon, gut: Utensils,
 };
 const TONE = { watch: { bg: 'var(--caution-soft)', fg: 'var(--caution)' }, good: { bg: 'var(--success-soft)', fg: 'var(--success)' }, plain: { bg: 'var(--surface-2)', fg: 'var(--primary)' } };
 
