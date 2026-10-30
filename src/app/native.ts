@@ -6,7 +6,7 @@ import { db } from '../db/db';
 import { getSettings, scheduleSettings, setSetting } from '../db/repos/settings';
 import { dosesForPerson, listPeople, medIsFor, personOf, storedPerson } from '../db/repos/people';
 import { CAFFEINE, intakesOf, usualDrinks, usualHabits, usualKey, usualToAsk } from '../logic/caffeine';
-import { shortcutItems } from '../logic/widget';
+import { shortcutItems } from '../logic/widgets';
 import { widgetsPayload } from '../logic/widgets';
 import { HAS_BODY, HAS_PEPTIDES } from '../edition';
 import { addIntake } from '../db/repos/training';
