@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ingredientsOf, ingredientsText, parseIngredients } from '../../logic/ingredients';
 import { shownName } from '../../logic/privacy';
 import { interactions, unstudied } from '../../logic/interactions';
-import { Check, ClipboardList, EyeOff, Link2, Plus, X } from 'lucide-react';
+import { Check, ChevronRight, ClipboardList, EyeOff, Link2, Plus, TrendingUp, X } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Medication, SyringeType } from '../../db/schema';
 import { db } from '../../db/db';
@@ -29,11 +29,11 @@ import {
   blankSchedule, ScheduleFields, scheduleFormFromMed, scheduleFromForm, validateSchedule, type ScheduleErrors, type ScheduleForm, type ScheduleSetter,
 } from './ScheduleFields';
 import { TagsSection } from './TagsSection';
-import { PlannedChanges } from './PlannedChanges';
 import { BottlesSection } from './BottlesSection';
 import { ScanLabelCard } from './ScanLabel';
-import { TitrationCard } from './PeptideSections';
-import { StepPlanCard } from '../../components/DosePlan';
+import { DosePlanCard } from '../../components/DosePlan';
+import { planShort } from '../../logic/dosePlan';
+import { scheduleSettings } from '../../db/repos/settings';
 import { VialCard } from './VialCard';
 import { MedPatterns } from '../../components/Smart';
 import { CountButton, countsFromPhoto } from '../../components/CountSheet';
@@ -41,6 +41,7 @@ import { DrawGuide, syringeSizes } from '../../components/Syringe';
 import { SYRINGES } from '../../logic/peptide';
 import type { LabelDetails } from '../../logic/label';
 import { HAS_PEPTIDES } from '../../edition';
+import { fmtAmount } from '../../logic/format';
 
 const UNITS = ['mg', 'mcg', 'mL', 'units', 'tablet'];
 const FORMS = ['tablet', 'capsule', 'liquid', 'patch', 'injection', 'other'];
@@ -198,6 +199,8 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
   useEffect(() => { if (existing) setF(fromMed(existing)); }, [loadedId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const settings = useSettings();
+  // An injection on the Protocol tab keeps its dose plan there.
+  const onProtocol = HAS_PEPTIDES && !!settings?.peptideTools && !!existing?.peptide;
   // New medications are for whoever is selected.
   const fam = useFamily();
   const famLoaded = !!fam;
@@ -305,9 +308,15 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
       )}
       {existing && <TagsSection med={existing} />}
       {HAS_PEPTIDES && existing?.peptide && !existing.archived && <VialCard med={existing} />}
-      {existing && !existing.archived && !priv && <StepPlanCard med={existing} />}
-      {existing && !existing.archived && <PlannedChanges med={existing} />}
-      {existing && !existing.archived && settings?.peptideTools && <TitrationCard med={existing} />}
+      {/* The dose plan: for an injection its home is Protocol (with the shots, vials and level); for the rest, here. */}
+      {existing && !existing.archived && !priv && (onProtocol
+        ? <a href="#/protocol" onClick={() => { try { localStorage.setItem('protocolMed', existing.id); } catch { /* fine */ } }}
+            className="flex items-center gap-3 rounded-card border border-border p-4 min-h-[56px]">
+            <TrendingUp size={20} className="text-primary shrink-0" aria-hidden="true" />
+            <span className="flex-1"><span className="block font-medium">Dose plan</span><span className="block text-sm text-muted tnum">{planShort(existing, Date.now(), scheduleSettings(settings!)) ?? `Now ${fmtAmount(existing.defaultAmount, existing.unit)}`} · on Protocol</span></span>
+            <ChevronRight size={18} className="text-muted shrink-0" aria-hidden="true" />
+          </a>
+        : <DosePlanCard med={existing} />)}
       {existing && !existing.archived && !existing.peptide && <BottlesSection med={existing} />}
       {existing && !existing.archived && <MedPatterns med={existing} />}
 

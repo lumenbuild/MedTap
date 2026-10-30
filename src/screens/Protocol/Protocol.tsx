@@ -1,6 +1,6 @@
 import { costSummary, money } from '../../logic/cost';
-import { planLine, stepStatus } from '../../logic/dosePlan';
-import { stepSummary } from '../../components/DosePlan';
+import { planLine } from '../../logic/dosePlan';
+import { DosePlanCard } from '../../components/DosePlan';
 import { lazy, Suspense, useState, type ReactNode } from 'react';
 import { format } from 'date-fns';
 import type { Dose, Medication, Person } from '../../db/schema';
@@ -24,13 +24,12 @@ import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { Button } from '../../components/ui/Button';
 import { WeekStrip } from './WeekStrip';
 import { Tile } from '../../components/ui/Visual';
-import { StepUpCard } from '../../components/Insights';
-import { AlertTriangle, Calculator, CalendarRange, ChevronDown, ChevronRight, FileText, Package, TrendingDown } from 'lucide-react';
+import { AlertTriangle, Calculator, CalendarRange, ChevronRight, FileText, Package, TrendingDown } from 'lucide-react';
 import { ChipPicker } from '../../components/ui/Field';
 import { Sheet } from '../../components/ui/Sheet';
 import { LogDoseFlow } from '../../components/LogDoseFlow';
 import { StartVialSheet } from '../Meds/VialCard';
-import { PlanLadder } from './PlanLadder';
+
 import { useToast } from '../../app/toast';
 import { removeDose } from '../../db/repos/doses';
 import { LeadTimeSheet, LotSheet } from './ProtocolSheets';
@@ -138,7 +137,6 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
   const nextAmount = next !== null ? getExpectedAmount(med, doses, next, s) : med.defaultAmount;
   const guide = guideText(med, nextAmount);
   const plan = planLine(med, now, s);
-  const step = stepStatus(med, doses.filter((d) => d.medicationId === med.id), checkIns, HAS_BODY ? body : [], now, s);
   const vial = vialStatus(med, doses, now);
   const rest = vialRest(med, doses, now, s);
   const restText = rest ? vialRestText(rest, med.unit, pen) : '';
@@ -232,23 +230,10 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
         </dl>
       </section>
 
-      {/* 3. The plan, drawn: steps taken, today, the planned changes; then the step plan and the estimated level. */}
-      <section aria-labelledby="plan-h" className="border-t border-border pt-5 space-y-3">
-        <div className="flex items-baseline justify-between">
-          <h2 id="plan-h" className="text-sm font-medium text-muted">Plan</h2>
-          <a href={`#/meds/${med.id}`} className="text-sm font-medium underline underline-offset-4 min-h-[44px] inline-flex items-center">Change it</a>
-        </div>
-        <PlanLadder med={med} doses={doses} now={now} />
-        {step && (
-          <p className="text-[15px]">
-            <span className="font-medium">{step.ready ? `Ready for ${fmtAmount(step.next, med.unit)}` : step.atLimit ? 'At your limit' : `Next step ${fmtAmount(step.next, med.unit)}`}</span>
-            <span className="text-muted"> · {stepSummary(med, step, now)}</span>
-          </p>
-        )}
-        <details className="group">
-          <summary className="min-h-[44px] flex items-center gap-1.5 text-sm font-medium cursor-pointer list-none">Step-up checklist <ChevronDown size={16} className="text-muted transition-transform group-open:rotate-180" aria-hidden="true" /></summary>
-          <StepUpCard med={med} doses={doses} checkIns={checkIns} body={HAS_BODY ? body : []} now={now} s={s} />
-        </details>
+      {/* 3. The dose plan: every way the dose changes, in one place (also the home for editing it), then the
+          estimated level through it. */}
+      <DosePlanCard med={med} flat />
+      <section aria-label="Estimated level" className="space-y-3">
         {med.peptide?.halfLifeHours
           ? <Suspense fallback={<div className="h-[150px]" />}><LevelProjection med={med} doses={doses.filter((d) => d.medicationId === med.id)} s={s} now={now} /></Suspense>
           : <p className="text-sm text-muted">Add a half-life on <a href={`#/meds/${med.id}`} className="underline underline-offset-4">its page</a> to see the estimated level through your plan.</p>}

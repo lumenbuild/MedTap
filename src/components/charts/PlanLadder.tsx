@@ -37,6 +37,8 @@ export function planSteps(med: Medication, doses: Dose[], now: number): PlanStep
 export function PlanLadder({ med, doses, now }: { med: Medication; doses: Dose[]; now: number }) {
   const steps = planSteps(med, doses, now);
   if (steps.length < 2 && !steps.some((x) => !x.planned)) return null;
+  // One dose all along, nothing changing: a flat line says nothing.
+  if (steps.every((x) => Math.abs(x.amount - steps[0].amount) < 1e-6)) return null;
   const t0 = Math.max(steps[0].from, now - 26 * 7 * DAY);
   const t1 = steps[steps.length - 1].to;
   const max = Math.max(...steps.map((x) => x.amount), med.stepPlan && med.stepPlan.maxPer === 'dose' && !med.stepPlan.down ? med.stepPlan.max : 0);

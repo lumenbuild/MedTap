@@ -119,6 +119,11 @@ export async function saveStepPlan(medId: string, plan: StepPlan | undefined, cr
   await db.medications.update(medId, { stepPlan: plan, ...(criteria ? { stepUp: criteria } : {}), updatedAt: nowIso() });
 }
 
+/** The conditions for the next step on their own (a dated step checked against them, without a step plan). */
+export async function saveStepConditions(medId: string, criteria: StepUpCriteria) {
+  await db.medications.update(medId, { stepUp: criteria, updatedAt: nowIso() });
+}
+
 export interface Undo { before: Medication; eventId: string }
 
 /** The person confirmed the next step: the new dose from now (times stay; per-time amounts become the one dose). */

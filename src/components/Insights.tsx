@@ -1,24 +1,18 @@
 // The smart insights, each in one place: today's wear-off forecast, a weight stall and recent
-// changes as one line on Today; "What changed" and "Ask your data" on Trends; the step-up checklist on Protocol.
+// changes as one line on Today; "What changed" and "Ask your data" on Trends (the step-up checklist is part of the dose plan, components/DosePlan).
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { ArrowDownRight, ArrowUpRight, Check, CircleHelp, Droplet, Minus, Pencil, Search, Sparkles, TrendingDown, X, Zap } from 'lucide-react';
-import type { CheckIn, DailyHealth, Dose, Medication, StepUpCriteria } from '../db/schema';
+import { ArrowDownRight, ArrowUpRight, CircleHelp, Droplet, Search, Sparkles, TrendingDown, X, Zap } from 'lucide-react';
+import type { CheckIn, DailyHealth, Dose, Medication } from '../db/schema';
 import type { ScheduleSettings } from '../logic/schedule';
 import { wearOffToday, type WearOff } from '../logic/wearOff';
 import type { Stall } from '../logic/stall';
 import { fmtChangeValue, type Change, type SignalKey } from '../logic/changes';
 import { ask, askSuggestions, type AskData } from '../logic/ask';
-import { DEFAULT_STEP_UP, stepUpChecklist } from '../logic/stepUp';
 import { shownName } from '../logic/privacy';
 import { fmtTime } from '../logic/format';
-import { db } from '../db/db';
 import { Bar, IconRow, Sparkline } from './ui/Visual';
-import { Button } from './ui/Button';
-import { Sheet, SheetActions } from './ui/Sheet';
-import { TextInput } from './ui/Field';
 import { TrendChart } from './charts/TrendChart';
-import type { BodyEntry } from '../db/schema';
 import { HAS_MEDS, FOCUS } from '../edition';
 
 const day = (t: number) => format(t, 'EEE d MMM');
@@ -176,62 +170,4 @@ export function AskBox({ data, now }: { data: AskData; now: number }) {
 
 function rolling(points: { t: number; v: number }[]) {
   return points.map((p) => { const w = points.filter((q) => q.t > p.t - 7 * 86_400_000 && q.t <= p.t); return { t: p.t, v: w.reduce((a, b) => a + b.v, 0) / w.length }; });
-}
-
-// ── Step-up checklist (Protocol) ───────────────────────────────────────────────────────────────────
-
-export function StepUpCard({ med, doses, checkIns, body, now, s }: { med: Medication; doses: Dose[]; checkIns: CheckIn[]; body: BodyEntry[]; now: number; s: ScheduleSettings }) {
-  const [editing, setEditing] = useState(false);
-  const v = stepUpChecklist(med, doses, checkIns, body, now, s);
-  if (!v) return null;
-  return (
-    <div className="mt-5">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-muted">Step-up checklist · {v.met} of {v.checks.length}</p>
-        <button type="button" className="min-h-[44px] flex items-center gap-1.5 text-sm font-medium" onClick={() => setEditing(true)}><Pencil size={14} aria-hidden="true" />{med.stepUp ? 'Edit' : 'Set yours'}</button>
-      </div>
-      <ul className="mt-1">
-        {v.checks.map((c) => (
-          <li key={c.key} className="flex items-center gap-3 min-h-[40px]">
-            <span aria-hidden="true" className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-              style={{ background: c.ok ? 'var(--success-soft)' : c.ok === false ? 'var(--surface-2)' : 'var(--surface-2)', color: c.ok ? 'var(--success)' : 'var(--text-muted)' }}>
-              {c.ok ? <Check size={14} /> : c.ok === false ? <X size={14} /> : <Minus size={14} />}
-            </span>
-            <span className="flex-1 text-[15px]">{c.label}</span>
-            <span className="text-sm text-muted tnum">{c.value}</span>
-            <span className="sr-only">{c.ok ? 'met' : c.ok === false ? 'not yet' : 'not enough data'}</span>
-          </li>
-        ))}
-      </ul>
-      {!med.stepUp && <p className="text-xs text-muted">Starting criteria · set your own (or your prescriber's)</p>}
-      {editing && <StepUpSheet med={med} onClose={() => setEditing(false)} />}
-    </div>
-  );
-}
-
-function StepUpSheet({ med, onClose }: { med: Medication; onClose: () => void }) {
-  const c = med.stepUp ?? DEFAULT_STEP_UP;
-  const [f, setF] = useState({ minWeeks: c.minWeeks ?? '', maxEffectPct: c.maxEffectPct ?? '', maxLossKgWeek: c.maxLossKgWeek ?? '', minAppetite: c.minAppetite ?? '', noMissedWeeks: c.noMissedWeeks ?? '' } as Record<keyof StepUpCriteria, string | number>);
-  const num = (v: string | number) => (String(v).trim() === '' ? undefined : Number(v));
-  const save = async () => {
-    const stepUp: StepUpCriteria = { minWeeks: num(f.minWeeks), maxEffectPct: num(f.maxEffectPct), maxLossKgWeek: num(f.maxLossKgWeek), minAppetite: num(f.minAppetite), noMissedWeeks: num(f.noMissedWeeks) };
-    await db.medications.update(med.id, { stepUp, updatedAt: new Date().toISOString() });
-    onClose();
-  };
-  const field = (k: keyof StepUpCriteria, label: string) => (
-    <TextInput label={label} type="number" inputMode="decimal" min="0" step="any" value={String(f[k])} onChange={(e) => setF({ ...f, [k]: e.target.value })} />
-  );
-  return (
-    <Sheet open onClose={onClose} title="Ready for the next step when">
-      <div className="space-y-3">
-        <p className="text-sm text-muted">Leave any blank to skip it</p>
-        {field('minWeeks', 'Weeks on the dose, at least')}
-        {field('maxEffectPct', 'Side effects in at most this % of check-ins')}
-        {field('maxLossKgWeek', 'Losing at most this many kg a week')}
-        {field('minAppetite', 'Appetite at least (1–5)')}
-        {field('noMissedWeeks', 'No missed shots for this many weeks')}
-        <SheetActions><Button className="w-full min-h-[56px]" onClick={save}>Save</Button></SheetActions>
-      </div>
-    </Sheet>
-  );
 }
