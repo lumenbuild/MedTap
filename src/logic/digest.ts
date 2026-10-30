@@ -10,6 +10,7 @@ import { newPBs, working } from './training';
 import type { ExerciseDef } from './exercises';
 import { kgTo, weightUnit } from './units';
 import { EFFECT_CHIPS } from './predict';
+import { robustFit } from './forecast';
 
 const DAY = 86_400_000;
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
@@ -107,5 +108,34 @@ export function weeklyDigest(d: DigestData, now: number, s: ScheduleSettings, op
   if (!lines.length && !wins.length) return null;
   const good = lines.find((l) => l.tone === 'good'), watch = lines.find((l) => l.tone === 'watch');
   const headline = wins.length ? wins[0] : good ? `${good.label}: ${good.text}` : watch ? `Worth a look: ${watch.label.toLowerCase()} ${watch.text}` : `${lines[0].label}: ${lines[0].text}`;
-  return { weekStart: start, weekEnd: end, headline, lines, wins: [...new Set(wins)].slice(0, 5) };
+  return { weekStart: start, weekEnd: end, headline, lines, wins: [...new Set(wins)].slice(0, 3) };
+}
+
+export interface Glance {
+  /** kg a week over the last 30 days (negative = losing). */
+  weightPerWeek?: number;
+  /** Doses logged of those due, last 14 days, and the 14 before. */
+  doses?: { pct: number; before?: number };
+  /** Mood from check-ins (1 to 5), last 14 days, and the 14 before. */
+  mood?: { avg: number; before?: number };
+}
+
+/** Progress at a glance: the weight trend, doses on schedule and how you've felt, each against the time before. */
+export function glance(d: Pick<DigestData, 'meds' | 'doses' | 'checkIns' | 'body'>, now: number, s: ScheduleSettings): Glance {
+  const out: Glance = {};
+  const pts = d.body.filter((b) => !b.deletedAt && typeof b.weightKg === 'number').map((b) => ({ t: ymdToMs(b.date), v: b.weightKg! })).filter((p) => p.t > now - 30 * DAY && p.t <= now);
+  if (pts.length >= 4) { const f = robustFit(pts, now); if (f && f.spanDays >= 10) out.weightPerWeek = Math.round(f.slope * 7 * 10) / 10; }
+  const sched = d.meds.filter((m) => !m.archived && m.schedule.type !== 'prn');
+  const rate = (a: number, b: number) => {
+    let got = 0, want = 0;
+    for (const m of sched) for (const x of adherenceByDay(d.doses, m, daysBetween(a, b, s), s)) if (x.target) { want += x.target; got += Math.min(x.count, x.target); }
+    return want ? Math.round((got / want) * 100) : undefined;
+  };
+  const today = getDayBounds(now, s.dayStartsAt, s.tz).start;
+  const dn = rate(today - 14 * DAY, today), dp = rate(today - 28 * DAY, today - 14 * DAY);
+  if (dn !== undefined) out.doses = { pct: dn, before: dp };
+  const mood = (a: number, b: number) => { const xs = d.checkIns.filter((c) => !c.deletedAt && c.mood && Date.parse(c.at) >= a && Date.parse(c.at) < b).map((c) => c.mood!); return xs.length >= 3 ? Math.round((xs.reduce((p, q) => p + q, 0) / xs.length) * 10) / 10 : undefined; };
+  const mn = mood(now - 14 * DAY, now), mp = mood(now - 28 * DAY, now - 14 * DAY);
+  if (mn !== undefined) out.mood = { avg: mn, before: mp };
+  return out;
 }

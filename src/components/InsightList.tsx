@@ -129,14 +129,17 @@ export function TopInsights({ max = 2 }: { max?: number }) {
   );
 }
 
-/** Progress: every insight, most important first. */
-export function InsightFeed() {
+/** Progress: every insight, most important first (the first few, then the rest on request). */
+export function InsightFeed({ max = 3 }: { max?: number }) {
   const r = useInsights();
+  const [all, setAll] = useState(false);
   if (!r || !r.list.length) return null;
+  const shown = all ? r.list : r.list.slice(0, max);
   return (
     <section aria-labelledby="feed-h" className="space-y-1">
       <h2 id="feed-h" className="text-sm font-medium text-muted">For you</h2>
-      <ul className="divide-y divide-border">{r.list.map((x) => <InsightRow key={x.id} x={x} settings={r.settings} />)}</ul>
+      <ul className="divide-y divide-border">{shown.map((x) => <InsightRow key={x.id} x={x} settings={r.settings} />)}</ul>
+      {r.list.length > max && <button type="button" aria-expanded={all} onClick={() => setAll((x) => !x)} className="min-h-[44px] text-sm font-medium underline underline-offset-4">{all ? 'Show fewer' : `Show all ${r.list.length}`}</button>}
     </section>
   );
 }
