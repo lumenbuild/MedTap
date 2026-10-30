@@ -3,6 +3,7 @@
 // and nudged earlier when today's heart rate is already back to their usual. Pure.
 import type { CheckIn, DailyHealth, Dose, Medication } from '../db/schema';
 import { effectWindow } from './habits';
+import { plausibleHours, usualHours } from './durations';
 import { CAFFEINE } from './lifestyle';
 import { getDayBounds, type ScheduleSettings } from './schedule';
 import { dayKey } from './stats';
@@ -33,22 +34,26 @@ function observed(med: Medication, doses: Dose[], checkIns: CheckIn[], now: numb
   const wear = checkIns.filter((c) => !c.deletedAt && c.chips.includes('Wearing off')).map((c) => Date.parse(c.at)).sort((a, b) => a - b);
   return taken.map((d) => {
     const t = Date.parse(d.takenAt);
-    const w = wear.find((x) => x > t + HOUR && x <= t + 12 * HOUR);
+    const w = wear.find((x) => x > t + 1.5 * HOUR && x <= t + 12 * HOUR && plausibleHours(med, (x - t) / HOUR));
     return w === undefined ? null : { dose: d, t, h: (w - t) / HOUR };
   }).filter(Boolean) as { dose: Dose; t: number; h: number }[];
 }
 
 export function wearOffToday(med: Medication, doses: Dose[], checkIns: CheckIn[], daily: DailyHealth[], now: number, s: ScheduleSettings): WearOff | null {
   const win = effectWindow(med, doses, checkIns, now);
-  if (!win || win.wearOffH === undefined) return null;
+  // Without a believable learned time, a medicine we know falls back to its usual one (the middle of its range).
+  const usual = usualHours(med);
+  if (!win && !usual) return null;
+  const learned = win?.wearOffH;
+  if (learned === undefined && !usual) return null;
   const dayStart = getDayBounds(now, s.dayStartsAt, s.tz).start;
   const today = doses.filter((d) => d.medicationId === med.id && !d.deletedAt && !d.skipped && Date.parse(d.takenAt) >= dayStart && Date.parse(d.takenAt) <= now)
     .sort((a, b) => b.takenAt.localeCompare(a.takenAt))[0];
   if (!today) return null;
   const t0 = Date.parse(today.takenAt);
-  let hours = win.wearOffH;
+  let hours = learned ?? (usual!.min + usual!.max) / 2;
   const obs = observed(med, doses, checkIns, now);
-  const reasons: string[] = [];
+  const reasons: string[] = learned === undefined ? [`The usual for ${usual!.name} (${usual!.min}–${usual!.max} h), until your check-ins show yours`] : [];
 
   // Personal shifts, each only when there's enough on both sides and it's at least 15 minutes.
   const sleepOn = (t: number) => {
@@ -70,8 +75,10 @@ export function wearOffToday(med: Medication, doses: Dose[], checkIns: CheckIn[]
   const sleepToday = sleepOn(t0);
   shift('Short night', sleepToday !== undefined && sleepToday < 6.5, (o) => { const h = sleepOn(o.t); return h === undefined ? undefined : h < 6.5; });
   shift('Caffeine after the dose', caffeineAfter(t0), (o) => caffeineAfter(o.t));
-  const usual = mean(obs.map((o) => o.dose.amount)) ?? today.amount;
-  if (Math.abs(today.amount - usual) / usual >= 0.2) shift(today.amount > usual ? 'Bigger dose' : 'Smaller dose', true, (o) => (today.amount > usual ? o.dose.amount > usual * 1.1 : o.dose.amount < usual * 0.9));
+  const usualAmount = mean(obs.map((o) => o.dose.amount)) ?? today.amount;
+  if (Math.abs(today.amount - usualAmount) / usualAmount >= 0.2) shift(today.amount > usualAmount ? 'Bigger dose' : 'Smaller dose', true, (o) => (today.amount > usualAmount ? o.dose.amount > usualAmount * 1.1 : o.dose.amount < usualAmount * 0.9));
+  // Whatever the shifts, keep it believable: never before an hour and a half, nor under half the usual shortest.
+  hours = Math.max(hours, usual ? usual.min * 0.5 : 1.5, 1.5);
 
   const spread = Math.max(0.25, obs.length >= 4 ? (quantile(obs.map((o) => o.h), 0.75) - quantile(obs.map((o) => o.h), 0.25)) / 2 : 0.75);
   let at = t0 + hours * HOUR;
@@ -86,5 +93,5 @@ export function wearOffToday(med: Medication, doses: Dose[], checkIns: CheckIn[]
     if (typeof bpm === 'number' && bpm <= resting + 5) { heartBack = true; at = Math.min(at, now + 30 * 60_000); reasons.push('Heart rate already back to your usual'); }
   }
   return { med, dosedAt: t0, at, early: at - spread * HOUR, late: at + spread * HOUR,
-    onset: win.onsetH !== undefined ? t0 + win.onsetH * HOUR : undefined, reasons, heartBack, basis: obs.length || win.doses };
+    onset: win?.onsetH !== undefined ? t0 + win.onsetH * HOUR : undefined, reasons, heartBack, basis: obs.length || win?.doses || 0 };
 }
