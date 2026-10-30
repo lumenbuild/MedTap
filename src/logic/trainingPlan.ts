@@ -45,9 +45,16 @@ export interface TrainingReminder { id: number; at: number; title: string; body:
 /** The next week's reminders: 30 minutes before the usual time on usual days (not if already trained that day), and a
  *  morning note on the day the week's goal needs a session every remaining day. `strongDays` (days after the shot,
  *  0–6) adds a line when a usual day lands on one. */
-export function planTrainingReminders(workouts: Workout[], now: number, s: ScheduleSettings, opts: { perWeek?: number; strongDays?: number[]; lastShot?: number; shotEveryDays?: number } = {}): TrainingReminder[] {
+export function planTrainingReminders(workouts: Workout[], now: number, s: ScheduleSettings, opts: { perWeek?: number; strongDays?: number[]; lastShot?: number; shotEveryDays?: number;
+  /** The coach plan's weekdays (0 Sunday … 6 Saturday) and its next session: these days, rather than learned ones. */
+  plan?: { weekdays: number[]; next?: string } } = {}): TrainingReminder[] {
   const out: TrainingReminder[] = [];
-  const h = trainingHabit(workouts, now, s);
+  const learned = trainingHabit(workouts, now, s);
+  // With a plan's days: each at the time usually trained that day (or the usual time overall, or 5:30 pm).
+  const usualMin = learned?.days.length ? [...learned.days].sort((a, b) => b.share - a.share)[0].minutes : 17 * 60 + 30;
+  const h = opts.plan?.weekdays.length
+    ? { days: opts.plan.weekdays.map((weekday) => ({ weekday, minutes: learned?.days.find((x) => x.weekday === weekday)?.minutes ?? usualMin, share: 1 })), weeks: 0, sessions: 0 }
+    : learned;
   const trainedOn = new Set(workouts.filter((w) => !w.deletedAt).map((w) => { const p = zonedParts(Date.parse(w.startedAt), s.tz); return `${p.y}-${p.m}-${p.d}`; }));
   const today = zonedParts(now, s.tz);
   for (let i = 0; i < 7; i++) {
@@ -63,7 +70,7 @@ export function planTrainingReminders(workouts: Workout[], now: number, s: Sched
       const since = Math.floor(((at - opts.lastShot) / DAY) % opts.shotEveryDays);
       if (opts.strongDays.includes(since)) extra = ` ${since === 0 ? 'Shot day' : `Day ${since} after your shot`} is usually one of your stronger days.`;
     }
-    out.push({ id: 900_100_000 + i, at, title: `${NAMES[wd]} training`, body: `You usually start about now.${extra}` });
+    out.push({ id: 900_100_000 + i, at, title: `${NAMES[wd]} training`, body: opts.plan?.weekdays.length ? `${opts.plan.next ? `${opts.plan.next} today.` : 'A session on your plan today.'}${extra}` : `You usually start about now.${extra}` });
   }
   // The week's goal: on the morning when the sessions still needed equal the days left (Monday-start weeks).
   if (opts.perWeek) {

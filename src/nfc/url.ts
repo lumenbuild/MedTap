@@ -43,5 +43,6 @@ export function parseTagParam(search: string): string | null {
 
 /** Pull a tag ID back out of a full URL read from a tag. */
 export function tagIdFromUrl(url: string): string | null {
-  try { return parseTagParam(new URL(url).search); } catch { return null; }
+  // A relative link ("/?t=…") parses too.
+  try { return parseTagParam(new URL(url, 'https://tag.invalid/').search); } catch { return null; }
 }

@@ -9,13 +9,16 @@ import { Button } from './ui/Button';
 import { MiniRing } from './ui/Visual';
 
 /** Today's ring and the longest live streak; tap for every streak and the milestones. */
-export function DayStrip({ ring, streaks, milestones }: { ring: Ring | null; streaks: Streak[]; milestones: Milestone[] }) {
+/** `bare`: heading Today's list, without its own divider. */
+export function DayStrip({ ring, streaks, milestones, bare = false, news }: { ring: Ring | null; streaks: Streak[]; milestones: Milestone[]; bare?: boolean;
+  /** A streak just reached: said once, on the streak's own line, rather than as a card of its own. */
+  news?: { title: string; onDone: () => void } }) {
   const [open, setOpen] = useState(false);
   const top = [...streaks].filter((x) => x.length > 0).sort((a, b) => b.length * (b.unit === 'week' ? 7 : 1) - a.length * (a.unit === 'week' ? 7 : 1))[0];
   if (!ring && !top) return null;
   const all = ring !== null && ring.done === ring.parts.length;
   return (
-    <section className="border-t border-border pt-4" aria-label="Your day">
+    <section className={bare ? '' : 'border-t border-border pt-4'} aria-label="Your day">
       <button type="button" onClick={() => setOpen(true)} className="w-full flex items-center gap-4 text-left min-h-[64px]">
         {ring && (
           <MiniRing value={Math.round(ring.value * 100)} max={100} size={60} tone={all ? 'good' : 'primary'} label={`${ring.done} of ${ring.parts.length} done today`}>
@@ -33,6 +36,13 @@ export function DayStrip({ ring, streaks, milestones }: { ring: Ring | null; str
           )}
         </span>
       </button>
+      {news && (
+        <p className="flex items-center gap-2 rounded-btn bg-success-soft px-3 py-1.5 mt-1 text-[15px]" role="status">
+          <PartyPopper size={18} aria-hidden="true" className="text-success shrink-0" />
+          <span className="flex-1 min-w-0">{news.title}</span>
+          <button type="button" onClick={news.onDone} className="min-h-[44px] px-2 font-medium underline underline-offset-4">Nice</button>
+        </p>
+      )}
       <Sheet open={open} onClose={() => setOpen(false)} title="Streaks and milestones">
         <div className="space-y-6">
           {ring && (

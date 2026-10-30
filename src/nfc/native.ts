@@ -7,7 +7,9 @@ export interface MedTapNativePlugin {
   // nfcWrite rejects with `code` set to an NfcErrorKind.
   /** Waits for a tag and writes one URL record to it. Android: `openInApp` adds a record that makes tapping the tag
    *  open this app instead of the browser. */
-  nfcWrite(options: { url: string; timeoutMs: number; openInApp?: boolean }): Promise<void>;
+  nfcWrite(options: { url: string; timeoutMs: number; openInApp?: boolean }): Promise<{ previous?: string | null }>;
+  /** Waits for a tag and wipes it (one empty record) so it can be used for something else. `previous`: the link it had. */
+  nfcErase(options: { timeoutMs: number }): Promise<{ previous?: string | null }>;
   /** Waits for a tag and returns the first URL on it. Android: `opensApp` says whether it has the open-in-app record. */
   nfcRead(options: { timeoutMs: number }): Promise<{ url: string | null; opensApp?: boolean }>;
   nfcCancel(): Promise<void>;

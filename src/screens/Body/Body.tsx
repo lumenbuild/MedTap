@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings, useWorkouts } from '../../app/data';
+import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useLabs, useMedEvents, useMeds, useScheduleSettings, useVitals, useWorkouts } from '../../app/data';
+import { MarkersCard } from '../../components/MarkersCard';
 import { medIsFor, personOf } from '../../db/repos/people';
 import { MuscleWatchCard } from '../../components/Fitness';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
@@ -38,6 +39,7 @@ export function Body() {
   const events = useMedEvents();
   const checkIns = useCheckIns();
   const daily = useDaily();
+  const labs = useLabs(); const vitals = useVitals();
   const workouts = useWorkouts();
   const [sheet, setSheet] = useState<BodySheetState>(null);
   const now = useNow(60_000);
@@ -62,6 +64,8 @@ export function Body() {
       <PersonSwitcher />
       {rangePicker}
       <VitalsCard personId={fam.personId} {...common} />
+      {labs && vitals && <MarkersCard personId={fam.personId} heightCm={fam.people.find((p) => p.id === fam.personId)?.heightCm} labs={labs.filter((l) => personOf(l) === fam.personId)}
+        vitals={vitals.filter((v) => personOf(v) === fam.personId)} body={HAS_BODY ? entries : []} daily={daily.filter((x) => personOf(x) === fam.personId)} units={settings.units} now={now} />}
     </div>
   );
 
@@ -122,6 +126,8 @@ export function Body() {
       {entries.some((e) => e.bodyFatPct !== undefined || e.leanKg !== undefined) && <MuscleWatchCard body={entries} units={units} med={peptide} doses={doses} now={now} />}
 
       <VitalsCard personId={fam.personId} {...common} />
+      {labs && vitals && <MarkersCard personId={fam.personId} heightCm={fam.people.find((p) => p.id === fam.personId)?.heightCm} labs={labs.filter((l) => personOf(l) === fam.personId)}
+        vitals={vitals.filter((v) => personOf(v) === fam.personId)} body={HAS_BODY ? entries : []} daily={daily.filter((x) => personOf(x) === fam.personId)} units={settings.units} now={now} />}
 
       <ProgressPhotos personId={fam.personId} />
 

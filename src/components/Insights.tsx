@@ -1,67 +1,18 @@
-// The smart insights, each in one place: today's wear-off forecast, a weight stall and recent
-// changes as one line on Today; "What changed" and "Ask your data" on Trends; the step-up checklist on Protocol.
+// Smart views on Progress: the stall under the weight chart, "What changed" and "Ask your data". Today's notes (wear-off,
+// a stall, a recent change, scripts, readings, odd records) are insights now, ranked in logic/insights.
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { ArrowDownRight, ArrowUpRight, Check, CircleHelp, Droplet, Minus, Pencil, Search, Sparkles, TrendingDown, X, Zap } from 'lucide-react';
-import type { CheckIn, DailyHealth, Dose, Medication, StepUpCriteria } from '../db/schema';
-import type { ScheduleSettings } from '../logic/schedule';
-import { wearOffToday, type WearOff } from '../logic/wearOff';
+import { CircleHelp, Search, Sparkles, X } from 'lucide-react';
 import type { Stall } from '../logic/stall';
 import { fmtChangeValue, type Change, type SignalKey } from '../logic/changes';
 import { ask, askSuggestions, type AskData } from '../logic/ask';
-import { DEFAULT_STEP_UP, stepUpChecklist } from '../logic/stepUp';
-import { shownName } from '../logic/privacy';
-import { fmtTime } from '../logic/format';
-import { db } from '../db/db';
 import { Bar, IconRow, Sparkline } from './ui/Visual';
-import { Button } from './ui/Button';
-import { Sheet, SheetActions } from './ui/Sheet';
-import { TextInput } from './ui/Field';
 import { TrendChart } from './charts/TrendChart';
-import type { BodyEntry } from '../db/schema';
 import { HAS_MEDS, FOCUS } from '../edition';
 
 const day = (t: number) => format(t, 'EEE d MMM');
 
-// ── Wear-off (Today) ───────────────────────────────────────────────────────────────────────────────
-
-/** Today's forecast for each medicine with a learned effect window: a bar from the dose to the likely drop. */
-export function WearOffLines({ meds, doses, checkIns, daily, now, s }: { meds: Medication[]; doses: Dose[]; checkIns: CheckIn[]; daily: DailyHealth[]; now: number; s: ScheduleSettings }) {
-  const list = meds.filter((m) => !m.archived && !m.peptide).map((m) => wearOffToday(m, doses, checkIns, daily, now, s)).filter((w): w is WearOff => !!w && w.late > now - 2 * 3_600_000);
-  if (!list.length) return null;
-  return <ul aria-label="Wear-off forecast">{list.map((w) => <li key={w.med.id}><WearOffRow w={w} now={now} /></li>)}</ul>;
-}
-
-function WearOffRow({ w, now }: { w: WearOff; now: number }) {
-  const past = now > w.at;
-  const span = w.late - w.dosedAt;
-  const pct = (t: number) => Math.min(100, Math.max(0, ((t - w.dosedAt) / span) * 100));
-  return (
-    <div className="py-1.5">
-      <IconRow Icon={Zap} tone={past ? 'plain' : 'good'}>
-        <span className="font-medium">{shownName(w.med)}</span> · {past ? `likely wearing off since ${fmtTime(w.at)}` : `focus likely drops about ${fmtTime(w.at)}`}
-        {w.reasons.length > 0 && <span className="block text-sm text-muted">{w.reasons.join(' · ')}</span>}
-      </IconRow>
-      <div className="ml-12 mt-1 relative h-2 rounded-full bg-surface-2" role="img" aria-label={`From the dose at ${fmtTime(w.dosedAt)} to a likely drop between ${fmtTime(w.early)} and ${fmtTime(w.late)}`}>
-        <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${pct(w.early)}%`, background: 'var(--success)' }} />
-        <div className="absolute inset-y-0 rounded-full" style={{ left: `${pct(w.early)}%`, width: `${pct(w.late) - pct(w.early)}%`, background: 'var(--caution-soft)' }} />
-        <div className="absolute -top-1 -bottom-1 w-0.5 bg-text" style={{ left: `${pct(now)}%` }} />
-      </div>
-      <div className="ml-12 mt-0.5 flex justify-between text-[11px] text-muted tnum"><span>{fmtTime(w.dosedAt)}</span><span>{fmtTime(w.early)}–{fmtTime(w.late)}</span></div>
-    </div>
-  );
-}
-
 // ── Stall ──────────────────────────────────────────────────────────────────────────────────────────
-
-export function StallLine({ stall }: { stall: Stall }) {
-  return (
-    <IconRow Icon={stall.likelyWater ? Droplet : TrendingDown} tone="watch" href="#/progress/body">
-      {stall.likelyWater ? `Weight steady ${stall.days} days, probably water` : `Weight steady for ${stall.days} days`}
-      {!stall.likelyWater && stall.diffs.length > 0 && <span className="block text-sm text-muted">{stall.diffs.slice(0, 2).map((d) => `${d.label} ${d.before} → ${d.during}`).join(' · ')}</span>}
-    </IconRow>
-  );
-}
 
 /** Under the weight chart: since when, the rate before and during, water reasons, and what's different. */
 export function StallBlock({ stall }: { stall: Stall }) {
@@ -83,15 +34,6 @@ export function StallBlock({ stall }: { stall: Stall }) {
 // ── What changed ───────────────────────────────────────────────────────────────────────────────────
 
 const toneOf = (c: Change) => (c.good === undefined ? 'var(--text-muted)' : c.good ? 'var(--success)' : 'var(--caution)');
-
-export function ChangeLine({ c }: { c: Change }) {
-  return (
-    <IconRow Icon={c.after > c.before ? ArrowUpRight : ArrowDownRight} tone={c.good === undefined ? 'plain' : c.good ? 'good' : 'watch'} href="#/progress/trends">
-      {c.label} {c.after > c.before ? 'up' : 'down'}: {fmtChangeValue(c, c.before)} → {fmtChangeValue(c, c.after)}
-      {c.event && <span className="block text-sm text-muted">After {c.event.text}</span>}
-    </IconRow>
-  );
-}
 
 /** A timeline of genuine shifts, newest first, each beside what happened just before. */
 export function ChangesCard({ changes, series }: { changes: Change[]; series?: Partial<Record<SignalKey, { t: number; v: number }[]>> }) {
@@ -176,62 +118,4 @@ export function AskBox({ data, now }: { data: AskData; now: number }) {
 
 function rolling(points: { t: number; v: number }[]) {
   return points.map((p) => { const w = points.filter((q) => q.t > p.t - 7 * 86_400_000 && q.t <= p.t); return { t: p.t, v: w.reduce((a, b) => a + b.v, 0) / w.length }; });
-}
-
-// ── Step-up checklist (Protocol) ───────────────────────────────────────────────────────────────────
-
-export function StepUpCard({ med, doses, checkIns, body, now, s }: { med: Medication; doses: Dose[]; checkIns: CheckIn[]; body: BodyEntry[]; now: number; s: ScheduleSettings }) {
-  const [editing, setEditing] = useState(false);
-  const v = stepUpChecklist(med, doses, checkIns, body, now, s);
-  if (!v) return null;
-  return (
-    <div className="mt-5">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-muted">Step-up checklist · {v.met} of {v.checks.length}</p>
-        <button type="button" className="min-h-[44px] flex items-center gap-1.5 text-sm font-medium" onClick={() => setEditing(true)}><Pencil size={14} aria-hidden="true" />{med.stepUp ? 'Edit' : 'Set yours'}</button>
-      </div>
-      <ul className="mt-1">
-        {v.checks.map((c) => (
-          <li key={c.key} className="flex items-center gap-3 min-h-[40px]">
-            <span aria-hidden="true" className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-              style={{ background: c.ok ? 'var(--success-soft)' : c.ok === false ? 'var(--surface-2)' : 'var(--surface-2)', color: c.ok ? 'var(--success)' : 'var(--text-muted)' }}>
-              {c.ok ? <Check size={14} /> : c.ok === false ? <X size={14} /> : <Minus size={14} />}
-            </span>
-            <span className="flex-1 text-[15px]">{c.label}</span>
-            <span className="text-sm text-muted tnum">{c.value}</span>
-            <span className="sr-only">{c.ok ? 'met' : c.ok === false ? 'not yet' : 'not enough data'}</span>
-          </li>
-        ))}
-      </ul>
-      {!med.stepUp && <p className="text-xs text-muted">Starting criteria · set your own (or your prescriber's)</p>}
-      {editing && <StepUpSheet med={med} onClose={() => setEditing(false)} />}
-    </div>
-  );
-}
-
-function StepUpSheet({ med, onClose }: { med: Medication; onClose: () => void }) {
-  const c = med.stepUp ?? DEFAULT_STEP_UP;
-  const [f, setF] = useState({ minWeeks: c.minWeeks ?? '', maxEffectPct: c.maxEffectPct ?? '', maxLossKgWeek: c.maxLossKgWeek ?? '', minAppetite: c.minAppetite ?? '', noMissedWeeks: c.noMissedWeeks ?? '' } as Record<keyof StepUpCriteria, string | number>);
-  const num = (v: string | number) => (String(v).trim() === '' ? undefined : Number(v));
-  const save = async () => {
-    const stepUp: StepUpCriteria = { minWeeks: num(f.minWeeks), maxEffectPct: num(f.maxEffectPct), maxLossKgWeek: num(f.maxLossKgWeek), minAppetite: num(f.minAppetite), noMissedWeeks: num(f.noMissedWeeks) };
-    await db.medications.update(med.id, { stepUp, updatedAt: new Date().toISOString() });
-    onClose();
-  };
-  const field = (k: keyof StepUpCriteria, label: string) => (
-    <TextInput label={label} type="number" inputMode="decimal" min="0" step="any" value={String(f[k])} onChange={(e) => setF({ ...f, [k]: e.target.value })} />
-  );
-  return (
-    <Sheet open onClose={onClose} title="Ready for the next step when">
-      <div className="space-y-3">
-        <p className="text-sm text-muted">Leave any blank to skip it</p>
-        {field('minWeeks', 'Weeks on the dose, at least')}
-        {field('maxEffectPct', 'Side effects in at most this % of check-ins')}
-        {field('maxLossKgWeek', 'Losing at most this many kg a week')}
-        {field('minAppetite', 'Appetite at least (1–5)')}
-        {field('noMissedWeeks', 'No missed shots for this many weeks')}
-        <SheetActions><Button className="w-full min-h-[56px]" onClick={save}>Save</Button></SheetActions>
-      </div>
-    </Sheet>
-  );
 }

@@ -90,6 +90,8 @@ export interface Person extends Stamped {
   fitnessGoals?: FitnessGoal[];
   /** The training plan the app runs for them (see logic/coach). */
   coach?: CoachPlan;
+  /** Height (cm), for waist-to-height and BMI. */
+  heightCm?: number;
 }
 
 /** Training plan set-up: what it's for, how often and with what, and the programme being run (from when). */
@@ -106,6 +108,8 @@ export interface CoachPlan {
   startedAt: string;
   /** Training max per main lift (kg), for wave and block programmes; set from the estimated max when they start. */
   maxes?: Record<string, number>;
+  /** The weekdays the person trains (0 Sunday … 6 Saturday), if they've picked them: reminders come on these. */
+  weekdays?: number[];
 }
 export const DEFAULT_PERSON = 'me';
 
@@ -256,6 +260,8 @@ export interface CheckIn extends Stamped {
   at: string; mood?: number; energy?: number; focus?: number; appetite?: number;
   /** Muscle soreness 1 (none) to 5 (very sore), for training readiness. */
   soreness?: number;
+  /** Stress 1 (calm) to 5 (very stressed); optional. */
+  stress?: number;
   sleepHours?: number; sleepQuality?: number; chips: string[]; note?: string;
   relatedDoseId?: string; deletedAt?: string; personId?: string;
   /** A caffeine drink (with the Caffeine chip): its mg; the note is the drink's name. */
@@ -417,5 +423,8 @@ export interface FoodLog extends Stamped {
   nutrients: Nutrients;
   /** Protein added to the day's protein total (taken off again if this is removed), and the caffeine check-in made. */
   proteinPosted?: number; caffeineCheckInId?: string;
+  /** How hungry they were (1 not at all … 5 very), and why they ate, if they said. */
+  hunger?: number; why?: EatWhy;
   personId?: string; deletedAt?: string;
 }
+export type EatWhy = 'hungry' | 'craving' | 'stress' | 'bored' | 'habit' | 'social';

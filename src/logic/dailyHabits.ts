@@ -25,7 +25,7 @@ export interface HabitSeries {
 export interface HabitInput { daily: DailyHealth[]; foodLogs: FoodLog[]; checkIns: CheckIn[] }
 export interface HabitOptions {
   food: boolean; intake: boolean; readiness: boolean;
-  targets: { energy?: number | null; protein?: number | null; water?: number | null; caffeineLimit?: number | null };
+  targets: { energy?: number | null; protein?: number | null; water?: number | null; caffeineLimit?: number | null; steps?: number | null };
 }
 
 export const HABIT_LABEL: Record<HabitKey, string> = {
@@ -86,7 +86,7 @@ export function dailyHabits(x: HabitInput, start: number, end: number, prevStart
     if (m.size < 3) continue;
     const days = [...m.entries()].map(([t, v]) => ({ t, v })).sort((a, b) => a.t - b.t);
     const vs = days.map((d) => d.v);
-    const target = key === 'energy' ? o.targets.energy : key === 'protein' ? o.targets.protein : key === 'water' ? o.targets.water : null;
+    const target = key === 'energy' ? o.targets.energy : key === 'protein' ? o.targets.protein : key === 'water' ? o.targets.water : key === 'steps' ? o.targets.steps : null;
     const prev = prevStart === null ? [] : [...byDay(key, x, s, prevStart, start - 1).values()];
     out.push({
       key, label: HABIT_LABEL[key], days, avg: mean(vs),

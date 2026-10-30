@@ -1,11 +1,10 @@
 // Fitness cards used on Training, Body, Protocol and Today: readiness, lean mass while losing weight, strength against
 // the peptide, and one timeline for every goal.
-import { Beef, Dumbbell, GlassWater, Moon, Pill, Plus, Scale, Smile, Trophy, X, type LucideIcon } from 'lucide-react';
+import { Beef, GlassWater, Plus, X, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
-import { Bar, IconRow, MiniRing, Stat, ZeroBars } from './ui/Visual';
+import { Bar, MiniRing, Stat, ZeroBars } from './ui/Visual';
 import { format } from 'date-fns';
 import type { BodyEntry, BodyGoal, DailyHealth, Dose, FitnessGoal, Medication, Workout } from '../db/schema';
-import type { Digest } from '../logic/digest';
 import { addIntake } from '../db/repos/training';
 import { useToast } from '../app/toast';
 import { setSetting, type AppSettings, type Units } from '../db/repos/settings';
@@ -72,7 +71,9 @@ export function MuscleWatchCard({ body, units, med, doses, now }: { body: BodyEn
 /** Strength by days since the shot and by dose. */
 export function PeptideTrainingCard({ med, doses, workouts, tz }: { med: Medication; doses: Dose[]; workouts: Workout[]; tz?: string }) {
   const r = trainingVsPeptide(med, doses, workouts);
-  if (!r) return null;
+  // Only once it says something: at least three days after the shot with enough sessions, and a real gap between them.
+  const known = r ? r.byDay.filter((d) => d.pct !== undefined).map((d) => d.pct!) : [];
+  if (!r || known.length < 3 || Math.max(...known) - Math.min(...known) < 3) return null;
   const shots = doses.filter((d) => d.medicationId === med.id && !d.deletedAt && !d.skipped).map((d) => Date.parse(d.takenAt)).sort((a, b) => a - b).slice(-6);
   const plan = tz ? strongestWeekday(shots, r.bestDays, tz) : null;
   return (
@@ -249,29 +250,4 @@ export function TrainingReport({ sum, units }: { sum: TrainingSummary; units: Un
   );
 }
 
-/** Today, Monday to Wednesday: last week in a few lines against the week before. */
-const DIGEST_ICON: Record<string, LucideIcon> = { doses: Pill, weight: Scale, training: Dumbbell, protein: Beef, sleep: Moon, mood: Smile };
-
-export function DigestCard({ d, seen, onClose, onNotify, notify }: { d: Digest; seen: number; onClose: () => void; onNotify?: () => void; notify: boolean }) {
-  if (seen >= d.weekStart) return null;
-  return (
-    <section className="border-t border-border pt-4 pb-1" aria-labelledby="dg-h">
-      <h2 id="dg-h" className="text-sm font-medium text-muted">Your week · {format(d.weekStart, 'd MMM')} – {format(d.weekEnd - 1, 'd MMM')}</h2>
-      {d.wins.length > 0 && (
-        <ul className="tnum mt-1" aria-label="Wins">
-          {d.wins.map((w) => <li key={w}><IconRow Icon={Trophy} tone="good">{w}</IconRow></li>)}
-        </ul>
-      )}
-      <ul className="tnum mt-1">
-        {d.lines.map((l) => (
-          <li key={l.key}><IconRow Icon={DIGEST_ICON[l.key] ?? Smile} tone={l.tone === 'good' ? 'good' : l.tone === 'watch' ? 'watch' : 'plain'}>{l.text}</IconRow></li>
-        ))}
-      </ul>
-      <div className="flex flex-wrap gap-x-5 mt-1">
-        <button type="button" className="min-h-[44px] text-sm font-medium underline underline-offset-4" onClick={onClose}>Done</button>
-        {onNotify && !notify && <button type="button" className="min-h-[44px] text-sm text-muted underline underline-offset-4" onClick={onNotify}>Remind me each Monday</button>}
-      </div>
-    </section>
-  );
-}
 

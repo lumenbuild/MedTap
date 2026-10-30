@@ -143,6 +143,7 @@ export function Settings({ section }: { section?: string }) {
           <TargetInput id="protein" label="Protein a day (g)" value={settings.proteinTargetG} onChange={(v) => setSetting('proteinTargetG', v)} />
           <TargetInput id="water" label="Water a day (mL)" value={settings.waterTargetMl} onChange={(v) => setSetting('waterTargetMl', v)} />
         </div>
+        <TargetInput id="steps" label="Steps a day (empty: a little above your usual, worked out for you)" value={settings.stepsTargetOwn} onChange={(v) => setSetting('stepsTargetOwn', v)} />
       </Card>
     ),
     caffeine: () => (

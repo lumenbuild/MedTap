@@ -30,7 +30,7 @@ interface Measure {
   /** Each record's value with its time. */
   values: (d: AskData) => AskPoint[];
 }
-const ci = (f: 'mood' | 'focus' | 'energy' | 'appetite' | 'sleepHours') => (d: AskData) =>
+const ci = (f: 'mood' | 'focus' | 'energy' | 'appetite' | 'sleepHours' | 'stress') => (d: AskData) =>
   d.checkIns.filter((c) => !c.deletedAt && typeof c[f] === 'number').map((c) => ({ t: Date.parse(c.at), v: c[f]! }));
 const chipShare = (chips: string[]) => (d: AskData) => d.checkIns.filter((c) => !c.deletedAt).map((c) => ({ t: Date.parse(c.at), v: c.chips.some((x) => chips.includes(x)) ? 100 : 0 }));
 const dly = (f: (r: DailyHealth) => number | undefined) => (d: AskData) =>
@@ -54,6 +54,7 @@ function measures(d: AskData): (Measure & { words: RegExp })[] {
     { key: 'focus', words: /focus|concentrat/, label: 'Focus', unit: 'of 5', dp: 1, higherBetter: true, values: ci('focus') },
     { key: 'energy', words: /energy|tired/, label: 'Energy', unit: 'of 5', dp: 1, higherBetter: true, values: ci('energy') },
     { key: 'appetite', words: /appetite|hunger|hungry/, label: 'Appetite', unit: 'of 5', dp: 1, values: ci('appetite') },
+    { key: 'stress', words: /stress/, label: 'Stress', unit: 'of 5', dp: 1, values: ci('stress') },
     ...chips.map((c) => ({ key: `chip:${c}`, words: new RegExp(`\\b${c.toLowerCase().replace(/[^a-z ]/g, '').split(' ')[0]}`), label: c, unit: '% of check-ins', dp: 0, higherBetter: false, values: chipShare([c]) })),
     { key: 'effects', words: /side.?effects?|symptoms?/, label: 'Side effects', unit: '% of check-ins', dp: 0, higherBetter: false, values: chipShare(EFFECT_CHIPS) },
   ];

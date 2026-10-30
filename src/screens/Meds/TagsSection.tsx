@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { shownName } from '../../logic/privacy';
-import { ChevronRight, Nfc, Plus } from 'lucide-react';
+import { ChevronRight, Eraser, Nfc, Plus } from 'lucide-react';
 import type { Medication, Tag } from '../../db/schema';
 import { useTags } from '../../app/data';
 import { useNow } from '../../app/useNow';
@@ -15,6 +15,7 @@ import { TextInput } from '../../components/ui/Field';
 import { LinkTagSheet } from './LinkTagSheet';
 import { QrSheet } from './QrSheet';
 import { TagTest } from './TagTest';
+import { EraseTagSheet } from '../Tags/EraseTagSheet';
 
 export const tagName = (t: Tag) => t.label || `Tag ${t.id.slice(0, 4).toUpperCase()}`;
 
@@ -26,6 +27,7 @@ export function TagsSection({ med }: { med: Medication }) {
   const [qr, setQr] = useState<string | null>(null);
   const [selected, setSelected] = useState<Tag | null>(null);
   const [label, setLabel] = useState('');
+  const [erasing, setErasing] = useState<Tag | null>(null);
 
   const unlink = async (t: Tag) => {
     await unlinkTag(t.id);
@@ -60,6 +62,7 @@ export function TagsSection({ med }: { med: Medication }) {
 
       <LinkTagSheet med={med} open={linking} onClose={() => setLinking(false)} onQr={setQr} />
       <QrSheet url={qr} medName={shownName(med)} onClose={() => setQr(null)} />
+      <EraseTagSheet open={!!erasing} onClose={() => setErasing(null)} tag={erasing ?? undefined} name={shownName(med)} />
 
       <Sheet open={!!selected} onClose={() => setSelected(null)} title={selected ? tagName(selected) : ''}>
         {selected && (
@@ -71,6 +74,7 @@ export function TagsSection({ med }: { med: Medication }) {
             </div>
             <TagTest tagId={selected.id} medName={shownName(med)} />
             <Button variant="secondary" className="w-full" onClick={() => { setQr(tagUrl(selected.id)); setSelected(null); }}>Print QR sticker</Button>
+            <Button variant="secondary" className="w-full flex items-center justify-center gap-2" onClick={() => { setErasing(selected); setSelected(null); }}><Eraser size={18} aria-hidden="true" /> Erase this tag to reuse it</Button>
             <Button variant="danger" className="w-full" onClick={() => unlink(selected)}>Unlink this tag</Button>
           </div>
         )}

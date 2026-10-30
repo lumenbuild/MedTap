@@ -2,7 +2,7 @@
 // others (exercises,
 // routines, water, scales and so on), with a way to link a new one.
 import { useState } from 'react';
-import { ChevronRight, Nfc, Plus } from 'lucide-react';
+import { ChevronRight, Eraser, Nfc, Plus } from 'lucide-react';
 import { DEFAULT_PERSON, type Tag, type TagAction } from '../../db/schema';
 import { useExercises, useFamily, useMeds, useRoutines, useTags } from '../../app/data';
 import { linkActionTag, renameTag, restoreTag, unlinkTag } from '../../db/repos/tags';
@@ -22,6 +22,7 @@ import { QrSheet } from '../Meds/QrSheet';
 import { TagTest } from '../Meds/TagTest';
 import { tagName } from '../Meds/TagsSection';
 import { ActionPicker } from './ActionPicker';
+import { EraseTagSheet } from './EraseTagSheet';
 import { db } from '../../db/db';
 import { useLive } from '../../db/live';
 import { HAS_MEDS, FOCUS } from '../../edition';
@@ -34,6 +35,7 @@ export function Tags() {
   const [writing, setWriting] = useState<{ action: TagAction; label: string } | null>(null);
   const [selected, setSelected] = useState<Tag | null>(null);
   const [qr, setQr] = useState<{ url: string; name: string } | null>(null);
+  const [erasing, setErasing] = useState(false);
   if (!tags || !meds || !own || !routines || !fam) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
   const defs = allExercises(own);
   const medTags = tags.filter((t) => t.medicationId && meds.some((m) => m.id === t.medicationId));
@@ -61,6 +63,7 @@ export function Tags() {
           ))}
         </ul>
         <Button className="w-full mt-2 flex items-center justify-center gap-2" onClick={() => setChoosing(true)}><Plus size={20} aria-hidden="true" /> Link a new tag</Button>
+        <Button variant="secondary" className="w-full mt-2 flex items-center justify-center gap-2" onClick={() => setErasing(true)}><Eraser size={20} aria-hidden="true" /> Erase a tag to reuse it</Button>
       </section>
 
       {HAS_MEDS && (
@@ -95,6 +98,7 @@ export function Tags() {
           defaultLabel={writing.label} placeholder="e.g. Leg press at the gym" onSave={async (id, label) => { await linkActionTag(id, writing.action, fam.personId, label); }} />
       )}
       {selected && <ActionTagSheet tag={selected} title={what(selected)} onClose={() => setSelected(null)} onQr={(url) => { setQr({ url, name: what(selected) }); setSelected(null); }} />}
+      <EraseTagSheet open={erasing} onClose={() => setErasing(false)} />
       <QrSheet url={qr?.url ?? null} medName={qr?.name ?? ''} onClose={() => setQr(null)} />
     </div>
   );
@@ -104,6 +108,8 @@ function ActionTagSheet({ tag, title, onClose, onQr }: { tag: Tag; title: string
   const toast = useToast();
   const [label, setLabel] = useState(tag.label ?? '');
   const [changing, setChanging] = useState(false);
+  const [erase, setErase] = useState(false);
+  if (erase) return <EraseTagSheet open onClose={onClose} tag={tag} name={tagName(tag)} />;
   return (
     <Sheet open onClose={onClose} title={tagName(tag)}>
       <div className="space-y-4">
@@ -115,6 +121,7 @@ function ActionTagSheet({ tag, title, onClose, onQr }: { tag: Tag; title: string
         <TagTest tagId={tag.id} medName={title} />
         <Button variant="secondary" className="w-full" onClick={() => setChanging(true)}>Change what it does</Button>
         <Button variant="secondary" className="w-full" onClick={() => onQr(tagUrl(tag.id))}>Print QR sticker</Button>
+        <Button variant="secondary" className="w-full flex items-center justify-center gap-2" onClick={() => setErase(true)}><Eraser size={18} aria-hidden="true" /> Erase this tag</Button>
         <Button variant="danger" className="w-full" onClick={async () => { await unlinkTag(tag.id); toast(`Unlinked ${tagName(tag)}`, { onAction: () => restoreTag(tag) }); onClose(); }}>Unlink this tag</Button>
         <p className="text-sm text-muted">Unlinking doesn't erase the tag. Tapping it afterwards shows “New tag found”.</p>
       </div>

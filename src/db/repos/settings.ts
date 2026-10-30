@@ -142,7 +142,23 @@ export interface AppSettings {
   intakeAmounts: { waterMl: number[]; proteinG: number[] };
   /** How long Snooze on a dose reminder waits. */
   snoozeMin: number;
+  /** The daily calorie target: the person's own number, or worked out from their logs and weight (and kept up to date). */
+  energyAuto: boolean;
+  /** When the worked-out target was last updated (ms). */
+  energyAutoAt: number;
+  /** The rate of loss the worked-out calorie target aims for (kg a week). */
+  lossRateKgWeek: number;
+  /** A steps target of the person's own; null: worked out from their recent days (logic/movement). */
+  stepsTargetOwn: number | null;
+  /** Fibre a day (g). */
+  fibreTargetG: number;
+  /** Insights put away: id → until when (ms); a far-future time for good. */
+  insightsHidden: Record<string, number>;
+  /** Things done from an insight, to check back on a few weeks later ("since your 2 pm cut-off, sleep …"). */
+  followUps: FollowUp[];
 }
+
+export interface FollowUp { id: string; kind: 'cutoff' | 'protein' | 'calories'; at: number; value: number }
 
 export interface Snooze { id: number; medId: string; amount: number; dueAt: number; at: number; made: number }
 
@@ -229,6 +245,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   coachMoveSnooze: 0,
   intakeAmounts: { waterMl: [250, 500], proteinG: [10, 25, 40] },
   snoozeMin: 15,
+  energyAuto: false,
+  energyAutoAt: 0,
+  lossRateKgWeek: 0.5,
+  stepsTargetOwn: null,
+  fibreTargetG: 25,
+  insightsHidden: {},
+  followUps: [],
 };
 
 export async function getSettings(): Promise<AppSettings> {

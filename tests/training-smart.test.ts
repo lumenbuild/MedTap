@@ -89,6 +89,12 @@ describe('training reminders', () => {
     expect(note && new Date(note.at).toISOString()).toBe(new Date(syd('2026-08-21', '08:30')).toISOString());
     expect(fri).toBeGreaterThan(0);
   });
+  it('with a coach plan on set days: those days, at the usual time, naming the session', () => {
+    const r = planTrainingReminders(ws, now, S, { plan: { weekdays: [2, 4], next: 'Strength A/B · B' } }); // Tue, Thu
+    expect(r.map((x) => new Date(x.at).getUTCDay())).toEqual([2, 4]);
+    expect(r[0].body).toBe('Strength A/B · B today.');
+    expect(r[0].title).toBe('Tuesday training');
+  });
   it('mentions a stronger day after the shot', () => {
     const r = planTrainingReminders(ws, now, S, { strongDays: [2], lastShot: syd('2026-08-15', '08:00'), shotEveryDays: 7 });
     expect(r[0].body).toContain('Day 2 after your shot');

@@ -1,15 +1,13 @@
-// Smart features shared by both apps: learned reminder times and missed-slot patterns (medication page), the effect
-// window and script planning (Today and the medication page), odd records (Today), and sleep impact and the coming
-// days' check-in forecast (Trends). Each one shows what it rests on.
-import { readingsWorthMentioning } from '../logic/readings';
-import { useState } from 'react';
+// Smart features shared by both apps: learned reminder times, missed-slot patterns, the effect window and script
+// planning (medication page), the sheet for odd records (an insight on Today), and the coming days' check-in forecast
+// (Trends). Each one shows what it rests on.
 import { format } from 'date-fns';
-import type { CheckIn, DailyHealth, Dose, Medication, Vital, BodyEntry } from '../db/schema';
+import type { CheckIn, Dose, Medication } from '../db/schema';
 import type { ScheduleSettings } from '../logic/schedule';
 import {
   effectWindow, reminderSuggestion, riskySlots, slotHabits, type CheckInForecast, type EffectWindow,
 } from '../logic/habits';
-import { oddRecords, scriptPlan, scriptVisits, type OddRecord } from '../logic/records';
+import { scriptPlan, type OddRecord } from '../logic/records';
 import { fmtHHmm, WEEKDAYS } from '../logic/format';
 import { shownName } from '../logic/privacy';
 import { setReminderTimes } from '../db/repos/visits';
@@ -22,8 +20,7 @@ import { useCheckIns, useDoses, useScheduleSettings } from '../app/data';
 import { useNow } from '../app/useNow';
 import { personOf } from '../db/repos/people';
 import { Button } from './ui/Button';
-import { HeatTable, IconRow } from './ui/Visual';
-import { FileText, HeartPulse, SearchCheck } from 'lucide-react';
+import { HeatTable } from './ui/Visual';
 import { Sheet } from './ui/Sheet';
 
 const DAY = 86_400_000;
@@ -137,43 +134,8 @@ export function windowText(w: EffectWindow): string {
 // ── Today ───────────────────────────────────────────────────────────────────────────────────────────
 
 /** "Vyvanse: focus likely until about 4:30 pm" for medicines taken today with a known effect window. */
-/** "Book a doctor for a new Vyvanse script by Mon 14 Sep" when that's within 3 weeks; scripts needed close together
- *  are put on one visit ("one visit by … for Vyvanse and Dexamfetamine"). */
-export function ScriptToday({ meds, doses, s, now }: { meds: Medication[]; doses: Dose[]; s: ScheduleSettings; now: number }) {
-  const visits = scriptVisits(meds, doses, now, s).filter((v) => v.bookBy - now < 21 * DAY);
-  if (!visits.length) return null;
-  return (
-    <ul aria-label="Scripts">
-      {visits.map((v) => (
-        <li key={v.meds[0].med.id}>
-          <IconRow Icon={FileText} tone="watch" href={`#/meds/${v.meds[0].med.id}`}>
-            <span className="tnum">Book doctor {v.bookBy < now ? 'soon' : `by ${day(v.bookBy)}`}</span>
-            <span className="block text-sm text-muted">New script: {v.meds.map((x) => shownName(x.med)).join(', ')}</span>
-          </IconRow>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/** Records that look like mistakes, with a sheet to fix or keep each. */
-export function OddRecordsLine({ meds, doses, body, checkIns, vitals, dismissed, now }: {
-  meds: Medication[]; doses: Dose[]; body: BodyEntry[]; checkIns: CheckIn[]; vitals: Vital[]; dismissed: string[]; now: number;
-}) {
-  const [open, setOpen] = useState(false);
-  const odd = oddRecords(meds, doses, body, checkIns, vitals, now, dismissed);
-  if (!odd.length && !open) return null;
-  return (
-    <>
-      <IconRow Icon={SearchCheck} tone="watch" action={<Button variant="secondary" onClick={() => setOpen(true)}>Check</Button>}>
-        {odd.length} record{odd.length === 1 ? '' : 's'} to check
-      </IconRow>
-      {open && <OddSheet odd={odd} dismissed={dismissed} onClose={() => setOpen(false)} />}
-    </>
-  );
-}
-
-function OddSheet({ odd, dismissed, onClose }: { odd: OddRecord[]; dismissed: string[]; onClose: () => void }) {
+/** Records that look like mistakes, each to fix or keep (from the insight on Today). */
+export function OddSheet({ odd, dismissed, onClose }: { odd: OddRecord[]; dismissed: string[]; onClose: () => void }) {
   const toast = useToast();
   const keep = (o: OddRecord) => setSetting('oddDismissed', [...dismissed, o.id].slice(-200));
   const del = async (o: OddRecord) => {
@@ -245,20 +207,4 @@ export function EffectWindowCards({ meds, doses, checkIns, now }: { meds: Medica
 
 export const weekdayName = (wd: number) => WEEKDAYS[wd];
 
-/** Today: a week of readings clearly above the person's usual (or 140/90+), each closable for the week. */
-export function MentionsLine({ vitals, daily, dismissed, now }: { vitals: Vital[]; daily: DailyHealth[]; dismissed: string[]; now: number }) {
-  const list = readingsWorthMentioning(vitals, daily, now).filter((m) => !dismissed.includes(m.key));
-  if (!list.length) return null;
-  return (
-    <ul aria-label="Readings">
-      {list.map((m) => (
-        <li key={m.key}>
-          <IconRow Icon={HeartPulse} tone="watch" action={<button type="button" className="text-sm text-muted min-h-[44px] px-2" onClick={() => setSetting('mentionsDismissed', [...dismissed.slice(-20), m.key])}>OK</button>}>
-            <span className="tnum">{m.text}</span>
-          </IconRow>
-        </li>
-      ))}
-    </ul>
-  );
-}
 

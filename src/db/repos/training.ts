@@ -64,6 +64,13 @@ export async function setCoach(personId: string, plan: CoachPlan | undefined): P
   await db.people.put({ ...base, coach: plan, updatedAt: now });
   return p?.coach;
 }
+/** Set the person's height (cm), or clear it. */
+export async function setHeight(personId: string, heightCm: number | undefined) {
+  const now = nowIso();
+  const p = await db.people.get(personId);
+  const base = p ?? { id: personId, name: 'Me', createdAt: now, updatedAt: now };
+  await db.people.put({ ...base, heightCm, updatedAt: now });
+}
 export async function restoreFitnessGoals(personId: string, goals: FitnessGoal[] | undefined) {
   const p = await db.people.get(personId);
   if (p) await db.people.put({ ...p, fitnessGoals: goals, updatedAt: nowIso() });

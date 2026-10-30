@@ -108,17 +108,21 @@ export function vialRestText(v: VialRest, unit: string, pen: boolean): string {
 }
 
 /** The last 7 days in a few lines. */
-export function WeeklySummaryBlock({ w, med, units, title = 'Last 7 days' }: { w: WeeklySummary; med: Medication; units: Units; title?: string }) {
+/** `onProtocol`: just the shots and side effects (weight is on Body and in the weekly review, which it links to). */
+export function WeeklySummaryBlock({ w, med, units, title = 'Last 7 days', onProtocol = false }: { w: WeeklySummary; med: Medication; units: Units; title?: string; onProtocol?: boolean }) {
   const u = weightUnit(units);
   return (
     <div>
-      <p className="text-sm font-medium text-muted mb-2">{title}</p>
+      <div className="flex items-baseline justify-between gap-3 mb-2">
+        <p className="text-sm font-medium text-muted">{title}</p>
+        {onProtocol && <a href="#/progress/trends" className="text-sm font-medium underline underline-offset-4 min-h-[44px] inline-flex items-center">Your week</a>}
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <Stat Icon={Syringe} label={med.schedule.type === 'fixed' && w.planned ? `Shots · ${w.onTime} on time` : 'Shots'} value={w.planned ? `${w.shots}/${w.planned}` : w.shots}
           tone={w.planned && w.shots >= w.planned ? 'good' : 'watch'}>
           {w.planned ? <Bar value={w.shots} max={w.planned} tone={w.shots >= w.planned ? 'good' : 'watch'} label={`${w.shots} of ${w.planned} shots`} /> : null}
         </Stat>
-        {HAS_BODY && w.weightPerWeek !== undefined && <Stat Icon={Scale} label="Weight a week" value={signed(kgTo(w.weightPerWeek, units))} unit={u} tone={w.weightPerWeek <= 0 ? 'good' : 'plain'} />}
+        {HAS_BODY && !onProtocol && w.weightPerWeek !== undefined && <Stat Icon={Scale} label="Weight a week" value={signed(kgTo(w.weightPerWeek, units))} unit={u} tone={w.weightPerWeek <= 0 ? 'good' : 'plain'} />}
         {w.effectPct !== undefined && <Stat Icon={Frown} label="Side effects" value={`${w.effectPct}%`} unit={w.effectPctBefore !== undefined ? `was ${w.effectPctBefore}%` : undefined}>
           <Bar value={w.effectPct} max={100} tone={w.effectPct > 50 ? 'watch' : 'plain'} label={`Side effects in ${w.effectPct}% of check-ins`} />
         </Stat>}

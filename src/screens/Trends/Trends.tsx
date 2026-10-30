@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { FileText, FlaskConical } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { ChevronDown, FileText, FlaskConical, Pill, Scale, Smile } from 'lucide-react';
 import { useWorkouts, useAppointments, useDaily, useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings, useVitals } from '../../app/data';
 import { CheckInForecastBlock, EffectWindowCards } from '../../components/Smart';
 import { HeartAfterCards, LinksSection, OnOffCards } from '../../components/Lifestyle';
@@ -15,8 +15,13 @@ import { dayKey } from '../../logic/stats';
 import { dosesForPerson, medIsFor, personOf } from '../../db/repos/people';
 import { JumpBar } from '../../components/ui/JumpBar';
 import { AskBox, ChangesCard } from '../../components/Insights';
+import { InsightFeed } from '../../components/InsightList';
+import { WeekReviewSection } from '../../components/WeekReview';
 import { whatChanged, dailySignals } from '../../logic/changes';
-import { Tile } from '../../components/ui/Visual';
+import { Stat, Tile } from '../../components/ui/Visual';
+import { glance } from '../../logic/digest';
+import { stepsTarget } from '../../logic/movement';
+import { kgTo, weightUnit } from '../../logic/units';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
 import { RANGE_DAYS, rangeStart, type Range } from '../../logic/stats';
@@ -84,7 +89,7 @@ export function Trends() {
   const training = HAS_TRAINING && settings.trainingTools;
   const habits = dailyHabits({ daily, foodLogs: allFood.filter((l) => personOf(l) === fam.personId), checkIns }, start, end, prevStart, s, {
     food: HAS_FOOD && settings.foodTracking, intake: training, readiness: training,
-    targets: { energy: settings.energyTargetKcal, protein: settings.proteinTargetG, water: settings.waterTargetMl, caffeineLimit: settings.caffeineLimitMg },
+    targets: { energy: settings.energyTargetKcal, protein: settings.proteinTargetG, water: settings.waterTargetMl, steps: settings.stepsTargetOwn ?? stepsTarget(daily, now), caffeineLimit: settings.caffeineLimitMg },
   });
   const sleep = sleepImpact(meds.filter((m) => !m.peptide && !m.archived), doses, checkIns, now, s);
   const ciForecast = checkInForecast(meds, doses, checkIns, now, s);
@@ -92,6 +97,18 @@ export function Trends() {
   return (
     <div className="space-y-4">
       <PersonSwitcher />
+      {(() => {
+        // At a glance: the weight trend, doses on schedule and how you've felt, against the time before.
+        const g = glance({ meds, doses, checkIns, body: HAS_BODY ? body : [] }, now, s);
+        const tiles = [
+          g.weightPerWeek !== undefined && <a key="w" href="#/progress/body"><Stat Icon={Scale} label="Weight a week" value={`${g.weightPerWeek > 0 ? '+' : g.weightPerWeek < 0 ? '−' : ''}${kgTo(Math.abs(g.weightPerWeek), settings.units)}`} unit={weightUnit(settings.units)} tone={g.weightPerWeek <= 0 ? 'good' : 'plain'} /></a>,
+          HAS_MEDS && g.doses && <Stat key="d" Icon={Pill} label="Doses, 2 weeks" value={`${g.doses.pct}%`} unit={g.doses.before !== undefined && g.doses.before !== g.doses.pct ? `was ${g.doses.before}` : undefined} tone={g.doses.pct >= 90 ? 'good' : g.doses.pct < 70 ? 'watch' : 'plain'} />,
+          g.mood && <Stat key="m" Icon={Smile} label="Mood, 2 weeks" value={g.mood.avg} unit={g.mood.before !== undefined && g.mood.before !== g.mood.avg ? `was ${g.mood.before}` : 'of 5'} tone={g.mood.before !== undefined && g.mood.avg < g.mood.before - 0.3 ? 'watch' : 'plain'} />,
+        ].filter(Boolean);
+        return tiles.length ? <div className={`grid gap-2 ${tiles.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`} role="group" aria-label="At a glance">{tiles}</div> : null;
+      })()}
+      <InsightFeed max={3} />
+      <WeekReviewSection />
       <AskBox data={{ meds, doses, checkIns, body, daily, vitals, events }} now={now} />
       <div className="sticky top-0 z-10 -mx-6 px-6 py-2 bg-bg">
         <Segmented<Range | 'appt'> label="Date range" value={r} onChange={pick}
@@ -112,6 +129,7 @@ export function Trends() {
               : <p className="mt-2 flex items-center gap-2 font-medium"><MedBadge color={shownColour(med)} icon={med.icon} size={24} />{shownName(med)}</p>}
             <p className="text-sm text-muted mt-1">Everything below is about {shownName(med)}.</p>
           </section>
+          <Fold label={`Charts for ${shownName(med)}`} hint="Doses per day, timing, effect window, days on and off">
           <AdherenceHeatmap meds={one} doses={doses} oneMed {...common} />
           <DoseTimingCharts meds={one} doses={doses} oneMed {...common} />
           <IntervalCharts meds={one} doses={doses} oneMed {...common} />
@@ -124,17 +142,34 @@ export function Trends() {
               <BlendCharts meds={peptide} doses={doses} {...common} />
             </>
           )}
+          </Fold>
         </>
       )}
       <DailyHabitsCard habits={habits} foodLogs={allFood.filter((l) => personOf(l) === fam.personId)} energy={settings.energyUnit} start={start} end={end} prevDays={prevStart === null ? null : days} />
+      <Fold label="What goes with what" hint="Alcohol, caffeine, steps and readiness against sleep, weight and training">
       <LinksSection checkIns={checkIns} daily={daily} body={body} workouts={workouts} sleep={sleep} units={settings.units} now={now} s={s} showBody={HAS_BODY} training={training}
         caffeine={{ bedtime: settings.bedtime, halfLifeH: settings.caffeineHalfLifeH, foodLogs: allFood.filter((l) => personOf(l) === fam.personId) }} />
+      </Fold>
       {HAS_MEDS && (
         <div className="border-t border-border pt-4 grid grid-cols-2 gap-2" role="group" aria-label="More">
           <Tile Icon={FileText} label="Doctor report" href="#/report" />
           <Tile Icon={FlaskConical} label={HAS_VISITS ? 'Appointments' : 'Lab results'} href={HAS_VISITS ? '#/appointments' : '#/labs'} />
         </div>
       )}
+    </div>
+  );
+}
+
+/** A long group of charts, folded under one line until it's wanted (Progress stays a page you can scan). */
+function Fold({ label, hint, children }: { label: string; hint: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-t border-border pt-2">
+      <button type="button" aria-expanded={open} onClick={() => setOpen((x) => !x)} className="w-full min-h-[56px] flex items-center gap-3 text-left">
+        <span className="flex-1 min-w-0"><span className="block font-medium">{label}</span><span className="block text-sm text-muted truncate">{hint}</span></span>
+        <ChevronDown size={18} aria-hidden="true" className={`text-muted shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && <div className="space-y-4">{children}</div>}
     </div>
   );
 }

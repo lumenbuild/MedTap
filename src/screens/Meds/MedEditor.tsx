@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ingredientsOf, ingredientsText, parseIngredients } from '../../logic/ingredients';
 import { shownName } from '../../logic/privacy';
 import { interactions, unstudied } from '../../logic/interactions';
-import { Check, ClipboardList, EyeOff, Link2, Plus, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, ClipboardList, EyeOff, Link2, Pencil, Plus, TrendingUp, X } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Medication, SyringeType } from '../../db/schema';
 import { db } from '../../db/db';
@@ -29,11 +29,11 @@ import {
   blankSchedule, ScheduleFields, scheduleFormFromMed, scheduleFromForm, validateSchedule, type ScheduleErrors, type ScheduleForm, type ScheduleSetter,
 } from './ScheduleFields';
 import { TagsSection } from './TagsSection';
-import { PlannedChanges } from './PlannedChanges';
 import { BottlesSection } from './BottlesSection';
 import { ScanLabelCard } from './ScanLabel';
-import { TitrationCard } from './PeptideSections';
-import { StepPlanCard } from '../../components/DosePlan';
+import { DosePlanCard } from '../../components/DosePlan';
+import { planShort } from '../../logic/dosePlan';
+import { scheduleSettings } from '../../db/repos/settings';
 import { VialCard } from './VialCard';
 import { MedPatterns } from '../../components/Smart';
 import { CountButton, countsFromPhoto } from '../../components/CountSheet';
@@ -41,6 +41,7 @@ import { DrawGuide, syringeSizes } from '../../components/Syringe';
 import { SYRINGES } from '../../logic/peptide';
 import type { LabelDetails } from '../../logic/label';
 import { HAS_PEPTIDES } from '../../edition';
+import { fmtAmount, fmtSchedule } from '../../logic/format';
 
 const UNITS = ['mg', 'mcg', 'mL', 'units', 'tablet'];
 const FORMS = ['tablet', 'capsule', 'liquid', 'patch', 'injection', 'other'];
@@ -198,6 +199,9 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
   useEffect(() => { if (existing) setF(fromMed(existing)); }, [loadedId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const settings = useSettings();
+  const [editing, setEditing] = useState(false);
+  // An injection on the Protocol tab keeps its dose plan there.
+  const onProtocol = HAS_PEPTIDES && !!settings?.peptideTools && !!existing?.peptide;
   // New medications are for whoever is selected.
   const fam = useFamily();
   const famLoaded = !!fam;
@@ -305,12 +309,30 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
       )}
       {existing && <TagsSection med={existing} />}
       {HAS_PEPTIDES && existing?.peptide && !existing.archived && <VialCard med={existing} />}
-      {existing && !existing.archived && !priv && <StepPlanCard med={existing} />}
-      {existing && !existing.archived && <PlannedChanges med={existing} />}
-      {existing && !existing.archived && settings?.peptideTools && <TitrationCard med={existing} />}
+      {/* The dose plan: for an injection its home is Protocol (with the shots, vials and level); for the rest, here. */}
+      {existing && !existing.archived && !priv && (onProtocol
+        ? <a href="#/protocol" onClick={() => { try { localStorage.setItem('protocolMed', existing.id); } catch { /* fine */ } }}
+            className="flex items-center gap-3 rounded-card border border-border p-4 min-h-[56px]">
+            <TrendingUp size={20} className="text-primary shrink-0" aria-hidden="true" />
+            <span className="flex-1"><span className="block font-medium">Dose plan</span><span className="block text-sm text-muted tnum">{planShort(existing, Date.now(), scheduleSettings(settings!)) ?? `Now ${fmtAmount(existing.defaultAmount, existing.unit)}`} · on Protocol</span></span>
+            <ChevronRight size={18} className="text-muted shrink-0" aria-hidden="true" />
+          </a>
+        : <DosePlanCard med={existing} />)}
       {existing && !existing.archived && !existing.peptide && <BottlesSection med={existing} />}
       {existing && !existing.archived && <MedPatterns med={existing} />}
 
+      {/* A medication already set up opens on what matters day to day (above); its details fold under one row. */}
+      {existing && !editing && (
+        <button type="button" onClick={() => setEditing(true)} className="w-full text-left rounded-card border border-border p-4 min-h-[64px] flex items-center gap-3">
+          <Pencil size={20} aria-hidden="true" className="text-primary shrink-0" />
+          <span className="flex-1 min-w-0">
+            <span className="block font-medium">Edit details</span>
+            <span className="block text-sm text-muted truncate tnum">{fmtSchedule(existing.schedule, existing.unit)}{existing.stockCount !== undefined ? ` · ${Math.round(existing.stockCount * 100) / 100} left` : ''}</span>
+          </span>
+          <ChevronDown size={18} aria-hidden="true" className="text-muted shrink-0" />
+        </button>
+      )}
+      {(!existing || editing) && (<>
       <Card className="space-y-4">
         <h2 className="text-sm font-medium text-muted">Medication</h2>
         <TextInput label="Name" value={f.name} onChange={(e) => set('name', e.target.value)} error={errors.name} autoComplete="off" autoFocus={!id} />
@@ -457,12 +479,15 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
           <Button variant="danger" className="w-full" onClick={() => { setTyped(''); setConfirmDelete(true); }}>Delete permanently</Button>
         </Card>
       )}
+      </>)}
 
-      <div className="fixed bottom-0 inset-x-0 z-30 bg-surface border-t border-border" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="mx-auto max-w-[560px] px-4 py-3">
-          <Button className="w-full min-h-[56px]" onClick={onSave}>{existing ? 'Save changes' : 'Save medication'}</Button>
+      {(!existing || editing) && (
+        <div className="fixed bottom-0 inset-x-0 z-30 bg-surface border-t border-border" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          <div className="mx-auto max-w-[560px] px-4 py-3">
+            <Button className="w-full min-h-[56px]" onClick={onSave}>{existing ? 'Save changes' : 'Save medication'}</Button>
+          </div>
         </div>
-      </div>
+      )}
 
       <Sheet open={!!change} onClose={() => setChange(null)} title="Record this as a change?">
         {change && (

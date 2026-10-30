@@ -3,7 +3,8 @@
 import { useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { Barcode, Camera, Hand, Keyboard, Minus, Plus, Search, Star } from 'lucide-react';
-import type { Food, Nutrients, Portions } from '../../db/schema';
+import type { EatWhy, Food, Nutrients, Portions } from '../../db/schema';
+import { Rating } from '../ui/Rating';
 import { useLive } from '../../db/live';
 import { db } from '../../db/db';
 import { foodByBarcode, logFood, removeFoodLog, saveFood } from '../../db/repos/food';
@@ -216,6 +217,32 @@ function Stepper({ label, hint, value, onChange, step = 0.5 }: { label: string; 
   );
 }
 
+type Eat = { hunger?: number; why?: EatWhy };
+const WHY: { v: EatWhy; label: string }[] = [
+  { v: 'hungry', label: 'Hungry' }, { v: 'craving', label: 'Craving' }, { v: 'stress', label: 'Stressed' }, { v: 'bored', label: 'Bored' }, { v: 'habit', label: 'Habit' }, { v: 'social', label: 'Social' },
+];
+
+/** Optional: how hungry, and why eat now. Folded until opened, so logging stays one tap for those who skip it. */
+function HungerPicker({ value, onChange }: { value: Eat; onChange: (v: Eat) => void }) {
+  return (
+    <details className="group rounded-btn bg-surface-2 px-3" open={value.hunger !== undefined || value.why !== undefined}>
+      <summary className="min-h-[48px] flex items-center justify-between cursor-pointer list-none text-[15px]">
+        <span>How hungry were you? <span className="text-muted">(optional)</span></span>
+        <span className="text-sm text-muted tnum">{value.hunger ? `${value.hunger} of 5` : ''}{value.why ? ` · ${WHY.find((w) => w.v === value.why)!.label}` : ''}</span>
+      </summary>
+      <div className="pb-3 space-y-3">
+        <Rating label="Hunger" low="Not at all" high="Very" value={value.hunger} onChange={(h) => onChange({ ...value, hunger: h })} />
+        <div role="radiogroup" aria-label="Why now" className="flex flex-wrap gap-2">
+          {WHY.map((w) => (
+            <button key={w.v} type="button" role="radio" aria-checked={value.why === w.v} onClick={() => onChange({ ...value, why: value.why === w.v ? undefined : w.v })}
+              className={`min-h-[44px] px-4 rounded-chip text-sm font-medium ${value.why === w.v ? 'bg-primary text-on-primary' : 'bg-surface'}`}>{w.label}</button>
+          ))}
+        </div>
+      </div>
+    </details>
+  );
+}
+
 function When({ at, setAt }: { at: string; setAt: (v: string) => void }) {
   return <TextInput label="When" type="time" value={at} onChange={(e) => setAt(e.target.value)} />;
 }
@@ -233,12 +260,13 @@ function Amount({ food, personId, energy, onBack, onClose }: { food: Food; perso
   const own = toNum(count) !== undefined && toNum(count)! > 0 ? toNum(count)! : undefined;
   const f = own ?? pick;
   const [at, setAt] = useState(format(new Date(), 'HH:mm'));
+  const [eat, setEat] = useState<Eat>({});
   const byWeight = !!food.per100 && toNum(qty) !== undefined && toNum(qty)! > 0;
   const nutrients = byWeight ? scaleNutrients(food.per100!, toNum(qty)! / 100) : scaleNutrients(food.nutrients, f);
   const servings = byWeight && food.servingQty ? Math.round((toNum(qty)! / food.servingQty) * 100) / 100 : f;
   const log = async () => {
     const when = atIso(at);
-    const l = await logFood({ name: food.name, foodId: food.id, servings, nutrients, at: when, date: format(new Date(when), 'yyyy-MM-dd'), personId });
+    const l = await logFood({ ...eat, name: food.name, foodId: food.id, servings, nutrients, at: when, date: format(new Date(when), 'yyyy-MM-dd'), personId });
     toast(`Logged ${food.name}${(nutrients.caffeine ?? 0) >= 1 ? ' (and its caffeine)' : ''}`, { onAction: async () => { await removeFoodLog(l, format(new Date(when), 'yyyy-MM-dd')); } });
     onClose();
   };
@@ -256,6 +284,7 @@ function Amount({ food, personId, energy, onBack, onClose }: { food: Food; perso
           onChange={(e) => { setCount(e.target.value); setQty(''); }} />
         {food.per100 && <TextInput label={`Or how much (${food.servingUnit ?? 'g'})`} type="number" inputMode="decimal" min="0" step="any" value={qty} onChange={(e) => { setQty(e.target.value); setCount(''); }} />}
         <When at={at} setAt={setAt} />
+        <HungerPicker value={eat} onChange={setEat} />
         <NutrientList n={nutrients} energy={energy} />
         <SheetActions>
           <Button className="w-full min-h-[56px]" onClick={log}>Log it</Button>
@@ -287,12 +316,13 @@ function PortionsStep({ personId, energy, onBack, onClose }: { personId: string;
   const [p, setP] = useState<Portions>(noPortions());
   const [name, setName] = useState('');
   const [at, setAt] = useState(format(new Date(), 'HH:mm'));
+  const [eat, setEat] = useState<Eat>({});
   const n = portionNutrients(p);
   const any = Object.values(p).some((v) => v > 0);
   const log = async () => {
     const when = atIso(at);
     const food = name.trim() ? await saveFood({ kind: 'meal', name: name.trim(), nutrients: n, portions: p, serving: 'Usual size', source: 'portions' }) : undefined;
-    const l = await logFood({ name: name.trim() || 'Meal', foodId: food?.id, servings: 1, nutrients: n, at: when, date: format(new Date(when), 'yyyy-MM-dd'), personId });
+    const l = await logFood({ ...eat, name: name.trim() || 'Meal', foodId: food?.id, servings: 1, nutrients: n, at: when, date: format(new Date(when), 'yyyy-MM-dd'), personId });
     toast(food ? `Logged and saved ${food.name}` : 'Meal logged', { onAction: async () => { await removeFoodLog(l, format(new Date(when), 'yyyy-MM-dd')); } });
     onClose();
   };
@@ -307,6 +337,7 @@ function PortionsStep({ personId, energy, onBack, onClose }: { personId: string;
         </div>
         <TextInput label="Name it to log again in one tap (optional)" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Chicken stir fry" help="Next time, pick it and choose smaller, usual or bigger." />
         <When at={at} setAt={setAt} />
+        <HungerPicker value={eat} onChange={setEat} />
         <SheetActions>
           <Button className="w-full min-h-[56px]" disabled={!any} onClick={log}>Log it</Button>
           <Button variant="secondary" className="w-full" onClick={onBack}>Back</Button>
@@ -323,6 +354,7 @@ function TypedStep({ personId, energy, onBack, onClose }: { personId: string; en
   const [v, setV] = useState<Record<string, string>>({});
   const [keep, setKeep] = useState(true);
   const [at, setAt] = useState(format(new Date(), 'HH:mm'));
+  const [eat, setEat] = useState<Eat>({});
   const nutrients: Nutrients = {};
   for (const k of ['kcal', 'protein', 'carbs', 'fat', 'fibre', 'caffeine']) {
     const x = toNum(v[k] ?? '');
@@ -331,7 +363,7 @@ function TypedStep({ personId, energy, onBack, onClose }: { personId: string; en
   const log = async () => {
     const when = atIso(at);
     const food = keep ? await saveFood({ kind: 'product', name: name.trim(), nutrients, serving: '1 serving', source: 'typed' }) : undefined;
-    const l = await logFood({ name: name.trim(), foodId: food?.id, servings: 1, nutrients, at: when, date: format(new Date(when), 'yyyy-MM-dd'), personId });
+    const l = await logFood({ ...eat, name: name.trim(), foodId: food?.id, servings: 1, nutrients, at: when, date: format(new Date(when), 'yyyy-MM-dd'), personId });
     toast(`Logged ${name.trim()}`, { onAction: async () => { await removeFoodLog(l, format(new Date(when), 'yyyy-MM-dd')); } });
     onClose();
   };
@@ -349,6 +381,7 @@ function TypedStep({ personId, energy, onBack, onClose }: { personId: string; en
           <span>Save it to log again</span>
         </label>
         <When at={at} setAt={setAt} />
+        <HungerPicker value={eat} onChange={setEat} />
         <SheetActions>
           <Button className="w-full min-h-[56px]" disabled={!name.trim() || !Object.keys(nutrients).length} onClick={log}>Log it</Button>
           <Button variant="secondary" className="w-full" onClick={onBack}>Back</Button>

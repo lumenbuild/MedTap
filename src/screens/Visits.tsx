@@ -4,15 +4,18 @@ import { format } from 'date-fns';
 import { Printer, Trash2 } from 'lucide-react';
 import type { LabResult } from '../db/schema';
 import {
-  useAppointments, useBodyEntries, useCheckIns, useDoses, useFamily, useLabs, useMedEvents, useMeds, useQuestions, useScheduleSettings, useVitals,
+  useAppointments, useBodyEntries, useCheckIns, useDaily, useDoses, useExercises, useFamily, useWorkouts, useLabs, useMedEvents, useMeds, useQuestions, useScheduleSettings, useVitals,
 } from '../app/data';
 import { dosesForPerson, medIsFor, personOf } from '../db/repos/people';
 import { addAppointment, addLabs, addQuestion, removeAppointment, removeLabs, removeQuestion, restoreAppointment, restoreLabs, restoreQuestion, setQuestionDone } from '../db/repos/visits';
 import { appointmentsAround, summarySince, type Compare } from '../logic/appointments';
 import { parseLabResults, type LabLine } from '../logic/records';
 import { dayKey } from '../logic/stats';
+import { HAS_BODY, HAS_TRAINING } from '../edition';
 import { kgTo, weightUnit } from '../logic/units';
-import { HAS_BODY } from '../edition';
+import { periodReview } from '../logic/digest';
+import { allExercises } from '../logic/exercises';
+import { ReviewLines } from '../components/WeekReview';
 import { APP_NAME } from '../config';
 import { printPage } from '../app/print';
 import { useNow } from '../app/useNow';
@@ -117,6 +120,7 @@ export function AppointmentSummary() {
   const meds = useMeds(); const doses = useDoses(); const checkIns = useCheckIns(); const body = useBodyEntries(); const vitals = useVitals();
   const events = useMedEvents(); const labs = useLabs(); const questions = useQuestions(); const appts = useAppointments();
   const fam = useFamily(); const ss = useScheduleSettings(); const now = useNow(60_000);
+  const workouts = useWorkouts(); const daily = useDaily(); const own = useExercises();
   if (!meds || !doses || !checkIns || !body || !vitals || !events || !labs || !questions || !appts || !fam || !ss) return <Loading />;
   const [settings, s] = ss;
   const mine = <T extends { personId?: string }>(r: T) => personOf(r) === fam.personId;
@@ -128,6 +132,10 @@ export function AppointmentSummary() {
     meds: myMeds, doses: dosesForPerson(doses.filter((d) => ids.has(d.medicationId)), myMeds, fam.personId), checkIns: checkIns.filter(mine),
     body: HAS_BODY ? body.filter(mine) : [], vitals: vitals.filter(mine), events: events.filter((e) => ids.has(e.medicationId)), labs: labs.filter(mine), questions: questions.filter(mine),
   });
+  const workouts_ = (workouts ?? []).filter(mine);
+  const review = periodReview({ meds: myMeds, doses: dosesForPerson(doses.filter((d) => ids.has(d.medicationId)), myMeds, fam.personId), checkIns: checkIns.filter(mine),
+    body: HAS_BODY ? body.filter(mine) : [], workouts: workouts_, daily: (daily ?? []).filter(mine), defs: allExercises(own ?? []) },
+  sum.from, now, s, { units: settings.units, body: HAS_BODY, training: HAS_TRAINING && settings.trainingTools }, 'before it');
   const cmp = (label: string, c: Compare, unit = '') => (c.since === undefined && c.before === undefined ? null
     : <tr key={label} className="border-t border-border"><td className="py-1.5 pr-3">{label}</td><td className="py-1.5 pr-3 tnum">{c.since ?? '–'}{unit}</td><td className="py-1.5 tnum text-muted">{c.before ?? '–'}{unit}</td></tr>);
   return (
@@ -152,15 +160,22 @@ export function AppointmentSummary() {
           ))}
         </ul>
       </section>
+      {/* How it's gone: the same review as the weekly one, over the time since the last visit. */}
+      {review && (
+        <section className="report-block">
+          <h3 className="text-sm font-medium text-muted mb-1">How it's gone</h3>
+          <ReviewLines d={review} />
+        </section>
+      )}
       {sum.checkIns.n > 0 && (
         <section className="report-block">
           <h3 className="text-sm font-medium text-muted mb-1">Check-ins ({sum.checkIns.n})</h3>
           <table className="w-full text-[15px]"><thead><tr className="text-left text-sm text-muted"><th className="font-medium py-1">Average</th><th className="font-medium py-1">Since</th><th className="font-medium py-1">Before</th></tr></thead>
-            <tbody>{[cmp('Mood', sum.checkIns.mood), cmp('Focus', sum.checkIns.focus), cmp('Energy', sum.checkIns.energy), cmp('Appetite', sum.checkIns.appetite), cmp('Sleep', sum.checkIns.sleepHours, ' h'), cmp('Sleep quality', sum.checkIns.sleepQuality)]}</tbody></table>
+            <tbody>{[cmp('Focus', sum.checkIns.focus), cmp('Energy', sum.checkIns.energy), cmp('Appetite', sum.checkIns.appetite), cmp('Sleep quality', sum.checkIns.sleepQuality)]}</tbody></table>
           {sum.chips.length > 0 && <p className="text-[15px] mt-2">Noted: {sum.chips.map((c) => `${c.chip} ${c.since}× (before ${c.before}×)`).join(', ')}</p>}
         </section>
       )}
-      {(sum.weight || sum.bp) && (
+      {(sum.weight?.change !== undefined || sum.bp?.since) && (
         <section className="report-block">
           <h3 className="text-sm font-medium text-muted mb-1">Body</h3>
           {sum.weight?.change !== undefined && <p className="text-[15px] tnum">Weight {kgTo(sum.weight.first!, settings.units)} → {kgTo(sum.weight.last!, settings.units)} {weightUnit(settings.units)}{sum.weight.perWeek !== undefined ? ` (${sum.weight.perWeek > 0 ? '+' : ''}${kgTo(sum.weight.perWeek, settings.units)} a week)` : ''}</p>}

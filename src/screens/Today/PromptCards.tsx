@@ -1,7 +1,7 @@
 import { BUILD, checkForUpdate, installUpdate, type Update } from '../../app/updates';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { shownName } from '../../logic/privacy';
-import { Annoyed, Download, Frown, FolderSync, HardDriveDownload, Laugh, Meh, Smile, X } from 'lucide-react';
+import { AlertCircle, Annoyed, ChevronDown, Download, Frown, FolderSync, HardDriveDownload, Laugh, Meh, Smile, X } from 'lucide-react';
 import { IconRow } from '../../components/ui/Visual';
 import { autoBackupState, BackupError, regainPermission } from '../../app/autoBackup';
 import { isNative } from '../../nfc/native';
@@ -53,6 +53,27 @@ export function CheckInAutoOpen({ ask, enabled, shown, busy, onOpen }: { ask?: C
     return () => clearTimeout(t);
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   return null;
+}
+
+/** Stock, vials, supplies, backups, tags to link: one of them is shown as it is; two or more fold into one line that
+ *  opens to show each. Today stays about the day rather than a stack of chores. */
+export function NeedsAttention({ items }: { items: { key: string; label: string; node: ReactNode }[] }) {
+  const [open, setOpen] = useState(false);
+  if (!items.length) return null;
+  if (items.length === 1) return <>{items[0].node}</>;
+  return (
+    <section aria-label="Needs attention" className="space-y-3">
+      <button type="button" aria-expanded={open} onClick={() => setOpen((x) => !x)} className="w-full flex items-center gap-3 rounded-card bg-caution-soft p-3 min-h-[56px] text-left">
+        <AlertCircle size={22} aria-hidden="true" className="text-caution shrink-0" />
+        <span className="flex-1 min-w-0">
+          <span className="block font-medium">{items.length} things need attention</span>
+          <span className="block text-sm truncate">{items.map((x) => x.label).join(' · ')}</span>
+        </span>
+        <ChevronDown size={18} aria-hidden="true" className={`shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && items.map((x) => <Fragment key={x.key}>{x.node}</Fragment>)}
+    </section>
+  );
 }
 
 export function BackupReminder({ days }: { days: number }) {

@@ -173,13 +173,13 @@ export function milestones(d: MotivationData, st: Streak[], now: number, units: 
   return out.sort((a, b) => b.at - a.at);
 }
 
-export interface RingPart { key: 'doses' | 'checkin' | 'water' | 'protein'; label: string; got: number; want: number; text: string }
+export interface RingPart { key: 'doses' | 'checkin' | 'water' | 'protein' | 'steps'; label: string; got: number; want: number; text: string }
 export interface Ring { parts: RingPart[]; value: number; done: number }
 
 /** Today's plan, and how much of it is done: set-time doses due today, a check-in (when there are daily check-in
  *  times), and water and protein against the person's own targets. Each part counts the same. */
 export function todayRing(d: Pick<MotivationData, 'meds' | 'doses' | 'checkIns' | 'daily'>, now: number, s: ScheduleSettings,
-  o: { checkInTimes: string[]; water: number | null; protein: number | null; intake: boolean }): Ring | null {
+  o: { checkInTimes: string[]; water: number | null; protein: number | null; intake: boolean; steps?: number | null }): Ring | null {
   const parts: RingPart[] = [];
   const k = dayKey(now, s);
   const sched = d.meds.filter((m) => !m.archived && m.schedule.type !== 'prn');
@@ -200,6 +200,9 @@ export function todayRing(d: Pick<MotivationData, 'meds' | 'doses' | 'checkIns' 
     if (o.water) parts.push({ key: 'water', label: 'Water', got: Math.min(o.water, day?.waterMl ?? 0), want: o.water, text: `${Math.round((day?.waterMl ?? 0) / 100) / 10} of ${o.water / 1000} L` });
     if (o.protein) parts.push({ key: 'protein', label: 'Protein', got: Math.min(o.protein, day?.proteinG ?? 0), want: o.protein, text: `${Math.round(day?.proteinG ?? 0)} of ${o.protein} g` });
   }
+  // Steps, once today's have come in from the watch or phone.
+  const today = d.daily.find((x) => live(x) && x.date === k);
+  if (o.steps && today?.steps) parts.push({ key: 'steps', label: 'Steps', got: Math.min(o.steps, today.steps), want: o.steps, text: `${today.steps.toLocaleString()} of ${o.steps.toLocaleString()}` });
   if (!parts.length) return null;
   const value = parts.reduce((a, p) => a + p.got / p.want, 0) / parts.length;
   return { parts, value, done: parts.filter((p) => p.got >= p.want).length };

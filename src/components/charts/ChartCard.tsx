@@ -2,21 +2,26 @@ import type { ReactNode } from 'react';
 import { ArrowDownRight, ArrowRight, ArrowUpRight, Table2 } from 'lucide-react';
 
 /** The number a chart is about, big, with how it moved (in words, never colour alone). */
-export interface Headline { value: string; unit?: string; delta?: string; dir?: 'up' | 'down' | 'flat'; tone?: 'good' | 'watch' | 'plain' }
+export interface Headline { value: string; unit?: string; delta?: string; dir?: 'up' | 'down' | 'flat'; tone?: 'good' | 'watch' | 'plain';
+  /** A line under it, e.g. what the number is ("Last weigh-in, Fri 30 Oct · 7-day average 117.2 kg"). */
+  note?: string }
 
 export function HeadlineStat({ h }: { h: Headline }) {
   const Arrow = h.dir === 'up' ? ArrowUpRight : h.dir === 'down' ? ArrowDownRight : ArrowRight;
   const colour = h.tone === 'good' ? 'var(--success)' : h.tone === 'watch' ? 'var(--caution)' : 'var(--text-muted)';
   return (
-    <p className="flex items-baseline flex-wrap gap-x-2 tnum">
-      <span className="text-[28px] font-semibold leading-tight">{h.value}</span>
-      {h.unit && <span className="text-[15px] text-muted -ml-1">{h.unit}</span>}
-      {h.delta && (
-        <span className="inline-flex items-center gap-0.5 text-[15px] font-medium" style={{ color: colour }}>
-          {h.dir && <Arrow size={16} aria-hidden="true" className="self-center" />}{h.delta}
-        </span>
-      )}
-    </p>
+    <div>
+      <p className="flex items-baseline flex-wrap gap-x-2 tnum">
+        <span className="text-[28px] font-semibold leading-tight">{h.value}</span>
+        {h.unit && <span className="text-[15px] text-muted -ml-1">{h.unit}</span>}
+        {h.delta && (
+          <span className="inline-flex items-center gap-0.5 text-[15px] font-medium" style={{ color: colour }}>
+            {h.dir && <Arrow size={16} aria-hidden="true" className="self-center" />}{h.delta}
+          </span>
+        )}
+      </p>
+      {h.note && <p className="text-sm text-muted tnum">{h.note}</p>}
+    </div>
   );
 }
 

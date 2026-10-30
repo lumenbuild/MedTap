@@ -4,13 +4,12 @@
 import type { BodyEntry, CheckIn, DailyHealth, Dose, MedEvent, Medication, Workout, BodyGoal } from '../db/schema';
 import type { ScheduleSettings } from './schedule';
 import { byUrgency, getStatus, isScheduledDay } from './schedule';
-import { widgetData, type WidgetData } from './widget';
 import { wearOffToday } from './wearOff';
 import { weekStrip } from './protocol';
 import { sideEffectForecast, appetiteCurve, weightPath } from './predict';
-import { getNextDue } from './schedule';
-import { fmtTime, fmtWhen } from './format';
-import { vialStatus } from './peptide';
+import { getExpectedAmount, getNextDue, nextUp } from './schedule';
+import { fmtAmount, fmtTime, fmtWhen } from './format';
+import { guideText, vialStatus } from './peptide';
 import { readiness, working } from './training';
 import { smartTarget } from './progression';
 import { allExercises } from './exercises';
@@ -22,6 +21,37 @@ import { dayKey } from './stats';
 import { kgTo, weightUnit } from './units';
 import type { Units } from '../db/repos/settings';
 import { CAFFEINE, ALCOHOL } from './lifestyle';
+
+// ── The next dose (the original widget, the watch) and the Log shortcuts ─────────────────────────────────
+
+export interface WidgetData { app: string; label: string; title: string; when: string; dueAt: number | null; detail: string; logId: string; prn: { id: string; name: string }[] }
+
+export function widgetData(app: string, meds: Medication[], doses: Dose[], now: number, s: ScheduleSettings): WidgetData {
+  const active = meds.filter((m) => !m.archived);
+  const scheduled = byUrgency(active.filter((m) => m.schedule.type !== 'prn'), doses, now, s);
+  const prn = active.filter((m) => m.schedule.type === 'prn').slice(0, 2).map((m) => ({ id: m.id, name: shownName(m) }));
+  // The same as Today's headline: everything due now, otherwise all due at the soonest time.
+  const up = nextUp(active, doses, now, s);
+  const m = up.meds[0] ?? scheduled[0];
+  if (!m) return { app, label: app, title: prn.length ? 'As needed' : '', when: '', dueAt: null, detail: '', logId: '', prn };
+  const title = up.meds.length > 1 ? up.meds.map((x) => shownName(x)).join(' + ') : shownName(m);
+  const next = up.meds.length ? up.at : getNextDue(m, doses, now, s);
+  const amount = next !== null ? getExpectedAmount(m, doses, next, s) : m.defaultAmount;
+  const guide = m.peptide ? guideText(m, amount) : undefined;
+  const detail = up.meds.length > 1 ? `${up.meds.length} medicines` : [fmtAmount(amount, m.unit), guide].filter(Boolean).join(' · ');
+  if (up.due) return { app, label: 'Due now', title, when: next ? `since ${fmtTime(next)}` : '', dueAt: null, detail, logId: m.id, prn };
+  const allDone = scheduled.every((x) => ['done-today', 'not-today', 'past-latest-time'].includes(getStatus(x, doses, now, s)));
+  if (allDone && (next === null || next - now > 12 * 3_600_000)) return { app, label: 'Done for today', title, when: next ? `Next ${fmtWhen(next, now)}` : '', dueAt: null, detail: '', logId: m.id, prn };
+  return { app, label: 'Next', title, when: next ? fmtWhen(next, now) : '', dueAt: next, detail, logId: m.id, prn };
+}
+
+/** Shortcuts: scheduled medicines first, then as-needed; at most 4 (Android shows 4 on a long press). */
+export function shortcutItems(meds: Medication[]): { id: string; label: string }[] {
+  const active = meds.filter((m) => !m.archived);
+  return [...active.filter((m) => m.schedule.type !== 'prn'), ...active.filter((m) => m.schedule.type === 'prn')].slice(0, 4).map((m) => ({ id: m.id, label: `Log ${shownName(m)}` }));
+}
+
+// ── Every widget ───────────────────────────────────────────────────────────────────────────────────────
 
 const DAY = 86_400_000;
 const WEEK = 7 * DAY;

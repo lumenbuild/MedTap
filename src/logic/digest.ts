@@ -9,6 +9,8 @@ import { dayStartOffset } from './protocol';
 import { newPBs, working } from './training';
 import type { ExerciseDef } from './exercises';
 import { kgTo, weightUnit } from './units';
+import { EFFECT_CHIPS } from './predict';
+import { robustFit } from './forecast';
 
 const DAY = 86_400_000;
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
@@ -31,11 +33,19 @@ export function lastWeek(now: number, s: ScheduleSettings): { start: number; end
   return { start: dayStartOffset(now, -back - 7, s), end };
 }
 
-export function weeklyDigest(d: DigestData, now: number, s: ScheduleSettings, opts: { units: Units; body: boolean; training: boolean;
-  /** Which way the weight goal points (−1 down, 1 up), and milestones to count among the week's wins. */
-  goalDir?: number; milestones?: { at: number; title: string }[]; }): Digest | null {
+export interface ReviewOpts { units: Units; body: boolean; training: boolean;
+  /** Which way the weight goal points (−1 down, 1 up), and milestones to count among the wins. */
+  goalDir?: number; milestones?: { at: number; title: string }[]; }
+
+export function weeklyDigest(d: DigestData, now: number, s: ScheduleSettings, opts: ReviewOpts): Digest | null {
   const { start, end } = lastWeek(now, s);
-  const prevStart = start - 7 * DAY;
+  return periodReview(d, start, end, s, opts, 'the week before');
+}
+
+/** The review for any span (last week; since the last appointment), each line against the same length of time before
+ *  it (`before` names that time in the lines). */
+export function periodReview(d: DigestData, start: number, end: number, s: ScheduleSettings, opts: ReviewOpts, before = 'the time before'): Digest | null {
+  const prevStart = start - (end - start);
   const lines: DigestLine[] = [];
   const wins: string[] = [];
   const inR = (t: number, a: number, b: number) => t >= a && t < b;
@@ -50,7 +60,7 @@ export function weeklyDigest(d: DigestData, now: number, s: ScheduleSettings, op
   };
   const dn = rate(start, end), dp = rate(prevStart, start);
   if (dn && (dn.pct >= 90 || (dp && dn.pct - dp.pct >= 10))) wins.push(dn.pct === 100 ? `Every dose logged (${dn.want})` : dn.pct >= 90 ? `${dn.pct}% of doses logged` : `Doses up to ${dn.pct}% from ${dp!.pct}%`);
-  if (dn) lines.push({ key: 'doses', label: 'Doses', text: `${dn.got} of ${dn.want} logged (${dn.pct}%)${dp ? `, ${dn.pct === dp.pct ? 'same as' : dn.pct > dp.pct ? `up from ${dp.pct}%` : `down from ${dp.pct}%`}${dn.pct === dp.pct ? ' the week before' : ''}` : ''}`, tone: dn.pct >= 90 ? 'good' : dn.pct < 70 ? 'watch' : 'plain' });
+  if (dn) lines.push({ key: 'doses', label: 'Doses', text: `${dn.got} of ${dn.want} logged (${dn.pct}%)${dp ? `, ${dn.pct === dp.pct ? 'same as' : dn.pct > dp.pct ? `up from ${dp.pct}%` : `down from ${dp.pct}%`}${dn.pct === dp.pct ? ` ${before}` : ''}` : ''}`, tone: dn.pct >= 90 ? 'good' : dn.pct < 70 ? 'watch' : 'plain' });
 
   // Weight: the week's average against the week before.
   if (opts.body) {
@@ -59,7 +69,7 @@ export function weeklyDigest(d: DigestData, now: number, s: ScheduleSettings, op
     if (wn !== null && wp !== null) {
       const diff = wn - wp;
       if (opts.goalDir && diff * opts.goalDir >= 0.2) wins.push(`${diff < 0 ? 'Down' : 'Up'} ${kgTo(Math.abs(diff), opts.units)} ${weightUnit(opts.units)} towards your goal`);
-      lines.push({ key: 'weight', label: 'Weight', text: `${Math.abs(diff) < 0.05 ? 'about the same' : `${diff < 0 ? 'down' : 'up'} ${kgTo(Math.abs(diff), opts.units)} ${weightUnit(opts.units)}`} (week average ${kgTo(wn, opts.units)} ${weightUnit(opts.units)})`, tone: 'plain' });
+      lines.push({ key: 'weight', label: 'Weight', text: `${Math.abs(diff) < 0.05 ? 'about the same' : `${diff < 0 ? 'down' : 'up'} ${kgTo(Math.abs(diff), opts.units)} ${weightUnit(opts.units)}`} (average ${kgTo(wn, opts.units)} ${weightUnit(opts.units)})`, tone: 'plain' });
     }
   }
 
@@ -72,11 +82,11 @@ export function weeklyDigest(d: DigestData, now: number, s: ScheduleSettings, op
     for (const w of ws.filter((x) => working(x.sets).length)) for (const p of newPBs(w, d.workouts, d.defs, opts.units)) if (!byLift.has(p.exerciseId)) byLift.set(p.exerciseId, `${d.defs.find((x) => x.id === p.exerciseId)?.name}: ${p.text}`);
     const pbs = [...byLift.values()];
     if (pbs.length) wins.unshift(`${pbs.length === 1 ? 'A personal best' : `${pbs.length} personal bests`}: ${pbs[0]}`);
-    if (ws.length && ws.length > prevN) wins.push(`${ws.length} session${ws.length === 1 ? '' : 's'}, ${prevN ? `${ws.length - prevN} more than the week before` : 'after none the week before'}`);
-    if (ws.length || prevN) lines.push({ key: 'training', label: 'Training', text: `${ws.length} session${ws.length === 1 ? '' : 's'}${prevN !== ws.length ? ` (${prevN} the week before)` : ''}${pbs.length ? `, ${pbs.length} personal best${pbs.length === 1 ? '' : 's'}: ${pbs.slice(0, 2).join('; ')}` : ''}`, tone: pbs.length ? 'good' : ws.length < prevN ? 'watch' : 'plain' });
+    if (ws.length && ws.length > prevN) wins.push(`${ws.length} session${ws.length === 1 ? '' : 's'}, ${prevN ? `${ws.length - prevN} more than ${before}` : `after none ${before}`}`);
+    if (ws.length || prevN) lines.push({ key: 'training', label: 'Training', text: `${ws.length} session${ws.length === 1 ? '' : 's'}${prevN !== ws.length ? ` (${prevN} ${before})` : ''}${pbs.length ? `, ${pbs.length} personal best${pbs.length === 1 ? '' : 's'}: ${pbs.slice(0, 2).join('; ')}` : ''}`, tone: pbs.length ? 'good' : ws.length < prevN ? 'watch' : 'plain' });
     const pr = (a: number, b: number) => avg(d.daily.filter((x) => !x.deletedAt && x.proteinG && inR(ymdToMs(x.date), a, b)).map((x) => x.proteinG!));
     const pn = pr(start, end);
-    if (pn !== null) { const pp = pr(prevStart, start); lines.push({ key: 'protein', label: 'Protein', text: `${Math.round(pn)} g a day on logged days${pp !== null ? ` (${Math.round(pp)} g the week before)` : ''}`, tone: 'plain' }); }
+    if (pn !== null) { const pp = pr(prevStart, start); lines.push({ key: 'protein', label: 'Protein', text: `${Math.round(pn)} g a day on logged days${pp !== null ? ` (${Math.round(pp)} g ${before})` : ''}`, tone: 'plain' }); }
   }
 
   // Sleep: imported nights, else check-ins.
@@ -94,9 +104,52 @@ export function weeklyDigest(d: DigestData, now: number, s: ScheduleSettings, op
   if (mn !== null && mp !== null && mn - mp >= 0.3) wins.push(`Mood up to ${r1(mn)} of 5`);
   if (mn !== null) lines.push({ key: 'mood', label: 'Mood', text: `${r1(mn)} of 5${mp !== null && Math.abs(mn - mp) >= 0.2 ? `, ${mn > mp ? 'up' : 'down'} from ${r1(mp)}` : ''}`, tone: mp !== null && mn < mp - 0.4 ? 'watch' : 'plain' });
 
+  // Stress from check-ins (when asked).
+  const stress = (a: number, b: number) => avg(d.checkIns.filter((c) => !c.deletedAt && c.stress && inR(Date.parse(c.at), a, b)).map((c) => c.stress!));
+  const xn = stress(start, end), xp = stress(prevStart, start);
+  if (xn !== null && xp !== null && xp - xn >= 0.4) wins.push(`Stress down to ${r1(xn)} of 5`);
+  if (xn !== null) lines.push({ key: 'stress', label: 'Stress', text: `${r1(xn)} of 5${xp !== null && Math.abs(xn - xp) >= 0.2 ? `, ${xn < xp ? 'down' : 'up'} from ${r1(xp)}` : ''}`, tone: xp !== null && xn > xp + 0.5 ? 'watch' : 'plain' });
+
+  // Side effects, for injections (the weekly review is also the injection's week: Protocol links here).
+  if (d.meds.some((m) => m.peptide && !m.archived)) {
+    const fx = (a: number, b: number) => { const cs = d.checkIns.filter((c) => !c.deletedAt && inR(Date.parse(c.at), a, b) && (c.mood !== undefined || c.chips.length)); return cs.length >= 3 ? Math.round((cs.filter((c) => c.chips.some((x) => EFFECT_CHIPS.includes(x))).length / cs.length) * 100) : null; };
+    const en = fx(start, end), ep = fx(prevStart, start);
+    if (en !== null && ep !== null && ep - en >= 15) wins.push(`Side effects down to ${en}% of check-ins`);
+    if (en !== null) lines.push({ key: 'effects', label: 'Side effects', text: `In ${en}% of check-ins${ep !== null && Math.abs(en - ep) >= 5 ? `, ${en < ep ? 'down' : 'up'} from ${ep}%` : ''}`, tone: ep !== null && en > ep + 15 ? 'watch' : 'plain' });
+  }
+
   for (const m of opts.milestones ?? []) if (inR(m.at, start, end)) wins.push(m.title.replace(/^./, (c) => c.toUpperCase()));
   if (!lines.length && !wins.length) return null;
   const good = lines.find((l) => l.tone === 'good'), watch = lines.find((l) => l.tone === 'watch');
   const headline = wins.length ? wins[0] : good ? `${good.label}: ${good.text}` : watch ? `Worth a look: ${watch.label.toLowerCase()} ${watch.text}` : `${lines[0].label}: ${lines[0].text}`;
-  return { weekStart: start, weekEnd: end, headline, lines, wins: [...new Set(wins)].slice(0, 5) };
+  return { weekStart: start, weekEnd: end, headline, lines, wins: [...new Set(wins)].slice(0, 3) };
+}
+
+export interface Glance {
+  /** kg a week over the last 30 days (negative = losing). */
+  weightPerWeek?: number;
+  /** Doses logged of those due, last 14 days, and the 14 before. */
+  doses?: { pct: number; before?: number };
+  /** Mood from check-ins (1 to 5), last 14 days, and the 14 before. */
+  mood?: { avg: number; before?: number };
+}
+
+/** Progress at a glance: the weight trend, doses on schedule and how you've felt, each against the time before. */
+export function glance(d: Pick<DigestData, 'meds' | 'doses' | 'checkIns' | 'body'>, now: number, s: ScheduleSettings): Glance {
+  const out: Glance = {};
+  const pts = d.body.filter((b) => !b.deletedAt && typeof b.weightKg === 'number').map((b) => ({ t: ymdToMs(b.date), v: b.weightKg! })).filter((p) => p.t > now - 30 * DAY && p.t <= now);
+  if (pts.length >= 4) { const f = robustFit(pts, now); if (f && f.spanDays >= 10) out.weightPerWeek = Math.round(f.slope * 7 * 10) / 10; }
+  const sched = d.meds.filter((m) => !m.archived && m.schedule.type !== 'prn');
+  const rate = (a: number, b: number) => {
+    let got = 0, want = 0;
+    for (const m of sched) for (const x of adherenceByDay(d.doses, m, daysBetween(a, b, s), s)) if (x.target) { want += x.target; got += Math.min(x.count, x.target); }
+    return want ? Math.round((got / want) * 100) : undefined;
+  };
+  const today = getDayBounds(now, s.dayStartsAt, s.tz).start;
+  const dn = rate(today - 14 * DAY, today), dp = rate(today - 28 * DAY, today - 14 * DAY);
+  if (dn !== undefined) out.doses = { pct: dn, before: dp };
+  const mood = (a: number, b: number) => { const xs = d.checkIns.filter((c) => !c.deletedAt && c.mood && Date.parse(c.at) >= a && Date.parse(c.at) < b).map((c) => c.mood!); return xs.length >= 3 ? Math.round((xs.reduce((p, q) => p + q, 0) / xs.length) * 10) / 10 : undefined; };
+  const mn = mood(now - 14 * DAY, now), mp = mood(now - 28 * DAY, now - 14 * DAY);
+  if (mn !== undefined) out.mood = { avg: mn, before: mp };
+  return out;
 }

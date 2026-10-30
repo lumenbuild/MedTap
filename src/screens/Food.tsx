@@ -3,14 +3,20 @@
 import { useMemo, useRef, useState } from 'react';
 import { addDays, format } from 'date-fns';
 import { Barcode, ChevronLeft, ChevronRight, CookingPot, Plus, Star, Trash2 } from 'lucide-react';
-import type { Food, FoodLog, Nutrients } from '../db/schema';
+import type { BodyEntry, Food, FoodLog, Nutrients } from '../db/schema';
 import { useLive } from '../db/live';
 import { db } from '../db/db';
-import { useFamily, useSettings } from '../app/data';
+import { useBodyEntries, useDaily, useFamily, useSettings } from '../app/data';
+import { eatingPatterns, WHY_LABEL } from '../logic/eating';
+import { updateCalorieTarget } from '../app/maintenance';
+import { calorieTarget, expenditure } from '../logic/energy';
+import { kgTo, toKg, weightUnit } from '../logic/units';
+import type { ScheduleSettings } from '../logic/schedule';
+import { HAS_BODY } from '../edition';
 import { useNow } from '../app/useNow';
 import { useToast } from '../app/toast';
 import { personOf } from '../db/repos/people';
-import { setSetting } from '../db/repos/settings';
+import { scheduleSettings, setSetting, type Units } from '../db/repos/settings';
 import { changeServings, foodByBarcode, removeFood, removeFoodLog, restoreFoodLog, saveFood, updateFood } from '../db/repos/food';
 import { readBarcode } from '../app/barcode';
 import { lookUpBarcode } from '../app/foodLookup';
@@ -32,11 +38,13 @@ export function FoodScreen() {
   const now = useNow(60_000);
   const logs = useLive(() => db.foodLogs.toArray(), []);
   const foods = useLive(() => db.foods.toArray(), []);
+  const body = useBodyEntries();
+  const daily = useDaily();
   const [back, setBack] = useState(0);
   const [logging, setLogging] = useState(false);
   const [editing, setEditing] = useState<FoodLog | null>(null);
   const [recipe, setRecipe] = useState<Food | 'new' | null>(null);
-  if (!settings || !fam || !logs || !foods) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
+  if (!settings || !fam || !logs || !foods || !body) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
   const energy = settings.energyUnit;
   const day = addDays(new Date(now), -back);
   const start = new Date(day); start.setHours(0, 0, 0, 0);
@@ -61,6 +69,11 @@ export function FoodScreen() {
         <p className="tnum"><span className="text-[28px] font-semibold">{fmtEnergy(tot.kcal ?? 0, energy).split(' ')[0]}</span> <span className="text-muted">{energy === 'kJ' ? 'kJ' : 'Cal'}{target ? ` of ${fmtEnergy(target, energy)}` : ''}</span></p>
         {target ? <Bar value={tot.kcal ?? 0} max={Math.max(target, tot.kcal ?? 0)} tone={(tot.kcal ?? 0) > target * 1.1 ? 'watch' : 'plain'} label={`Energy ${fmtEnergy(tot.kcal ?? 0, energy)} of ${fmtEnergy(target, energy)}`} /> : null}
         <MacroSplit n={tot} />
+        {/* Fibre: low on GLP-1s, and the usual first help for constipation. */}
+        <div className="space-y-1">
+          <p className="text-sm tnum flex justify-between"><span>Fibre</span><span className="text-muted">{Math.round(tot.fibre ?? 0)} of {settings.fibreTargetG} g</span></p>
+          <Bar value={tot.fibre ?? 0} max={settings.fibreTargetG} tone={(tot.fibre ?? 0) >= settings.fibreTargetG ? 'good' : 'plain'} label={`Fibre ${Math.round(tot.fibre ?? 0)} of ${settings.fibreTargetG} g`} />
+        </div>
         {today.length === 0 ? <p className="text-muted">Nothing logged {back === 0 ? 'yet today' : 'this day'}.</p> : (
           <ol className="-mx-2">
             {today.map((l) => (
@@ -109,14 +122,68 @@ export function FoodScreen() {
       <Card className="space-y-3">
         <h2 className="text-sm font-medium text-muted">Energy</h2>
         <Segmented<EnergyUnit> label="Show energy in" value={energy} onChange={(v) => setSetting('energyUnit', v)} options={[{ value: 'kcal', label: 'Calories' }, { value: 'kJ', label: 'Kilojoules' }]} />
-        <TextInput label={`Daily target (${energy === 'kJ' ? 'kJ' : 'Cal'}, optional)`} type="number" inputMode="numeric" min="0" step="1"
-          defaultValue={target ? String(energy === 'kJ' ? Math.round(target * 4.184) : target) : ''}
-          onBlur={(e) => { const v = Number(e.target.value); setSetting('energyTargetKcal', v > 0 ? Math.round(energy === 'kJ' ? v / 4.184 : v) : null); }} help="Your own number, or your dietitian's." />
+        <TextInput key={`fibre-${settings.fibreTargetG}`} label="Fibre a day (g)" type="number" inputMode="numeric" min="5" max="80" step="1" defaultValue={String(settings.fibreTargetG)}
+          onBlur={(e) => { const v = Math.round(Number(e.target.value)); if (v >= 5 && v <= 80) void setSetting('fibreTargetG', v); }} help="25 to 30 g is the usual aim. More vegetables, fruit, oats, beans and wholegrains." />
+        {HAS_BODY && <Segmented label="Daily target" value={settings.energyAuto ? 'auto' : 'own'} options={[{ value: 'own', label: 'My own number' }, { value: 'auto', label: 'Worked out for me' }]}
+          onChange={async (v) => { await setSetting('energyAuto', v === 'auto'); if (v === 'auto') { await setSetting('energyAutoAt', 0); await updateCalorieTarget(); } }} />}
+        {HAS_BODY && settings.energyAuto
+          ? <WorkedOutTarget logs={mine} body={body.filter((b) => personOf(b) === fam.personId)} rate={settings.lossRateKgWeek} target={target} energy={energy} units={settings.units} now={now} s={scheduleSettings(settings)} />
+          : <TextInput key={target ?? 'none'} label={`Daily target (${energy === 'kJ' ? 'kJ' : 'Cal'}, optional)`} type="number" inputMode="numeric" min="0" step="1"
+              defaultValue={target ? String(energy === 'kJ' ? Math.round(target * 4.184) : target) : ''}
+              onBlur={(e) => { const v = Number(e.target.value); setSetting('energyTargetKcal', v > 0 ? Math.round(energy === 'kJ' ? v / 4.184 : v) : null); }} help="Your own number, or your dietitian's." />}
       </Card>
+
+      {(() => {
+        // Why you eat: from the logs where you said how hungry, or why.
+        const e = eatingPatterns(mine, daily?.filter((x) => personOf(x) === fam.personId) ?? [], now, scheduleSettings(settings), settings.proteinTargetG);
+        if (!e) return null;
+        return (
+          <Card className="space-y-2">
+            <h2 className="text-sm font-medium text-muted">Why you eat · last 30 days</h2>
+            <p className="tnum"><span className="text-[24px] font-semibold">{e.notHungryPct}%</span> <span className="text-muted">without real hunger, of {e.answered} you noted</span></p>
+            <Bar value={e.notHungryPct} max={100} tone={e.notHungryPct > 40 ? 'watch' : 'plain'} label={`${e.notHungryPct}% eaten without real hunger`} />
+            <ul className="text-[15px] space-y-0.5">
+              {e.topWhy && <li>Most often: {WHY_LABEL[e.topWhy.why]} ({e.topWhy.n})</li>}
+              {e.eveningPct !== undefined && <li>{e.eveningPct}% of it after 6 pm</li>}
+              {e.shortSleep && <li>After a short night: {e.shortSleep.withPct}% of days, against {e.shortSleep.withoutPct}%</li>}
+              {e.lowProtein && <li>On low-protein days: {e.lowProtein.withPct}% of days, against {e.lowProtein.withoutPct}%</li>}
+            </ul>
+            <p className="text-xs text-muted">From “How hungry were you?” when logging. Links, not causes.</p>
+          </Card>
+        );
+      })()}
 
       {logging && <LogFoodSheet personId={fam.personId} energy={energy} onClose={() => setLogging(false)} />}
       {editing && <EditLogSheet log={editing} energy={energy} onClose={() => setEditing(null)} />}
       {recipe && <RecipeSheet recipe={recipe === 'new' ? undefined : recipe} foods={saved.filter((f) => f.kind !== 'recipe')} energy={energy} onClose={() => setRecipe(null)} />}
+    </div>
+  );
+}
+
+/** The calorie target worked out from what the person burns (their food logs against their weight trend), for the
+ *  rate of loss they choose; updated each week. */
+function WorkedOutTarget({ logs, body, rate, target, energy, units, now, s }: {
+  logs: FoodLog[]; body: BodyEntry[]; rate: number; target: number | null; energy: EnergyUnit; units: Units; now: number; s: ScheduleSettings;
+}) {
+  const e = expenditure(logs, body, now, s);
+  const en = (kcal: number) => fmtEnergy(kcal, energy);
+  const u = weightUnit(units);
+  const days = new Set(logs.filter((l) => !l.deletedAt && Date.parse(l.at) > now - 28 * 86_400_000).map((l) => l.at.slice(0, 10))).size;
+  const weighIns = body.filter((b) => !b.deletedAt && b.weightKg !== undefined && Date.parse(`${b.date}T08:00`) > now - 28 * 86_400_000).length;
+  return (
+    <div className="space-y-3">
+      {e ? (
+        <div className="rounded-btn bg-surface-2 p-3 space-y-1">
+          <p className="text-[15px]">You burn about <strong className="tnum">{en(e.kcal)}</strong> a day <span className="text-muted tnum">(likely {en(e.low)}–{en(e.high)})</span></p>
+          <p className="text-[15px] tnum">Your target: <strong>{target ? en(target) : en(calorieTarget(e, rate).kcal)}</strong>{calorieTarget(e, rate).capped ? ' (no more than a quarter under what you burn)' : ''}</p>
+          <p className="text-xs text-muted tnum">From {e.days} days of food and {e.weighIns} weigh-ins in the last 4 weeks: you ate about {en(e.intake)} a day while {e.kgPerWeek <= 0 ? 'losing' : 'gaining'} {kgTo(Math.abs(e.kgPerWeek), units)} {u} a week. Updated each week.</p>
+        </div>
+      ) : (
+        <p className="text-[15px] text-muted tnum">Needs 2 weeks of food logged and 6 weigh-ins in the last 4 weeks (so far {days} days, {weighIns} weigh-ins). Until then, your target stays as it is.</p>
+      )}
+      <TextInput label={`Lose this much a week (${u})`} type="number" inputMode="decimal" min="0" max={units === 'imperial' ? '2' : '1'} step={units === 'imperial' ? '0.25' : '0.1'}
+        defaultValue={String(kgTo(rate, units))} help="0 to keep your weight. Up to about 1% of your weight a week is usual."
+        onBlur={async (ev) => { const v = Number(ev.target.value); if (ev.target.value.trim() === '' || !(v >= 0)) return; await setSetting('lossRateKgWeek', Math.min(1, toKg(v, units))); await setSetting('energyAutoAt', 0); await updateCalorieTarget(); }} />
     </div>
   );
 }

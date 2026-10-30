@@ -2,7 +2,7 @@
 // (so Today, widgets, the watch and Trends all count it) and its caffeine makes a caffeine check-in (so the
 // caffeine-and-sleep finding counts it); removing the entry takes both back off.
 import { db } from '../db';
-import { DEFAULT_PERSON, type Food, type FoodLog, type Nutrients } from '../schema';
+import { DEFAULT_PERSON, type EatWhy, type Food, type FoodLog, type Nutrients } from '../schema';
 import { addIntake } from './training';
 import { addCheckIn, removeCheckIn, restoreCheckIn } from './checkIns';
 import { storedPerson } from './people';
@@ -41,6 +41,7 @@ export interface LogInput {
   at: string;
   /** The person's day it counts towards ('YYYY-MM-DD'), for the protein total. */
   date: string;
+  hunger?: number; why?: EatWhy;
   personId: string;
 }
 
@@ -53,7 +54,7 @@ export async function logFood(x: LogInput): Promise<FoodLog> {
   const caffeine = (x.nutrients.caffeine ?? 0) >= 1 ? await addCheckIn({ at: x.at, chips: [CAFFEINE], note: x.name, personId, caffeineMg: Math.round(x.nutrients.caffeine!) }) : undefined;
   const log: FoodLog = {
     id: crypto.randomUUID(), at: x.at, name: x.name, foodId: x.foodId, servings: x.servings, nutrients: x.nutrients,
-    proteinPosted: protein, caffeineCheckInId: caffeine?.id, personId, createdAt: now, updatedAt: now,
+    proteinPosted: protein, caffeineCheckInId: caffeine?.id, hunger: x.hunger, why: x.why, personId, createdAt: now, updatedAt: now,
   };
   await db.foodLogs.add(log);
   if (x.foodId) await db.foods.update(x.foodId, { lastUsedAt: now });

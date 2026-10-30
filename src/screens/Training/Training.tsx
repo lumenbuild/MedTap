@@ -30,6 +30,7 @@ import { isNative } from '../../platform';
 import type { Workout } from '../../db/schema';
 import { TrendChart } from '../../components/charts/TrendChart';
 import { PathCard } from './Coach';
+import { programById } from '../../logic/coach';
 
 const DAY = 86_400_000;
 
@@ -41,6 +42,8 @@ export function Training({ start = false }: { start?: boolean }) {
   const toast = useToast();
   const [sheet, setSheet] = useState<'start' | 'cardio' | 'goal' | 'plates' | null>(start ? 'start' : null);
   const [editGoal, setEditGoal] = useState<string | null>(null);
+  const [allLifts, setAllLifts] = useState(false);
+  const [allWorkouts, setAllWorkouts] = useState(false);
   // Once the start sheet opened from Today closes, the address goes back to plain Training (so a reload doesn't reopen it).
   useEffect(() => { if (start && sheet === null) replace('/training'); }, [start, sheet]);
   if (!workouts || !own || !routines || !fam || !ss || !daily || !checkIns || !body || !meds || !doses) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
@@ -52,7 +55,9 @@ export function Training({ start = false }: { start?: boolean }) {
   const goals = person?.fitnessGoals ?? [];
   const open = ws.find((w) => !w.endedAt && w.sets.length >= 0 && now - Date.parse(w.startedAt) < 6 * 3_600_000 && !w.cardio);
   const ready = readiness(daily.filter(mine), checkIns.filter(mine), now, s);
-  const sessionsGoal = goals.find((g) => g.kind === 'sessions');
+  // The weekly sessions goal: one set by hand, or else the coach plan's days a week.
+  const ownGoal = goals.find((g) => g.kind === 'sessions');
+  const sessionsGoal = ownGoal ?? (person?.coach ? { perWeek: person.coach.days } : undefined);
   const cal = trainingCalendar(ws, now, s, sessionsGoal?.perWeek ?? 0, 8);
   const bal = weeklyBalance(ws, defs, now);
   const lifted = [...new Set(ws.flatMap((w) => working(w.sets).map((x) => x.exerciseId)))];
@@ -62,7 +67,12 @@ export function Training({ start = false }: { start?: boolean }) {
   const cardio = ws.filter((w) => w.cardio);
   const habit = trainingHabit(ws, now, s);
   const lighter = lighterWeekDue(ws, defs, now, settings.lighterLast || undefined);
+  const stalled = flats.map((f) => `${defs.find((d) => d.id === f!.exerciseId)?.name}${f!.harder ? ' (feeling harder)' : ''}`);
+  // Programmes with their own lighter weeks (waves, blocks, volume) plan them; the app doesn't suggest another.
+  const coachPlansLighter = !!person?.coach && ['wave', 'block', 'volume'].includes(programById(person.coach.programId)?.scheme ?? '');
   const pushable = lifted.map((id) => effortCheck(id, ws, now)).filter((e) => e.status === 'room');
+  const recentLifts = lifted.slice(0, allLifts ? lifted.length : 3);
+  const strength = ws.filter((w) => !w.cardio);
   const maxCal = Math.max(1, ...cal.weeks.map((x) => x.sessions), sessionsGoal?.perWeek ?? 0);
 
   return (
@@ -122,6 +132,7 @@ export function Training({ start = false }: { start?: boolean }) {
             <div className="flex justify-between text-[11px] text-muted mt-1" aria-hidden="true"><span>{cal.weeks.length} weeks ago</span><span>This week</span></div>
           </div>
         )}
+        {person?.coach && !ownGoal && <p className="text-xs text-muted">Goal: {person.coach.days} a week, from your plan</p>}
         {!sessionsGoal && <button type="button" className="text-sm underline underline-offset-4 min-h-[44px]" onClick={() => { setEditGoal(null); setSheet('goal'); }}>Set a weekly goal</button>}
       </section>
 
@@ -141,9 +152,9 @@ export function Training({ start = false }: { start?: boolean }) {
       {lifted.length > 0 && (
         <section className="border-t border-border pt-5 pb-1" aria-labelledby="pb-h">
           <h2 id="pb-h" className="text-sm font-medium text-muted mb-1">Personal bests</h2>
-          {recentPBs.length > 0 && <ul className="mb-2">{recentPBs.slice(0, 5).map((p, i) => <li key={i} className="text-[15px]"><span className="font-medium">{defs.find((d) => d.id === p.exerciseId)?.name}</span>: {p.text} <span className="text-xs text-muted">{format(p.t, 'd MMM')}</span></li>)}</ul>}
+          {recentPBs.length > 0 && <ul className="mb-2">{onePerLift(recentPBs).slice(0, 3).map((p, i) => <li key={i} className="text-[15px]"><span className="font-medium">{defs.find((d) => d.id === p.exerciseId)?.name}</span>: {p.text} <span className="text-xs text-muted">{format(p.t, 'd MMM')}</span></li>)}</ul>}
           <ul>
-            {lifted.map((id) => {
+            {recentLifts.map((id) => {
               const pb = personalBests(id, ws);
               return (
                 <li key={id} className="border-t border-border">
@@ -156,6 +167,7 @@ export function Training({ start = false }: { start?: boolean }) {
               );
             })}
           </ul>
+          {lifted.length > 3 && <ShowAll open={allLifts} n={lifted.length} what="lifts" onClick={() => setAllLifts((x) => !x)} />}
         </section>
       )}
 
@@ -165,10 +177,10 @@ export function Training({ start = false }: { start?: boolean }) {
           <button type="button" className="min-h-[44px] text-sm underline underline-offset-4" onClick={() => setSetting('lighterUntil', 0)}>End it now</button>
         </section>
       )}
-      {settings.lighterUntil <= now && lighter && (
+      {settings.lighterUntil <= now && !coachPlansLighter && (lighter || flats.length > 0) && (
         <section className="border-t border-border pt-4 pb-1" aria-label="A lighter week is due">
           <p className="text-[15px] font-medium">Time for a lighter week?</p>
-          <p className="text-[15px]">{lighter.reason}{lighter.lifts.length ? ` (${lighter.lifts.join(', ')})` : ''} A week at about 90% with a set fewer usually brings progress back.</p>
+          <p className="text-[15px]">{lighter ? `${lighter.reason}${lighter.lifts.length ? ` (${lighter.lifts.join(', ')})` : ''} ` : ''}{stalled.length ? `No improvement for about 3 weeks: ${stalled.join(', ')}. ` : ''}A week at about 90% with a set fewer usually brings progress back.</p>
           <div className="flex gap-5">
             <button type="button" className="min-h-[44px] font-medium underline underline-offset-4" onClick={async () => { await setSetting('lighterUntil', now + 7 * 86_400_000); await setSetting('lighterLast', now); toast('Lighter week planned: targets adjusted for 7 days'); }}>Plan it for this week</button>
             <button type="button" className="min-h-[44px] text-muted underline underline-offset-4" onClick={() => setSetting('lighterLast', now - 21 * 86_400_000)}>Not now</button>
@@ -184,12 +196,6 @@ export function Training({ start = false }: { start?: boolean }) {
         </section>
       )}
 
-      {flats.length > 0 && (
-        <section className="border-t border-border pt-5 pb-1" aria-labelledby="pl-h">
-          <h2 id="pl-h" className="text-sm font-medium text-muted mb-1">Worth a lighter week</h2>
-          <ul className="text-[15px] space-y-1">{flats.map((f) => <li key={f!.exerciseId}><span className="font-medium">{defs.find((d) => d.id === f!.exerciseId)?.name}</span>: {f!.harder ? 'feeling harder at the same weight' : 'no improvement for about 3 weeks'}. About 10% less for a week, then build back up.</li>)}</ul>
-        </section>
-      )}
 
       {peptide && <PeptideTrainingCard med={peptide} doses={doses} workouts={ws} tz={s.tz} />}
 
@@ -224,7 +230,7 @@ export function Training({ start = false }: { start?: boolean }) {
           })}
           <PaceChart cardio={cardio} now={now} />
           <ul className="mt-1">
-            {cardio.slice(0, 5).map((w) => (
+            {cardio.slice(0, 3).map((w) => (
               <li key={w.id} className="border-t border-border py-2 text-[15px] tnum">
                 {format(Date.parse(w.startedAt), 'EEE d MMM')} · {ACTIVITIES.find((a) => a.id === w.cardio!.activity)?.name} {!w.endedAt ? 'in progress' : ''}{w.cardio!.distanceKm ? `${w.cardio!.distanceKm} km · ` : ''}{w.endedAt ? timeText(w.cardio!.durationMin) : ''}{w.cardio!.distanceKm ? ` · ${paceText(w.cardio!.durationMin / w.cardio!.distanceKm)}` : ''}{w.source === 'health' ? ' · from Health' : ''}
               </li>
@@ -235,9 +241,9 @@ export function Training({ start = false }: { start?: boolean }) {
 
       <section className="border-t border-border pt-5 pb-3" aria-labelledby="h-h">
         <h2 id="h-h" className="text-sm font-medium text-muted mb-1">Workouts</h2>
-        {ws.filter((w) => !w.cardio).length === 0 && <p className="text-muted">None yet. Start one above.</p>}
+        {strength.length === 0 && <p className="text-muted">None yet. Start one above.</p>}
         <ul>
-          {ws.filter((w) => !w.cardio).slice(0, 12).map((w) => {
+          {strength.slice(0, allWorkouts ? 60 : 5).map((w) => {
             const sets = working(w.sets);
             return (
               <li key={w.id} className="border-t border-border">
@@ -249,6 +255,7 @@ export function Training({ start = false }: { start?: boolean }) {
             );
           })}
         </ul>
+        {strength.length > 5 && <ShowAll open={allWorkouts} n={strength.length} what="workouts" onClick={() => setAllWorkouts((x) => !x)} />}
       </section>
 
       {sheet === 'start' && <StartSheet personId={fam.personId} routines={routines.filter(mine)} workouts={ws} own={own} onClose={() => setSheet(null)} />}
@@ -290,4 +297,12 @@ function PaceChart({ cardio, now }: { cardio: Workout[]; now: number }) {
         fmt={(v) => paceText(v)} series={[{ label: 'Pace', style: 'line', points: pts }]} />
     </div>
   );
+}
+
+/** The newest personal best of each lift (one session can set several for the same lift). */
+const onePerLift = <T extends { exerciseId: string; t: number }>(pbs: T[]) =>
+  [...pbs].sort((a, b) => b.t - a.t).filter((p, i, all) => all.findIndex((x) => x.exerciseId === p.exerciseId) === i);
+
+function ShowAll({ open, n, what, onClick }: { open: boolean; n: number; what: string; onClick: () => void }) {
+  return <button type="button" className="text-sm font-medium underline underline-offset-4 min-h-[44px]" aria-expanded={open} onClick={onClick}>{open ? 'Show fewer' : `Show all ${n} ${what}`}</button>;
 }

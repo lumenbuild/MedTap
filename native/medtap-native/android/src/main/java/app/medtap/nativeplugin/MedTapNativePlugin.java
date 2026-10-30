@@ -61,6 +61,8 @@ import java.io.IOException;
 @CapacitorPlugin(name = "MedTapNative")
 public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallback {
 
+    /** As the link to write: erase the tag instead. */
+    private static final String ERASE = "";
     private NfcAdapter adapter;
     private boolean listening = false;
     private boolean resumed = true;
@@ -202,6 +204,13 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
         String url = call.getString("url");
         if (url == null) { call.reject("No link to write", "io"); return; }
         begin(call, url, Boolean.TRUE.equals(call.getBoolean("openInApp", false)));
+    }
+
+    /** Waits for a tag and wipes it (one empty record), so it can be written again for something else. Resolves with
+     *  `previous`: the link that was on it. */
+    @PluginMethod
+    public void nfcErase(PluginCall call) {
+        begin(call, ERASE, false);
     }
 
     @PluginMethod
@@ -504,11 +513,16 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
     }
 
     private void write(Tag tag, String url, boolean aar) {
-        // The link comes first (iPhones and browsers use it); the app record after it makes Android open this app.
-        NdefMessage msg = aar
+        // Erasing: one empty record. Writing: the link comes first (iPhones and browsers use it); the app record after it
+        // makes Android open this app.
+        NdefMessage msg = ERASE.equals(url)
+            ? new NdefMessage(new NdefRecord(NdefRecord.TNF_EMPTY, null, null, null))
+            : aar
             ? new NdefMessage(NdefRecord.createUri(url), NdefRecord.createApplicationRecord(getContext().getPackageName()))
             : new NdefMessage(NdefRecord.createUri(url));
         Ndef ndef = Ndef.get(tag);
+        // What was on it before, so the app can drop that tag's old link.
+        String previous = ndef != null ? urlFrom(ndef.getCachedNdefMessage()) : null;
         try {
             if (ndef != null) {
                 ndef.connect();
@@ -526,7 +540,7 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
                 try { f.format(msg); } finally { f.close(); }
             }
             PluginCall c = take();
-            if (c != null) c.resolve();
+            if (c != null) { JSObject o = new JSObject(); o.put("previous", previous); c.resolve(o); }
         } catch (TagLostException e) {
             finishError("The tag moved away", "io");
         } catch (FormatException e) {

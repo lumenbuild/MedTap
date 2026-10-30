@@ -6,7 +6,7 @@ import { db } from '../db/db';
 import { getSettings, scheduleSettings, setSetting } from '../db/repos/settings';
 import { dosesForPerson, listPeople, medIsFor, personOf, storedPerson } from '../db/repos/people';
 import { CAFFEINE, intakesOf, usualDrinks, usualHabits, usualKey, usualToAsk } from '../logic/caffeine';
-import { shortcutItems } from '../logic/widget';
+import { shortcutItems } from '../logic/widgets';
 import { widgetsPayload } from '../logic/widgets';
 import { HAS_BODY, HAS_PEPTIDES } from '../edition';
 import { addIntake } from '../db/repos/training';
@@ -19,6 +19,8 @@ import { logDose } from '../db/repos/doses';
 import { liveSnoozes, planReminders, snoozeOf, withoutSnoozed } from '../logic/notify';
 import { planTrainingReminders } from '../logic/trainingPlan';
 import { trainingVsPeptide } from '../logic/training';
+import { nextSession } from '../logic/coach';
+import { allExercises } from '../logic/exercises';
 import { wearOffToday } from '../logic/wearOff';
 import { planCheckInNotes } from '../logic/reminders';
 import { fmtAmount, fmtTime } from '../logic/format';
@@ -327,7 +329,15 @@ async function scheduleTraining(settings: Awaited<ReturnType<typeof getSettings>
   const pv = peptide ? trainingVsPeptide(peptide, doses, mine) : null;
   const shots = peptide ? doses.filter((d) => d.medicationId === peptide.id && !d.deletedAt && !d.skipped).map((d) => Date.parse(d.takenAt)).sort((a, b) => a - b) : [];
   const gap = shots.length >= 2 ? Math.round((shots[shots.length - 1] - shots[shots.length - 2]) / 86_400_000) : undefined;
-  const plan = planTrainingReminders(mine, Date.now(), s, { perWeek: goal?.perWeek, strongDays: pv?.bestDays, lastShot: shots[shots.length - 1], shotEveryDays: gap && gap >= 3 ? gap : undefined });
+  // With a coach plan on set weekdays, reminders come on those, naming the next session.
+  const coach = people.find((p) => p.id === me)?.coach;
+  let next: string | undefined;
+  if (coach?.weekdays?.length) {
+    const [own, body] = await Promise.all([db.exercises.toArray(), db.bodyEntries.toArray()]);
+    next = nextSession(coach, mine, body.filter((b) => personOf(b) === me), allExercises(own), Date.now())?.title;
+  }
+  const plan = planTrainingReminders(mine, Date.now(), s, { perWeek: goal?.perWeek ?? coach?.days, strongDays: pv?.bestDays, lastShot: shots[shots.length - 1], shotEveryDays: gap && gap >= 3 ? gap : undefined,
+    plan: coach?.weekdays?.length ? { weekdays: coach.weekdays, next } : undefined });
   if (!plan.length) return;
   await LocalNotifications.schedule({
     notifications: plan.map((r) => ({ id: r.id, title: r.title, body: r.body, schedule: { at: new Date(r.at), allowWhileIdle: true }, channelId: TRAINING_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/training' } })),
@@ -446,7 +456,7 @@ export async function testCheckInNote(): Promise<boolean> {
 async function scheduleDigest() {
   const d = new Date(); d.setHours(8, 30, 0, 0);
   d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || (Date.now() < d.getTime() && d.getDay() === 1 ? 0 : 7)));
-  await LocalNotifications.schedule({ notifications: [{ id: 900_300_000, title: 'Your week', body: 'Doses, weight, training and sleep against the week before. Tap to see.', schedule: { at: d, allowWhileIdle: true }, channelId: TRAINING_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/today' } }] });
+  await LocalNotifications.schedule({ notifications: [{ id: 900_300_000, title: 'Your week', body: 'Doses, weight, training and sleep against the week before. Tap to see.', schedule: { at: d, allowWhileIdle: true }, channelId: TRAINING_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/progress/trends' } }] });
 }
 
 /** The Monday digest notification on (asking for permission) or off. */

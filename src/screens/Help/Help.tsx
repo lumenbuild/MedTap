@@ -78,7 +78,7 @@ const CONTENT: Record<string, ReactNode> = {
       <p>{APP_NAME} in ten steps, from your first medicine to backups. Each takes a minute or two; do them in any order.</p>
       <Step n={1} title="Add a medicine">
         <p>Meds → <strong>Add medication</strong>. Its name and strength, how much you usually take, and when: set times, every few hours, or as needed. Or tap <strong>Take photo</strong> to fill it in from the pharmacy label, then check it.</p>
-        <p>Not every day? Choose certain days or every few days. A dose that changes over time? Use <strong>Plan a change</strong> on its page.</p>
+        <p>Not every day? Choose certain days or every few days. A dose that changes over time? Use its <strong>Dose plan</strong>.</p>
       </Step>
       <Step n={2} title="Get tags and stick one on">
         <p>Any NTAG213 or NTAG215 NFC sticker works; they're cheap online. Stick one on the box, bottle or pen. On foil packs or metal tins, use tags sold as <em>on-metal</em>.</p>
@@ -250,7 +250,20 @@ const CONTENT: Record<string, ReactNode> = {
       )}
       <p>Check-in notes suggest chips (“bit queasy” → Nausea)<Pep>, and adding vials can read the lot and expiry from a photo of the label</Pep>.</p>
       <H>Streaks, milestones and your day</H>
-      <p>Today's ring fills as you take your set doses, check in and reach your water and protein. Under it, your longest streak; tap for every streak, your best runs and the milestones you've reached (runs of days, workouts, personal bests and every 5 kg towards a weight goal). Streaks are forgiving: one off day in any week, or one off week in four for training, doesn't end them, and a dose skipped on purpose counts. Monday's “Your week” starts with what went well.</p>
+      <p>Today's ring fills as you take your set doses, check in and reach your water and protein. Under it, your longest streak; tap for every streak, your best runs and the milestones you've reached (runs of days, workouts, personal bests and every 5 kg towards a weight goal). Streaks are forgiving: one off day in any week, or one off week in four for training, doesn't end them, and a dose skipped on purpose counts. Your week (last week against the week before, wins first) is at the top of Progress; on Monday to Wednesday Today has a line for it.</p>
+      <H>For you</H>
+      <p>Everything the app notices, in one list, most important first: a script to book, readings to raise, a plateau, today's wear-off, a genuine change, odd records, an appointment, a caffeine cut-off found in your sleep{HAS_BODY ? ', a calorie target from what you actually burn, protein to keep muscle, and muscle lost while losing weight' : ''}. Today shows the top two; Progress shows them all. Each says what it rests on and has one thing to do; × puts it away for a while. Do something from one (set a cut-off, a target) and a few weeks later it checks back on what happened.</p>
+      {HAS_BODY && <>
+        <H>Losing weight well, and keeping it off</H>
+        <ul className="list-disc pl-5 space-y-1">
+          <li><strong>Calories</strong>: Food → Daily target → <strong>Worked out for me</strong>. From four weeks of food and weigh-ins, what you burn, and a target for the loss you choose (0 to keep your weight), updated each week.</li>
+          <li><strong>Fibre</strong>: on Food, against a daily target. If constipation, nausea or reflux comes up more after low-fibre, low-water or big-meal days, an insight says so.</li>
+          <li><strong>Hunger</strong>: when logging food, <strong>How hungry were you?</strong> and why (optional). Food → <strong>Why you eat</strong> shows how much is without real hunger, the usual reason, and whether short nights or low-protein days go with more of it.</li>
+          <li><strong>Steps</strong>: a target a little above your usual, in today's ring once steps come in (or your own in Settings → Training). Sleep that swings night to night, and an optional stress rating in check-ins, are watched too.</li>
+          <li><strong>After the loss</strong>: when your weight creeps up from its lowest (and why, if a dose came down or stopped), or you reach your goal, an insight offers to aim to keep it.</li>
+          <li><strong>Health markers</strong> on Body: blood pressure, resting heart rate, waist-to-height and BMI (add your height), and lab results such as HbA1c and cholesterol, each against where it started.</li>
+        </ul>
+      </>}
       <H>How Trends is laid out</H>
       <ul className="list-disc pl-5 space-y-1">
         <li><strong>How you've felt</strong>: your check-ins, what you noticed most and the coming days, in one place.</li>
@@ -291,7 +304,7 @@ const CONTENT: Record<string, ReactNode> = {
       <p>Protocol → <strong>Supplies</strong> (also in Settings, under Tools). Enter how many syringes, pen needles and swabs you have, and your water. They count down as you log injections and mix vials. The sharps container counts up, and Today reminds you when it's nearly full.</p>
       <p>Courses, on and off cycles, and stepping the dose when ready are in <a href="#/help/schedules" className="underline underline-offset-4">Setting up a schedule</a>.</p>
       <H>Titration</H>
-      <p>On the medication's page, <strong>Plan a titration</strong>: the first dose, the step up (or down), how often, and the final dose. Each step is a planned change that switches over on its day, and it's marked on the weight chart.</p>
+      <p>Protocol → <strong>Dose plan</strong> → <strong>Change the plan</strong> → <strong>Steps on a schedule</strong>: the first dose, the step up (or down), how often, and the final dose. Each step switches over on its day, and it's marked on the weight chart.</p>
       <H>Charts</H>
       <ul className="list-disc pl-5 space-y-1">
         <li><strong>Estimated level</strong>: enter a half-life on the medication and Trends estimates the amount in your body from your doses. It's a simple model on the figure you enter, not a measurement.</li>
@@ -394,16 +407,18 @@ const CONTENT: Record<string, ReactNode> = {
       <p>In the schedule, <strong>Pattern</strong> → <strong>On and off</strong>: for example 4 weeks on, 12 weeks off, repeating. Off days aren't scheduled and send no reminders; Meds and Protocol show where you are (“On, week 3 of 4”).</p>
       <H>A course, then a break</H>
       <p><strong>Pattern</strong> → <strong>Course</strong>: for example {HAS_PEPTIDES ? '10 units' : 'a dose'} each night for 12 weeks, then off until it's needed again. After the last day nothing is scheduled. To be asked about starting again, add a word like <strong>Pain</strong>: it becomes a check-in chip, and when a check-in mentions it Today asks “Start another course?”. Or choose a number of weeks off. Nothing starts until you tap <strong>Start today</strong>.</p>
+      <H>The dose plan</H>
+      <p>Every way a dose changes is in one place, the <strong>Dose plan</strong> (on {HAS_PEPTIDES ? 'Protocol (for an injection) or the medication\'s page' : 'the medication\'s page'}): what's been taken and what's planned on one ladder, the dated changes, and stepping when ready. <strong>Change the plan</strong> offers three ways: <strong>On a date</strong> (one change from a day you choose), <strong>Steps on a schedule</strong> (the same step every few weeks: a titration or a taper) and <strong>When I'm ready</strong>.</p>
       <H>Step the dose when ready</H>
-      <p>On the medication's page, <strong>Step when ready</strong> → <strong>Set a step plan</strong>: how much each step is (in {HAS_PEPTIDES ? 'syringe units or ' : ''}the medication's unit), the least time on each dose, the most you'll go to (a dose or a week), and, if you like, conditions from your check-ins: appetite back to a level, side effects settled{HAS_BODY ? ', weight loss slowed' : ''}, no missed doses. For example: {HAS_PEPTIDES ? 'up 5 units every 4 weeks or more once appetite is back to 3 of 5, to at most 12 mg a week' : 'up 10 mg at least a week apart while side effects stay settled, to at most 70 mg a dose'}.</p>
-      <p>When every condition is met, Today shows the next dose with <strong>Step up</strong> and <strong>Not yet</strong>. It never changes a dose by itself, and stops at your maximum. For steps on fixed dates instead, use a planned change{HAS_PEPTIDES ? ' or a titration' : ''}.</p>
+      <p><strong>Dose plan</strong> → <strong>Change the plan</strong> → <strong>When I'm ready</strong>: how much each step is (in {HAS_PEPTIDES ? 'syringe units or ' : ''}the medication's unit), the least time on each dose, the most you'll go to (a dose or a week), and, if you like, conditions from your check-ins: appetite back to a level, side effects settled{HAS_BODY ? ', weight loss slowed' : ''}, no missed doses. For example: {HAS_PEPTIDES ? 'up 5 units every 4 weeks or more once appetite is back to 3 of 5, to at most 12 mg a week' : 'up 10 mg at least a week apart while side effects stay settled, to at most 70 mg a dose'}.</p>
+      <p>When every condition is met, Today shows the next dose with <strong>Step up</strong> and <strong>Not yet</strong>. It never changes a dose by itself, and stops at your maximum. For steps on fixed dates instead, use <strong>On a date</strong> or <strong>Steps on a schedule</strong>. With a dated step{HAS_PEPTIDES ? ' for an injection' : ''}, the plan also ticks off whether you're ready for it (weeks on the dose, side effects, appetite{HAS_BODY ? ', weight loss slowing' : ''}, no missed doses), against conditions you can set.</p>
       <H>Set times with different amounts</H>
       <p>Each set time can have its own amount, such as 10 mg at 8 am and 5 mg at 1 pm. Leave an amount blank to use your usual dose.</p>
       <H>Instructions</H>
       <p>Each medication has an Instructions box. Anything typed there, by you, a carer, pharmacist or doctor, shows every time the tag is tapped or a dose is logged.</p>
       <H>When your prescription changes</H>
       <p>For a change starting today, edit the medication. {APP_NAME} asks whether to record it as a change on a date, so your charts show when it happened.</p>
-      <p>For a change on a future date, or a taper in steps, open the medication and use <strong>Plan a change</strong>. Add one change per step. On each date {APP_NAME} switches to the new schedule by itself and records it.</p>
+      <p>For a change on a future date, or a taper in steps, use the <strong>Dose plan</strong> → <strong>Change the plan</strong>: <strong>On a date</strong> for one, <strong>Steps on a schedule</strong> for several. On each date {APP_NAME} switches to the new schedule by itself and records it.</p>
       <H>Skipping a dose</H>
       <p>If you don't take a dose on purpose, open Log dose and choose <strong>Skip this dose</strong>, with a reason if you like. It holds that dose's place in your day (so the next amount and time move on), isn't counted as taken, and doesn't change your stock.</p>
       <H>Limits for as-needed medications</H>
@@ -440,6 +455,9 @@ const CONTENT: Record<string, ReactNode> = {
         <li>Back in {APP_NAME}, tap <strong>I've written the tag</strong>.</li>
       </ol>
       <p className="text-sm text-muted">Every tag link starts with {tagBase()}?t= followed by a code. The code means nothing on its own: if someone else taps your tag, their phone just shows “New tag found”.</p>
+      <H>Reusing a tag</H>
+      <p>A tag can be used again for something else. <strong>Tags</strong> → <strong>Erase a tag to reuse it</strong> (or on a tag's own page, <strong>Erase this tag</strong>), then hold it to your phone: it's wiped, and its link in {APP_NAME} goes with it. Your history stays. Then link it as new.</p>
+      <p>Or skip erasing: link it straight to the new medicine and write over it. {APP_NAME} sees what was on it and drops the old link. Without NFC in this browser, erase it with NFC Tools (<strong>Other</strong> → <strong>Erase tag</strong>) and remove its link here.</p>
       <H>Tags that don't read</H>
       <ul className="list-disc pl-5 space-y-1">
         <li>iPhone: the phone must be unlocked with the screen on. iPhones older than the XS need the Control Centre NFC reader.</li>
