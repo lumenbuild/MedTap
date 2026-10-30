@@ -3,7 +3,8 @@
 // report (labelled trial or user reports), storage, side effects, when to get help, and one tap to set it up.
 import { useState } from 'react';
 import { AlertTriangle, BookOpen, Calculator, ChevronDown, ChevronRight, FlaskConical, Plus, Snowflake, Syringe } from 'lucide-react';
-import { BASICS, EVIDENCE, fmtDose, GUIDE, guideById, guideFor, mixTable, type GuideEntry } from '../logic/peptideGuide';
+import { BASICS, canSplit, EVIDENCE, fmtDose, GUIDE, guideById, guideFor, mixTable, splitView, type GuideEntry } from '../logic/peptideGuide';
+import { SwingBars } from '../components/SwingBars';
 import { fmtMl } from '../logic/peptide';
 import { useFamily, useMeds } from '../app/data';
 import { medIsFor } from '../db/repos/people';
@@ -107,7 +108,7 @@ function GuidePage({ g }: { g: GuideEntry }) {
         <p className="text-[15px] leading-snug">{g.what}</p>
         <EvidenceTag g={g} />
         <p className="text-sm text-muted leading-snug">{g.status}</p>
-        {g.aka.length > 0 && <p className="text-sm text-muted">Also called {g.aka.filter((a) => a.toLowerCase() !== g.id).join(', ')}.</p>}
+        {g.aka.length > 0 && <p className="text-sm text-muted">Also called {g.aka.join(', ')}.</p>}
       </div>
       <div className="grid grid-cols-2 gap-2">
         {mine
@@ -147,7 +148,7 @@ function GuidePage({ g }: { g: GuideEntry }) {
         <ul className="space-y-2">
           {g.reported.map((r) => (
             <li key={r.text} className="leading-snug">
-              <span className={`mr-1.5 inline-block text-[11px] font-semibold uppercase tracking-wide rounded px-1.5 py-0.5 align-[1px] ${r.source === 'trial' ? 'bg-success-soft text-success' : 'bg-surface-2 text-muted'}`}>{r.source === 'trial' ? 'Trial' : 'User reports'}</span>
+              <span className={`mr-1.5 inline-block text-[11px] font-semibold uppercase tracking-wide rounded px-1.5 py-0.5 align-[1px] ${r.source === 'users' ? 'bg-surface-2 text-muted' : 'bg-success-soft text-success'}`}>{r.source === 'trial' ? 'Trial' : r.source === 'label' ? 'Label' : 'User reports'}</span>
               {r.text}
             </li>
           ))}
@@ -167,6 +168,16 @@ function GuidePage({ g }: { g: GuideEntry }) {
           </ol>
         )}
       </Section>
+
+      {canSplit(g) && (() => {
+        const sv = splitView(g.halfLifeHours, [1]);
+        return sv && (
+          <Section title="Once or twice a week">
+            <p className="leading-snug">With a half-life of about {Math.round(g.halfLifeHours! / 24)} days, the level drops between shots. Splitting the week’s amount into two shots 3–4 days apart keeps it steadier.</p>
+            <SwingBars view={sv} />
+          </Section>
+        );
+      })()}
 
       <Section title="Storage" Icon={Snowflake}>
         <dl className="space-y-2">

@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { fmtDose, GUIDE, guideById, guideFor, guideMed, mixTable, stepChanges } from '../src/logic/peptideGuide';
+import { canSplit, fmtDose, GUIDE, guideById, guideFor, guideMed, levelSwing, mixTable, splitView, stepChanges, weekGaps } from '../src/logic/peptideGuide';
 import { ingredientsOf } from '../src/logic/ingredients';
 import { unstudied } from '../src/logic/interactions';
 
 describe('peptide guide', () => {
   it('finds the entry from the names people use', () => {
     const cases: [string, string][] = [['Retatrutide 10mg', 'retatrutide'], ['Glutathione', 'glutathione'], ['GHK-Cu', 'ghk-cu'], ['DISP', 'dsip'], ['DSIP 5mg', 'dsip'],
-      ['BPC-157', 'bpc-157'], ['BPC157', 'bpc-157'], ['NAD500', 'nad'], ['NAD+ 500', 'nad'], ['NAD+', 'nad'], ['Epithilian', 'epitalon'], ['Epithalon', 'epitalon']];
+      ['BPC-157', 'bpc-157'], ['BPC157', 'bpc-157'], ['NAD500', 'nad'], ['NAD+ 500', 'nad'], ['NAD+', 'nad'], ['Epithilian', 'epitalon'], ['Epithalon', 'epitalon'], ['Semax', 'semax'], ['NA-Semax', 'semax']];
     for (const [name, id] of cases) expect(guideFor(name)?.id, name).toBe(id);
     expect(guideFor('Nadolol')).toBeUndefined();
     expect(guideFor('Panadol dispersible')).toBeUndefined();
@@ -46,5 +46,33 @@ describe('peptide guide', () => {
   it('flags interactions as unstudied for the new spellings', () => {
     for (const name of ['Epithilian', 'DSIP', 'BPC157']) expect(unstudied({ name, strength: 5, unit: 'mg' } as never), name).toBe(true);
     expect(ingredientsOf({ name: 'Panadol dispersible', strength: 500, unit: 'mg' })).toEqual([{ name: 'paracetamol', mg: 500 }]);
+  });
+
+  it('splits a weekly peptide into two half shots, 3 and 4 days apart', () => {
+    const now = new Date('2026-11-02T09:00').getTime(); // Monday
+    const reta = guideById('retatrutide')!;
+    expect(canSplit(reta)).toBe(true);
+    expect(canSplit(guideById('bpc-157')!)).toBe(false);
+    const m = guideMed(reta, now, true);
+    expect(m.defaultAmount).toBe(1);
+    expect(m.schedule.days).toEqual([1, 4]);
+    expect(stepChanges(reta, '2026-11-02', true).map((c) => c.amount)).toEqual([2, 4, 6]);
+    // A daily one isn't split.
+    expect(guideMed(guideById('bpc-157')!, now, true).defaultAmount).toBe(250);
+  });
+  it('how steady the level is between shots', () => {
+    expect(weekGaps([1, 4])).toEqual([3, 4]);
+    expect(weekGaps([3])).toEqual([7]);
+    expect(weekGaps([0, 2, 4])).toEqual([2, 2, 3]);
+    expect(levelSwing(144, 144)).toBeCloseTo(0.5);
+    const weekly = splitView(144, [1])!;
+    expect(Math.round(weekly.swing * 100)).toBe(55);
+    expect(Math.round(weekly.other.swing * 100)).toBe(37);
+    const twice = splitView(144, [1, 4])!;
+    expect(twice.perWeek).toBe(2);
+    expect(Math.round(twice.swing * 100)).toBe(37);
+    expect(Math.round(twice.other.swing * 100)).toBe(55);
+    expect(splitView(4, [1, 4])).toBeNull(); // short half-life: gone between shots either way
+    expect(splitView(undefined, [1])).toBeNull();
   });
 });

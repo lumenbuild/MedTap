@@ -41,7 +41,7 @@ import { DrawGuide, syringeSizes } from '../../components/Syringe';
 import { SYRINGES } from '../../logic/peptide';
 import type { LabelDetails } from '../../logic/label';
 import { HAS_PEPTIDES } from '../../edition';
-import { guideById, guideFor, guideMed, stepChanges, fmtDose, type GuideEntry } from '../../logic/peptideGuide';
+import { canSplit, guideById, guideFor, guideMed, stepChanges, fmtDose, type GuideEntry } from '../../logic/peptideGuide';
 import { Switch } from '../../components/ui/Switch';
 import { fmtAmount, fmtSchedule } from '../../logic/format';
 
@@ -178,8 +178,8 @@ function fromLabel(p: Form, d: LabelDetails): Form {
 }
 
 /** The form filled in from a guide entry, keeping the colour and who it's for. */
-function fromGuide(p: Form, g: GuideEntry, keepName?: string): Form {
-  const m = guideMed(g, Date.now());
+function fromGuide(p: Form, g: GuideEntry, keepName?: string, split = false): Form {
+  const m = guideMed(g, Date.now(), split);
   const filled = fromMed({ ...m, id: '', createdAt: '', updatedAt: '', archived: false, color: p.color, icon: 'syringe' });
   return { ...filled, name: keepName ?? filled.name, personId: p.personId };
 }
@@ -206,6 +206,7 @@ export function MedEditor({ id, tagId, guideId }: { id?: string; tagId?: string;
   /** Filled in from the peptide guide: which entry, and whether to add its published step-up as planned changes. */
   const [fromGuideId, setFromGuideId] = useState<string | undefined>(guideId && guideById(guideId) ? guideId : undefined);
   const [addSteps, setAddSteps] = useState(false);
+  const [split, setSplit] = useState(false);
   useEffect(() => { const g = guideId ? guideById(guideId) : undefined; if (g) setF((p) => fromGuide(p, g)); }, [guideId]);
   const loadedId = existing?.id;
 
@@ -273,7 +274,7 @@ export function MedEditor({ id, tagId, guideId }: { id?: string; tagId?: string;
       const g = fromGuideId ? guideById(fromGuideId) : undefined;
       if (g) {
         // The published step-up, as planned changes from today; and the guide's check-in words, one tap each.
-        if (addSteps && g.steps) input = { ...input, plannedChanges: stepChanges(g, format(Date.now(), 'yyyy-MM-dd')).map((c) => ({ id: crypto.randomUUID(), from: c.from, defaultAmount: c.amount, schedule: input.schedule, note: 'Trial step-up' })) };
+        if (addSteps && g.steps) input = { ...input, plannedChanges: stepChanges(g, format(Date.now(), 'yyyy-MM-dd'), split && canSplit(g)).map((c) => ({ id: crypto.randomUUID(), from: c.from, defaultAmount: c.amount, schedule: input.schedule, note: 'Trial step-up' })) };
         const st = await getSettings();
         const add = g.chips.filter((w) => !st.chips.some((c) => c.toLowerCase() === w.toLowerCase()));
         if (add.length) await setSetting('chips', [...st.chips, ...add]);
@@ -335,8 +336,9 @@ export function MedEditor({ id, tagId, guideId }: { id?: string; tagId?: string;
         return (
           <Card className="bg-primary-soft shadow-none space-y-2">
             <p>Filled in from the <a href={`#/guide/${g.id}`} className="underline underline-offset-4 font-medium">{g.name} guide</a>: a {fmtDose(g.vials[0].amount, g.unit)} vial with {g.vials[0].waterMl} mL of water, U-100 syringes and its usual schedule.</p>
-            <p className="text-sm">The dose is set to {fmtDose(g.setup.defaultAmount, g.unit)}, {first?.source === 'trial' ? 'the trial starting dose' : 'the low end of what people report'}. Change anything to match your vial and your plan.</p>
-            {g.steps && <Switch label="Add the trial step-up" checked={addSteps} onChange={setAddSteps}>{g.steps.map((x) => x.amount).join(' → ')} {g.unit}, every {g.steps[0].weeks} weeks. You can change or remove the steps later in its dose plan.</Switch>}
+            <p className="text-sm">The dose is set to {fmtDose(split ? g.setup.defaultAmount / 2 : g.setup.defaultAmount, g.unit)}{split ? ' a shot' : ''}, {first?.source === 'trial' ? `${split ? 'half ' : ''}the trial starting dose` : 'the low end of what people report'}. Change anything to match your vial and your plan.</p>
+            {canSplit(g) && <Switch label="Two shots a week" checked={split} onChange={(v) => { setSplit(v); setF((p) => fromGuide(p, g, p.name, v)); }}>Half the weekly amount, 3 and 4 days apart, for a steadier level.</Switch>}
+            {g.steps && <Switch label="Add the trial step-up" checked={addSteps} onChange={setAddSteps}>{g.steps.map((x) => (split ? x.amount / 2 : x.amount)).join(' → ')} {g.unit}{split ? ' a shot' : ''}, every {g.steps[0].weeks} weeks. You can change or remove the steps later in its dose plan.</Switch>}
           </Card>
         );
       })()}

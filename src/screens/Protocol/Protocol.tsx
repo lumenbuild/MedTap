@@ -25,13 +25,15 @@ import { Button } from '../../components/ui/Button';
 import { WeekStrip } from './WeekStrip';
 import { Tile } from '../../components/ui/Visual';
 import { AlertTriangle, BookOpen, Calculator, CalendarRange, ChevronRight, FileText, Package, TrendingDown } from 'lucide-react';
-import { guideFor } from '../../logic/peptideGuide';
+import { guideFor, splitView } from '../../logic/peptideGuide';
+import { SwingBars } from '../../components/SwingBars';
 import { ChipPicker } from '../../components/ui/Field';
 import { Sheet } from '../../components/ui/Sheet';
 import { LogDoseFlow } from '../../components/LogDoseFlow';
 import { StartVialSheet } from '../Meds/VialCard';
 
 import { useToast } from '../../app/toast';
+import { setHalfLife } from '../../db/repos/meds';
 import { removeDose } from '../../db/repos/doses';
 import { LeadTimeSheet, LotSheet } from './ProtocolSheets';
 
@@ -242,8 +244,26 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
       <DosePlanCard med={med} flat />
       <section aria-label="Estimated level" className="space-y-3">
         {med.peptide?.halfLifeHours
-          ? <Suspense fallback={<div className="h-[150px]" />}><LevelProjection med={med} doses={doses.filter((d) => d.medicationId === med.id)} s={s} now={now} /></Suspense>
-          : <p className="text-sm text-muted">Add a half-life on <a href={`#/meds/${med.id}`} className="underline underline-offset-4">its page</a> to see the estimated level through your plan.</p>}
+          ? <><Suspense fallback={<div className="h-[150px]" />}><LevelProjection med={med} doses={doses.filter((d) => d.medicationId === med.id)} s={s} now={now} /></Suspense>
+            {(() => {
+              const sv = med.schedule.type === 'fixed' && !med.schedule.everyNDays ? splitView(med.peptide.halfLifeHours, med.schedule.days) : null;
+              if (!sv) return null;
+              const better = sv.swing - sv.other.swing;
+              return (
+                <div>
+                  <p className="text-sm leading-snug">{sv.perWeek === 1
+                    ? (better > 0.1 ? `Your level drops about ${Math.round(sv.swing * 100)}% before each shot. Two half shots 3–4 days apart would make that about ${Math.round(sv.other.swing * 100)}%: steadier, and often less nausea after a shot.` : null)
+                    : `Splitting keeps your level steadier: it drops about ${Math.round(sv.swing * 100)}% before each shot, against ${Math.round(sv.other.swing * 100)}% with one shot a week.`}</p>
+                  {(sv.perWeek > 1 || better > 0.1) && <SwingBars view={sv} yours />}
+                </div>
+              );
+            })()}</>
+          : guideEntry?.halfLifeHours
+            ? <button type="button" className="w-full text-left rounded-card bg-surface-2 p-3 min-h-[56px]" onClick={async () => { await setHalfLife(med.id, guideEntry.halfLifeHours); toast(`Half-life set to ${Math.round(guideEntry.halfLifeHours! / 24)} days`, { onAction: () => setHalfLife(med.id, undefined) }); }}>
+                <span className="block font-medium">Use the {guideEntry.name} half-life ({Math.round(guideEntry.halfLifeHours / 24)} days)</span>
+                <span className="block text-sm text-muted">Shows your estimated level through the plan, and how steady it is between shots.</span>
+              </button>
+            : <p className="text-sm text-muted">Add a half-life on <a href={`#/meds/${med.id}`} className="underline underline-offset-4">its page</a> to see the estimated level through your plan.</p>}
       </section>
 
       {sheet === 'late' && <LateShotsSheet med={med} report={late ?? { events: [], basis: { weeks: 12 } }} onClose={() => setSheet(null)} />}

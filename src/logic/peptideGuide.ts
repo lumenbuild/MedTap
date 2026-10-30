@@ -13,12 +13,14 @@ export const EVIDENCE: Record<Evidence, { label: string; long: string }> = {
 };
 
 /** A dose people report, and where the figure comes from. */
-export interface Reported { text: string; source: 'trial' | 'users' }
+export interface Reported { text: string; source: 'trial' | 'label' | 'users' }
 
 export interface GuideEntry {
   id: string; name: string;
-  /** Other names and spellings (matched against a medication's name). */
+  /** Other names (shown, and matched against a medication's name). */
   aka: string[];
+  /** Other spellings and short forms, matched but not shown. */
+  match?: string[];
   what: string;
   evidence: Evidence;
   status: string;
@@ -50,7 +52,7 @@ const daily = (time: string, extra: Partial<Schedule> = {}): Schedule => ({ type
 
 export const GUIDE: GuideEntry[] = [
   {
-    id: 'retatrutide', name: 'Retatrutide', aka: ['reta', 'LY3437943'],
+    id: 'retatrutide', name: 'Retatrutide', aka: ['LY3437943'], match: ['reta'],
     what: 'A weekly injection that acts on three hunger and metabolism hormones at once: GLP-1, GIP and glucagon. It lowers appetite, slows the stomach and raises energy use.',
     evidence: 'trials',
     status: 'Made by Eli Lilly and still in phase 3 trials (TRIUMPH). It isn’t approved anywhere yet, so anything sold now isn’t the trial medicine and its purity is unknown.',
@@ -62,6 +64,7 @@ export const GUIDE: GuideEntry[] = [
       { text: 'Phase 2 trial: weekly 1, 4, 8 or 12 mg for 48 weeks. Average weight loss was 8.7%, 17.1%, 22.8% and 24.2% (placebo 2.1%).', source: 'trial' },
       { text: 'The 12 mg group started at 2 mg and stepped up every 4 weeks: 2 → 4 → 8 → 12 mg. Starting at 2 mg rather than 4 mg meant less nausea.', source: 'trial' },
       { text: 'Many people stay on the lowest dose that’s still working, rather than climbing to the top, and some step up more slowly than every 4 weeks.', source: 'users' },
+      { text: 'Some split the weekly amount into two shots 3–4 days apart (e.g. 1 mg Monday and Thursday instead of 2 mg Monday) for a steadier level and less nausea after each shot. The trials only tested once a week.', source: 'users' },
     ],
     steps: [{ amount: 2, weeks: 4 }, { amount: 4, weeks: 4 }, { amount: 8, weeks: 4 }, { amount: 12, weeks: 4 }],
     storage: { powder: 'Fridge (2–8 °C). The freezer for long-term storage.', mixed: 'Fridge, away from light. Commonly used within 4 weeks of mixing.', useWithinDays: 28 },
@@ -100,7 +103,7 @@ export const GUIDE: GuideEntry[] = [
     setup: { defaultAmount: 2, syringeUnits: 50, schedule: (_t, dow) => daily('08:00', { days: [dow] }) },
   },
   {
-    id: 'glutathione', name: 'Glutathione', aka: ['GSH', 'l-glutathione'],
+    id: 'glutathione', name: 'Glutathione', aka: ['GSH', 'L-glutathione'],
     what: 'An antioxidant the body makes itself, from three amino acids. Injected to raise levels, often for skin, liver or recovery.',
     evidence: 'small',
     status: 'Sold as a supplement by mouth. Injections are offered by clinics, but the evidence for injecting it is limited. Regulators (the TGA and FDA) have warned about injections marketed for skin lightening.',
@@ -126,7 +129,7 @@ export const GUIDE: GuideEntry[] = [
     setup: { defaultAmount: 200, syringeUnits: 100, schedule: () => daily('08:00', { days: [1, 3, 5] }) },
   },
   {
-    id: 'ghk-cu', name: 'GHK-Cu', aka: ['ghk', 'copper peptide', 'ghk cu'],
+    id: 'ghk-cu', name: 'GHK-Cu', aka: ['copper peptide'], match: ['ghk', 'ghk cu'],
     what: 'A small copper-carrying peptide found naturally in blood, which falls with age. Used for skin, hair and healing.',
     evidence: 'animal',
     status: 'There’s good evidence for it in skin creams. There are no human trials of injecting it; the injected doses come from user reports.',
@@ -146,7 +149,7 @@ export const GUIDE: GuideEntry[] = [
     setup: { defaultAmount: 1, syringeUnits: 30, schedule: (t) => daily('20:00', { course: { start: t, days: 42 } }) },
   },
   {
-    id: 'dsip', name: 'DSIP', aka: ['delta sleep-inducing peptide', 'delta sleep inducing peptide', 'disp'],
+    id: 'dsip', name: 'DSIP', aka: ['delta sleep-inducing peptide'], match: ['delta sleep inducing peptide', 'disp'],
     what: 'Delta sleep-inducing peptide: a small brain peptide first found in 1977. Used for deeper sleep and stress.',
     evidence: 'small',
     status: 'A few small human studies from the 1980s and 1990s (sleep problems, withdrawal) with mixed results. Not approved anywhere.',
@@ -166,7 +169,7 @@ export const GUIDE: GuideEntry[] = [
     setup: { defaultAmount: 0.25, syringeUnits: 30, schedule: (t) => daily('21:00', { course: { start: t, days: 14 } }) },
   },
   {
-    id: 'bpc-157', name: 'BPC-157', aka: ['bpc', 'bpc 157', 'bpc157', 'body protection compound'],
+    id: 'bpc-157', name: 'BPC-157', aka: ['body protection compound'], match: ['bpc', 'bpc 157', 'bpc157'],
     what: 'A 15-amino-acid peptide based on a protein in stomach juice. Used for tendon, ligament, muscle and gut healing.',
     evidence: 'animal',
     status: 'Many rat studies, but only a handful of small human reports. Not approved anywhere. The FDA lists it as a safety concern for compounding, and WADA bans it in sport.',
@@ -190,7 +193,7 @@ export const GUIDE: GuideEntry[] = [
     setup: { defaultAmount: 250, syringeUnits: 30, schedule: (t) => daily('08:00', { course: { start: t, days: 28 } }) },
   },
   {
-    id: 'nad', name: 'NAD+', aka: ['nad', 'nad 500', 'nad500', 'nicotinamide adenine dinucleotide'],
+    id: 'nad', name: 'NAD+', aka: ['nicotinamide adenine dinucleotide'], match: ['nad', 'nad 500', 'nad500'],
     what: 'A coenzyme every cell uses to make energy, which falls with age. Injected for energy, recovery and healthy ageing.',
     evidence: 'small',
     status: 'Taking its building blocks by mouth (NR, NMN) raises NAD levels in people. Whether injecting NAD+ itself helps hasn’t been shown. Clinics give it by drip.',
@@ -212,7 +215,34 @@ export const GUIDE: GuideEntry[] = [
     setup: { defaultAmount: 50, syringeUnits: 100, schedule: () => daily('08:00', { days: [1, 3, 5] }) },
   },
   {
-    id: 'epitalon', name: 'Epitalon', aka: ['epithalon', 'epithilian', 'epithalamin', 'aedg'],
+    id: 'semax', name: 'Semax', aka: ['N-Acetyl Semax', 'ACTH(4-10) analogue'], match: ['na semax'],
+    what: 'A small peptide (Met-Glu-His-Phe-Pro-Gly-Pro) based on a fragment of the stress hormone ACTH. Used for focus, memory and mental energy.',
+    evidence: 'small',
+    status: 'A prescription medicine in Russia (nose drops, 0.1% and 1%) for stroke recovery and some brain conditions, with Russian human studies behind it. Not approved in Australia, the US or Europe.',
+    vials: [{ amount: 5000, waterMl: 2.5 }, { amount: 10000, waterMl: 5 }],
+    unit: 'mcg', tableDoses: [100, 200, 300, 500],
+    route: 'Usually in the nose (drops or a spray). Some inject it under the skin (belly or thigh) from a mixed vial.',
+    when: 'In the morning or early afternoon: it’s stimulating and can keep you up if taken late.',
+    cycle: 'Usually 1–2 weeks on, then a break of a week or more.',
+    reported: [
+      { text: 'The Russian 0.1% drops have 1 mg per mL: one drop is about 50 mcg. For focus, 2–3 drops in each nostril, 2–3 times a day (about 400–900 mcg a day).', source: 'label' },
+      { text: 'Commonly 200–600 mcg a day in the nose, or 200–500 mcg once a day under the skin, for 1–2 weeks at a time.', source: 'users' },
+    ],
+    storage: { powder: 'Fridge or freezer.', mixed: 'Fridge. Commonly used within 4 weeks of mixing (sprays: about 2 weeks).', useWithinDays: 28 },
+    sideEffects: ['Irritation in the nose.', 'Headache.', 'Feeling wired, anxious or irritable.', 'Poor sleep if taken late in the day.'],
+    getHelp: ['Chest pain, a racing heart that doesn’t settle, or fainting.', 'Swelling of the face or throat, or trouble breathing: call 000.', 'Spreading redness, heat or pus at the injection site, or a fever.'],
+    checkFirst: [
+      'It’s stimulating. With Ritalin, Vyvanse, dexamphetamine or lots of caffeine the effects can add up: more anxiety, a faster heart, worse sleep. Start low and keep it to mornings.',
+      'Careful with anxiety, and not with a history of psychosis, mania or seizures without talking to your doctor.',
+      'Not studied in pregnancy or breastfeeding.',
+    ],
+    tips: ['Log focus and anxiety in check-ins for a week on and a week off: the difference shows whether it’s doing anything for you.', 'For a nose spray, a typical pump gives about 0.1 mL a spray: in a 1 mg per mL mix that’s about 100 mcg.'],
+    chips: ['Focus', 'Anxious'],
+    sources: ['Russian State Register: Semax 0.1% and 1% nasal drops.', 'Dolotov et al., Brain Res 2006: Semax and BDNF (animal study).'],
+    setup: { defaultAmount: 200, syringeUnits: 30, schedule: (t) => daily('08:00', { course: { start: t, days: 14 } }) },
+  },
+  {
+    id: 'epitalon', name: 'Epitalon', aka: ['Epithalon', 'AEDG'], match: ['epithilian', 'epithalamin'],
     what: 'A small synthetic peptide (Ala-Glu-Asp-Gly) based on an extract from the pineal gland. Used for sleep, and as an anti-ageing peptide.',
     evidence: 'small',
     status: 'Mostly lab and animal work, plus small studies in older people from one Russian research group. Lab studies suggest it can switch on telomerase. Not approved anywhere.',
@@ -271,7 +301,7 @@ const norm = (s: string) => ` ${s.toLowerCase().replace(/[^a-z0-9+]+/g, ' ').tri
 /** The guide entry a medication's name matches, if any. */
 export function guideFor(name: string): GuideEntry | undefined {
   const n = norm(name);
-  return GUIDE.find((g) => [g.name, g.id, ...g.aka].some((k) => n.includes(norm(k))));
+  return GUIDE.find((g) => [g.name, g.id, ...g.aka, ...(g.match ?? [])].some((k) => n.includes(norm(k))));
 }
 
 export const guideById = (id: string) => GUIDE.find((g) => g.id === id);
@@ -290,28 +320,63 @@ export function fmtDose(n: number, unit: string): string {
 }
 
 /** A medication set up from the guide: the first vial size, its water, U-100 syringes, its schedule and starting amount. */
-export function guideMed(g: GuideEntry, now: number): Omit<Medication, 'id' | 'createdAt' | 'updatedAt' | 'color' | 'icon' | 'archived'> {
+/** A once-a-week entry can be split into two shots a week. */
+export const canSplit = (g: GuideEntry) => g.setup.schedule('2026-01-01', 1).days?.length === 1;
+
+/** A medication set up from the guide: the first vial size, its water, U-100 syringes, its schedule and starting amount.
+ *  `split`: half the amount twice a week, 3 then 4 days apart (from today's weekday). */
+export function guideMed(g: GuideEntry, now: number, split = false): Omit<Medication, 'id' | 'createdAt' | 'updatedAt' | 'color' | 'icon' | 'archived'> {
   const d = new Date(now);
   const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const v = g.vials[0];
+  const sc = g.setup.schedule(today, d.getDay());
+  const halve = split && canSplit(g);
   return {
-    name: g.name, strength: v.amount, unit: g.unit, form: 'injection', defaultAmount: g.setup.defaultAmount,
-    schedule: g.setup.schedule(today, d.getDay()),
+    name: g.name, strength: v.amount, unit: g.unit, form: 'injection', defaultAmount: halve ? g.setup.defaultAmount / 2 : g.setup.defaultAmount,
+    schedule: halve ? { ...sc, days: [d.getDay(), (d.getDay() + 3) % 7].sort((a, b) => a - b) } : sc,
     peptide: { kind: 'vial', waterMl: v.waterMl, syringe: 'U-100', syringeUnits: g.setup.syringeUnits, useWithinDays: g.storage.useWithinDays, halfLifeHours: g.halfLifeHours },
   };
 }
 
 /** The published step-up as planned changes from `start` ('YYYY-MM-DD'): each later step on its own date. */
-export function stepChanges(g: GuideEntry, start: string): { from: string; amount: number }[] {
+export function stepChanges(g: GuideEntry, start: string, split = false): { from: string; amount: number }[] {
   if (!g.steps) return [];
   const out: { from: string; amount: number }[] = [];
   let days = 0;
   for (let i = 0; i < g.steps.length; i++) {
     if (i > 0) {
       const d = new Date(`${start}T12:00`); d.setDate(d.getDate() + days);
-      out.push({ from: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`, amount: g.steps[i].amount });
+      out.push({ from: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`, amount: split ? g.steps[i].amount / 2 : g.steps[i].amount });
     }
     days += g.steps[i].weeks * 7;
   }
   return out;
+}
+
+/** How far the level falls between shots, as a share of its peak (absorption left out): 1 − 2^(−gap ÷ half-life). */
+export const levelSwing = (halfLifeHours: number, gapHours: number) => 1 - 2 ** (-gapHours / halfLifeHours);
+
+/** The gaps between shots through a week, in days, for shots on these weekdays (0 = Sunday). */
+export function weekGaps(days: number[]): number[] {
+  const d = [...new Set(days)].sort((a, b) => a - b);
+  if (d.length < 2) return d.length ? [7] : [];
+  return d.map((x, i) => (i + 1 < d.length ? d[i + 1] - x : 7 - x + d[0]));
+}
+
+export interface SplitView {
+  /** Shots a week now, and the biggest drop between shots (0–1). */
+  perWeek: number; swing: number;
+  /** Once a week: the swing with two shots 3–4 days apart. Twice or more: the swing with one a week. */
+  other: { perWeek: number; swing: number };
+}
+
+/** For a long-acting peptide on set weekdays: how steady the level is between shots, against the other way of
+ *  splitting the week. Only when the half-life is at least a day (shorter ones are gone between shots either way). */
+export function splitView(halfLifeHours: number | undefined, days: number[] | undefined): SplitView | null {
+  if (!halfLifeHours || halfLifeHours < 24 || !days?.length) return null;
+  const gaps = weekGaps(days);
+  const swing = levelSwing(halfLifeHours, Math.max(...gaps) * 24);
+  return days.length === 1
+    ? { perWeek: 1, swing, other: { perWeek: 2, swing: levelSwing(halfLifeHours, 4 * 24) } }
+    : { perWeek: days.length, swing, other: { perWeek: 1, swing: levelSwing(halfLifeHours, 7 * 24) } };
 }
