@@ -43,6 +43,18 @@ export function useWeekReview(): { d: Digest; seen: number; notify: boolean } | 
   }, [hour, meds, doses, checkIns, body, workouts, daily, own, fam, ss]);
 }
 
+/** A review's wins and lines (the weekly review; the summary since the last appointment). */
+export function ReviewLines({ d }: { d: Digest }) {
+  return (
+    <>
+      {d.wins.length > 0 && <ul className="tnum mt-1" aria-label="Wins">{d.wins.map((w) => <li key={w}><IconRow Icon={Trophy} tone="good">{w}</IconRow></li>)}</ul>}
+      <ul className="tnum mt-1">
+        {d.lines.map((l) => <li key={l.key}><IconRow Icon={ICON[l.key] ?? Smile} tone={l.tone === 'good' ? 'good' : l.tone === 'watch' ? 'watch' : 'plain'}>{l.text}</IconRow></li>)}
+      </ul>
+    </>
+  );
+}
+
 /** Progress: the week, wins first. */
 export function WeekReviewSection() {
   const r = useWeekReview();
@@ -52,10 +64,7 @@ export function WeekReviewSection() {
   return (
     <section aria-labelledby="week-h" id="week">
       <h2 id="week-h" className="text-sm font-medium text-muted">Last week · {format(d.weekStart, 'd MMM')} – {format(d.weekEnd - 1, 'd MMM')}</h2>
-      {d.wins.length > 0 && <ul className="tnum mt-1" aria-label="Wins">{d.wins.map((w) => <li key={w}><IconRow Icon={Trophy} tone="good">{w}</IconRow></li>)}</ul>}
-      <ul className="tnum mt-1">
-        {d.lines.map((l) => <li key={l.key}><IconRow Icon={ICON[l.key] ?? Smile} tone={l.tone === 'good' ? 'good' : l.tone === 'watch' ? 'watch' : 'plain'}>{l.text}</IconRow></li>)}
-      </ul>
+      <ReviewLines d={d} />
       {isNative && !r.notify && (
         <button type="button" className="min-h-[44px] text-sm text-muted underline underline-offset-4" onClick={async () => {
           const on = await setDigestNotify(true);
