@@ -48,10 +48,9 @@ import { TrainingHero, WeightHero } from './FocusHero';
 import { AutoBackupPermission, BackupReminder, CheckInAutoOpen, CheckInPrompt, InstallCard, NeedsAttention, UpdateCard } from './PromptCards';
 import { TopInsights } from '../../components/InsightList';
 import { HAS_MEDS, HAS_BODY, HAS_TRAINING, HAS_FOOD, FOCUS, HAS_PEPTIDES } from '../../edition';
-import { DigestCard, IntakeCard } from '../../components/Fitness';
-import { weeklyDigest } from '../../logic/digest';
+import { IntakeCard } from '../../components/Fitness';
+import { WeekTeaser } from '../../components/WeekReview';
 import { allExercises } from '../../logic/exercises';
-import { setDigestNotify } from '../../app/native';
 import { isNative } from '../../platform';
 import { setSetting } from '../../db/repos/settings';
 import { gettingStarted, showGettingStarted } from '../../logic/gettingStarted';
@@ -300,17 +299,7 @@ export function Today() {
       </div>
       )}
 
-      {!fam.everyone && daily && workouts && own && (() => {
-        // Monday to Wednesday: last week against the week before.
-        const wd = new Date(now).getDay();
-        if (![1, 2, 3].includes(wd)) return null;
-        const mine = <T extends { personId?: string }>(r: T) => personOf(r) === fam.personId;
-        const dg = weeklyDigest({ meds: viewMeds, doses: viewDoses, checkIns: viewCheckIns, body: HAS_BODY ? viewBody : [], workouts: workouts.filter(mine), daily: daily.filter(mine), defs: allExercises(own) },
-          now, s, { units: settings.units, body: HAS_BODY, training: HAS_TRAINING && settings.trainingTools, milestones: motivation?.milestones,
-            goalDir: (() => { const g = fam.people.find((p) => p.id === fam.personId)?.goals?.find((x) => x.metric === 'weightKg'); return g ? Math.sign(g.target - g.start) : undefined; })() });
-        return dg ? <DigestCard d={dg} seen={settings.digestSeen} notify={settings.digestNotify} onClose={() => setSetting('digestSeen', dg.weekStart)}
-          onNotify={isNative ? async () => { const on = await setDigestNotify(true); toast(on ? 'You’ll get your week each Monday at 8:30 am' : 'Notifications are off for this app. Turn them on in your phone’s settings.'); } : undefined} /> : null;
-      })()}
+      {!fam.everyone && <WeekTeaser now={now} />}
 
       {HAS_FOOD && settings.foodTracking && !fam.everyone && (
         <Suspense fallback={null}><FoodToday personId={fam.personId} energy={settings.energyUnit} target={settings.energyTargetKcal} now={now} /></Suspense>

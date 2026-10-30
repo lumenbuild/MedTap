@@ -9,6 +9,7 @@ import { dayStartOffset } from './protocol';
 import { newPBs, working } from './training';
 import type { ExerciseDef } from './exercises';
 import { kgTo, weightUnit } from './units';
+import { EFFECT_CHIPS } from './predict';
 
 const DAY = 86_400_000;
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
@@ -93,6 +94,14 @@ export function weeklyDigest(d: DigestData, now: number, s: ScheduleSettings, op
   const mn = mood(start, end), mp = mood(prevStart, start);
   if (mn !== null && mp !== null && mn - mp >= 0.3) wins.push(`Mood up to ${r1(mn)} of 5`);
   if (mn !== null) lines.push({ key: 'mood', label: 'Mood', text: `${r1(mn)} of 5${mp !== null && Math.abs(mn - mp) >= 0.2 ? `, ${mn > mp ? 'up' : 'down'} from ${r1(mp)}` : ''}`, tone: mp !== null && mn < mp - 0.4 ? 'watch' : 'plain' });
+
+  // Side effects, for injections (the weekly review is also the injection's week: Protocol links here).
+  if (d.meds.some((m) => m.peptide && !m.archived)) {
+    const fx = (a: number, b: number) => { const cs = d.checkIns.filter((c) => !c.deletedAt && inR(Date.parse(c.at), a, b) && (c.mood !== undefined || c.chips.length)); return cs.length >= 3 ? Math.round((cs.filter((c) => c.chips.some((x) => EFFECT_CHIPS.includes(x))).length / cs.length) * 100) : null; };
+    const en = fx(start, end), ep = fx(prevStart, start);
+    if (en !== null && ep !== null && ep - en >= 15) wins.push(`Side effects down to ${en}% of check-ins`);
+    if (en !== null) lines.push({ key: 'effects', label: 'Side effects', text: `In ${en}% of check-ins${ep !== null && Math.abs(en - ep) >= 5 ? `, ${en < ep ? 'down' : 'up'} from ${ep}%` : ''}`, tone: ep !== null && en > ep + 15 ? 'watch' : 'plain' });
+  }
 
   for (const m of opts.milestones ?? []) if (inR(m.at, start, end)) wins.push(m.title.replace(/^./, (c) => c.toUpperCase()));
   if (!lines.length && !wins.length) return null;

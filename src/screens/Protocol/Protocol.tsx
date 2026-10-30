@@ -198,7 +198,7 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
       {/* 2. How it's going. */}
       <section aria-labelledby="going-h" className="border-t border-border pt-5 space-y-5">
         <h2 id="going-h" className="sr-only">How it's going</h2>
-        <WeeklySummaryBlock w={weeklySummary(med, doses, checkIns, HAS_BODY ? body : [], now, s)} med={med} units={units} />
+        <WeeklySummaryBlock w={weeklySummary(med, doses, checkIns, HAS_BODY ? body : [], now, s)} med={med} units={units} onProtocol />
         <FlagList flags={flags} />
         {fc && <ComingWeek fc={fc} />}
         {curve && <AppetiteStrip c={curve} />}

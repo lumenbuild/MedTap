@@ -250,7 +250,9 @@ const CONTENT: Record<string, ReactNode> = {
       )}
       <p>Check-in notes suggest chips (“bit queasy” → Nausea)<Pep>, and adding vials can read the lot and expiry from a photo of the label</Pep>.</p>
       <H>Streaks, milestones and your day</H>
-      <p>Today's ring fills as you take your set doses, check in and reach your water and protein. Under it, your longest streak; tap for every streak, your best runs and the milestones you've reached (runs of days, workouts, personal bests and every 5 kg towards a weight goal). Streaks are forgiving: one off day in any week, or one off week in four for training, doesn't end them, and a dose skipped on purpose counts. Monday's “Your week” starts with what went well.</p>
+      <p>Today's ring fills as you take your set doses, check in and reach your water and protein. Under it, your longest streak; tap for every streak, your best runs and the milestones you've reached (runs of days, workouts, personal bests and every 5 kg towards a weight goal). Streaks are forgiving: one off day in any week, or one off week in four for training, doesn't end them, and a dose skipped on purpose counts. Your week (last week against the week before, wins first) is at the top of Progress; on Monday to Wednesday Today has a line for it.</p>
+      <H>For you</H>
+      <p>Everything the app notices, in one list, most important first: a script to book, readings to raise, a plateau, today's wear-off, a genuine change, odd records, an appointment, a caffeine cut-off found in your sleep{HAS_BODY ? ', a calorie target from what you actually burn, protein to keep muscle, and muscle lost while losing weight' : ''}. Today shows the top two; Progress shows them all. Each says what it rests on and has one thing to do; × puts it away for a while. Do something from one (set a cut-off, a target) and a few weeks later it checks back on what happened.</p>
       <H>How Trends is laid out</H>
       <ul className="list-disc pl-5 space-y-1">
         <li><strong>How you've felt</strong>: your check-ins, what you noticed most and the coming days, in one place.</li>
