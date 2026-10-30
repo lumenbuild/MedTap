@@ -24,7 +24,8 @@ import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { Button } from '../../components/ui/Button';
 import { WeekStrip } from './WeekStrip';
 import { Tile } from '../../components/ui/Visual';
-import { AlertTriangle, Calculator, CalendarRange, ChevronRight, FileText, Package, TrendingDown } from 'lucide-react';
+import { AlertTriangle, BookOpen, Calculator, CalendarRange, ChevronRight, FileText, Package, TrendingDown } from 'lucide-react';
+import { guideFor } from '../../logic/peptideGuide';
 import { ChipPicker } from '../../components/ui/Field';
 import { Sheet } from '../../components/ui/Sheet';
 import { LogDoseFlow } from '../../components/LogDoseFlow';
@@ -68,7 +69,10 @@ export function Protocol() {
       {!med ? (
         <section className="border-t border-border pt-5 space-y-3">
           <p>No peptides yet{fam.many ? ` for ${fam.person}` : ''}. Add one with the injection form and it shows here: the next shot, how it's going, its plan and stock.</p>
-          <Button onClick={() => go('/meds/new')}>Add a peptide</Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button onClick={() => go('/guide')}>Pick from the guide</Button>
+            <Button variant="secondary" onClick={() => go('/meds/new')}>Add your own</Button>
+          </div>
         </section>
       ) : (
         <>
@@ -98,9 +102,10 @@ export function Protocol() {
             );
           })}
         </dl>
-        <div className="pt-4 grid grid-cols-4 gap-2" role="group" aria-label="Tools">
+        <div className="pt-4 grid grid-cols-3 gap-2" role="group" aria-label="Tools">
           <Tile Icon={Calculator} label="Calculator" href="#/calc" />
           <Tile Icon={Package} label="Supplies" href="#/supplies" />
+          <Tile Icon={BookOpen} label="Guide" name="Peptide guide" href="#/guide" />
           {peptides.length > 0 && <Tile Icon={CalendarRange} label="Enough until" name="Enough until: stock for a trip or a date" onClick={() => setNeeds(true)} />}
           {peptides.length > 0 && <Tile Icon={FileText} label="Report" name="Protocol report for your doctor" href="#/protocol/report" />}
         </div>
@@ -157,6 +162,7 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
   const shotDay = weekly ? bestShotDay(med, doses, checkIns, busy) : null;
   const recs = weekRecords(med, doses, checkIns, now, s);
   const findings = weekFindings(recs);
+  const guideEntry = guideFor(med.name);
   const weeksWithCheckIns = recs.filter((w) => w.checkIns >= 2).length;
   const when = status === 'due' ? 'Due now' : next !== null ? fmtWhen(next, now) : status === 'done-today' ? 'Done today' : 'Not planned';
   const onLogged = (d: Dose) => {
@@ -227,6 +233,7 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
               <span className="tnum">{findings.length} found</span>
             </Row>
           )}
+          {guideEntry && <Row label="Guide" onClick={() => go(`/guide/${guideEntry.id}`)}><span>Mixing, storage, side effects</span></Row>}
         </dl>
       </section>
 

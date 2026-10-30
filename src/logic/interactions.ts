@@ -36,7 +36,7 @@ const GROUPS: Record<Group, string[]> = {
 };
 
 /** Research peptides: no studies of how they mix with medicines, so no pair can be ruled in or out. */
-export const RESEARCH_PEPTIDES = ['bpc-157', 'tb-500', 'ghk-cu', 'aod-9604', 'melanotan', 'epitalon', 'selank', 'semax', 'kpv', 'mots-c',
+export const RESEARCH_PEPTIDES = ['bpc-157', 'tb-500', 'ghk-cu', 'aod-9604', 'melanotan', 'epitalon', 'dsip', 'selank', 'semax', 'kpv', 'mots-c',
   'ipamorelin', 'cjc-1295', 'hexarelin', 'ghrp', 'ibutamoren', 'retatrutide', 'cagrilintide', 'survodutide', 'mazdutide'];
 
 interface Rule { key: string; a: Group; b: Group; why: string }

@@ -17,6 +17,8 @@ import { Help, helpTitle } from '../screens/Help/Help';
 import { Onboarding } from '../screens/Onboarding/Onboarding';
 import { JoinSync, Sync } from '../screens/Sync';
 import { PeptideCalc } from '../screens/PeptideCalc';
+import { PeptideGuide } from '../screens/PeptideGuide';
+import { guideById } from '../logic/peptideGuide';
 import { Supplies } from '../screens/Supplies';
 import { Appointments, AppointmentSummary, Labs } from '../screens/Visits';
 import { Travel } from '../screens/Travel';
@@ -60,6 +62,7 @@ function title(r: Route, peptides = HAS_PEPTIDES): string {
     case 'sync': return 'Family sync';
     case 'join': return 'Join family sync';
     case 'calc': return peptides ? 'Peptide calculator' : 'Today';
+    case 'guide': return peptides ? (r.id && guideById(r.id)?.name) || 'Peptide guide' : 'Today';
     case 'supplies': return peptides ? 'Supplies' : 'Today';
     case 'protocol': return peptides ? 'Protocol' : 'Today';
     case 'protocolReport': return peptides ? 'Protocol report' : 'Today';
@@ -89,7 +92,9 @@ function backTo(r: Route, protocol: boolean): string | undefined {
     case 'caffeine': return '#/today';
     case 'labs': return HAS_VISITS ? '#/appointments' : '#/settings';
     case 'settings': return r.section ? '#/settings' : '#/today';
-    case 'medNew': case 'med': return '#/meds';
+    case 'medNew': return r.guideId ? `#/guide/${r.guideId}` : '#/meds';
+    case 'med': return '#/meds';
+    case 'guide': return r.id ? '#/guide' : '#/protocol';
     case 'backup': case 'sync': case 'join': case 'calc': case 'supplies': return '#/settings';
     case 'report': return protocol ? '#/progress' : '#/trends';
     case 'help': return r.topic ? '#/help' : '#/settings';
@@ -106,7 +111,7 @@ function Screen({ r }: { r: Route }) {
     case 'body': return <Body />;
     // TapWeigh and TapLift have no medicines: their links land on Today.
     case 'meds': return HAS_MEDS ? <MedsList /> : <Today />;
-    case 'medNew': return HAS_MEDS ? <MedEditor key={`new-${r.tagId ?? ''}`} tagId={r.tagId} /> : <Today />;
+    case 'medNew': return HAS_MEDS ? <MedEditor key={`new-${r.tagId ?? ''}-${r.guideId ?? ''}`} tagId={r.tagId} guideId={peptides ? r.guideId : undefined} /> : <Today />;
     case 'med': return HAS_MEDS ? <MedEditor key={r.id} id={r.id} /> : <Today />;
     case 'tag': return <TagLanding key={r.id} id={r.id} />;
     case 'backup': return <Backup />;
@@ -115,6 +120,7 @@ function Screen({ r }: { r: Route }) {
     case 'sync': return <Sync />;
     case 'join': return <JoinSync code={r.code} />;
     case 'calc': return peptides ? <PeptideCalc /> : <Today />;
+    case 'guide': return peptides ? <PeptideGuide key={r.id ?? 'list'} id={r.id} /> : <Today />;
     case 'supplies': return peptides ? <Supplies /> : <Today />;
     case 'protocol': return peptides ? <Protocol /> : <Today />;
     case 'protocolReport': return peptides ? <Suspense fallback={<ChartsLoading />}><ProtocolReport /></Suspense> : <Today />;

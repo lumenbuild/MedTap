@@ -41,6 +41,8 @@ import { DrawGuide, syringeSizes } from '../../components/Syringe';
 import { SYRINGES } from '../../logic/peptide';
 import type { LabelDetails } from '../../logic/label';
 import { HAS_PEPTIDES } from '../../edition';
+import { guideById, guideFor, guideMed, stepChanges, fmtDose, type GuideEntry } from '../../logic/peptideGuide';
+import { Switch } from '../../components/ui/Switch';
 import { fmtAmount, fmtSchedule } from '../../logic/format';
 
 const UNITS = ['mg', 'mcg', 'mL', 'units', 'tablet'];
@@ -175,7 +177,14 @@ function fromLabel(p: Form, d: LabelDetails): Form {
   return f;
 }
 
-export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
+/** The form filled in from a guide entry, keeping the colour and who it's for. */
+function fromGuide(p: Form, g: GuideEntry, keepName?: string): Form {
+  const m = guideMed(g, Date.now());
+  const filled = fromMed({ ...m, id: '', createdAt: '', updatedAt: '', archived: false, color: p.color, icon: 'syringe' });
+  return { ...filled, name: keepName ?? filled.name, personId: p.personId };
+}
+
+export function MedEditor({ id, tagId, guideId }: { id?: string; tagId?: string; guideId?: string }) {
   // In the private view a left-out medicine doesn't exist here, and a covered one is edited under its cover name.
   const view = useViewMode();
   const priv = view === 'private';
@@ -194,6 +203,10 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
   const [typed, setTyped] = useState('');
   /** Bottle expiry from a scanned label, added once the new medication is saved. */
   const [labelExpiry, setLabelExpiry] = useState<string | undefined>();
+  /** Filled in from the peptide guide: which entry, and whether to add its published step-up as planned changes. */
+  const [fromGuideId, setFromGuideId] = useState<string | undefined>(guideId && guideById(guideId) ? guideId : undefined);
+  const [addSteps, setAddSteps] = useState(false);
+  useEffect(() => { const g = guideId ? guideById(guideId) : undefined; if (g) setF((p) => fromGuide(p, g)); }, [guideId]);
   const loadedId = existing?.id;
 
   useEffect(() => { if (existing) setF(fromMed(existing)); }, [loadedId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -257,6 +270,14 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
       toast(`Saved ${shownName(input)}`);
       go('/meds');
     } else {
+      const g = fromGuideId ? guideById(fromGuideId) : undefined;
+      if (g) {
+        // The published step-up, as planned changes from today; and the guide's check-in words, one tap each.
+        if (addSteps && g.steps) input = { ...input, plannedChanges: stepChanges(g, format(Date.now(), 'yyyy-MM-dd')).map((c) => ({ id: crypto.randomUUID(), from: c.from, defaultAmount: c.amount, schedule: input.schedule, note: 'Trial step-up' })) };
+        const st = await getSettings();
+        const add = g.chips.filter((w) => !st.chips.some((c) => c.toLowerCase() === w.toLowerCase()));
+        if (add.length) await setSetting('chips', [...st.chips, ...add]);
+      }
       const med = await createMed(input);
       if (labelExpiry) await addBottle(med.id, { expiry: labelExpiry });
       if (tagId) {
@@ -300,6 +321,25 @@ export function MedEditor({ id, tagId }: { id?: string; tagId?: string }) {
       {tagId && (
         <Card className="bg-primary-soft shadow-none"><p>After you save, the tag you tapped will be linked to this medication.</p></Card>
       )}
+      {!existing && HAS_PEPTIDES && settings?.peptideTools && (() => {
+        const g = fromGuideId ? guideById(fromGuideId) : guideFor(f.name);
+        if (!g) return null;
+        if (!fromGuideId) return (
+          <button type="button" onClick={() => { setF((p) => fromGuide(p, g, p.name.trim() || undefined)); setFromGuideId(g.id); }}
+            className="w-full text-left rounded-card border border-border p-4 min-h-[56px] flex items-center gap-3">
+            <ClipboardList size={20} className="text-primary shrink-0" aria-hidden="true" />
+            <span className="flex-1"><span className="block font-medium">Fill in from the {g.name} guide</span><span className="block text-sm text-muted">Vial, water, syringe, schedule and storage</span></span>
+          </button>
+        );
+        const first = g.reported[0];
+        return (
+          <Card className="bg-primary-soft shadow-none space-y-2">
+            <p>Filled in from the <a href={`#/guide/${g.id}`} className="underline underline-offset-4 font-medium">{g.name} guide</a>: a {fmtDose(g.vials[0].amount, g.unit)} vial with {g.vials[0].waterMl} mL of water, U-100 syringes and its usual schedule.</p>
+            <p className="text-sm">The dose is set to {fmtDose(g.setup.defaultAmount, g.unit)}, {first?.source === 'trial' ? 'the trial starting dose' : 'the low end of what people report'}. Change anything to match your vial and your plan.</p>
+            {g.steps && <Switch label="Add the trial step-up" checked={addSteps} onChange={setAddSteps}>{g.steps.map((x) => x.amount).join(' → ')} {g.unit}, every {g.steps[0].weeks} weeks. You can change or remove the steps later in its dose plan.</Switch>}
+          </Card>
+        );
+      })()}
       {!existing && (
         <ScanLabelCard onApply={(d) => {
           setF((p) => fromLabel(p, d));
