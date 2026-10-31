@@ -34,5 +34,8 @@ describe('peptide guide style', () => {
     expect(c.remindAfterDays).toBeLessThanOrEqual(180);
     expect(g.doses.join(' ')).toMatch(/10 mg a day for 10 days or 5 mg a day for 20 days/);
     expect(g.cycle).toMatch(/every 4–6 months/);
+    const vial = g.vials[0].amount; // 10 mg
+    expect((g.setup.defaultAmount * c.days) / vial).toBe(10); // "10 vials a course"
+    expect(g.doses.join(' ')).toMatch(/10 vials a course/);
   });
 });
