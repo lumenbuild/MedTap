@@ -361,26 +361,21 @@ export function Settings({ section }: { section?: string }) {
         {HAS_TRAINING && settings.trainingTools && <Row href="#/settings/training" Icon={Dumbbell} title="Training" value={`Rest ${restLabel(settings.restSeconds)}`} />}
         <Row href="#/settings/checkins" Icon={Smile} title="Check-ins" value={[HAS_MEDS && settings.checkInDelayMin ? 'after doses' : null, settings.checkInTimes.length ? settings.checkInTimes.map(fmtHHmm).join(', ') : null].filter(Boolean).join(' · ').replace(/^./, (c) => c.toUpperCase()) || 'Off'} />
         <Row href="#/settings/caffeine" Icon={Coffee} title="Caffeine" value={[settings.caffeineLimitMg ? `${settings.caffeineLimitMg} mg a day` : null, settings.caffeineCutoff ? `until ${fmtHHmm(settings.caffeineCutoff)}` : `bed ${fmtHHmm(settings.bedtime)}`].filter(Boolean).join(' · ')} />
-        <Row href="#/settings/people" Icon={Users} title="People and sync" value={`${fam?.people.length ?? 1} ${fam && fam.people.length > 1 ? 'people' : 'person'} · sync ${sync ? 'on' : 'off'}`} />
         {isNative && <Row href="#/settings/health" Icon={HeartPulse} title="Health data" value={settings.healthImport ? 'On' : 'Off'} />}
-        <Row href="#/backup" Icon={HardDriveDownload} title="Backup and restore" value={last ? fmtAgo(now - last) : 'None yet'} />
-        <Row href="#/settings/privacy" Icon={Lock} title="Privacy" value={settings.lockEnabled ? 'PIN on' : 'PIN off'} />
-        <Row href="#/settings/display" Icon={Palette} title="Display" value={THEMES.find(([t]) => t === theme)?.[1] ?? ''} />
         {isNativeAndroid && HAS_WATCH && <Row href="#/settings/watch" Icon={Watch} title="Watch" value="Wear OS" />}
+        {/* Without a Meds tab (TapWeigh, TapLift), tags are set up here. */}
+        {!HAS_MEDS && <Row href="#/tags" Icon={Nfc} title="Tags" />}
+        <Row href="#/settings/display" Icon={Palette} title="Display" value={THEMES.find(([t]) => t === theme)?.[1] ?? ''} />
+        <Row href="#/settings/privacy" Icon={Lock} title="Privacy" value={settings.lockEnabled ? 'PIN on' : 'PIN off'} />
       </section>
-      <section aria-label="Tools">
-        <h2 className="text-sm font-medium text-muted mb-1">Tools</h2>
-        <Row href="#/tags" Icon={Nfc} title="Tags" />
-        {HAS_MEDS && <Row href={HAS_VISITS ? '#/appointments' : '#/labs'} Icon={CalendarCheck} title={HAS_VISITS ? 'Appointments and lab results' : 'Lab results'} />}
-        {HAS_VISITS && <Row href="#/travel" Icon={Plane} title="Plan a trip" />}
-        {HAS_PEPTIDES && settings.peptideTools && <Row href="#/calc" Icon={Calculator} title="Peptide calculator" />}
-        {HAS_PEPTIDES && settings.peptideTools && <Row href="#/supplies" Icon={Package} title="Supplies" />}
-        {HAS_PEPTIDES && settings.biohackTools && <Row href="#/brain" Icon={Brain} title="Brain test" />}
-        {HAS_PEPTIDES && settings.biohackTools && <Row href="#/experiments" Icon={FlaskConical} title="Experiments" />}
-        {HAS_PEPTIDES && settings.biohackTools && <Row href="#/journal" Icon={NotebookPen} title="Journal" />}
-        {HAS_PEPTIDES && settings.biohackTools && <Row href="#/year" Icon={CalendarRange} title="Year in review" />}
-        <Row href="#/sync" Icon={Tablet} title="Sync with your own tablet or second phone" />
-        <Row href="#/help" Icon={HelpCircle} title="Help" />
+      <section aria-label="Your data">
+        <h2 className="text-sm font-medium text-muted mb-1">Your data</h2>
+        <Row href="#/settings/people" Icon={Users} title="People and sync" value={`${fam?.people.length ?? 1} ${fam && fam.people.length > 1 ? 'people' : 'person'} · sync ${sync ? 'on' : 'off'}`} />
+        <Row href="#/backup" Icon={HardDriveDownload} title="Backup and restore" value={last ? fmtAgo(now - last) : 'None yet'} />
+      </section>
+      <section aria-label="Help">
+        <h2 className="text-sm font-medium text-muted mb-1">Help</h2>
+        <Row href="#/help" Icon={HelpCircle} title="Help and guides" />
         <Row href="#/settings/about" Icon={Info} title={`About ${APP_NAME}`} value={BUILD ? `Build ${BUILD}` : undefined} />
       </section>
     </div>

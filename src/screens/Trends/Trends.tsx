@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { ChevronDown, FileText, FlaskConical, Pill, Scale, Smile } from 'lucide-react';
+import { Brain, CalendarRange, ChevronDown, FileText, FlaskConical, NotebookPen, Pill, Scale, Smile, TestTube } from 'lucide-react';
 import { useWorkouts, useAppointments, useDaily, useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings, useVitals } from '../../app/data';
 import { CheckInForecastBlock, EffectWindowCards } from '../../components/Smart';
 import { HeartAfterCards, LinksSection, OnOffCards } from '../../components/Lifestyle';
@@ -29,7 +29,7 @@ import { ChipPicker, Segmented } from '../../components/ui/Field';
 import { AdherenceHeatmap, DoseTimingCharts, FeelingsChart, IntervalCharts } from '../../components/charts/Charts';
 import { BlendCharts, DoseLevelsCards } from '../../components/charts/PeptideCharts';
 import { shownName } from '../../logic/privacy';
-import { HAS_MEDS, HAS_BODY, HAS_TRAINING, HAS_FOOD, HAS_VISITS } from '../../edition';
+import { HAS_MEDS, HAS_BODY, HAS_TRAINING, HAS_FOOD, HAS_VISITS, HAS_PEPTIDES } from '../../edition';
 
 export function Trends() {
   const allMeds = useMeds();
@@ -87,6 +87,7 @@ export function Trends() {
   const peptide = settings.peptideTools && med?.peptide ? one : [];
   const workouts = allWorkouts.filter((w) => personOf(w) === fam.personId);
   const training = HAS_TRAINING && settings.trainingTools;
+  const bio = HAS_PEPTIDES && settings.biohackTools;
   const habits = dailyHabits({ daily, foodLogs: allFood.filter((l) => personOf(l) === fam.personId), checkIns }, start, end, prevStart, s, {
     food: HAS_FOOD && settings.foodTracking, intake: training, readiness: training,
     targets: { energy: settings.energyTargetKcal, protein: settings.proteinTargetG, water: settings.waterTargetMl, steps: settings.stepsTargetOwn ?? stepsTarget(daily, now), caffeineLimit: settings.caffeineLimitMg },
@@ -150,11 +151,18 @@ export function Trends() {
       <LinksSection checkIns={checkIns} daily={daily} body={body} workouts={workouts} sleep={sleep} units={settings.units} now={now} s={s} showBody={HAS_BODY} training={training}
         caffeine={{ bedtime: settings.bedtime, halfLifeH: settings.caffeineHalfLifeH, foodLogs: allFood.filter((l) => personOf(l) === fam.personId) }} />
       </Fold>
-      {HAS_MEDS && (
-        <div className="border-t border-border pt-4 grid grid-cols-2 gap-2" role="group" aria-label="More">
-          <Tile Icon={FileText} label="Doctor report" href="#/report" />
-          <Tile Icon={FlaskConical} label={HAS_VISITS ? 'Appointments' : 'Lab results'} href={HAS_VISITS ? '#/appointments' : '#/labs'} />
-        </div>
+      {(HAS_MEDS || bio) && (
+        <section aria-labelledby="records-h" className="border-t border-border pt-4">
+          <h2 id="records-h" className="text-sm font-medium text-muted mb-2">Records and tools</h2>
+          <div className="grid grid-cols-2 gap-2">
+            {bio && <Tile Icon={NotebookPen} label="Journal" href="#/journal" />}
+            {bio && <Tile Icon={Brain} label="Brain test" href="#/brain" />}
+            {bio && <Tile Icon={FlaskConical} label="Experiments" href="#/experiments" />}
+            {bio && <Tile Icon={CalendarRange} label="Year in review" href="#/year" />}
+            {HAS_MEDS && <Tile Icon={FileText} label="Doctor report" href="#/report" />}
+            {HAS_MEDS && <Tile Icon={TestTube} label={HAS_VISITS ? 'Appointments' : 'Lab results'} href={HAS_VISITS ? '#/appointments' : '#/labs'} />}
+          </div>
+        </section>
       )}
     </div>
   );

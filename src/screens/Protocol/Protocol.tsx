@@ -35,7 +35,7 @@ import { costPerKg, missedShot } from '../../logic/peptideSmart';
 import { ChipPicker } from '../../components/ui/Field';
 import { Sheet } from '../../components/ui/Sheet';
 import { LogDoseFlow } from '../../components/LogDoseFlow';
-import { StartVialSheet } from '../Meds/VialCard';
+import { ShopList, StartVialSheet } from '../Meds/VialCard';
 
 import { useToast } from '../../app/toast';
 import { saveStepPlan, setHalfLife } from '../../db/repos/meds';
@@ -109,10 +109,11 @@ export function Protocol() {
             );
           })}
         </dl>
+        {med && <div className="pt-3"><ShopList med={med} doses={doses} now={now} /></div>}
         <div className="pt-4 grid grid-cols-3 gap-2" role="group" aria-label="Tools">
           <Tile Icon={Calculator} label="Calculator" href="#/calc" />
           <Tile Icon={Package} label="Supplies" href="#/supplies" />
-          <Tile Icon={BookOpen} label="Guide" name="Peptide guide" href="#/guide" />
+          {(() => { const g = med && guideFor(med.name); return <Tile Icon={BookOpen} label="Guide" name={g ? `${g.name} guide` : 'Peptide guide'} href={g ? `#/guide/${g.id}` : '#/guide'} />; })()}
           {peptides.length > 0 && <Tile Icon={CalendarRange} label="Enough until" name="Enough until: stock for a trip or a date" onClick={() => setNeeds(true)} />}
           {peptides.length > 0 && <Tile Icon={FileText} label="Report" name="Protocol report for your doctor" href="#/protocol/report" />}
         </div>
@@ -245,7 +246,6 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
               <span className="tnum">{findings.length} found</span>
             </Row>
           )}
-          {guideEntry && <Row label="Guide" onClick={() => go(`/guide/${guideEntry.id}`)}><span>Mixing, storage, side effects</span></Row>}
         </dl>
       </section>
 

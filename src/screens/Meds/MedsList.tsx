@@ -1,5 +1,6 @@
 import { SupplementsSection } from '../../components/HowToTake';
-import { Camera, CalendarClock, CalendarX, ChevronRight, FileText, Link2, Nfc, Package, Plus, Wallet, X, type LucideIcon } from 'lucide-react';
+import { Camera, CalendarClock, CalendarX, ChevronRight, FileText, Link2, Nfc, Package, Plane, Plus, Wallet, X, type LucideIcon } from 'lucide-react';
+import { HAS_VISITS } from '../../edition';
 import { useState, type ReactNode } from 'react';
 import { isPrivate, shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { format } from 'date-fns';
@@ -43,11 +44,12 @@ export function MedsList() {
   return (
     <div className="space-y-4">
       <PersonSwitcher />
-      <div className="grid grid-cols-4 gap-2" role="group" aria-label="Medication tools">
+      <div className={`grid ${HAS_VISITS ? 'grid-cols-5' : 'grid-cols-4'} gap-2`} role="group" aria-label="Medication tools">
         <Tile Icon={Plus} label="Add" name={`Add medication${fam.many ? ` for ${fam.person}` : ''}`} href="#/meds/new" />
         <Tile Icon={Camera} label="Count" name="Count what's left, from a photo or typed" onClick={() => setCounting(true)} />
         <Tile Icon={Nfc} label="Tags" href="#/tags" />
         <Tile Icon={FileText} label="Report" name="Doctor report" href="#/report" />
+        {HAS_VISITS && <Tile Icon={Plane} label="Trip" name="Plan a trip: enough for the time away" href="#/travel" />}
       </div>
       {settings.pendingTags.map((id) => (
         <Card key={id} className="flex items-center gap-3">

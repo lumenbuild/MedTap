@@ -23,6 +23,7 @@ import { Journal } from '../screens/Journal';
 import { YearReview } from '../screens/YearReview';
 import { Experiments } from '../screens/Experiments';
 import { guideById } from '../logic/peptideGuide';
+import { shownName } from '../logic/privacy';
 import { Supplies } from '../screens/Supplies';
 import { Appointments, AppointmentSummary, Labs } from '../screens/Visits';
 import { Travel } from '../screens/Travel';
@@ -94,17 +95,20 @@ function backTo(r: Route, protocol: boolean): string | undefined {
   switch (r.name) {
     case 'protocolReport': return '#/protocol';
     case 'workout': case 'exercise': case 'routines': return '#/training';
-    case 'appointments': case 'travel': case 'tags': return '#/settings';
+    case 'appointments': return protocol ? '#/progress' : '#/trends';
+    case 'travel': return '#/meds';
+    case 'tags': return HAS_MEDS ? '#/meds' : '#/settings';
     case 'appointmentSummary': return '#/appointments';
     case 'food': return FOCUS === 'weight' ? undefined : '#/today'; // a tab in TapWeigh
     case 'caffeine': return '#/today';
-    case 'labs': return HAS_VISITS ? '#/appointments' : '#/settings';
+    case 'labs': return HAS_VISITS ? '#/appointments' : protocol ? '#/progress' : '#/trends';
     case 'settings': return r.section ? '#/settings' : '#/today';
     case 'medNew': return r.guideId ? `#/guide/${r.guideId}` : '#/meds';
     case 'med': return '#/meds';
     case 'guide': return r.id ? '#/guide' : '#/protocol';
-    case 'brain': case 'journal': case 'year': case 'experiments': return '#/settings';
-    case 'backup': case 'sync': case 'join': case 'calc': case 'supplies': return '#/settings';
+    case 'brain': case 'journal': case 'year': case 'experiments': return protocol ? '#/progress' : '#/trends';
+    case 'calc': case 'supplies': return '#/protocol';
+    case 'backup': case 'sync': case 'join': return '#/settings';
     case 'report': return protocol ? '#/progress' : '#/trends';
     case 'help': return r.topic ? '#/help' : '#/settings';
     default: return undefined;
@@ -166,6 +170,9 @@ export function App() {
   const back = backTo(r, protocol);
   const now = useNow(60_000);
   const showTabs = !back && r.name !== 'tag';
+  // A medicine's page is titled with its name.
+  const pageMed = r.name === 'med' ? meds?.find((m) => m.id === r.id) : undefined;
+  const heading = pageMed ? shownName(pageMed) : title(r, protocol);
   // Progress is Trends and Body together, for the peptide layout. Without it they're separate tabs, so a link to
   // Progress opens the matching one.
   const loose = r.name === 'progress' && settings !== undefined && !protocol;
@@ -182,7 +189,7 @@ export function App() {
               {r.name !== 'tag' && (back ? (
                 <header className="app-header flex items-center gap-1 h-14">
                   <a href={back} aria-label="Back" className="w-11 h-11 -ml-3 flex items-center justify-center" onClick={(e) => { e.preventDefault(); goBack(back); }}><ArrowLeft size={22} strokeWidth={1.5} aria-hidden="true" /></a>
-                  <h1 className="text-xl font-medium truncate">{title(r, protocol)}</h1>
+                  <h1 className="text-xl font-medium truncate">{heading}</h1>
                 </header>
               ) : (
                 // B2: the date (Today) or nothing in a slim top row, then a large light title. On Today the next dose is the
@@ -197,7 +204,7 @@ export function App() {
                       )}
                     </div>
                   </div>
-                  <h1 className={r.name === 'today' ? 'sr-only' : 'text-[44px] leading-[48px] font-light tracking-[-0.04em] mt-4 mb-6'}>{title(r, protocol)}</h1>
+                  <h1 className={r.name === 'today' ? 'sr-only' : 'text-[44px] leading-[48px] font-light tracking-[-0.04em] mt-4 mb-6'}>{heading}</h1>
                 </header>
               ))}
               <main><Screen r={r} /></main>

@@ -17,11 +17,11 @@ export interface Supplement {
 }
 
 export const SUPPLEMENTS: Supplement[] = [
-  { key: 'magnesium', name: 'Magnesium', re: /magnesium|\bmag\b/i, timing: 'Evening suits most people (it can help sleep); glycinate is gentler on the stomach.', ul: { amount: 350, per: 'mg', what: 'from supplements' } },
+  { key: 'magnesium', name: 'Magnesium', re: /(?<!(?:prazole|statin) )magnesium|\bmag\b/i, timing: 'Evening suits most people (it can help sleep); glycinate is gentler on the stomach.', ul: { amount: 350, per: 'mg', what: 'from supplements' } },
   { key: 'zinc', name: 'Zinc', re: /\bzinc\b/i, timing: 'With food if it upsets your stomach; apart from iron and calcium.', ul: { amount: 40, per: 'mg' } },
-  { key: 'copper', name: 'Copper', re: /\bcopper\b/i, ul: { amount: 10, per: 'mg' } },
+  { key: 'copper', name: 'Copper', re: /\bcopper\b(?! peptide)/i, ul: { amount: 10, per: 'mg' } },
   { key: 'iron', name: 'Iron', re: /\biron\b|ferrous|ferro|maltofer|ferrograd/i, timing: 'On an empty stomach with vitamin C or juice if you can; not with coffee, tea, calcium or antacids.', ul: { amount: 45, per: 'mg' } },
-  { key: 'calcium', name: 'Calcium', re: /calcium|caltrate/i, timing: 'With food, in doses of 500 mg or less.', ul: { amount: 2500, per: 'mg' } },
+  { key: 'calcium', name: 'Calcium', re: /(?<!(?:statin|folinate|montelukast) )\bcalcium\b|caltrate/i, timing: 'With food, in doses of 500 mg or less.', ul: { amount: 2500, per: 'mg' } },
   { key: 'vitamin-d', name: 'Vitamin D', re: /vitamin\s*d\b|\bvit\s*d\b|d3\b|cholecalciferol|ostelin/i, timing: 'With a meal that has some fat.', ul: { amount: 80, per: 'mcg', what: '3,200 IU' } },
   { key: 'vitamin-c', name: 'Vitamin C', re: /vitamin\s*c\b|\bvit\s*c\b|ascorbic/i, ul: { amount: 2000, per: 'mg' } },
   { key: 'vitamin-b6', name: 'Vitamin B6', re: /\bb6\b|pyridoxine/i, ul: { amount: 50, per: 'mg' } },
@@ -31,7 +31,7 @@ export const SUPPLEMENTS: Supplement[] = [
   { key: 'niacin', name: 'Niacin', re: /niacin|nicotinic acid/i, timing: 'With food; flushing is common with plain niacin.', ul: { amount: 35, per: 'mg', what: 'as nicotinic acid' } },
   { key: 'selenium', name: 'Selenium', re: /selenium/i, ul: { amount: 400, per: 'mcg' } },
   { key: 'vitamin-a', name: 'Vitamin A', re: /vitamin\s*a\b|retinol|retinyl/i, ul: { amount: 3000, per: 'mcg', what: 'as retinol' } },
-  { key: 'fish-oil', name: 'Fish oil', re: /fish oil|omega|krill|epa|dha/i, timing: 'With a meal (less fishy burping).' },
+  { key: 'fish-oil', name: 'Fish oil', re: /fish oil|\bomega[- ]?3\b|krill|\bepa\b|\bdha\b/i, timing: 'With a meal (less fishy burping).' },
   { key: 'creatine', name: 'Creatine', re: /creatine/i, timing: 'Any time of day; it works by being taken daily.' },
   { key: 'melatonin', name: 'Melatonin', re: /melatonin|circadin/i, timing: '30–60 minutes before bed; low doses (0.5–2 mg) often work as well as higher ones.' },
   { key: 'fibre', name: 'Fibre', re: /psyllium|metamucil|fib(re|er)|inulin|benefiber/i, timing: 'With a big glass of water, 2 hours apart from tablets and capsules.' },
@@ -45,7 +45,7 @@ export const SUPPLEMENTS: Supplement[] = [
   { key: 'ginkgo', name: 'Ginkgo', re: /ginkgo/i },
   { key: 'turmeric', name: 'Turmeric', re: /turmeric|curcumin/i, timing: 'With a meal that has some fat.' },
   { key: 'caffeine', name: 'Caffeine pills or pre-workout', re: /caffeine|pre-?workout|no-?doz/i },
-  { key: 'electrolytes', name: 'Electrolytes', re: /electrolyte|hydralyte|lmnt|sodium/i },
+  { key: 'electrolytes', name: 'Electrolytes', re: /electrolyte|hydralyte|\blmnt\b|sodium chloride|salt tablet/i },
   { key: 'antacid', name: 'Antacid', re: /antacid|gaviscon|mylanta|quick-eze|rennie|bicarbonate/i },
   { key: 'nr-nmn', name: 'NR or NMN', re: /\bnmn\b|nicotinamide (riboside|mononucleotide)|\bnr\b|tru niagen/i },
   { key: 'collagen', name: 'Collagen', re: /collagen/i },

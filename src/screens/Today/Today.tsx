@@ -280,6 +280,25 @@ export function Today() {
         const p = restartPrompt(m, r.checkIns, now, s);
         return [v?.ready ? <StepPrompt key={`step-${m.id}`} med={m} v={v} /> : null, p ? <RestartCard key={`course-${m.id}`} med={m} prompt={p} /> : null];
       })}
+      {(() => {
+        // Chores, gathered: one shows as it is, more fold into one line.
+        const vials = HAS_PEPTIDES ? vialAlerts(viewMeds, doses, now) : [];
+        const sup = settings.peptideTools && supplies ? supplyAlerts(supplies, meds, doses) : [];
+        const items = [
+          ...refills.map((r) => ({ key: `refill-${r.med.id}`, label: `${shownName(r.med)} ${r.runningOut || r.low ? 'running low' : r.scriptExpiring ? 'script' : 'bottle expiring'}`, node: <RefillCards alerts={[r]} settings={settings} now={now} /> })),
+          ...vials.map(({ m, v }) => ({ key: `vial-${m.id}`, label: `${shownName(m)} ${isPen(m) ? 'pen' : 'vial'} ${v.expired ? 'past use-by' : v.dosesLeft === 0 ? 'empty' : 'nearly empty'}`, node: <VialAlerts meds={[m]} doses={doses} now={now} /> })),
+          ...(sup.length ? [{ key: 'supplies', label: sup.length === 1 ? `${SUPPLY_LABELS[sup[0].supply.kind].name} low` : 'Supplies low', node: <SupplyAlerts alerts={sup} /> }] : []),
+          ...(settings.pendingTags.length ? [{ key: 'tags', label: `${settings.pendingTags.length} tag${settings.pendingTags.length === 1 ? '' : 's'} to link`, node: (
+            <Card className="flex items-center gap-3">
+              <Nfc className="text-primary shrink-0" aria-hidden="true" />
+              <p className="flex-1">{settings.pendingTags.length === 1 ? 'A new tag is' : `${settings.pendingTags.length} new tags are`} waiting to be linked.</p>
+              <Button variant="secondary" onClick={() => go(`/tag/${settings.pendingTags[0]}`)}>Link</Button>
+            </Card>
+          ) }] : []),
+          ...(needsBackup(settings.lastBackupAt, firstRecord, now, settings.backupReminderDays) ? [{ key: 'backup', label: 'Backup', node: <BackupReminder days={settings.backupReminderDays} /> }] : []),
+        ];
+        return <NeedsAttention items={items} />;
+      })()}
       {!fam.everyone && <DailyBrief />}
       {!fam.everyone && <TopInsights />}
 
@@ -328,25 +347,6 @@ export function Today() {
 
       {HAS_BODY && !fam.everyone && <GoalLines goals={fam.people.find((p) => p.id === fam.personId)?.goals ?? []} entries={viewBody} units={settings.units} now={now} />}
 
-      {(() => {
-        // Chores, gathered: one shows as it is, more fold into one line.
-        const vials = HAS_PEPTIDES ? vialAlerts(viewMeds, doses, now) : [];
-        const sup = settings.peptideTools && supplies ? supplyAlerts(supplies, meds, doses) : [];
-        const items = [
-          ...refills.map((r) => ({ key: `refill-${r.med.id}`, label: `${shownName(r.med)} ${r.runningOut || r.low ? 'running low' : r.scriptExpiring ? 'script' : 'bottle expiring'}`, node: <RefillCards alerts={[r]} settings={settings} now={now} /> })),
-          ...vials.map(({ m, v }) => ({ key: `vial-${m.id}`, label: `${shownName(m)} ${isPen(m) ? 'pen' : 'vial'} ${v.expired ? 'past use-by' : v.dosesLeft === 0 ? 'empty' : 'nearly empty'}`, node: <VialAlerts meds={[m]} doses={doses} now={now} /> })),
-          ...(sup.length ? [{ key: 'supplies', label: sup.length === 1 ? `${SUPPLY_LABELS[sup[0].supply.kind].name} low` : 'Supplies low', node: <SupplyAlerts alerts={sup} /> }] : []),
-          ...(settings.pendingTags.length ? [{ key: 'tags', label: `${settings.pendingTags.length} tag${settings.pendingTags.length === 1 ? '' : 's'} to link`, node: (
-            <Card className="flex items-center gap-3">
-              <Nfc className="text-primary shrink-0" aria-hidden="true" />
-              <p className="flex-1">{settings.pendingTags.length === 1 ? 'A new tag is' : `${settings.pendingTags.length} new tags are`} waiting to be linked.</p>
-              <Button variant="secondary" onClick={() => go(`/tag/${settings.pendingTags[0]}`)}>Link</Button>
-            </Card>
-          ) }] : []),
-          ...(needsBackup(settings.lastBackupAt, firstRecord, now, settings.backupReminderDays) ? [{ key: 'backup', label: 'Backup', node: <BackupReminder days={settings.backupReminderDays} /> }] : []),
-        ];
-        return <NeedsAttention items={items} />;
-      })()}
       <AutoBackupPermission enabled={settings.autoBackupEnabled} />
       <UpdateCard dismissed={settings.updateDismissed} />
       <InstallCard hasDoses={firstRecord !== null} dismissed={settings.installCardDismissed} />
