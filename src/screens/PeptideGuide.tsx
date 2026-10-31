@@ -75,15 +75,21 @@ function GuideList() {
   );
 }
 
+/** Dose lines open with where the dose comes from ("Trials:", "Label:", "Common use:"): shown in bold. */
+const DOSE_LABEL = /^(Trials|Label|Russian label|Common use|Starting low|Splitting|Lowest dose): /;
+
 function Points({ items, tone }: { items: string[]; tone?: 'watch' }) {
   return (
     <ul className="pb-3 space-y-1.5">
-      {items.map((t) => (
+      {items.map((t) => {
+        const m = DOSE_LABEL.exec(t);
+        return (
         <li key={t} className="flex gap-2.5 leading-snug">
           <span aria-hidden="true" className="mt-[0.55em] w-1.5 h-1.5 rounded-full shrink-0" style={{ background: tone === 'watch' ? 'var(--caution)' : 'var(--text-muted)' }} />
-          <span>{t}</span>
+          <span>{m ? <><strong className="font-semibold">{m[1]}:</strong> {t.slice(m[0].length)}</> : t}</span>
         </li>
-      ))}
+        );
+      })}
     </ul>
   );
 }
