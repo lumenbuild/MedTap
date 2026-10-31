@@ -4,6 +4,17 @@
 import type { Medication, Schedule, StepPlan, StepUpCriteria } from '../db/schema';
 import { drawFor } from './peptide';
 import { LOWEST_STEP_UP } from './stepUp';
+import { inGroup } from './interactions';
+import { MORE } from './peptideGuideMore';
+
+export type Goal = 'weight' | 'healing' | 'sleep' | 'focus' | 'longevity' | 'skin' | 'gh' | 'immune' | 'libido' | 'gut';
+export const GOALS: { id: Goal; label: string }[] = [
+  { id: 'weight', label: 'Weight' }, { id: 'healing', label: 'Healing' }, { id: 'sleep', label: 'Sleep' }, { id: 'focus', label: 'Focus and calm' },
+  { id: 'longevity', label: 'Longevity' }, { id: 'skin', label: 'Skin and hair' }, { id: 'gh', label: 'Growth hormone' }, { id: 'gut', label: 'Gut' },
+  { id: 'immune', label: 'Immune' }, { id: 'libido', label: 'Libido' },
+];
+/** A note on another entry (by id) or a medicine group ('glp1'). */
+export interface StackNote { id: string; note: string }
 
 export interface GuideEntry {
   id: string; name: string;
@@ -11,6 +22,13 @@ export interface GuideEntry {
   aka: string[];
   /** Other spellings and short forms, matched but not shown. */
   match?: string[];
+  /** What it's used for (the list's filter). */
+  goals?: Goal[];
+  /** A blend: the other parts in a vial of the first size (the first part is `vials[0].amount`). */
+  blend?: { name: string; amount: number }[];
+  /** Commonly combined with, and not combined with. */
+  with?: StackNote[];
+  notWith?: StackNote[];
   what: string;
   /** What studies have found, the good and the limits. */
   research: string[];
@@ -33,6 +51,8 @@ export interface GuideEntry {
   lowest?: { by: number; max: number };
   storage: { powder: string; mixed: string; useWithinDays: number };
   halfLifeHours?: number;
+  /** Hours to the highest level after a shot (for the swing between shots). */
+  tmaxHours?: number;
   sideEffects: string[];
   getHelp: string[];
   /** Interactions and conditions worth knowing about. */
@@ -49,7 +69,7 @@ const daily = (time: string, extra: Partial<Schedule> = {}): Schedule => ({ type
 const SITE = 'Swelling of the face or throat, or trouble breathing: call 000.';
 const INFECTION = 'Redness spreading out from the site, heat, pus or a fever.';
 
-export const GUIDE: GuideEntry[] = [
+const CORE: GuideEntry[] = [
   {
     id: 'retatrutide', name: 'Retatrutide', aka: ['LY3437943'], match: ['reta'],
     what: 'A weekly injection that acts on three hunger and metabolism hormones at once: GLP-1, GIP and glucagon. It lowers appetite, slows the stomach and raises energy use.',
@@ -283,6 +303,20 @@ export const GUIDE: GuideEntry[] = [
   },
 ];
 
+// Goals and stack notes for the first entries.
+const CORE_EXTRA: Record<string, Pick<GuideEntry, 'goals' | 'with' | 'notWith' | 'tmaxHours'>> = {
+  retatrutide: { goals: ['weight'], tmaxHours: 24, notWith: [{ id: 'glp1', note: 'Two GLP-1 medicines together' }] },
+  glutathione: { goals: ['longevity', 'skin'], with: [{ id: 'nad', note: 'Often taken together' }] },
+  'ghk-cu': { goals: ['skin', 'healing'], with: [{ id: 'bpc-157', note: 'Together in the GLOW blend' }] },
+  dsip: { goals: ['sleep'], with: [{ id: 'epitalon', note: 'Often taken together for sleep' }] },
+  'bpc-157': { goals: ['healing', 'gut'], with: [{ id: 'tb-500', note: 'The common healing pairing' }, { id: 'kpv', note: 'Often paired for the gut' }] },
+  nad: { goals: ['longevity', 'focus'], with: [{ id: 'mots-c', note: 'Both aimed at mitochondria' }] },
+  semax: { goals: ['focus'], with: [{ id: 'selank', note: 'Often paired: focus and calm' }] },
+  epitalon: { goals: ['longevity', 'sleep'], with: [{ id: 'dsip', note: 'Often taken together for sleep' }] },
+};
+
+export const GUIDE: GuideEntry[] = [...CORE.map((g) => ({ ...g, ...CORE_EXTRA[g.id] })), ...MORE];
+
 /** For all of them: supplies, mixing, injecting, checking a batch and getting help. */
 export const BASICS: { title: string; points: string[] }[] = [
   { title: 'What you need', points: [
@@ -320,15 +354,52 @@ const norm = (s: string) => ` ${s.toLowerCase().replace(/[^a-z0-9+]+/g, ' ').tri
 /** The guide entry a medication's name matches, if any. */
 export function guideFor(name: string): GuideEntry | undefined {
   const n = norm(name);
-  return GUIDE.find((g) => [g.name, g.id, ...g.aka, ...(g.match ?? [])].some((k) => n.includes(norm(k))));
+  // The longest name that matches wins, so a blend ("BPC-157 + TB-500") beats its parts.
+  let best: GuideEntry | undefined, len = 0;
+  for (const g of GUIDE) for (const k of [g.name, g.id, ...g.aka, ...(g.match ?? [])]) {
+    const nk = norm(k);
+    if (nk.trim() && nk.length > len && n.includes(nk)) { best = g; len = nk.length; }
+  }
+  return best;
+}
+
+/** Entries for a goal and a search (name, other names, what it is). */
+export function searchGuide(q: string, goal?: Goal): GuideEntry[] {
+  const n = q.trim().toLowerCase();
+  return GUIDE.filter((g) => (!goal || g.goals?.includes(goal)) && (!n || [g.name, g.id, ...g.aka, ...(g.match ?? []), g.what].some((k) => k.toLowerCase().includes(n))));
+}
+
+const GLP = new Set(['retatrutide', 'semaglutide', 'tirzepatide']);
+/** A GLP-1 medicine: by its ingredients, or a guide entry (short names like "Reta 10mg"). */
+export const isGlp = (med: Pick<Medication, 'name' | 'strength' | 'unit'>) => inGroup(med as Medication, 'glp1') || GLP.has(guideFor(med.name)?.id ?? '');
+/** On the GLP-1 family's gut and appetite pattern (GLP-1s and amylin). */
+export const isGlpLike = (med: Pick<Medication, 'name' | 'strength' | 'unit'>) => isGlp(med) || guideFor(med.name)?.id === 'cagrilintide';
+
+export interface StackCheck { kind: 'with' | 'notWith'; med: string; note: string; ref: string }
+/** This entry against what the person takes now: pairs that are commonly combined, and ones that aren't. */
+export function stackChecks(g: GuideEntry, meds: Pick<Medication, 'id' | 'name' | 'strength' | 'unit' | 'archived'>[], selfId?: string): StackCheck[] {
+  const out: StackCheck[] = [];
+  const hits = (n: StackNote, m: (typeof meds)[number]) => (n.id === 'glp1' ? isGlp(m) : guideFor(m.name)?.id === n.id);
+  for (const m of meds) {
+    if (m.archived || m.id === selfId || guideFor(m.name)?.id === g.id) continue;
+    const mg = guideFor(m.name);
+    const bad = g.notWith?.find((n) => hits(n, m)) ?? mg?.notWith?.find((n) => (n.id === 'glp1' ? GLP.has(g.id) : n.id === g.id));
+    if (bad) { out.push({ kind: 'notWith', med: m.name, note: bad.note, ref: g.notWith?.includes(bad) ? bad.id : mg!.id }); continue; }
+    const good = g.with?.find((n) => hits(n, m)) ?? mg?.with?.find((n) => n.id === g.id);
+    if (good) out.push({ kind: 'with', med: m.name, note: good.note, ref: g.with?.includes(good) ? good.id : mg!.id });
+  }
+  return out;
 }
 
 export const guideById = (id: string) => GUIDE.find((g) => g.id === id);
 
 /** The draw for each dose in the table, for a vial and water amount. Doses over the vial are left out. */
-export function mixTable(g: GuideEntry, vial: { amount: number; waterMl: number }): { dose: number; units: number; ml: number }[] {
-  return g.tableDoses.filter((d) => d <= vial.amount).map((dose) => ({ dose, ...drawFor(dose, vial.amount, vial.waterMl, 'U-100') }));
+export function mixTable(g: GuideEntry, vial: { amount: number; waterMl: number }): { dose: number; units: number; ml: number; others: { name: string; amount: number }[] }[] {
+  return g.tableDoses.filter((d) => d <= vial.amount).map((dose) => ({ dose, ...drawFor(dose, vial.amount, vial.waterMl, 'U-100'), others: blendParts(g, dose) }));
 }
+
+/** For a blend: how much of each other part comes with a dose of the first (same unit). */
+export const blendParts = (g: GuideEntry, dose: number) => (g.blend ?? []).map((b) => ({ name: b.name, amount: r3((dose * b.amount) / g.vials[0].amount) }));
 
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
 /** "250 mcg", "0.25 mg (250 mcg)", "5 mg" for 5,000 mcg. */

@@ -5,7 +5,7 @@
 import type { Appointment, Dose, Medication } from '../db/schema';
 import { ingredientsOf } from './ingredients';
 import { inGroup } from './interactions';
-import { guideFor } from './peptideGuide';
+import { guideFor, isGlpLike } from './peptideGuide';
 import { plannedAmounts, type ScheduleSettings } from './schedule';
 
 export interface Supplement {
@@ -113,8 +113,8 @@ export function supplementRules(meds: Medication[], opts: { bloodTestSoon?: bool
   rule('theanine-stim', 'pair', sup('theanine'), any(STIMULANT), (a, b) => `${a} with ${b} or caffeine takes the edge off for many people`);
   rule('vitc-iron', 'pair', any((m) => has(m, 'vitamin-c')), iron, (a, b) => `${a} with ${b} helps the iron absorb`);
   rule('nac-glut', 'pair', sup('nac'), any((m) => guideFor(m.name)?.id === 'glutathione'), (a, b) => `${a} is what the body makes glutathione from: it works alongside ${b}`);
-  rule('fibre-glp1', 'pair', sup('fibre'), any((m) => inGroup(m, 'glp1') || guideFor(m.name)?.id === 'retatrutide'), (a, b) => `${a} helps the constipation common on ${b}`);
-  rule('electro-glp1', 'pair', sup('electrolytes'), any((m) => inGroup(m, 'glp1') || guideFor(m.name)?.id === 'retatrutide'), (a, b) => `${a} on the days after a ${b} shot, and with nausea or diarrhoea`);
+  rule('fibre-glp1', 'pair', sup('fibre'), any((m) => isGlpLike(m)), (a, b) => `${a} helps the constipation common on ${b}`);
+  rule('electro-glp1', 'pair', sup('electrolytes'), any((m) => isGlpLike(m)), (a, b) => `${a} on the days after a ${b} shot, and with nausea or diarrhoea`);
   rule('mag-stim', 'pair', sup('magnesium'), any(STIMULANT), (a, b) => `${a} in the evening suits many on ${b} (sleep, jaw clenching)`);
 
   // Blood tests.
@@ -122,7 +122,7 @@ export function supplementRules(meds: Medication[], opts: { bloodTestSoon?: bool
   lab('biotin', opts.bloodTestSoon ? '{n}: stop it 2–3 days before your blood test; it throws off thyroid, hormone and heart tests' : '{n}: stop it 2–3 days before a blood test; it throws off thyroid, hormone and heart tests');
   if (any((m) => has(m, 'b-complex') && /biotin|hair/i.test(m.name)).length === 0 && opts.bloodTestSoon) lab('b-complex', '{n} may contain biotin: check the label and stop it 2–3 days before your blood test');
   lab('creatine', '{n} raises creatinine on blood tests (it can look like lower kidney function): mention it when you have bloods');
-  if (any((m) => inGroup(m, 'glp1') || guideFor(m.name)?.id === 'retatrutide').length && any((m) => /metformin/i.test(m.name)).length) out.push({ id: 'lab-b12', kind: 'lab', text: 'On metformin, B12 is worth checking once a year', meds: [] });
+  if (any((m) => isGlpLike(m)).length && any((m) => /metformin/i.test(m.name)).length) out.push({ id: 'lab-b12', kind: 'lab', text: 'On metformin, B12 is worth checking once a year', meds: [] });
   return out;
 }
 

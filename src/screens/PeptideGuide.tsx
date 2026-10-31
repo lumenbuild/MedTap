@@ -1,16 +1,21 @@
 // The peptide guide (peptide tools): every peptide in one list with the basics of mixing and injecting, and a page for
 // each: what it is, what the research shows and what people notice, a mixing table for its usual vials, how it's taken,
 // the doses used, storage, side effects, when to get help, and one tap to set it up. Neutral and factual throughout.
+// The list filters by goal and searches; a page shows "Yours" (the person's own dose, progress and record) once it's set
+// up, and what it's commonly combined with or kept apart from, checked against what they take now.
 import { useState } from 'react';
-import { AlertTriangle, BookOpen, Calculator, ChevronDown, ChevronRight, FlaskConical, Plus, Snowflake, Sparkles, Syringe } from 'lucide-react';
-import { BASICS, canSplit, fmtDose, GUIDE, guideById, guideFor, mixTable, splitView, type GuideEntry } from '../logic/peptideGuide';
+import { AlertTriangle, BookOpen, Calculator, ChevronDown, ChevronRight, FlaskConical, Layers, Plus, Snowflake, Sparkles, Syringe } from 'lucide-react';
+import { BASICS, canSplit, fmtDose, GOALS, guideById, guideFor, mixTable, searchGuide, splitView, stackChecks, type Goal, type GuideEntry } from '../logic/peptideGuide';
+import { guideYours } from '../logic/guideYours';
 import { SwingBars } from '../components/SwingBars';
 import { fmtMl } from '../logic/peptide';
-import { useFamily, useMeds } from '../app/data';
-import { medIsFor } from '../db/repos/people';
+import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useMeds, useScheduleSettings } from '../app/data';
+import { useNow } from '../app/useNow';
+import { medIsFor, personOf } from '../db/repos/people';
 import { go } from '../app/router';
+import type { Medication } from '../db/schema';
 import { Button } from '../components/ui/Button';
-import { ChipPicker } from '../components/ui/Field';
+import { ChipPicker, TextInput } from '../components/ui/Field';
 
 /** The person's own medication set up from this entry, if there is one. */
 function useMine(g?: GuideEntry) {
@@ -26,16 +31,28 @@ export function PeptideGuide({ id }: { id?: string }) {
 
 function GuideList() {
   const meds = useMeds(); const fam = useFamily();
+  const [q, setQ] = useState('');
+  const [goal, setGoal] = useState<Goal | 'all' | 'mine'>('all');
   const mine = new Set((meds ?? []).filter((m) => !m.archived && fam && medIsFor(m, fam.personId)).map((m) => guideFor(m.name)?.id).filter(Boolean));
+  const list = searchGuide(q, goal === 'all' || goal === 'mine' ? undefined : goal).filter((g) => goal !== 'mine' || mine.has(g.id));
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <p className="text-muted">What each one is, what the research shows, how it’s mixed, taken and stored, the doses used, and side effects. Tap one to read it or set it up.</p>
+      <TextInput label="Search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, brand or what it’s for" />
+      <ChipPicker label="What it’s for" value={goal} onChange={setGoal}
+        options={[{ value: 'all', label: 'All' }, ...(mine.size ? [{ value: 'mine' as const, label: 'Yours' }] : []), ...GOALS.map((x) => ({ value: x.id, label: x.label }))]} />
+      <p className="sr-only" aria-live="polite">{list.length} {list.length === 1 ? 'peptide' : 'peptides'}</p>
+      {list.length === 0 && <p className="text-muted py-4">Nothing matches. The calculator works for any peptide.</p>}
       <ul className="divide-y divide-border border-y border-border">
-        {GUIDE.map((g) => (
+        {list.map((g) => (
           <li key={g.id}>
             <a href={`#/guide/${g.id}`} className="flex items-center gap-3 py-3 min-h-[64px]">
               <span className="flex-1 min-w-0">
-                <span className="flex items-center gap-2 flex-wrap"><span className="font-medium">{g.name}</span>{mine.has(g.id) && <span className="text-[12px] text-success font-medium">Yours</span>}</span>
+                <span className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium">{g.name}</span>
+                  {g.blend && <span className="text-[12px] text-muted font-medium">Blend</span>}
+                  {mine.has(g.id) && <span className="text-[12px] text-success font-medium">Yours</span>}
+                </span>
                 <span className="block text-sm text-muted line-clamp-2">{g.what}</span>
               </span>
               <ChevronRight size={18} className="text-muted shrink-0" aria-hidden="true" />
@@ -101,6 +118,9 @@ function GuidePage({ g }: { g: GuideEntry }) {
         <Button variant="secondary" className="min-h-[52px]" onClick={() => go('/calc')}><Calculator size={18} aria-hidden="true" className="inline mr-1 -mt-0.5" />Calculator</Button>
       </div>
 
+      {mine && <Yours g={g} med={mine} />}
+      <Stack g={g} selfId={mine?.id} />
+
       <Section title="Mixing and drawing" Icon={Syringe}>
         {g.vials.length > 1 && <ChipPicker label="Vial size" value={vi} onChange={setVi} options={g.vials.map((v, i) => ({ value: String(i), label: `${fmtDose(v.amount, g.unit)} vial` }))} />}
         <p className="mt-2 tnum">Add <strong>{v(vial.waterMl)} mL</strong> of bacteriostatic water to a {fmtDose(vial.amount, g.unit)} vial: {fmtDose(per, g.unit)} per mL.</p>
@@ -110,7 +130,7 @@ function GuidePage({ g }: { g: GuideEntry }) {
           <tbody>
             {rows.map((r) => (
               <tr key={r.dose} className="border-t border-border">
-                <th scope="row" className="font-medium py-2">{fmtDose(r.dose, g.unit)}</th>
+                <th scope="row" className="font-medium py-2">{fmtDose(r.dose, g.unit)}{r.others.map((o) => <span key={o.name} className="block text-sm font-normal text-muted">+ {fmtDose(o.amount, g.unit)} {o.name}</span>)}</th>
                 <td className="py-2 text-muted">{fmtMl(r.ml)}</td>
                 <td className="py-2 text-right font-semibold">{v(r.units)}{r.units > 100 ? ' (over 1 mL)' : ''}</td>
               </tr>
@@ -151,7 +171,7 @@ function GuidePage({ g }: { g: GuideEntry }) {
       </Section>
 
       {canSplit(g) && (() => {
-        const sv = splitView(g.halfLifeHours, [1]);
+        const sv = splitView(g.halfLifeHours, [1], g.tmaxHours);
         return sv && (
           <Section title="Once or twice a week">
             <p className="leading-snug">With a half-life of about {Math.round(g.halfLifeHours! / 24)} days, the level drops between shots. Splitting the week’s amount into two shots 3–4 days apart keeps it steadier.</p>
@@ -180,3 +200,49 @@ function GuidePage({ g }: { g: GuideEntry }) {
 }
 
 const v = (n: number) => String(Math.round(n * 10) / 10);
+
+/** The person's own: dose and draw, progress, record. */
+function Yours({ g, med }: { g: GuideEntry; med: Medication }) {
+  const meds = useMeds(); const doses = useDoses(); const checkIns = useCheckIns(); const daily = useDaily(); const body = useBodyEntries(); const ss = useScheduleSettings();
+  const now = useNow(600_000);
+  if (!meds || !doses || !checkIns || !daily || !body || !ss) return null;
+  const who = personOf(med);
+  const me = <T extends { personId?: string }>(x: T) => personOf(x) === who;
+  const lines = guideYours(g, med, { meds: meds.filter((m) => medIsFor(m, who)), doses, checkIns: checkIns.filter(me), daily: daily.filter(me), body: body.filter(me) }, now, ss[1]);
+  return (
+    <section aria-labelledby="g-yours" className="rounded-card bg-surface-2 p-4 space-y-2">
+      <h2 id="g-yours" className="text-sm font-medium text-muted flex items-center gap-1.5"><Sparkles size={16} aria-hidden="true" className="text-primary" />Yours</h2>
+      <Points items={lines} />
+    </section>
+  );
+}
+
+/** Commonly combined with, and kept apart from: against what the person takes now, then the general notes. */
+function Stack({ g, selfId }: { g: GuideEntry; selfId?: string }) {
+  const meds = useMeds(); const fam = useFamily();
+  if (!g.with?.length && !g.notWith?.length) return null;
+  const active = (meds ?? []).filter((m) => !m.archived && fam && medIsFor(m, fam.personId));
+  const checks = stackChecks(g, active, selfId);
+  const shown = new Set(checks.map((c) => c.ref));
+  const withRest = (g.with ?? []).filter((w) => !shown.has(w.id)), notRest = (g.notWith ?? []).filter((w) => !shown.has(w.id));
+  const name = (id: string) => (id === 'glp1' ? 'Another GLP-1 medicine' : guideById(id)?.name ?? id);
+  const link = (id: string) => (guideById(id) ? <a href={`#/guide/${id}`} className="font-medium underline underline-offset-4">{name(id)}</a> : <span className="font-medium">{name(id)}</span>);
+  return (
+    <Section title="Combining" Icon={Layers}>
+      {checks.length > 0 && (
+        <ul className="mb-3 space-y-1.5" aria-label="With what you take">
+          {checks.map((c) => (
+            <li key={c.med} className="flex gap-2.5 leading-snug">
+              <span aria-hidden="true" className="mt-[0.55em] w-1.5 h-1.5 rounded-full shrink-0" style={{ background: c.kind === 'notWith' ? 'var(--caution)' : 'var(--success)' }} />
+              <span><span className="font-medium">You take {c.med}</span>: {c.kind === 'notWith' ? 'not usually combined' : 'commonly combined'}. {c.note}.</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <dl className="space-y-2">
+        {withRest.length ? <div><dt className="text-sm text-muted">{shown.size ? 'Also often combined with' : 'Often combined with'}</dt><dd className="space-y-1">{withRest.map((w) => <p key={w.id}>{link(w.id)}: {w.note}</p>)}</dd></div> : null}
+        {notRest.length ? <div><dt className="text-sm text-muted">Not usually combined with</dt><dd className="space-y-1">{notRest.map((w) => <p key={w.id}>{link(w.id)}: {w.note}</p>)}</dd></div> : null}
+      </dl>
+    </Section>
+  );
+}

@@ -4,8 +4,7 @@
 // keep apart. Facts and their own data, stated plainly. Pure.
 import type { CheckIn, DailyHealth, Dose, Medication } from '../db/schema';
 import { usualHours } from './durations';
-import { inGroup } from './interactions';
-import { guideFor } from './peptideGuide';
+import { guideFor, isGlpLike } from './peptideGuide';
 import { doseResponse, isStimulant } from './stimulant';
 import { sleepImpact } from './habits';
 import { gutByShotDay, appetiteAhead } from './bodyhack';
@@ -39,7 +38,7 @@ export function howToTake(med: Medication, d: { meds: Medication[]; doses: Dose[
     const u = usualHours(med);
     if (u) general(`Usually works ${u.min}–${u.max} hours.`);
   }
-  if (inGroup(med, 'glp1') || g?.id === 'retatrutide') general('Any time of day; the same day each week (or the same days, split). Smaller meals and less fatty food in the first two days ease nausea.');
+  if (isGlpLike(med)) general('Any time of day; the same day each week (or the same days, split). Smaller meals and less fatty food in the first two days ease nausea.');
   if (g && g.id !== 'retatrutide') general(`${g.when}${g.cycle ? ` ${g.cycle}` : ''}`);
   for (const sp of supplementsOf(med)) if (sp.timing) general(`${sp.name}: ${sp.timing}`);
 
@@ -61,7 +60,7 @@ export function howToTake(med: Medication, d: { meds: Medication[]; doses: Dose[
     const cut = sleepImpact([med], d.doses, d.checkIns, now, s, d.daily);
     if (cut) yours(`Doses after ${cut.cutoffHour % 12 || 12} ${cut.cutoffHour < 12 ? 'am' : 'pm'} go with worse sleep for you.`);
   }
-  if (med.peptide && (inGroup(med, 'glp1') || g?.id === 'retatrutide')) {
+  if (med.peptide && (isGlpLike(med))) {
     const gut = gutByShotDay(med, d.doses, d.checkIns, now);
     const worst = gut?.map((x) => ({ day: x.day, pct: x.chips[0]?.pct ?? 0, chip: x.chips[0]?.chip })).sort((a, b) => b.pct - a.pct)[0];
     if (worst && worst.pct >= 25) yours(`${worst.chip} is most common ${worst.day === 0 ? 'on shot day' : `on day ${worst.day} after a shot`} (${worst.pct}% of check-ins): plan lighter meals then.`);

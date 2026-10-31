@@ -15,8 +15,7 @@ import { appetiteAhead, fluids, gutByShotDay, muscleScore } from '../logic/bodyh
 import { dailyBrief } from '../logic/brief';
 import { conditionOn } from '../logic/experiments';
 import { isStimulant } from '../logic/stimulant';
-import { inGroup } from '../logic/interactions';
-import { guideFor } from '../logic/peptideGuide';
+import { isGlpLike } from '../logic/peptideGuide';
 import { fmtHHmm } from '../logic/format';
 import { HAS_PEPTIDES } from '../edition';
 import { MiniRing } from './ui/Visual';
@@ -163,7 +162,7 @@ export function ShotBodySection({ med }: { med: Medication }) {
   const doses = useDoses(); const checkIns = useCheckIns(); const daily = useDaily(); const workouts = useWorkouts(); const meds = useMeds(); const st = useSettings(); const ss = useScheduleSettings();
   const now = useNow(300_000);
   if (!on || !doses || !checkIns || !daily || !workouts || !meds || !st || !ss) return null;
-  if (!(inGroup(med, 'glp1') || guideFor(med.name)?.id === 'retatrutide')) return null;
+  if (!(isGlpLike(med))) return null;
   const s = ss[1];
   const who = personOf(med);
   const me = <T extends { personId?: string }>(x: T) => personOf(x) === who;

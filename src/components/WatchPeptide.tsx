@@ -3,8 +3,7 @@
 import type { Dose, Medication } from '../db/schema';
 import type { ScheduleSettings } from '../logic/schedule';
 import { courseSleep, shotWeek } from '../logic/watchSignals';
-import { guideFor } from '../logic/peptideGuide';
-import { inGroup } from '../logic/interactions';
+import { guideFor, isGlpLike } from '../logic/peptideGuide';
 import { fmtAmount } from '../logic/format';
 import { personOf } from '../db/repos/people';
 import { useDaily } from '../app/data';
@@ -18,7 +17,7 @@ export function WatchPeptide({ med, doses, now, s }: { med: Medication; doses: D
   const g = guideFor(med.name);
   const cs = g && SLEEP_PEPTIDES.includes(g.id) ? courseSleep(med, doses, daily, now, s) : null;
   const weekly = med.schedule.type === 'fixed' && !!med.schedule.days?.length && med.schedule.days.length <= 3;
-  const sw = weekly && (inGroup(med, 'glp1') || g?.id === 'retatrutide') ? shotWeek(med, doses, daily, now, s) : null;
+  const sw = weekly && isGlpLike(med) ? shotWeek(med, doses, daily, now, s) : null;
   if (!cs && !sw) return null;
   return (
     <>

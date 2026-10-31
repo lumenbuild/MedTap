@@ -3,8 +3,7 @@
 // brain test if none yet. Readiness and its plan come with the biohacking tools. Pure.
 import type { CheckIn, DailyHealth, Dose, Medication, Workout } from '../db/schema';
 import { getDayBounds, getNextDue, type ScheduleSettings } from './schedule';
-import { inGroup } from './interactions';
-import { guideFor } from './peptideGuide';
+import { isGlpLike } from './peptideGuide';
 import { isStimulant, secondDose } from './stimulant';
 import { appetiteAhead, fluids, gutByShotDay } from './bodyhack';
 import { brainTests } from './biohack';
@@ -42,7 +41,7 @@ export function dailyBrief(d: { meds: Medication[]; doses: Dose[]; checkIns: Che
     if (due === null || due - now > 36 * HOUR) continue;
     const when = due < start + DAY ? (due <= now ? 'due now' : `today about ${time(due)}`) : `tomorrow about ${time(due)}`;
     let after = '';
-    if (inGroup(m, 'glp1') || guideFor(m.name)?.id === 'retatrutide') {
+    if (isGlpLike(m)) {
       const gut = gutByShotDay(m, d.doses, d.checkIns, now);
       const worst = gut?.map((x) => ({ day: x.day, pct: x.chips[0]?.pct ?? 0, chip: x.chips[0]?.chip })).sort((a, b) => b.pct - a.pct)[0];
       if (worst && worst.pct >= 25) after = `; ${worst.chip?.toLowerCase()} is usual ${worst.day === 0 ? 'that day' : `on ${weekday(due + worst.day * DAY)}`}, so lighter meals then`;
@@ -50,7 +49,7 @@ export function dailyBrief(d: { meds: Medication[]; doses: Dose[]; checkIns: Che
     out.push({ key: `shot:${m.id}`, text: `${shownName(m)} ${when}${after}` });
   }
   // Appetite coming back.
-  for (const m of live.filter((x) => x.peptide && (inGroup(x, 'glp1') || guideFor(x.name)?.id === 'retatrutide'))) {
+  for (const m of live.filter((x) => x.peptide && isGlpLike(x))) {
     const a = appetiteAhead(m, d.doses, d.checkIns, now);
     if (a && a.at - now < 2 * DAY && a.at > now) out.push({ key: `appetite:${m.id}`, text: `Appetite usually back ${a.at < start + DAY ? 'later today' : weekday(a.at)}: plan protein-rich meals` });
   }
