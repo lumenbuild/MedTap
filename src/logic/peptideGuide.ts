@@ -364,7 +364,8 @@ export function stepChanges(g: GuideEntry, start: string, split = false): { from
   return out;
 }
 
-/** How far the level falls between shots, as a share of its peak (absorption left out): 1 − 2^(−gap ÷ half-life). */
+/** How far the level falls between shots, as a share of its peak, if a shot were absorbed at once: 1 − 2^(−gap ÷ half-life).
+ *  An upper bound: see steadySwing for the version with absorption. */
 export const levelSwing = (halfLifeHours: number, gapHours: number) => 1 - 2 ** (-gapHours / halfLifeHours);
 
 /** The gaps between shots through a week, in days, for shots on these weekdays (0 = Sunday). */
@@ -383,13 +384,33 @@ export interface SplitView {
 
 /** For a long-acting peptide on set weekdays: how steady the level is between shots, against the other way of
  *  splitting the week. Only when the half-life is at least a day (shorter ones are gone between shots either way). */
-export function splitView(halfLifeHours: number | undefined, days: number[] | undefined): SplitView | null {
+export function splitView(halfLifeHours: number | undefined, days: number[] | undefined, tmaxHours = 24): SplitView | null {
   if (!halfLifeHours || halfLifeHours < 24 || !days?.length) return null;
-  const gaps = weekGaps(days);
-  const swing = levelSwing(halfLifeHours, Math.max(...gaps) * 24);
+  const swing = steadySwing(halfLifeHours, weekGaps(days), tmaxHours);
   return days.length === 1
-    ? { perWeek: 1, swing, other: { perWeek: 2, swing: levelSwing(halfLifeHours, 4 * 24) } }
-    : { perWeek: days.length, swing, other: { perWeek: 1, swing: levelSwing(halfLifeHours, 7 * 24) } };
+    ? { perWeek: 1, swing, other: { perWeek: 2, swing: steadySwing(halfLifeHours, [3, 4], tmaxHours) } }
+    : { perWeek: days.length, swing, other: { perWeek: 1, swing: steadySwing(halfLifeHours, [7], tmaxHours) } };
+}
+
+/** The rate it's absorbed from under the skin, from the hours to its highest level after a shot (`tmax`), for a
+ *  one-compartment model: tmax = ln(ka/ke) / (ka − ke), solved for ka. */
+function absorptionRate(ke: number, tmaxHours: number): number {
+  let lo = ke * 1.0001, hi = 50;
+  for (let i = 0; i < 80; i++) { const ka = (lo + hi) / 2; const t = Math.log(ka / ke) / (ka - ke); if (t > tmaxHours) lo = ka; else hi = ka; }
+  return (lo + hi) / 2;
+}
+
+/** How far the level falls from its highest to its lowest through a week once it's settled, with the shot absorbed over
+ *  a day or so rather than all at once (the swing is smaller than the elimination alone would say). Equal doses at the
+ *  given gaps (days), repeated for 12 weeks; the last week is measured. */
+export function steadySwing(halfLifeHours: number, gapsDays: number[], tmaxHours = 24): number {
+  const ke = Math.LN2 / halfLifeHours, ka = absorptionRate(ke, tmaxHours);
+  const shots: number[] = [];
+  for (let t = 0, i = 0; t < 12 * 168; t += gapsDays[i % gapsDays.length] * 24, i++) shots.push(t);
+  const level = (t: number) => shots.reduce((sum, s) => (t >= s ? sum + (Math.exp(-ke * (t - s)) - Math.exp(-ka * (t - s))) : sum), 0);
+  let hi = -Infinity, lo = Infinity;
+  for (let t = 11 * 168; t < 12 * 168; t += 1) { const v = level(t); hi = Math.max(hi, v); lo = Math.min(lo, v); }
+  return hi > 0 ? (hi - lo) / hi : 0;
 }
 
 /** The lowest-dose plan for a guide entry: step by `by` (a weekly amount, halved per shot when split) once loss slows. */

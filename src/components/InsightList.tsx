@@ -2,8 +2,8 @@
 // Today shows the top couple (TopInsights); Progress shows every one (InsightFeed). Acting on one that changes a
 // setting also notes it, so the app can check back a few weeks later on what happened.
 import { useMemo, useState } from 'react';
-import { Activity, ArrowDownRight, Brain, Thermometer, TrendingDown, TrendingUp, BatteryLow, CalendarDays, CalendarX, Clock, Footprints, Moon, Scale, Coffee, Droplet, Dumbbell, FileText, HeartPulse, Layers, Lightbulb, SearchCheck, Sparkles, Target, Utensils, X, Zap, type LucideIcon } from 'lucide-react';
-import { insights, type Insight, type InsightKind } from '../logic/insights';
+import { Activity, ArrowDownRight, ClipboardList, Brain, Thermometer, TrendingDown, TrendingUp, BatteryLow, CalendarDays, CalendarX, Clock, Footprints, Moon, Scale, Coffee, Droplet, Dumbbell, FileText, HeartPulse, Layers, Lightbulb, SearchCheck, Sparkles, Target, Utensils, X, Zap, type LucideIcon } from 'lucide-react';
+import { certainty, insights, type Insight, type InsightKind } from '../logic/insights';
 import { fmtTime } from '../logic/format';
 import { oddRecords } from '../logic/records';
 import { setSetting, type AppSettings } from '../db/repos/settings';
@@ -21,7 +21,7 @@ const ICON: Record<InsightKind, LucideIcon> = {
   script: FileText, reading: HeartPulse, stall: Droplet, wearoff: Zap, change: ArrowDownRight, odd: SearchCheck, cutoff: Coffee,
   calories: Utensils, protein: Dumbbell, lean: Dumbbell, appointment: CalendarDays, followup: Sparkles, steps: Footprints, sleep: Moon, gut: Utensils, eating: Utensils, regain: Scale, maintain: Scale,
   second: Clock, dosecut: Moon, bestdose: Target, crash: BatteryLow, load: Layers, heart: Activity, undereat: Utensils, missed: CalendarX,
-  illness: Thermometer, tolerance: TrendingDown, creep: TrendingUp, fluids: Droplet, appetite: Utensils, rebound: Brain,
+  illness: Thermometer, tolerance: TrendingDown, creep: TrendingUp, fluids: Droplet, appetite: Utensils, rebound: Brain, review: ClipboardList,
 };
 const TONE = { watch: { bg: 'var(--caution-soft)', fg: 'var(--caution)' }, good: { bg: 'var(--success-soft)', fg: 'var(--success)' }, plain: { bg: 'var(--surface-2)', fg: 'var(--primary)' } };
 
@@ -87,6 +87,8 @@ export function InsightRow({ x, settings }: { x: Insight; settings: AppSettings 
       <div className="flex-1 min-w-0">
         <p className="text-[15px] font-medium leading-snug">{x.headline}</p>
         {x.evidence && <p className="text-sm text-muted leading-snug mt-0.5">{x.evidence}</p>}
+        {x.lines && x.lines.length > 0 && <ul className="text-sm text-muted leading-snug mt-1 space-y-0.5 list-disc pl-4">{x.lines.map((l) => <li key={l}>{l}</li>)}</ul>}
+        {x.n !== undefined && <p className="text-[12px] text-muted mt-0.5"><span className="font-medium">{certainty(x)}</span> · {x.n} {x.nOf ?? 'records'}</p>}
         {x.bar && (
           <>
             <div className="mt-2 relative h-2 rounded-full bg-surface-2" role="img" aria-label={`From the dose at ${fmtTime(x.bar.from)} to a likely drop between ${fmtTime(x.bar.early)} and ${fmtTime(x.bar.late)}`}>

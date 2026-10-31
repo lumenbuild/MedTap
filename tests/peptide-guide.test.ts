@@ -66,12 +66,12 @@ describe('peptide guide', () => {
     expect(weekGaps([0, 2, 4])).toEqual([2, 2, 3]);
     expect(levelSwing(144, 144)).toBeCloseTo(0.5);
     const weekly = splitView(144, [1])!;
-    expect(Math.round(weekly.swing * 100)).toBe(55);
-    expect(Math.round(weekly.other.swing * 100)).toBe(37);
+    expect(Math.round(weekly.swing * 100)).toBe(49); // with a day to absorb: less than the 55% elimination alone gives
+    expect(Math.round(weekly.other.swing * 100)).toBe(30);
     const twice = splitView(144, [1, 4])!;
     expect(twice.perWeek).toBe(2);
-    expect(Math.round(twice.swing * 100)).toBe(37);
-    expect(Math.round(twice.other.swing * 100)).toBe(55);
+    expect(Math.round(twice.swing * 100)).toBe(30);
+    expect(Math.round(twice.other.swing * 100)).toBe(49);
     expect(splitView(4, [1, 4])).toBeNull(); // short half-life: gone between shots either way
     expect(splitView(undefined, [1])).toBeNull();
   });

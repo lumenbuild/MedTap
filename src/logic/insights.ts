@@ -35,7 +35,7 @@ const WEEK = 7 * DAY;
 const day = (t: number) => format(t, 'EEE d MMM');
 const hourText = (h: number) => (h === 12 ? '12 pm' : h > 12 ? `${h - 12} pm` : `${h} am`);
 
-export type InsightKind = 'script' | 'reading' | 'stall' | 'wearoff' | 'change' | 'odd' | 'cutoff' | 'calories' | 'protein' | 'lean' | 'appointment' | 'followup' | 'steps' | 'sleep' | 'gut' | 'eating' | 'regain' | 'maintain' | 'second' | 'dosecut' | 'bestdose' | 'crash' | 'load' | 'heart' | 'undereat' | 'missed' | 'illness' | 'tolerance' | 'creep' | 'fluids' | 'appetite' | 'rebound';
+export type InsightKind = 'script' | 'reading' | 'stall' | 'wearoff' | 'change' | 'odd' | 'cutoff' | 'calories' | 'protein' | 'lean' | 'appointment' | 'followup' | 'steps' | 'sleep' | 'gut' | 'eating' | 'regain' | 'maintain' | 'second' | 'dosecut' | 'bestdose' | 'crash' | 'load' | 'heart' | 'undereat' | 'missed' | 'illness' | 'tolerance' | 'creep' | 'fluids' | 'appetite' | 'rebound' | 'review';
 
 export type InsightAction =
   | { kind: 'go'; label: string; href: string }
@@ -61,6 +61,28 @@ export interface Insight {
   bar?: { from: number; early: number; late: number };
   /** Lanes on a day's timeline (what's stacking up today). */
   lanes?: Lane[];
+  /** How much it rests on (nights, days, doses, check-ins), for the Early / Likely / Solid label. */
+  n?: number; nOf?: string;
+  /** More findings folded into this one (the stimulant review). */
+  lines?: string[];
+}
+
+/** How sure a pattern is, in a word: Solid (high), Likely, or Early (medium on under 12 of what it counts). */
+export function certainty(x: Pick<Insight, 'confidence' | 'n'>): 'Solid' | 'Likely' | 'Early' {
+  return x.confidence === 'high' ? 'Solid' : x.n !== undefined && x.n < 12 ? 'Early' : 'Likely';
+}
+
+/** Overlapping stimulant findings (best dose, the sleep line, evening crash or dip, tolerance, dose creep) fold into one
+ *  review: the most important leads, the rest become its lines. A measured evening dip replaces the crash ratings. */
+function consolidate(out: Insight[]): Insight[] {
+  let list = out;
+  if (list.some((x) => x.kind === 'rebound')) list = list.filter((x) => x.kind !== 'crash');
+  const folds = list.filter((x) => ['bestdose', 'crash', 'rebound', 'tolerance', 'creep'].includes(x.kind) || (x.kind === 'dosecut' && x.tone !== 'watch'));
+  if (folds.length < 2) return list;
+  const [top, ...rest] = [...folds].sort((a, b) => b.importance - a.importance);
+  const review: Insight = { ...top, id: `review:${folds.map((x) => x.id).sort().join('|')}`, kind: 'review',
+    lines: rest.map((x) => `${x.headline}${x.evidence ? `: ${x.evidence.charAt(0).toLowerCase()}${x.evidence.slice(1)}` : ''}`), snoozeDays: 14 };
+  return [...list.filter((x) => !folds.includes(x)), review];
 }
 
 export interface InsightInput {
@@ -124,12 +146,12 @@ export function insights(d: InsightInput, now: number, s: ScheduleSettings): Ins
       if (cut) {
         const q = (x: { quality?: number; hours?: number; deepMin?: number }) => [x.hours !== undefined ? `${x.hours} h asleep` : null, x.deepMin !== undefined ? `${x.deepMin} min deep` : null, x.quality !== undefined ? `sleep ${x.quality} of 5` : null].filter(Boolean).join(', ');
         const lateToday = d.doses.some((x) => !x.deletedAt && !x.skipped && x.medicationId === m.id && dayKey(Date.parse(x.takenAt), s) === dayKey(now, s) && new Date(x.takenAt).getHours() >= cut.cutoffHour);
-        out.push({ id: `dosecut:${m.id}:${cut.cutoffHour}${lateToday ? `:${dayKey(now, s)}` : ''}`, kind: 'dosecut', importance: lateToday ? 55 : 40, confidence: cut.before.nights + cut.after.nights >= 20 ? 'high' : 'medium', tone: lateToday ? 'watch' : 'plain',
+        out.push({ id: `dosecut:${m.id}:${cut.cutoffHour}${lateToday ? `:${dayKey(now, s)}` : ''}`, kind: 'dosecut', importance: lateToday ? 55 : 40, confidence: cut.before.nights + cut.after.nights >= 20 ? 'high' : 'medium', n: cut.before.nights + cut.after.nights, nOf: 'nights', tone: lateToday ? 'watch' : 'plain',
           headline: lateToday ? `Tonight: ${shownName(m)} today was after ${hourText(cut.cutoffHour)}` : `${shownName(m)} after ${hourText(cut.cutoffHour)} costs you sleep`,
           evidence: `${q(cut.before)} when the last dose is earlier, ${q(cut.after)} when it’s later (${cut.before.nights + cut.after.nights} nights${cut.watch ? ', from your watch' : ''})`, snoozeDays: lateToday ? 1 : 30 });
       }
       const br = doseResponse(m, d.doses, d.checkIns, now, s);
-      if (br) out.push({ id: `bestdose:${m.id}:${br.by}:${br.better}`, kind: 'bestdose', importance: 42, confidence: br.n >= 16 ? 'high' : 'medium', tone: 'good',
+      if (br) out.push({ id: `bestdose:${m.id}:${br.by}:${br.better}`, kind: 'bestdose', importance: 42, confidence: br.n >= 16 ? 'high' : 'medium', n: br.n, nOf: 'check-ins', tone: 'good',
         headline: br.by === 'amount' ? `${shownName(m)}: your focus is best on ${br.better}` : `${shownName(m)}: focus is better when taken ${br.better}`,
         evidence: `Focus ${br.focusBetter} of 5 ${br.by === 'amount' ? `on ${br.better}` : br.better}, against ${br.focusWorse} ${br.by === 'amount' ? `on ${br.worse}` : br.worse} (${br.n} check-ins)`, snoozeDays: 30 });
     }
@@ -137,7 +159,7 @@ export function insights(d: InsightInput, now: number, s: ScheduleSettings): Ins
     if (cr) {
       const why = cr.lastDoseCrash ? `On crash days your last dose was about ${cr.lastDoseCrash}, against ${cr.lastDoseOk} on others`
         : cr.withSecond && cr.withoutSecond ? `With a second dose: ${cr.withSecond.crash} of ${cr.withSecond.of} evenings; without: ${cr.withoutSecond.crash} of ${cr.withoutSecond.of}` : 'Mood or energy at 2 or under, or a crash noted';
-      out.push({ id: `crash:${Math.floor(now / WEEK)}`, kind: 'crash', importance: 45, confidence: cr.days >= 20 ? 'high' : 'medium', tone: 'plain',
+      out.push({ id: `crash:${Math.floor(now / WEEK)}`, kind: 'crash', importance: 45, confidence: cr.days >= 20 ? 'high' : 'medium', n: cr.days, nOf: 'evenings', tone: 'plain',
         headline: `Evening crash on ${cr.crashDays} of ${cr.days} days`, evidence: why, action: { kind: 'go', label: 'See patterns', href: '#/progress/trends' }, snoozeDays: 14 });
     }
     // What's stacking up today: stimulants and caffeine overlapping.
@@ -192,7 +214,7 @@ export function insights(d: InsightInput, now: number, s: ScheduleSettings): Ins
         headline: `${shownName(m)}: more each day than 2 months ago`, evidence: c.lines.join('; '), action: { kind: 'go', label: 'See', href: `#/meds/${m.id}` }, snoozeDays: 21 });
     }
     const rb = rebound(d.meds, d.doses, d.checkIns, now, s);
-    if (rb && rb.dipPct >= 8) out.push({ id: `rebound:${Math.floor(now / (2 * WEEK))}`, kind: 'rebound', importance: 40, confidence: rb.tests >= 15 ? 'high' : 'medium', tone: 'plain',
+    if (rb && rb.dipPct >= 8) out.push({ id: `rebound:${Math.floor(now / (2 * WEEK))}`, kind: 'rebound', importance: 40, confidence: rb.tests >= 15 ? 'high' : 'medium', n: rb.tests, nOf: 'tests', tone: 'plain',
       headline: `A real evening dip: ${rb.dipPct}% slower`, evidence: `Reaction ${rb.evening} ms in the evening against ${rb.day} ms 1–4 hours after a dose`, action: { kind: 'go', label: 'Brain test', href: '#/brain' }, snoozeDays: 21 });
     const f = fluids(d.meds, d.doses, d.workouts, d.checkIns, d.daily, st.waterTargetMl ?? null, now, s);
     if (f.low && f.reasons.length) out.push({ id: `fluids:${dayKey(now, s)}`, kind: 'fluids', importance: 52, confidence: 'medium', tone: 'watch',
@@ -208,7 +230,7 @@ export function insights(d: InsightInput, now: number, s: ScheduleSettings): Ins
   if (d.has.body) {
     const stall = weightStall({ body: d.body, checkIns: d.checkIns, daily: d.daily, doses: d.doses, meds: d.meds, workouts: d.workouts }, now);
     if (stall) {
-      out.push({ id: `stall:${Math.floor(stall.since / WEEK)}`, kind: 'stall', importance: stall.likelyWater ? 30 : 70, confidence: stall.days >= 14 ? 'high' : 'medium', tone: 'watch',
+      out.push({ id: `stall:${Math.floor(stall.since / WEEK)}`, kind: 'stall', importance: stall.likelyWater ? 30 : 70, confidence: stall.days >= 14 ? 'high' : 'medium', n: stall.days, nOf: 'days', tone: 'watch',
         headline: stall.likelyWater ? `Weight steady ${stall.days} days, probably water` : `Weight steady for ${stall.days} days`,
         evidence: stall.likelyWater ? `Water from ${stall.water.join(', ')}` : stall.diffs.length ? `Different now: ${stall.diffs.slice(0, 2).map((x) => `${x.label.toLowerCase()} ${x.before} → ${x.during}`).join(', ')}` : `${stall.before.toFixed(2)} kg a week before, ${stall.during.toFixed(2)} now`,
         action: { kind: 'go', label: 'What’s different', href: '#/progress/body' }, snoozeDays: 7 });
@@ -354,7 +376,9 @@ export function insights(d: InsightInput, now: number, s: ScheduleSettings): Ins
   }
 
   const hidden = st.insightsHidden;
-  return out.filter((x) => !(hidden[x.id] > now)).sort((a, b) => b.importance - a.importance);
+  // With the biohacking tools on, the muscle-protection card on Body covers protein; the lean-mass alert stays.
+  const shown = d.has.biohack ? out.filter((x) => x.kind !== 'protein') : out;
+  return consolidate(shown).filter((x) => !(hidden[x.id] > now)).sort((a, b) => b.importance - a.importance);
 }
 
 /** A few weeks after acting on an insight: what happened since, against the weeks before. */
