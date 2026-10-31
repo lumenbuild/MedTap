@@ -138,9 +138,11 @@ function Row({ label, children, onClick }: { label: string; children: ReactNode;
   );
 }
 
-function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal, people, personId }: {
+function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal, people, personId, part = 'all' }: {
   med: Medication; doses: Dose[]; s: ScheduleSettings; now: number; body: Parameters<typeof lotStats>[2]; checkIns: Parameters<typeof lotStats>[3];
   units: Units; busy: number[]; goal?: number; people: Person[]; personId: string;
+  /** On a peptide's own page: the overview (next shot, how it's going) or the plan (dose plan, level). */
+  part?: 'all' | 'overview' | 'plan';
 }) {
   const [sheet, setSheet] = useState<'late' | 'day' | 'patterns' | 'start' | 'log' | null>(null);
   const toast = useToast();
@@ -179,15 +181,19 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
     toast(d.skipped ? 'Marked as skipped' : `Logged ${fmtAmount(d.amount, med.unit)} at ${fmtTime(Date.parse(d.takenAt))}`, { onAction: () => removeDose(d.id) });
   };
 
+  const showOverview = part !== 'plan', showPlan = part !== 'overview';
   return (
     <>
+      {showOverview && <>
       {/* 1. The next shot: when, how much, what to draw, and the vial or pen it comes from. */}
       <section aria-label={`${shownName(med)}: next shot`} className="rounded-card bg-surface-2 p-4 space-y-4">
-        <a href={`#/meds/${med.id}`} className="flex items-center gap-2.5">
-          <MedBadge color={shownColour(med)} icon={med.icon} size={30} />
-          <span className="text-[17px] font-medium flex-1 min-w-0 truncate">{shownName(med)}</span>
-          <ChevronRight size={18} className="text-muted" aria-hidden="true" />
-        </a>
+        {part === 'all' && (
+          <a href={`#/meds/${med.id}`} className="flex items-center gap-2.5">
+            <MedBadge color={shownColour(med)} icon={med.icon} size={30} />
+            <span className="text-[17px] font-medium flex-1 min-w-0 truncate">{shownName(med)}</span>
+            <ChevronRight size={18} className="text-muted" aria-hidden="true" />
+          </a>
+        )}
         <div>
           <p className="text-sm text-muted">Next shot</p>
           <p className="text-[28px] leading-8 font-semibold tnum">{when}</p>
@@ -249,6 +255,8 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
         </dl>
       </section>
 
+      </>}
+      {showPlan && <>
       {/* 3. The dose plan: every way the dose changes, in one place (also the home for editing it), then the
           estimated level through it. */}
       {guideEntry?.lowest && !med.stepPlan && (() => {
@@ -287,6 +295,7 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
               </button>
             : <p className="text-sm text-muted">Add a half-life on <a href={`#/meds/${med.id}`} className="underline underline-offset-4">its page</a> to see the estimated level through your plan.</p>}
       </section>
+      </>}
 
       {sheet === 'late' && <LateShotsSheet med={med} report={late ?? { events: [], basis: { weeks: 12 } }} onClose={() => setSheet(null)} />}
       {sheet === 'day' && <ShotDaySheet result={shotDay} busy={busy} onClose={() => setSheet(null)} />}
@@ -297,6 +306,27 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
       </Sheet>
     </>
   );
+}
+
+/** One part of a peptide's page, with its own data: the overview (next shot, how it's going), the plan (dose plan,
+ *  estimated level) or its stock (unopened vials and when to order, cost, batches, what to buy for the course). */
+export function PeptidePart({ med, part }: { med: Medication; part: 'overview' | 'plan' | 'stock' }) {
+  const doses = useDoses(); const body = useBodyEntries(); const checkIns = useCheckIns(); const ss = useScheduleSettings(); const fam = useFamily();
+  const now = useNow(60_000);
+  if (!doses || !body || !checkIns || !ss || !fam) return <div className="h-40 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
+  const [settings, s] = ss;
+  const who = personOf(med);
+  const mine = <T extends { personId?: string }>(r: T) => personOf(r) === who;
+  if (part === 'stock') return (
+    <section aria-labelledby={`stk-${med.id}`} className="space-y-3">
+      <h2 id={`stk-${med.id}`} className="text-sm font-medium text-muted">Stock and orders</h2>
+      <dl><MedStock med={med} doses={doses} s={s} now={now} body={body.filter(mine)} checkIns={checkIns.filter(mine)} /></dl>
+      <ShopList med={med} doses={doses} now={now} />
+    </section>
+  );
+  const goal = fam.people.find((p) => p.id === who)?.goals?.find((g) => g.metric === 'weightKg')?.target;
+  return <div className="space-y-4"><PeptideSection med={med} doses={doses} s={s} now={now} body={body.filter(mine)} checkIns={checkIns.filter(mine)}
+    units={settings.units} busy={settings.busyDays} goal={goal} people={fam.people} personId={fam.personId} part={part} /></div>;
 }
 
 /** Stock rows for the peptide shown: unopened vials or pens and when to order, cost, and batches. */

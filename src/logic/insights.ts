@@ -194,7 +194,7 @@ export function insights(d: InsightInput, now: number, s: ScheduleSettings): Ins
       const ms = missedShot(m, d.doses, now, s);
       if (ms) out.push({ id: `missed:${m.id}:${Math.floor(ms.dueAt / DAY)}`, kind: 'missed', importance: 78, confidence: 'high', tone: 'watch',
         headline: `${shownName(m)}: ${ms.take ? 'take the missed shot now' : 'skip the missed shot'}`, evidence: ms.text,
-        action: { kind: 'go', label: 'Protocol', href: '#/protocol' }, snoozeDays: 1 });
+        action: { kind: 'go', label: 'Open', href: `#/meds/${m.id}` }, snoozeDays: 1 });
     }
   }
 

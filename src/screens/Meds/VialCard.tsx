@@ -120,8 +120,6 @@ export function VialCard({ med }: { med: Medication }) {
           )}
         </div>
       )}
-      <a href="#/supplies" className="block text-center min-h-[44px] leading-[44px] text-primary font-semibold">Supplies</a>
-      {!pen && <a href="#/calc" className="block text-center min-h-[44px] leading-[44px] text-primary font-semibold">Peptide calculator</a>}
 
       {starting && <StartVialSheet med={med} onClose={() => setStarting(false)} />}
       {v && <LinkTagSheet med={med} vialId={v.vial.id} open={linking} onClose={() => setLinking(false)} onQr={() => { setLinking(false); setLabel(true); }} />}

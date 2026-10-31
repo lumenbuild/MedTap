@@ -1,11 +1,17 @@
 import { SupplementsSection } from '../../components/HowToTake';
-import { Camera, CalendarClock, CalendarX, ChevronRight, FileText, Link2, Nfc, Package, Plane, Plus, Wallet, X, type LucideIcon } from 'lucide-react';
-import { HAS_VISITS } from '../../edition';
+import { BookOpen, Calculator, Camera, CalendarClock, CalendarRange, CalendarX, ChevronRight, FileText, Link2, Nfc, Package, Plane, Plus, Wallet, X, type LucideIcon } from 'lucide-react';
+import { HAS_PEPTIDES, HAS_VISITS } from '../../edition';
+
+const DAY = 86_400_000;
 import { useState, type ReactNode } from 'react';
 import { isPrivate, shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { format } from 'date-fns';
 import type { Medication, Tag } from '../../db/schema';
-import { useDoses, useFamily, useMeds, useScheduleSettings, useSettings, useTags } from '../../app/data';
+import { useDoses, useFamily, useMeds, useScheduleSettings, useSettings, useSupplies, useTags } from '../../app/data';
+import { supplementsOf } from '../../logic/supplements';
+import { DEFAULT_LEAD_DAYS, supplyPlans } from '../../logic/protocol';
+import { SUPPLY_LABELS } from '../../logic/peptide';
+import { NeedsSheet } from '../Protocol/Predictions';
 import { medIsFor, personOf } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
@@ -35,21 +41,41 @@ export function MedsList() {
   const now = useNow(60_000);
   const fam = useFamily();
   const [counting, setCounting] = useState(false);
+  const [needs, setNeeds] = useState(false);
+  const supplies = useSupplies();
   if (!meds || !tags || !settings || !doses || !ss || !fam) return <div className="h-40 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
 
   const theirs = meds.filter((m) => medIsFor(m, fam.personId));
   const active = theirs.filter((m) => !m.archived);
   const archived = theirs.filter((m) => m.archived);
 
+  const peptidesOn = HAS_PEPTIDES && settings.peptideTools;
+  const isSupp = (m: Medication) => !m.peptide && supplementsOf(m).length > 0;
+  const groups: { key: string; title: string; items: Medication[] }[] = [
+    { key: 'meds', title: 'Medicines', items: active.filter((m) => !m.peptide && !isSupp(m)) },
+    { key: 'peptides', title: 'Peptides', items: active.filter((m) => m.peptide) },
+    { key: 'supps', title: 'Supplements', items: active.filter(isSupp) },
+  ].filter((g) => g.items.length);
+  const s = ss[1];
+  // Stock and orders: what runs out or needs ordering in the next 3 weeks, across everything.
+  const lead = Math.min(...active.filter((m) => m.peptide).map((m) => m.peptide?.leadTimeDays ?? DEFAULT_LEAD_DAYS), DEFAULT_LEAD_DAYS);
+  const orders = [
+    ...active.map((m) => {
+      const f = forecastRunOut(m, doses, now, s);
+      if (!f || f.runOutAt === null || f.runOutAt - now > 21 * DAY) return null;
+      const by = m.peptide ? f.runOutAt - (m.peptide.leadTimeDays ?? DEFAULT_LEAD_DAYS) * DAY : f.runOutAt - settings.refillWarnDays * DAY;
+      return { key: m.id, name: shownName(m), href: `#/meds/${m.id}/stock`, by, out: f.runOutAt };
+    }),
+    ...(peptidesOn && supplies ? supplyPlans(supplies, active.filter((m) => m.peptide), doses, now, s, lead).filter((x) => x.orderBy !== null && x.orderBy - now < 21 * DAY && x.supply.kind !== 'sharps')
+      .map((x) => ({ key: x.supply.id, name: SUPPLY_LABELS[x.supply.kind].name, href: '#/supplies', by: x.orderBy!, out: x.runOutAt ?? x.orderBy! })) : []),
+  ].filter((x): x is NonNullable<typeof x> => !!x).sort((a, b) => a.by - b.by);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <PersonSwitcher />
-      <div className={`grid ${HAS_VISITS ? 'grid-cols-5' : 'grid-cols-4'} gap-2`} role="group" aria-label="Medication tools">
-        <Tile Icon={Plus} label="Add" name={`Add medication${fam.many ? ` for ${fam.person}` : ''}`} href="#/meds/new" />
-        <Tile Icon={Camera} label="Count" name="Count what's left, from a photo or typed" onClick={() => setCounting(true)} />
-        <Tile Icon={Nfc} label="Tags" href="#/tags" />
-        <Tile Icon={FileText} label="Report" name="Doctor report" href="#/report" />
-        {HAS_VISITS && <Tile Icon={Plane} label="Trip" name="Plan a trip: enough for the time away" href="#/travel" />}
+      <div className="grid grid-cols-2 gap-2">
+        <Button className="min-h-[52px]" onClick={() => go('/meds/new')}><Plus size={18} aria-hidden="true" className="inline mr-1 -mt-0.5" />Add{fam.many ? ` for ${fam.person}` : ''}</Button>
+        <Button variant="secondary" className="min-h-[52px]" onClick={() => setCounting(true)}><Camera size={18} aria-hidden="true" className="inline mr-1 -mt-0.5" />Count</Button>
       </div>
       {settings.pendingTags.map((id) => (
         <Card key={id} className="flex items-center gap-3">
@@ -70,23 +96,54 @@ export function MedsList() {
         </IconRow>
       ))}
 
-      {active.length === 0 ? (
+      {active.length === 0 && (
         <Card className="text-center py-8">
-          <p>{fam.many ? `No medications for ${fam.person} yet.` : 'No medications yet.'} Adding one takes about a minute.</p>
+          <p>{fam.many ? `Nothing for ${fam.person} yet.` : 'Nothing here yet.'} Add a medicine, peptide or supplement: it takes about a minute.</p>
         </Card>
-      ) : (
-        <ul className="space-y-2">{active.map((m) => <MedRow key={m.id} med={m} tags={tags} doses={doses} s={ss[1]} now={now} />)}</ul>
+      )}
+      {groups.map((g) => (
+        <section key={g.key} aria-labelledby={`grp-${g.key}`}>
+          <h2 id={`grp-${g.key}`} className="text-sm font-medium text-muted mb-1">{g.title} <span className="tnum">({g.items.length})</span></h2>
+          <ul>{g.items.map((m) => <MedRow key={m.id} med={m} tags={tags} doses={doses} s={s} now={now} />)}</ul>
+          {g.key === 'supps' && <SupplementsSection />}
+        </section>
+      ))}
+
+      {active.length > 0 && (
+        <section aria-labelledby="orders-h" className="border-t border-border pt-4 space-y-1">
+          <h2 id="orders-h" className="text-sm font-medium text-muted">Stock and orders</h2>
+          {orders.length ? (
+            <ul>{orders.map((o) => (
+              <li key={o.key}><a href={o.href} className="flex items-center gap-3 min-h-[52px] border-b border-border">
+                <Package size={18} aria-hidden="true" className={o.by - now < 3 * DAY ? 'text-caution' : 'text-muted'} />
+                <span className="flex-1 min-w-0"><span className="block font-medium truncate">{o.name}</span><span className={`block text-sm tnum ${o.by - now < 3 * DAY ? 'text-caution' : 'text-muted'}`}>{o.by <= now ? 'Order now' : `Order by ${format(o.by, 'EEE d MMM')}`} · runs out {format(o.out, 'd MMM')}</span></span>
+                <ChevronRight size={18} aria-hidden="true" className="text-muted" />
+              </a></li>
+            ))}</ul>
+          ) : <p className="text-muted">Nothing runs out in the next 3 weeks.</p>}
+        </section>
       )}
 
-
-      <SupplementsSection />
+      <section aria-labelledby="tools-h" className="border-t border-border pt-4">
+        <h2 id="tools-h" className="text-sm font-medium text-muted mb-2">Tools</h2>
+        <div className="grid grid-cols-3 gap-2">
+          {peptidesOn && <Tile Icon={BookOpen} label="Guide" name="Peptide guide" href="#/guide" />}
+          {peptidesOn && <Tile Icon={Calculator} label="Calculator" name="Peptide calculator" href="#/calc" />}
+          {peptidesOn && <Tile Icon={Package} label="Supplies" href="#/supplies" />}
+          {peptidesOn && <Tile Icon={CalendarRange} label="Enough until" name="Enough until: stock for a trip or a date" onClick={() => setNeeds(true)} />}
+          <Tile Icon={Nfc} label="Tags" href="#/tags" />
+          <Tile Icon={FileText} label="Report" name={peptidesOn ? 'Doctor and protocol reports' : 'Doctor report'} href={peptidesOn ? '#/protocol/report' : '#/report'} />
+          {HAS_VISITS && <Tile Icon={Plane} label="Trip" name="Plan a trip: enough for the time away" href="#/travel" />}
+        </div>
+      </section>
 
       {counting && <CountPicker meds={active.filter((m) => !m.peptide)} onClose={() => setCounting(false)} />}
+      {needs && supplies && <NeedsSheet meds={active} supplies={supplies} doses={doses} s={s} now={now} onClose={() => setNeeds(false)} />}
 
       {archived.length > 0 && (
         <details className="pt-2">
           <summary className="min-h-[48px] flex items-center text-muted font-semibold cursor-pointer">Archived ({archived.length})</summary>
-          <ul className="space-y-2 opacity-80">{archived.map((m) => <MedRow key={m.id} med={m} tags={tags} doses={doses} s={ss[1]} now={now} />)}</ul>
+          <ul className="opacity-80">{archived.map((m) => <MedRow key={m.id} med={m} tags={tags} doses={doses} s={s} now={now} />)}</ul>
         </details>
       )}
     </div>

@@ -77,7 +77,7 @@ const CONTENT: Record<string, ReactNode> = {
     <>
       <p>{APP_NAME} in ten steps, from your first medicine to backups. Each takes a minute or two; do them in any order.</p>
       <Step n={1} title="Add a medicine">
-        <p>Meds → <strong>Add medication</strong>. Its name and strength, how much you usually take, and when: set times, every few hours, or as needed. Or tap <strong>Take photo</strong> to fill it in from the pharmacy label, then check it.</p>
+        <p>{HAS_PEPTIDES ? 'Stack' : 'Meds'} → <strong>Add</strong>. Its name and strength, how much you usually take, and when: set times, every few hours, or as needed. Or tap <strong>Take photo</strong> to fill it in from the pharmacy label, then check it.</p>
         <p>Not every day? Choose certain days or every few days. A dose that changes over time? Use its <strong>Dose plan</strong>.</p>
       </Step>
       <Step n={2} title="Get tags and stick one on">
@@ -85,7 +85,7 @@ const CONTENT: Record<string, ReactNode> = {
       </Step>
       <Step n={3} title="Link the tag">
         <p>On the medicine's page, tap <strong>Link a tag</strong> and hold your phone on it.{isNativeIOS ? ' On iPhone, hold the top of the phone near the tag.' : ' On Android, the back of the phone, near the middle.'}</p>
-        <p>One tag per medicine. A tag can also log a coffee, water, a check-in or a gym machine: Meds → <strong>Tags</strong>.</p>
+        <p>One tag per medicine. A tag can also log a coffee, water, a check-in or a gym machine: {HAS_PEPTIDES ? 'Stack → Tools' : 'Meds'} → <strong>Tags</strong>.</p>
       </Step>
       <Step n={4} title="Log a dose">
         <p>Tap the tag: the dose is logged at your usual amount, with <strong>Undo</strong> for a few seconds. Tapped twice by mistake? {APP_NAME} asks before logging the same medicine again within a few minutes.</p>
@@ -245,7 +245,7 @@ const CONTENT: Record<string, ReactNode> = {
       ) : (
         <>
           <H>Lab results</H>
-          <p>{HAS_PEPTIDES ? 'Progress' : 'Trends'} → <strong>Lab results</strong> (under Records and tools): type them in or read them from a photo of the printout. They're in the doctor report.</p>
+          <p>{HAS_PEPTIDES ? 'Insights' : 'Trends'} → <strong>Lab results</strong> (under Records and tools): type them in or read them from a photo of the printout. They're in the doctor report.</p>
         </>
       )}
       <p>Check-in notes suggest chips (“bit queasy” → Nausea)<Pep>, and adding vials can read the lot and expiry from a photo of the label</Pep>.</p>
@@ -273,7 +273,7 @@ const CONTENT: Record<string, ReactNode> = {
         {HAS_BODY && <li>Weight, measurements, goals and blood pressure are charted once, on <strong>Body</strong>.</li>}
       </ul>
       <H>Count what's left</H>
-      <p>Meds → <strong>Count</strong> (also on a medication's page, and on the Today card when stock is low): type the count, or for tablets and capsules take a photo of them in one layer on a plain surface (touching is fine; not stacked) (counted on the phone; the photo isn't kept). It compares with what your logs say should be left, and can log doses you took but didn't log.</p>
+      <p>{HAS_PEPTIDES ? 'Stack' : 'Meds'} → <strong>Count what’s left</strong> (also on a medication's page, and on the Today card when stock is low): type the count, or for tablets and capsules take a photo of them in one layer on a plain surface (touching is fine; not stacked) (counted on the phone; the photo isn't kept). It compares with what your logs say should be left, and can log doses you took but didn't log.</p>
       <H>In the app</H>
       <ul className="list-disc pl-5 space-y-1">
         <li><strong>Health Connect / Apple Health</strong> (Settings): read only; steps, sleep (with deep sleep and time awake) and heart rate{HAS_BODY ? ', weigh-ins' : ''} and blood pressure. Imports again when you open the app, at most once an hour. A watch's heart rate in 5-minute blocks shows how a stimulant dose rises and settles (on the medicine's page), sharpens the wear-off forecast and second-dose reminder, and shows resting heart rate through the week after a shot (Protocol).</li>
@@ -301,16 +301,16 @@ const CONTENT: Record<string, ReactNode> = {
       <H>Stock and batches</H>
       <p>On the medication's page, <strong>Add</strong> vials or pens to stock with their lot, expiry, supplier and purity. Mixing a new vial takes the one that expires soonest. Tap any vial to add photos of its label or certificate of analysis, and to see the doses taken from it, so you can trace a batch.</p>
       <H>Supplies</H>
-      <p>Protocol → <strong>Supplies</strong>. Enter how many syringes, pen needles and swabs you have, and your water. They count down as you log injections and mix vials. The sharps container counts up, and Today reminds you when it's nearly full.</p>
+      <p>Stack → Tools → <strong>Supplies</strong>. Enter how many syringes, pen needles and swabs you have, and your water. They count down as you log injections and mix vials. The sharps container counts up, and Today reminds you when it's nearly full.</p>
       <p>Courses, on and off cycles, and stepping the dose when ready are in <a href="#/help/schedules" className="underline underline-offset-4">Setting up a schedule</a>.</p>
       <H>Titration</H>
-      <p>Protocol → <strong>Dose plan</strong> → <strong>Change the plan</strong> → <strong>Steps on a schedule</strong>: the first dose, the step up (or down), how often, and the final dose. Each step switches over on its day, and it's marked on the weight chart.</p>
+      <p>Stack → the peptide → <strong>Plan</strong> → <strong>Change the plan</strong> → <strong>Steps on a schedule</strong>: the first dose, the step up (or down), how often, and the final dose. Each step switches over on its day, and it's marked on the weight chart.</p>
       <H>Charts</H>
       <ul className="list-disc pl-5 space-y-1">
         <li><strong>Estimated level</strong>: enter a half-life on the medication and Trends estimates the amount in your body from your doses. It's a simple model on the figure you enter, not a measurement.</li>
         <li><strong>Dose levels</strong>: for each dose you've been on, your weight change, appetite and what you noted in check-ins. Settings can add common injection side effects to check-ins.</li>
       </ul>
-      <H>Predictions (Protocol tab)</H>
+      <H>Predictions (a peptide's Overview)</H>
       <ul className="list-disc pl-5 space-y-1">
         <li><strong>The coming week</strong> and <strong>appetite through the week</strong>: from your check-ins by day after each shot, what usually shows up on each of the next 7 days, and where today sits.</li>
         <li><strong>Weight path</strong>: where your weight is heading for 12 weeks, with a likely range, following your planned dose changes. A step you've been on before uses your own rate on it.</li>
@@ -326,17 +326,19 @@ const CONTENT: Record<string, ReactNode> = {
       <H>Biohacking tools</H>
       <p>Settings → <strong>Biohacking tools</strong> turns these on (and off again) together:</p>
       <ul className="list-disc pl-5 space-y-1">
-        <li><strong>Brain test</strong> (Progress → Records and tools): 2 minutes (reaction time, then a working-memory round) or 30 seconds of reaction time, also on the watch. Shows your scores, your sharpest hours, and whether there's a real evening dip as a stimulant wears off. Every test is saved and shows in Logged today, and once you've done 5 it counts as a focus reading (placed against your own usual score) in your best dose and time, the effect window and the wear-off forecast.</li>
+        <li><strong>Brain test</strong> (Insights → Records and tools): 2 minutes (reaction time, then a working-memory round) or 30 seconds of reaction time, also on the watch. Shows your scores, your sharpest hours, and whether there's a real evening dip as a stimulant wears off. Every test is saved and shows in Logged today, and once you've done 5 it counts as a focus reading (placed against your own usual score) in your best dose and time, the effect window and the wear-off forecast.</li>
         <li><strong>Readiness</strong> on Today: sleep, heart rate, HRV, last night's late dose or drink and this morning's test, with a plan for the day, a warning when heart rate and HRV look like you're getting sick, and how long you usually take to recover.</li>
         <li><strong>Tolerance and breaks</strong> on a stimulant's page: whether the effect is shrinking, dose creep, planned breaks (no reminders on those days) and how strong the first doses back are.</li>
-        <li><strong>Muscle protection</strong> on Body, and <strong>water, gut and appetite</strong> around a weekly shot on Protocol.</li>
-        <li><strong>Journal</strong>, <strong>Experiments</strong> and <strong>Year in review</strong> (Progress → Records and tools), and <strong>Doctor mode</strong> on the report.</li>
+        <li><strong>Muscle protection</strong> on Body, and <strong>water, gut and appetite</strong> around a weekly shot on the peptide's Overview.</li>
+        <li><strong>Journal</strong>, <strong>Experiments</strong> and <strong>Year in review</strong> (Insights → Records and tools), and <strong>Doctor mode</strong> on the report.</li>
         <li><strong>Watch</strong>: the tile and a ring complication show how far through today's stimulant you are; log focus or a symptom, or take the reaction test, from the wrist; a buzz before bed when it may still be working.</li>
       </ul>
+      <H>Sleep</H>
+      <p>Settings → <strong>Sleep</strong> adds a Sleep tab, built from your watch's nights (Health Connect): last night with a sleep score (how long, deep and REM, unbroken, usual timing and recovery, each part shown), tonight's bedtime for your target before your usual wake, sleep debt and how steady your times are, the last 30 nights by stage, and what goes with better or worse sleep in your own records: a late stimulant dose, caffeine after 2 pm, alcohol, sleep peptides, workouts and active days. Set your target at the bottom of the tab.</p>
       <H>Peptide guide</H>
-      <p>Protocol → <strong>Guide</strong>: retatrutide, glutathione, GHK-Cu, DSIP, BPC-157, NAD+, Semax and epitalon. What each one is, what the research shows and what people notice, a mixing table, how it’s taken and stored, the doses used, side effects, and when to get help. <strong>Set it up</strong> fills in the injection form, once or twice a week for retatrutide; change the dose to yours.</p>
+      <p>Stack → Tools → <strong>Guide</strong>: retatrutide, glutathione, GHK-Cu, DSIP, BPC-157, NAD+, Semax and epitalon. What each one is, what the research shows and what people notice, a mixing table, how it’s taken and stored, the doses used, side effects, and when to get help. <strong>Set it up</strong> fills in the injection form, once or twice a week for retatrutide; change the dose to yours.</p>
       <H>Calculator</H>
-      <p>Protocol → <strong>Calculator</strong>: units for a dose, the dose for a number of units, or the water that makes your dose an easy number of units.</p>
+      <p>Stack → Tools → <strong>Calculator</strong>: units for a dose, the dose for a number of units, or the water that makes your dose an easy number of units.</p>
       <H>Check your numbers</H>
       <p>{APP_NAME} only does sums on the numbers you enter; it doesn't suggest doses. Check against the label, your prescriber's directions or your pharmacist, especially the first time. Under 2 units is hard to measure accurately.</p>
     </>
@@ -416,11 +418,11 @@ const CONTENT: Record<string, ReactNode> = {
       <H>Every few days</H>
       <p>For something every second day, fortnightly or every 4 weeks, choose <strong>Every few days</strong>, enter the number of days (for example 14) and a day you take it.</p>
       <H>On and off</H>
-      <p>In the schedule, <strong>Pattern</strong> → <strong>On and off</strong>: for example 4 weeks on, 12 weeks off, repeating. Off days aren't scheduled and send no reminders; Meds and Protocol show where you are (“On, week 3 of 4”).</p>
+      <p>In the schedule, <strong>Pattern</strong> → <strong>On and off</strong>: for example 4 weeks on, 12 weeks off, repeating. Off days aren't scheduled and send no reminders; Stack and each item's page show where you are (“On, week 3 of 4”).</p>
       <H>A course, then a break</H>
       <p><strong>Pattern</strong> → <strong>Course</strong>: for example {HAS_PEPTIDES ? '10 units' : 'a dose'} each night for 12 weeks, then off until it's needed again. After the last day nothing is scheduled. To be asked about starting again, add a word like <strong>Pain</strong>: it becomes a check-in chip, and when a check-in mentions it Today asks “Start another course?”. Or choose a number of weeks off. Nothing starts until you tap <strong>Start today</strong>.</p>
       <H>The dose plan</H>
-      <p>Every way a dose changes is in one place, the <strong>Dose plan</strong> (on {HAS_PEPTIDES ? 'Protocol (for an injection) or the medication\'s page' : 'the medication\'s page'}): what's been taken and what's planned on one ladder, the dated changes, and stepping when ready. <strong>Change the plan</strong> offers three ways: <strong>On a date</strong> (one change from a day you choose), <strong>Steps on a schedule</strong> (the same step every few weeks: a titration or a taper) and <strong>When I'm ready</strong>.</p>
+      <p>Every way a dose changes is in one place, the <strong>Dose plan</strong> (on {HAS_PEPTIDES ? 'each item\'s page under Stack: Plan for a peptide, Overview for the rest' : 'the medication\'s page'}): what's been taken and what's planned on one ladder, the dated changes, and stepping when ready. <strong>Change the plan</strong> offers three ways: <strong>On a date</strong> (one change from a day you choose), <strong>Steps on a schedule</strong> (the same step every few weeks: a titration or a taper) and <strong>When I'm ready</strong>.</p>
       <H>Step the dose when ready</H>
       <p><strong>Dose plan</strong> → <strong>Change the plan</strong> → <strong>When I'm ready</strong>: how much each step is (in {HAS_PEPTIDES ? 'syringe units or ' : ''}the medication's unit), the least time on each dose, the most you'll go to (a dose or a week), and, if you like, conditions from your check-ins: appetite back to a level, side effects settled{HAS_BODY ? ', weight loss slowed' : ''}, no missed doses. For example: {HAS_PEPTIDES ? 'up 5 units every 4 weeks or more once appetite is back to 3 of 5, to at most 12 mg a week' : 'up 10 mg at least a week apart while side effects stay settled, to at most 70 mg a dose'}.</p>
       <p>When every condition is met, Today shows the next dose with <strong>Step up</strong> and <strong>Not yet</strong>. It never changes a dose by itself, and stops at your maximum. For steps on fixed dates instead, use <strong>On a date</strong> or <strong>Steps on a schedule</strong>. With a dated step{HAS_PEPTIDES ? ' for an injection' : ''}, the plan also ticks off whether you're ready for it (weeks on the dose, side effects, appetite{HAS_BODY ? ', weight loss slowing' : ''}, no missed doses), against conditions you can set.</p>

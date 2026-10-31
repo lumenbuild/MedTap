@@ -46,11 +46,14 @@ export const replace = (path: string) => {
 export type Route =
   | { name: 'today' } | { name: 'trends' } | { name: 'body' } | { name: 'settings'; section?: string }
   | { name: 'backup' } | { name: 'report' } | { name: 'help'; topic?: string }
-  | { name: 'meds' } | { name: 'medNew'; tagId?: string; guideId?: string } | { name: 'med'; id: string } | { name: 'guide'; id?: string } | { name: 'brain' } | { name: 'journal' } | { name: 'year' } | { name: 'experiments'; guideId?: string }
+  | { name: 'meds' } | { name: 'medNew'; tagId?: string; guideId?: string } | { name: 'med'; id: string; section?: MedSection } | { name: 'sleep' } | { name: 'guide'; id?: string } | { name: 'brain' } | { name: 'journal' } | { name: 'year' } | { name: 'experiments'; guideId?: string }
   | { name: 'tag'; id: string } | { name: 'sync' } | { name: 'join'; code: string } | { name: 'calc' } | { name: 'supplies' }
   | { name: 'protocol' } | { name: 'protocolReport' } | { name: 'progress'; view?: 'trends' | 'body' }
   | { name: 'appointments' } | { name: 'appointmentSummary' } | { name: 'labs' } | { name: 'travel' }
   | { name: 'training'; start?: boolean } | { name: 'workout'; id: string } | { name: 'exercise'; id: string } | { name: 'routines' } | { name: 'tags' } | { name: 'welcome' } | { name: 'food' } | { name: 'caffeine' };
+
+const MED_SECTIONS = ['overview', 'plan', 'stock', 'patterns', 'details'] as const;
+export type MedSection = (typeof MED_SECTIONS)[number];
 
 export function parseRoute(path: string): Route {
   const [, a, b, c, d] = path.split('/').map(decodeURIComponent);
@@ -68,6 +71,7 @@ export function parseRoute(path: string): Route {
     case 'brain': return { name: 'brain' };
     case 'journal': return { name: 'journal' };
     case 'year': return { name: 'year' };
+    case 'sleep': return { name: 'sleep' };
     case 'experiments': return { name: 'experiments', guideId: b === 'new' ? c : undefined };
     case 'supplies': return { name: 'supplies' };
     case 'protocol': return b === 'report' ? { name: 'protocolReport' } : { name: 'protocol' };
@@ -87,7 +91,7 @@ export function parseRoute(path: string): Route {
     case 'join': return { name: 'join', code: b ?? '' };
     case 'meds':
       if (b === 'new') return { name: 'medNew', tagId: c === 'tag' ? d : undefined, guideId: c === 'guide' ? d : undefined };
-      if (b) return { name: 'med', id: b };
+      if (b) return { name: 'med', id: b, section: (MED_SECTIONS as readonly string[]).includes(c ?? '') ? c as MedSection : undefined };
       return { name: 'meds' };
     default: return { name: 'today' };
   }
