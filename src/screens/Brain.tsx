@@ -62,7 +62,7 @@ export function Brain() {
       )}
 
       {tests.length >= 2 && phase.kind === 'idle' && (
-        <section aria-labelledby="bt-h" className="border-t border-border pt-4 space-y-2">
+        <section aria-labelledby="bt-h" className="box space-y-2">
           <h2 id="bt-h" className="text-sm font-medium text-muted">Your scores</h2>
           <p className="tnum"><span className="text-[28px] font-semibold">{brainScore(tests[tests.length - 1])}</span> <span className="text-muted">latest · {tests.length} tests{usual !== undefined ? ` · usual ${usual}` : ''}</span></p>
           <Sparkline points={tests.slice(-30).map((c) => ({ t: Date.parse(c.at), v: brainScore(c)! }))} label="Brain test scores, last 30" />
@@ -70,7 +70,7 @@ export function Brain() {
       )}
 
       {fb && phase.kind === 'idle' && (
-        <section aria-labelledby="fh-h" className="border-t border-border pt-4 space-y-2">
+        <section aria-labelledby="fh-h" className="box space-y-2">
           <h2 id="fh-h" className="text-sm font-medium text-muted">Focus by the hour</h2>
           <p className="leading-snug">{fb.best ? `Your sharpest stretch is usually ${clock(fb.best.from)}–${clock(fb.best.to)}.` : 'No clear best time yet.'}</p>
           <div className="grid gap-[3px]" style={{ gridTemplateColumns: 'repeat(17, minmax(0, 1fr))' }} role="img"
@@ -86,7 +86,7 @@ export function Brain() {
       )}
 
       {rb && phase.kind === 'idle' && (
-        <section aria-labelledby="rb-h" className="border-t border-border pt-4 space-y-1">
+        <section aria-labelledby="rb-h" className="box space-y-1">
           <h2 id="rb-h" className="text-sm font-medium text-muted">Evening rebound</h2>
           <p className="leading-snug">{rb.dipPct >= 5 ? `A real evening dip: reaction ${rb.evening} ms in the evening against ${rb.day} ms 1–4 hours after a dose (${rb.dipPct}% slower).` : `No real evening dip: ${rb.evening} ms in the evening against ${rb.day} ms after a dose.`}</p>
           {rb.offEvening !== undefined && <p className="text-sm text-muted tnum">Evenings without a dose: {rb.offEvening} ms.</p>}

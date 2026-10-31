@@ -38,7 +38,7 @@ const toneOf = (c: Change) => (c.good === undefined ? 'var(--text-muted)' : c.go
 /** A timeline of genuine shifts, newest first, each beside what happened just before. */
 export function ChangesCard({ changes, series }: { changes: Change[]; series?: Partial<Record<SignalKey, { t: number; v: number }[]>> }) {
   return (
-    <section className="border-t border-border pt-5 pb-2 chart-card" aria-label="What changed">
+    <section className="box chart-card" aria-label="What changed">
       <h2 className="text-sm font-medium text-muted">What changed</h2>
       {!changes.length ? <p className="text-muted mt-1">Nothing has clearly shifted in the last 3 months.</p> : (
         <ol className="mt-3 relative">

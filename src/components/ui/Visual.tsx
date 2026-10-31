@@ -61,7 +61,7 @@ export function IconRow({ Icon, tone = 'plain', children, action, href }: { Icon
 /** A square action button: big icon, short label underneath. */
 export function Tile({ Icon, label, onClick, href, name }: { Icon: LucideIcon; label: string; onClick?: () => void; href?: string; name?: string }) {
   const cls = 'flex flex-col items-center justify-center gap-1.5 min-h-[76px] rounded-card bg-surface-2 text-[13px] font-medium active:scale-[0.97] transition-transform';
-  const inner = <><Icon size={24} aria-hidden="true" className="text-primary" />{label}</>;
+  const inner = <><span aria-hidden="true" className="w-9 h-9 rounded-[11px] flex items-center justify-center bg-primary-soft text-primary"><Icon size={20} /></span>{label}</>;
   return href ? <a href={href} aria-label={name} className={cls}>{inner}</a> : <button type="button" onClick={onClick} aria-label={name} className={cls}>{inner}</button>;
 }
 
@@ -69,8 +69,10 @@ export function Tile({ Icon, label, onClick, href, name }: { Icon: LucideIcon; l
 export function Stat({ value, unit, label, Icon, tone = 'plain', children }: { value: ReactNode; unit?: string; label: string; Icon?: LucideIcon; tone?: Tone; children?: ReactNode }) {
   return (
     <div className="rounded-card bg-surface-2 p-3 min-w-0">
-      <p className="text-[12px] text-muted flex items-center gap-1.5">{Icon && <Icon size={14} aria-hidden="true" style={{ color: TONE[tone].fg }} />}{label}</p>
-      <p className="mt-0.5"><span className="text-[24px] font-semibold tnum leading-none">{value}</span>{unit && <span className="text-sm text-muted ml-1">{unit}</span>}</p>
+      <p className="text-[13px] text-muted font-medium flex items-center gap-1.5">
+        {Icon && <span aria-hidden="true" className="w-[22px] h-[22px] rounded-[7px] flex items-center justify-center shrink-0 text-white" style={{ background: tone === 'plain' ? 'var(--text-muted)' : TONE[tone].fg }}><Icon size={13} /></span>}{label}
+      </p>
+      <p className="mt-1.5"><span className="text-[26px] font-bold tracking-[-0.02em] tnum leading-none">{value}</span>{unit && <span className="text-sm text-muted ml-1">{unit}</span>}</p>
       {children && <div className="mt-2">{children}</div>}
     </div>
   );

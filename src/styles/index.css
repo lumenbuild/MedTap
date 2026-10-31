@@ -96,9 +96,26 @@ main h2 > svg.lucide, [role='dialog'] h3 > svg.lucide, main h2 > span > svg.luci
 /* The headline cards: a colour by day, a glow by night. */
 .hero { background: var(--hero-meds); color: var(--hero-ink); border-radius: var(--radius-card); padding: 18px; box-shadow: inset 0 0 0 1px var(--card-line); }
 .hero.pep { background: var(--hero-pep); }
+/* One hero colour per area: training, sleep, body, focus (by day a colour, by night a glow of it). */
+.hero.act { background: var(--hero-act); }
+.hero.sleep { background: var(--hero-sleep); }
+.hero.body { background: var(--hero-body); }
+.hero.mind { background: var(--hero-mind); }
+.hero.act .hero-btn { background: var(--hero-act-btn, var(--hero-btn)); color: var(--hero-act-btn-ink); }
+.hero.sleep .hero-btn { background: var(--hero-sleep-btn, var(--hero-btn)); color: var(--hero-sleep-btn-ink); }
+.hero.body .hero-btn { background: var(--hero-body-btn, var(--hero-btn)); color: var(--hero-body-btn-ink); }
+.hero.mind .hero-btn { background: var(--hero-mind-btn, var(--hero-btn)); color: var(--hero-mind-btn-ink); }
+.hero svg circle:first-child { stroke: color-mix(in srgb, var(--hero-ink) 24%, transparent); }
+.hero .ring-progress { stroke: var(--hero-ink); }
+.hero :is(.bg-surface, .bg-surface-2, .bg-caution-soft) { background: color-mix(in srgb, var(--hero-ink) 16%, transparent); }
+.hero .bg-caution-soft { box-shadow: inset 3px 0 0 var(--hero-ink); }
+.hero .hero-label { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--hero-muted); }
+/* Card titles: bold and dark, as in the design (they were small grey labels). */
+.box > h2.text-sm.text-muted, .box > div > h2.text-sm.text-muted, .box > header h2.text-sm.text-muted { font-size: 17px; line-height: 22px; font-weight: 600; color: var(--text); }
+.box > h2.text-sm.text-muted svg, .box > div > h2.text-sm.text-muted svg { color: var(--text-muted); }
 .hero .text-muted { color: var(--hero-muted); }
 .hero .hero-btn { background: var(--hero-btn); color: var(--hero-btn-ink); }
-.hero.pep .hero-btn { color: var(--hero-pep-btn-ink); }
+.hero.pep .hero-btn { background: var(--hero-pep-btn, var(--hero-btn)); color: var(--hero-pep-btn-ink); }
 .hero .text-primary { color: var(--hero-ink); }
 .hero .text-text { color: var(--hero-ink); }
 .hero .border-border-strong { border-color: color-mix(in srgb, var(--hero-ink) 45%, transparent); }

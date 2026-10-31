@@ -188,6 +188,8 @@ export interface PeptideVial {
 }
 
 export interface Medication extends Stamped {
+  /** What "Is it working?" judges it by (an Outcome in logic/verdict), when the person picked one. */
+  judgeBy?: string;
   name: string; strength: number; unit: string; form: string; defaultAmount: number;
   schedule: Schedule; color: string; icon: string;
   stockCount?: number; lowStockAt?: number; scriptNotes?: string; archived: boolean;
@@ -371,6 +373,17 @@ export interface DailyHealth extends Stamped {
   /** The night ending this morning, from the watch: deep and REM sleep, time awake, how often awake, and when the main
    *  sleep began and ended (ms). */
   sleepDeepMin?: number; sleepRemMin?: number; sleepAwakeMin?: number; sleepWakes?: number; sleepStart?: number; sleepEnd?: number;
+  /** Overnight, from the watch: blood oxygen (average and lowest, %), breathing rate (breaths a minute) and skin
+   *  temperature against the person's own baseline (°C, + is warmer). */
+  spo2Avg?: number; spo2Min?: number; respRate?: number; skinTempDelta?: number;
+  /** Cardio fitness (VO2 max, mL/kg/min), calories burned (all, and active), floors and metres climbed. */
+  vo2max?: number; kcalTotal?: number; kcalActive?: number; floors?: number; climbM?: number;
+  /** Logged in other apps (via Health Connect): water (mL) and food (kcal, protein, carbs, fat in g). */
+  waterOtherMl?: number; foodOtherKcal?: number; foodOtherProteinG?: number; foodOtherCarbsG?: number; foodOtherFatG?: number;
+  /** Minutes of mindfulness (meditation, breathing). */
+  mindfulMin?: number;
+  /** Blood glucose (a CGM or meter app, mmol/L): the day's average, lowest, highest, % of readings in 3.9–10, and each hour's average. */
+  glucoseAvg?: number; glucoseMin?: number; glucoseMax?: number; glucoseInRange?: number; glucoseByHour?: (number | null)[];
   personId?: string; deletedAt?: string;
 }
 
@@ -405,13 +418,19 @@ export interface WorkoutSet {
   group?: string;
 }
 
-export interface CardioEntry { activity: CardioActivity; distanceKm?: number; durationMin: number; title?: string }
+export interface CardioEntry { activity: CardioActivity; distanceKm?: number; durationMin: number; title?: string;
+  /** From the watch (via Health Connect / Apple Health): average and highest heart rate (bpm) and active calories. */
+  avgHr?: number; maxHr?: number; kcal?: number;
+  /** Heart rate minute by minute (for time in each zone), average speed (km/h), power (W) and metres climbed. */
+  hrMin?: (number | null)[]; kmh?: number; watts?: number; climbM?: number }
 
 export interface Workout extends Stamped {
   startedAt: string; endedAt?: string;
   routineId?: string; name?: string; note?: string;
   sets: WorkoutSet[];
   cardio?: CardioEntry;
+  /** A strength workout logged here that the watch also recorded: its heart rate, calories and minutes. */
+  watch?: { avgHr?: number; maxHr?: number; kcal?: number; minutes?: number; hrMin?: (number | null)[] };
   source: 'manual' | 'health';
   personId?: string; deletedAt?: string;
 }

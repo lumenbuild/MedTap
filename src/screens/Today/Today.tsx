@@ -50,6 +50,7 @@ import { AutoBackupPermission, BackupReminder, CheckInAutoOpen, CheckInPrompt, F
 import { focusAsk } from '../../logic/stimulant';
 import { TopInsights } from '../../components/InsightList';
 import { DailyBrief } from '../../components/Biohack';
+import { TodayCalls } from '../../components/Decisions';
 import { TodayNumbers } from '../../components/TodayNumbers';
 import { HAS_MEDS, HAS_BODY, HAS_TRAINING, HAS_FOOD, FOCUS, HAS_PEPTIDES } from '../../edition';
 import { IntakeCard } from '../../components/Fitness';
@@ -259,6 +260,7 @@ export function Today() {
           {scheduled.length <= 1 && <DayStrip ring={motivation.ring} streaks={motivation.streaks} milestones={motivation.milestones} news={streakNews} />}
         </>;
       })()}
+      {!fam.everyone && <TodayCalls />}
       {!fam.everyone && <TodayNumbers />}
       {!fam.everyone && settings.usualAsk && (
         <UsualCard asks={usualToAsk(usualHabits(intakes, now, s), intakes, now, settings.usualDismissed, s)} personId={storedPerson(fam.personId)} now={now} s={s}

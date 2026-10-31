@@ -3,6 +3,8 @@
 // watch's nights (Health Connect), with doses, caffeine, alcohol and workouts from the app.
 import { useState } from 'react';
 import { BedDouble, ChevronDown, Moon, Sunrise, TrendingDown, TrendingUp } from 'lucide-react';
+import { nightVitals } from '../logic/vitals';
+import { NightVitalsCard } from '../components/HealthCards';
 import { useCheckIns, useDaily, useDoses, useFamily, useMeds, useScheduleSettings, useWorkouts } from '../app/data';
 import { useNow } from '../app/useNow';
 import { useToast } from '../app/toast';
@@ -73,11 +75,12 @@ export function Sleep() {
   }
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-3 pb-8">
       <LastNight n={last} score={score} usual={usual} s={s} />
+      {(() => { const v = nightVitals(mine.daily, now, s); return v ? <NightVitalsCard stats={v.stats} title="Night vitals" /> : null; })()}
 
       {coach && (
-        <section aria-labelledby="tonight-h" className="border-t border-border pt-5 space-y-3">
+        <section aria-labelledby="tonight-h" className="box space-y-3">
           <h2 id="tonight-h" className="text-sm font-medium text-muted flex items-center gap-1.5"><Moon size={16} aria-hidden="true" />Tonight</h2>
           <dl className="grid grid-cols-3 gap-2 tnum">
             <div className="rounded-card bg-surface-2 p-3"><dt className="text-[12px] text-muted">Wind down</dt><dd className="text-[20px] font-semibold">{fmtClock(coach.windDown)}</dd></div>
@@ -95,7 +98,7 @@ export function Sleep() {
       )}
 
       {(debt || cons) && (
-        <section aria-labelledby="debt-h" className="border-t border-border pt-5 space-y-3">
+        <section aria-labelledby="debt-h" className="box space-y-3">
           <h2 id="debt-h" className="text-sm font-medium text-muted">This week</h2>
           <dl className="grid grid-cols-2 gap-2 tnum">
             {debt && (
@@ -122,7 +125,7 @@ export function Sleep() {
 
       <NightsChart ns={ns.slice(-30)} target={target} />
 
-      <section aria-labelledby="factors-h" className="border-t border-border pt-5 space-y-3">
+      <section aria-labelledby="factors-h" className="box space-y-3">
         <h2 id="factors-h" className="text-sm font-medium text-muted">What affects your sleep</h2>
         {factors.length ? <ul className="space-y-3">{factors.map((f) => <FactorRow key={f.key} f={f} />)}</ul>
           : <p className="text-muted leading-snug">Nothing stands out yet. Each pattern needs 4+ nights with and without it: dose times, caffeine, alcohol, sleep peptides, workouts and active days are all checked.</p>}
@@ -148,17 +151,20 @@ function LastNight({ n, score, usual, s }: { n: Night; score: ReturnType<typeof 
   const stageMin: Record<string, number | undefined> = { deep: n.deep, rem: n.rem, light: n.light, awake: n.awake };
   const total = STAGES.reduce((a, st) => a + (stageMin[st.key] ?? 0), 0);
   return (
-    <section aria-labelledby="last-h" className="space-y-4">
-      <h2 id="last-h" className="text-sm font-medium text-muted">Last night · {dayLabel(n.date)}</h2>
-      <div className="flex items-center gap-4">
-        <MiniRing value={score.score} max={100} size={84} tone={score.score >= 70 ? 'good' : 'primary'} label={`Sleep score ${score.score} of 100: ${score.word}`}>
-          <span className="text-[24px] font-semibold tnum">{score.score}</span>
+    <>
+    <section aria-labelledby="last-h" className="hero sleep">
+      <h2 id="last-h" className="hero-label">Last night · {dayLabel(n.date)}</h2>
+      <div className="mt-3 flex items-center gap-4">
+        <MiniRing value={score.score} max={100} size={92} label={`Sleep score ${score.score} of 100: ${score.word}`}>
+          <span className="text-[30px] font-bold tnum">{score.score}</span>
         </MiniRing>
         <div className="flex-1 min-w-0">
-          <p className="text-[28px] leading-8 font-semibold tnum">{fmtHM(n.asleep)}</p>
-          <p className="text-muted">{score.word}{n.start && n.end ? ` · ${t(n.start)} to ${t(n.end)}` : ''}</p>
+          <p className="text-[40px] leading-[44px] font-bold tracking-[-0.02em] tnum">{fmtHM(n.asleep)}</p>
+          <p className="text-muted text-[15px]">{score.word}{n.start && n.end ? ` · ${t(n.start)} to ${t(n.end)}` : ''}</p>
         </div>
       </div>
+    </section>
+    <section aria-label="Last night in detail" className="box space-y-4">
       {total > 0 && (
         <div className="space-y-2">
           <div role="img" aria-label={STAGES.filter((st) => stageMin[st.key]).map((st) => `${st.label} ${Math.round(stageMin[st.key]!)} min`).join(', ')} className="flex h-4 gap-[2px] rounded-full overflow-hidden">
@@ -198,6 +204,7 @@ function LastNight({ n, score, usual, s }: { n: Night; score: ReturnType<typeof 
         </ul>
       )}
     </section>
+    </>
   );
 }
 
@@ -234,7 +241,7 @@ function NightsChart({ ns, target }: { ns: Night[]; target: number }) {
   const y = (m: number) => H - pad - (m / max) * (H - pad - 6);
   const avg = Math.round(ns.reduce((a, n) => a + n.asleep, 0) / ns.length);
   return (
-    <section aria-labelledby="nights-h" className="border-t border-border pt-5 space-y-2">
+    <section aria-labelledby="nights-h" className="box space-y-2">
       <h2 id="nights-h" className="text-sm font-medium text-muted">Last {ns.length} nights</h2>
       <p className="tnum"><span className="text-[22px] font-semibold">{fmtHM(avg)}</span> <span className="text-muted">a night on average · target {fmtHM(target)}</span></p>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Sleep stages for the last ${ns.length} nights, average ${fmtHM(avg)}`}>

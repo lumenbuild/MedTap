@@ -48,7 +48,7 @@ export function MuscleWatchCard({ body, units, med, doses, now }: { body: BodyEn
   const line = (x: NonNullable<typeof w.overall>) => `${k(x.weightLost)} lost, about ${k(Math.max(0, x.leanLost))} of it lean mass (${Math.round(Math.max(0, x.share) * 100)}%)`;
   const high = (s: number) => s > 0.35;
   return (
-    <section className="border-t border-border pt-5 pb-1" aria-labelledby="lean-h">
+    <section className="box" aria-labelledby="lean-h">
       <h2 id="lean-h" className="text-sm font-medium text-muted mb-1">Lean mass while losing weight</h2>
       {!w.overall ? (
         <p className="text-[15px] text-muted">{w.points < 2 ? 'Log body fat % twice to see this.' : 'Shows after 2+ kg lost.'}</p>
@@ -77,7 +77,7 @@ export function PeptideTrainingCard({ med, doses, workouts, tz }: { med: Medicat
   const shots = doses.filter((d) => d.medicationId === med.id && !d.deletedAt && !d.skipped).map((d) => Date.parse(d.takenAt)).sort((a, b) => a - b).slice(-6);
   const plan = tz ? strongestWeekday(shots, r.bestDays, tz) : null;
   return (
-    <section className="border-t border-border pt-5 pb-1" aria-labelledby="pt-h">
+    <section className="box" aria-labelledby="pt-h">
       <h2 id="pt-h" className="text-sm font-medium text-muted mb-2">Strength and {shownName(med)}</h2>
       <ZeroBars fmt={(v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v)}%`} items={r.byDay.map((d) => ({ label: d.day === 0 ? 'Shot' : `D${d.day}`, v: d.pct ?? null, strong: r.bestDays.includes(d.day) }))} />
       <p className="text-xs text-muted mt-1 tnum">Lifts against your usual, by day after a shot ({r.sessions} sessions). Bold: your strongest days.</p>
@@ -107,7 +107,7 @@ export function GoalTimeline({ bodyGoals, fitnessGoals, body, workouts, defs, un
   const end = Math.max(now + 30 * DAY, ...rows.map((x) => x.late ?? x.eta ?? 0));
   const pos = (t: number) => `${Math.max(0, Math.min(100, ((t - now) / (end - now)) * 100))}%`;
   return (
-    <section className="border-t border-border pt-5 pb-1" aria-labelledby="tl-h">
+    <section className="box" aria-labelledby="tl-h">
       <h2 id="tl-h" className="text-sm font-medium text-muted mb-2">Your goals</h2>
       <ul className="space-y-3">
         {rows.sort((a, b) => (a.eta ?? Infinity) - (b.eta ?? Infinity)).map((x) => (

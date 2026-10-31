@@ -29,7 +29,7 @@ export function Travel() {
   return (
     <div className="space-y-2">
       <PersonSwitcher />
-      <section className="border-t border-border pt-5 pb-3 space-y-3">
+      <section className="box space-y-3">
         <p className="text-[15px] text-muted">From home ({place(home)}).</p>
         <label className="block space-y-1.5">
           <span className="block text-sm font-medium">Going to</span>
@@ -41,7 +41,7 @@ export function Travel() {
       </section>
       {plans.length === 0 && <p className="border-t border-border pt-5 text-muted">No medicines on set times to plan.</p>}
       {plans.map((p) => (
-        <section key={p!.med.id} className="border-t border-border pt-5 pb-3 space-y-3" aria-label={shownName(p!.med)}>
+        <section key={p!.med.id} className="box space-y-3" aria-label={shownName(p!.med)}>
           <h2 className="text-[20px] font-medium">{shownName(p!.med)}</h2>
           {p!.shiftH === 0 ? <p className="text-[15px]">Same time zone: no change.</p> : (
             <>

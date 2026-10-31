@@ -355,16 +355,20 @@ export function Settings({ section }: { section?: string }) {
   const sec = section && !absent.includes(section as SettingsSection) ? section as SettingsSection : undefined;
   const body = sec && pages[sec] ? <div className="space-y-4">{pages[sec]()}</div> : (
     <div className="space-y-6">
-      <section aria-label="Features" className="space-y-1">
-        <h2 className="text-sm font-medium text-muted mb-1">Features</h2>
+      <section aria-labelledby="set-features">
+        <h2 id="set-features" className="text-sm font-medium text-muted mb-2 px-1">Features</h2>
+        <div className="box divide-y divide-border" style={{ paddingTop: 4, paddingBottom: 4 }}>
         {HAS_PEPTIDES && !priv && <Toggle Icon={Syringe} label="Peptides and injections" checked={settings.peptideTools} onChange={(v) => setSetting('peptideTools', v)} />}
         {HAS_PEPTIDES && !priv && <Toggle Icon={FlaskConical} label="Biohacking tools" checked={settings.biohackTools} onChange={(v) => setSetting('biohackTools', v)} />}
         {HAS_PEPTIDES && <Toggle Icon={Moon} label="Sleep" checked={settings.sleepTools} onChange={(v) => setSetting('sleepTools', v)} />}
         {HAS_TRAINING && FOCUS !== 'training' && <Toggle Icon={Dumbbell} label="Training" checked={settings.trainingTools} onChange={(v) => setSetting('trainingTools', v)} />}
         {HAS_FOOD && FOCUS !== 'weight' && <Toggle Icon={Utensils} label="Food" checked={settings.foodTracking} onChange={(v) => setSetting('foodTracking', v)} />}
         {isNative && <Toggle Icon={Bell} label="Dose reminders" checked={settings.remindersEnabled} onChange={async (v) => { const on = await setRemindersEnabled(v); if (v && !on) notifyOff(); }} />}
+        </div>
       </section>
-      <section aria-label="Settings">
+      <section aria-labelledby="set-settings">
+        <h2 id="set-settings" className="text-sm font-medium text-muted mb-2 px-1">Settings</h2>
+        <div className="box divide-y divide-border" style={{ paddingTop: 4, paddingBottom: 4 }}>
         {isNative && <Row href="#/settings/reminders" Icon={Bell} title="Reminders" value={settings.remindersEnabled ? 'On' : 'Off'} />}
         {HAS_MEDS && <Row href="#/settings/doses" Icon={Pill} title="Doses" value={`Day starts ${fmtHHmm(settings.dayStartsAt)}`} />}
         {HAS_TRAINING && settings.trainingTools && <Row href="#/settings/training" Icon={Dumbbell} title="Training" value={`Rest ${restLabel(settings.restSeconds)}`} />}
@@ -376,16 +380,21 @@ export function Settings({ section }: { section?: string }) {
         {!HAS_MEDS && <Row href="#/tags" Icon={Nfc} title="Tags" />}
         <Row href="#/settings/display" Icon={Palette} title="Display" value={THEMES.find(([t]) => t === theme)?.[1] ?? ''} />
         <Row href="#/settings/privacy" Icon={Lock} title="Privacy" value={settings.lockEnabled ? 'PIN on' : 'PIN off'} />
+        </div>
       </section>
-      <section aria-label="Your data">
-        <h2 className="text-sm font-medium text-muted mb-1">Your data</h2>
+      <section aria-labelledby="set-data">
+        <h2 id="set-data" className="text-sm font-medium text-muted mb-2 px-1">Your data</h2>
+        <div className="box divide-y divide-border" style={{ paddingTop: 4, paddingBottom: 4 }}>
         <Row href="#/settings/people" Icon={Users} title="People and sync" value={`${fam?.people.length ?? 1} ${fam && fam.people.length > 1 ? 'people' : 'person'} · sync ${sync ? 'on' : 'off'}`} />
         <Row href="#/backup" Icon={HardDriveDownload} title="Backup and restore" value={last ? fmtAgo(now - last) : 'None yet'} />
+        </div>
       </section>
-      <section aria-label="Help">
-        <h2 className="text-sm font-medium text-muted mb-1">Help</h2>
+      <section aria-labelledby="set-help">
+        <h2 id="set-help" className="text-sm font-medium text-muted mb-2 px-1">Help</h2>
+        <div className="box divide-y divide-border" style={{ paddingTop: 4, paddingBottom: 4 }}>
         <Row href="#/help" Icon={HelpCircle} title="Help and guides" />
         <Row href="#/settings/about" Icon={Info} title={`About ${APP_NAME}`} value={BUILD ? `Build ${BUILD}` : undefined} />
+        </div>
       </section>
     </div>
   );
@@ -451,10 +460,21 @@ function NumberPick({ id, value, presets, fmt, unit, min, max, step = 1, near = 
 }
 
 /** A feature switch with its icon: one line. */
+/** Each row's icon on its area's colour, as on Today. */
+const TONE = new Map<LucideIcon, string>([
+  [Bell, 'meds'], [Pill, 'meds'], [Syringe, 'pep'], [FlaskConical, 'mind'], [Moon, 'sleep'], [Dumbbell, 'act'], [Utensils, 'act'],
+  [Smile, 'mind'], [Coffee, 'act'], [HeartPulse, 'heart'], [Watch, 'body'], [Nfc, 'pep'], [Palette, 'mind'], [Lock, 'sleep'],
+  [Users, 'body'], [HardDriveDownload, 'pep'], [HelpCircle, 'body'], [RefreshCw, 'pep'],
+]);
+function RowIcon({ Icon }: { Icon: LucideIcon }) {
+  const tone = TONE.get(Icon);
+  return <span aria-hidden="true" className="w-8 h-8 rounded-[9px] flex items-center justify-center shrink-0 text-white" style={{ background: tone ? `var(--c-${tone})` : 'var(--text-muted)' }}><Icon size={17} /></span>;
+}
+
 function Toggle({ Icon, label, checked, onChange }: { Icon: LucideIcon; label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <div className="flex items-center gap-3 border-t border-border first-of-type:border-t-0">
-      <span aria-hidden="true" className="w-9 h-9 rounded-full bg-surface-2 flex items-center justify-center shrink-0"><Icon size={18} /></span>
+    <div className="flex items-center gap-3">
+      <RowIcon Icon={Icon} />
       <div className="flex-1"><Switch label={label} checked={checked} onChange={onChange} /></div>
     </div>
   );
@@ -463,8 +483,8 @@ function Toggle({ Icon, label, checked, onChange }: { Icon: LucideIcon; label: s
 /** A row that opens a page, with its current value on the right. */
 function Row({ href, Icon, title, value }: { href: string; Icon: LucideIcon; title: string; value?: string }) {
   return (
-    <a href={href} className="border-t border-border min-h-[56px] flex items-center gap-3">
-      <span aria-hidden="true" className="w-9 h-9 rounded-full bg-surface-2 flex items-center justify-center shrink-0"><Icon size={18} /></span>
+    <a href={href} className="min-h-[52px] flex items-center gap-3">
+      <RowIcon Icon={Icon} />
       <span className="flex-1 font-medium">{title}</span>
       {value && <span className="text-sm text-muted tnum truncate max-w-[45%]">{value}</span>}
       <ChevronRight className="text-muted shrink-0" size={18} aria-hidden="true" />

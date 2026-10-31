@@ -41,7 +41,7 @@ export function DailyBrief() {
   const brief = dailyBrief({ ...mine, waterTarget: st.waterTargetMl, biohack: on }, now, s);
   // Self-experiments running today.
   for (const e of (experiments ?? []).filter((x) => !x.deletedAt && me(x))) {
-    const c = on && !e.ended ? conditionOn(e, format(now, 'yyyy-MM-dd')) : null;
+    const c = !e.ended ? conditionOn(e, format(now, 'yyyy-MM-dd')) : null;
     if (c) brief.push({ key: `exp:${e.id}`, text: `Experiment “${e.title}”: today is ${c.arm === 'a' ? e.a : e.b}` });
   }
   const ill = on ? illnessWarning(mine.daily, now, s) : null;
@@ -96,7 +96,7 @@ export function ToleranceSection({ med }: { med: Medication }) {
   const ab = afterBreak(med, doses, cis, dy, now, s);
   const breaks = med.schedule.breaks ?? [];
   return (
-    <section aria-labelledby={`tol-${med.id}`} className="border-t border-border pt-5 space-y-2">
+    <section aria-labelledby={`tol-${med.id}`} className="box space-y-2">
       <h2 id={`tol-${med.id}`} className="text-sm font-medium text-muted">Tolerance and breaks</h2>
       {t && (t.drops.length
         ? <p className="leading-snug"><span className="font-medium">The effect is shrinking</span> on {t.amount} {med.unit}: {t.drops.map((d) => `${d.what.toLowerCase()} ${d.from} → ${d.to}`).join('; ')} (first 3 weeks against the last 3). A break often brings it back.</p>
@@ -145,7 +145,7 @@ export function MuscleCard() {
   const m = muscleScore(body.filter(me), daily.filter(me), workouts.filter(me), st.proteinTargetG, now);
   if (!m) return null;
   return (
-    <section aria-labelledby="muscle-h" className="border-t border-border pt-5 space-y-2">
+    <section aria-labelledby="muscle-h" className="box space-y-2">
       <h2 id="muscle-h" className="text-sm font-medium text-muted">Muscle protection</h2>
       <div className="flex items-center gap-3">
         <MiniRing value={m.score} max={100} size={52} tone={m.score >= 75 ? 'good' : m.score >= 50 ? 'primary' : 'watch'} label={`Muscle protection ${m.score} of 100`}>{m.score}</MiniRing>

@@ -74,7 +74,7 @@ export function Protocol() {
     <div className="space-y-4">
       <PersonSwitcher />
       {!med ? (
-        <section className="border-t border-border pt-5 space-y-3">
+        <section className="box space-y-3">
           <p>No peptides yet{fam.many ? ` for ${fam.person}` : ''}. Add one with the injection form and it shows here: the next shot, how it's going, its plan and stock.</p>
           <div className="grid grid-cols-2 gap-2">
             <Button onClick={() => go('/guide')}>Pick from the guide</Button>
@@ -89,7 +89,7 @@ export function Protocol() {
         </>
       )}
 
-      <section aria-labelledby="stock-h" className="border-t border-border pt-5">
+      <section aria-labelledby="stock-h" className="box">
         <h2 id="stock-h" className="text-sm font-medium text-muted">Stock</h2>
         <dl className="mt-1">
           {med && <MedStock med={med} doses={doses} s={s} now={now} body={body.filter(mine)} checkIns={checkIns.filter(mine)} />}
@@ -186,7 +186,7 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
     <>
       {showOverview && <>
       {/* 1. The next shot: when, how much, what to draw, and the vial or pen it comes from. */}
-      <section aria-label={`${shownName(med)}: next shot`} className="rounded-card bg-surface-2 p-4 space-y-4">
+      <section aria-label={`${shownName(med)}: next shot`} className="hero pep space-y-4">
         {part === 'all' && (
           <a href={`#/meds/${med.id}`} className="flex items-center gap-2.5">
             <MedBadge color={shownColour(med)} icon={med.icon} size={30} />
@@ -195,8 +195,8 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
           </a>
         )}
         <div>
-          <p className="text-sm text-muted">Next shot</p>
-          <p className="text-[28px] leading-8 font-semibold tnum">{when}</p>
+          <p className="hero-label">Next shot</p>
+          <p className="mt-1 text-[34px] leading-[38px] font-bold tracking-[-0.02em] tnum">{when}</p>
           {nextAmount > 0 && <p className="text-[17px] tnum mt-1">{fmtAmount(nextAmount, med.unit)}{guide ? <> · <span className="font-semibold">{pen ? guide : `draw ${guide}`}</span></> : null}</p>}
           {plan && <p className="text-sm text-muted mt-1">{plan}</p>}
           {missed && <p className={`text-sm mt-2 rounded-btn p-2.5 ${missed.take ? 'bg-caution-soft' : 'bg-surface-2'}`}>{missed.text}</p>}
@@ -213,13 +213,13 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
         </div>
         <div className="grid grid-cols-2 gap-2">
           {problem
-            ? <><Button className="min-h-[52px]" onClick={() => setSheet('start')}>{pen ? 'Start a new pen' : 'Mix a new vial'}</Button><Button variant="secondary" className="min-h-[52px]" onClick={() => setSheet('log')}>Log shot</Button></>
-            : <><Button className="min-h-[52px]" onClick={() => setSheet('log')}>Log shot</Button>{!pen ? <Button variant="secondary" className="min-h-[52px]" onClick={() => go('/calc')}>Calculator</Button> : <Button variant="secondary" className="min-h-[52px]" onClick={() => go(`/meds/${med.id}`)}>Pen details</Button>}</>}
+            ? <><Button className="min-h-[52px] hero-btn" onClick={() => setSheet('start')}>{pen ? 'Start a new pen' : 'Mix a new vial'}</Button><Button variant="secondary" className="min-h-[52px]" onClick={() => setSheet('log')}>Log shot</Button></>
+            : <><Button className="min-h-[52px] hero-btn" onClick={() => setSheet('log')}>Log shot</Button>{!pen ? <Button variant="secondary" className="min-h-[52px]" onClick={() => go('/calc')}>Calculator</Button> : <Button variant="secondary" className="min-h-[52px]" onClick={() => go(`/meds/${med.id}`)}>Pen details</Button>}</>}
         </div>
       </section>
 
       {/* 2. How it's going. */}
-      <section aria-labelledby="going-h" className="border-t border-border pt-5 space-y-5">
+      <section aria-labelledby="going-h" className="box space-y-5">
         <h2 id="going-h" className="sr-only">How it's going</h2>
         <WeeklySummaryBlock w={weeklySummary(med, doses, checkIns, HAS_BODY ? body : [], now, s)} med={med} units={units} onProtocol />
         <FlagList flags={flags} />

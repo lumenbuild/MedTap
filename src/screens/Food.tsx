@@ -29,6 +29,8 @@ import { Segmented, TextInput } from '../components/ui/Field';
 import { Bar } from '../components/ui/Visual';
 import { LogFoodSheet, NutrientList, macroLine } from '../components/food/LogFoodSheet';
 import { LiveScanner } from '../components/food/LiveScanner';
+import { EnergyCard } from '../components/HealthCards';
+import { energyBalance } from '../logic/energy';
 
 const frac = (f: number) => (f === 0.5 ? '½' : f === 1.5 ? '1½' : f === 0.75 ? '¾' : f === 1.25 ? '1¼' : String(f));
 
@@ -95,6 +97,11 @@ export function FoodScreen() {
           </details>
         )}
       </Card>
+      {(() => {
+        // With the watch: calories burned against eaten, and where that takes your weight.
+        const e = daily ? energyBalance(daily.filter((d) => personOf(d) === fam.personId), mine, now, scheduleSettings(settings)) : null;
+        return e ? <EnergyCard e={e} /> : null;
+      })()}
 
       <Card className="space-y-2">
         <div className="flex items-center justify-between">

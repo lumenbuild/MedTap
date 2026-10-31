@@ -218,7 +218,7 @@ export function DosePlanCard({ med, flat = false }: { med: Medication; flat?: bo
     </>
   );
   return flat
-    ? <section aria-labelledby={`plan-${med.id}`} className="border-t border-border pt-5 space-y-3">{body_}</section>
+    ? <section aria-labelledby={`plan-${med.id}`} className="box space-y-3">{body_}</section>
     : <Card className="space-y-3"><section aria-labelledby={`plan-${med.id}`} className="space-y-3">{body_}</section></Card>;
 }
 

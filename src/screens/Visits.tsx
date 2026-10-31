@@ -49,7 +49,7 @@ export function Appointments() {
   return (
     <div className="space-y-2">
       <PersonSwitcher />
-      <section className="border-t border-border pt-5 pb-3 space-y-3">
+      <section className="box space-y-3">
         <h2 className="text-sm font-medium text-muted">Since your last appointment</h2>
         {last ? (
           <>
@@ -59,7 +59,7 @@ export function Appointments() {
         ) : <p className="text-[15px] text-muted">Add your last appointment to see what's changed since</p>}
       </section>
 
-      <section className="border-t border-border pt-5 pb-3" aria-labelledby="q-h">
+      <section className="box" aria-labelledby="q-h">
         <h2 id="q-h" className="text-sm font-medium text-muted">Questions to ask</h2>
         <form className="flex gap-2 mt-2" onSubmit={async (e) => { e.preventDefault(); if (!q.trim()) return; await addQuestion(q, fam.personId); setQ(''); }}>
           <input aria-label="New question" value={q} onChange={(e) => setQ(e.target.value)} placeholder="e.g. Can I take it later on weekends?"
@@ -77,7 +77,7 @@ export function Appointments() {
         </ul>
       </section>
 
-      <section className="border-t border-border pt-5 pb-3" aria-labelledby="a-h">
+      <section className="box" aria-labelledby="a-h">
         <div className="flex items-baseline justify-between">
           <h2 id="a-h" className="text-sm font-medium text-muted">Appointments</h2>
           <button type="button" className="text-sm font-medium underline underline-offset-4 min-h-[44px]" onClick={() => setAdding(true)}>Add</button>
@@ -211,7 +211,7 @@ export function Labs() {
   return (
     <div className="space-y-2">
       <PersonSwitcher />
-      <section className="border-t border-border pt-5 pb-3 space-y-3">
+      <section className="box space-y-3">
         <PhotoReader what="the printout" onText={(text) => {
           const r = parseLabResults(text);
           if (!r.results.length) toast("Couldn't find results on it. Add them by hand.");

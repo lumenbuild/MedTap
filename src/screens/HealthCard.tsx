@@ -11,7 +11,7 @@ import { HAS_BODY } from '../edition';
 /** Native app only: read steps, sleep and heart rate (and weigh-ins, blood pressure) from Health Connect or Apple Health. */
 export default function HealthCard({ on, last, personId, personName, now }: { on: boolean; last: string | null; personId: string; personName?: string; now: number }) {
   const toast = useToast();
-  const [status, setStatus] = useState<{ status: string; granted: string[] } | null>(null);
+  const [status, setStatus] = useState<{ status: string; granted: string[]; asked?: number } | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     const check = () => healthStatus().then(setStatus).catch(() => setStatus({ status: 'unsupported', granted: [] }));
@@ -25,7 +25,7 @@ export default function HealthCard({ on, last, personId, personName, now }: { on
   const run = async (f: () => Promise<void>) => { setBusy(true); try { await f(); } catch (e) { toast((e as Error).message || `Couldn't reach ${name}.`); } finally { setBusy(false); } };
   const n = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many}`;
   const said = (r?: { days: number; weighIns: number; readings: number; workouts?: number }) => r
-    ? `Imported ${n(r.days, 'day', 'days')}${r.weighIns ? `, ${n(r.weighIns, 'weigh-in', 'weigh-ins')}` : ''}${r.readings ? `, ${n(r.readings, 'blood pressure reading', 'blood pressure readings')}` : ''}${r.workouts ? `, ${n(r.workouts, 'cardio session', 'cardio sessions')}` : ''}.`
+    ? `Imported ${n(r.days, 'day', 'days')}${r.weighIns ? `, ${n(r.weighIns, 'weigh-in', 'weigh-ins')}` : ''}${r.readings ? `, ${n(r.readings, 'blood pressure reading', 'blood pressure readings')}` : ''}${r.workouts ? `, ${n(r.workouts, 'workout', 'workouts')}` : ''}.`
     : '';
   const open = () => MedTapNative.openHealthConnect().catch(() => toast(`Couldn't open ${name}. Open it from your phone's Settings.`));
   const refresh = () => healthStatus().then(setStatus).catch(() => undefined);
@@ -44,7 +44,7 @@ export default function HealthCard({ on, last, personId, personName, now }: { on
       )}
       {status?.status === 'available' && !on && (
         <>
-          <p className="text-[15px]">Steps, sleep, heart rate{HAS_BODY ? ', weigh-ins' : ''} and blood pressure, copied in when you open the app.</p>
+          <p className="text-[15px]">Everything your watch records: sleep, heart rate and HRV, blood oxygen, breathing, skin temperature, steps, calories, workouts{HAS_BODY ? ', weigh-ins' : ''}, blood pressure, and water, food and glucose from other apps. Copied in when you open the app; nothing leaves this phone.</p>
           <div className="flex flex-wrap gap-2">
             <Button disabled={busy} onClick={() => run(async () => {
               const r = await connectHealth(personId);
@@ -59,6 +59,12 @@ export default function HealthCard({ on, last, personId, personName, now }: { on
         <>
           <p className="text-[15px] tnum">On{personName ? ` for ${personName}` : ''} · {last ? `last import ${fmtAgo(now - Date.parse(last))}` : 'not imported yet'}</p>
           {noAccess && <p className="text-[15px]">Nothing is allowed at the moment, so nothing comes in. Allow it in {name} settings.</p>}
+          {!noAccess && status.asked !== undefined && status.granted.length < status.asked && (
+            <div className="rounded-btn bg-primary-soft p-3 space-y-2">
+              <p className="text-[15px]">More from your watch can come in: blood oxygen, breathing rate, skin temperature, fitness, calories, water and food from other apps, glucose and your full history.</p>
+              <Button disabled={busy} onClick={() => run(async () => { const r = await connectHealth(personId); toast(said(r.imported)); await refresh(); })}>Allow more data</Button>
+            </div>
+          )}
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" disabled={busy} onClick={() => run(async () => { toast(said(await importHealth())); })}>Import now</Button>
             {settings}

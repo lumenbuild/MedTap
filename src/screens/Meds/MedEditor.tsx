@@ -45,7 +45,9 @@ import { DrawGuide, syringeSizes } from '../../components/Syringe';
 import { SYRINGES } from '../../logic/peptide';
 import type { LabelDetails } from '../../logic/label';
 import { HAS_PEPTIDES } from '../../edition';
-import { canSplit, guideById, guideFor, guideMed, lowestPlan, stepChanges, fmtDose, type GuideEntry } from '../../logic/peptideGuide';
+import { MedHero, MedBodyEffects } from '../../components/MedHero';
+import { MedVerdict } from '../../components/Decisions';
+import { canSplit, guideById, guideFor, guideMed, lowestPlan, savedVial, stepChanges, fmtDose, type GuideEntry } from '../../logic/peptideGuide';
 import { Switch } from '../../components/ui/Switch';
 import { fmtAmount, fmtSchedule } from '../../logic/format';
 
@@ -71,7 +73,7 @@ const blank: Form = {
   name: '', strength: '', unit: 'mg', form: 'tablet',
   color: MED_COLOURS[0].value, icon: 'pill', stockCount: '', lowStockAt: '', scriptNotes: '',
   repeatsLeft: '', scriptExpiry: '', instructions: '', instructionsBy: '', nickname: '', privateView: '', coverName: '', personId: '',
-  mixed: false, kind: 'vial', waterMl: '', syringe: 'U-100', syringeUnits: '30', useWithinDays: '',
+  mixed: false, kind: 'vial', waterMl: '', syringe: 'U-100', syringeUnits: '50', useWithinDays: '',
   amountPerClick: '', blend: [], halfLife: '', halfLifeUnit: 'days', ingredients: '', cost: '',
 };
 
@@ -87,7 +89,7 @@ function fromMed(m: Medication): Form {
     instructions: m.instructions ?? '', instructionsBy: m.instructionsBy ?? '', nickname: m.nickname ?? '', privateView: m.privateView ?? '', coverName: m.coverName ?? '',
     personId: m.shared ? 'shared' : personOf(m),
     mixed: !!m.peptide, kind: m.peptide?.kind ?? 'vial', waterMl: str(m.peptide?.waterMl), syringe: m.peptide?.syringe ?? 'U-100',
-    syringeUnits: str(m.peptide?.syringeUnits) || '30', useWithinDays: str(m.peptide?.useWithinDays),
+    syringeUnits: str(m.peptide?.syringeUnits) || '50', useWithinDays: str(m.peptide?.useWithinDays),
     amountPerClick: str(m.peptide?.amountPerClick), blend: (m.peptide?.blend ?? []).map((b) => ({ ...b, amount: String(b.amount) })),
     // Half-lives of a day or more read better in days.
     halfLife: !m.peptide?.halfLifeHours ? '' : m.peptide.halfLifeHours >= 24 ? str(Math.round((m.peptide.halfLifeHours / 24) * 100) / 100) : str(m.peptide.halfLifeHours),
@@ -109,7 +111,7 @@ function toInput(f: Form, before?: Medication): MedInput {
     instructions, instructionsBy: instructions ? f.instructionsBy.trim() || undefined : undefined,
     peptide: f.mixed ? {
       kind: f.kind,
-      waterMl: f.kind === 'vial' ? Number(f.waterMl) : 0, syringe: f.syringe, syringeUnits: Number(f.syringeUnits) || 30,
+      waterMl: f.kind === 'vial' ? Number(f.waterMl) : 0, syringe: f.syringe, syringeUnits: Number(f.syringeUnits) || 50,
       useWithinDays: num(f.useWithinDays), mixedAt: before?.peptide?.mixedAt,
       amountPerClick: f.kind === 'pen' ? num(f.amountPerClick) : undefined,
       blend: f.kind === 'vial' ? f.blend.filter((b) => b.name.trim() && Number(b.amount) > 0).map((b) => ({ name: b.name.trim(), amount: Number(b.amount), unit: b.unit })) : undefined,
@@ -183,7 +185,8 @@ function fromLabel(p: Form, d: LabelDetails): Form {
 
 /** The form filled in from a guide entry, keeping the colour and who it's for. */
 function fromGuide(p: Form, g: GuideEntry, keepName?: string, split = false): Form {
-  const m = guideMed(g, Date.now(), split);
+  // The vial the person entered on the guide, if any (sizes vary by supplier).
+  const m = guideMed(g, Date.now(), split, savedVial(g.id));
   const filled = fromMed({ ...m, id: '', createdAt: '', updatedAt: '', archived: false, color: p.color, icon: 'syringe' });
   return { ...filled, name: keepName ?? filled.name, personId: p.personId };
 }
@@ -348,7 +351,7 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
         );
                 return (
           <Card className="bg-primary-soft shadow-none space-y-2">
-            <p>Filled in from the <a href={`#/guide/${g.id}`} className="underline underline-offset-4 font-medium">{g.name} guide</a>: a {fmtDose(g.vials[0].amount, g.unit)} vial with {g.vials[0].waterMl} mL of water, U-100 syringes and its usual schedule.</p>
+            <p>Filled in from the <a href={`#/guide/${g.id}`} className="underline underline-offset-4 font-medium">{g.name} guide</a>: {savedVial(g.id) ? 'your' : 'a'} {fmtDose(Number(f.strength) || g.vials[0].amount, g.unit)} vial with {f.waterMl || g.vials[0].waterMl} mL of water, U-100 syringes and its usual schedule.{savedVial(g.id) ? '' : ' Check the vial size against your label.'}</p>
             <p className="text-sm">The dose is set to {fmtDose(split ? g.setup.defaultAmount / 2 : g.setup.defaultAmount, g.unit)}{split ? ' a shot' : ''}, {split ? 'half the usual weekly starting dose' : 'the usual starting dose'}. Change anything to match your vial and your plan.</p>
             {canSplit(g) && <Switch label="Two shots a week" checked={split} onChange={(v) => { setSplit(v); setF((p) => fromGuide(p, g, p.name, v)); }}>Half the weekly amount, 3 and 4 days apart, for a steadier level.</Switch>}
             {(g.steps || g.lowest) && (
@@ -378,8 +381,8 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
         </div>
       )}
       {existing && !existing.archived && tab === 'overview' && (onProtocol && !priv
-        ? <><PeptidePart med={existing} part="overview" /><HowToTakeCard med={existing} onPeptidePage /></>
-        : <><HowToTakeCard med={existing} />{!priv && <DosePlanCard med={existing} />}</>)}
+        ? <><PeptidePart med={existing} part="overview" /><MedVerdict med={existing} /><HowToTakeCard med={existing} onPeptidePage /><MedBodyEffects med={existing} /></>
+        : <><MedHero med={existing} />{!priv && <MedVerdict med={existing} />}<HowToTakeCard med={existing} />{!priv && <DosePlanCard med={existing} />}<MedBodyEffects med={existing} /></>)}
       {existing && !existing.archived && tab === 'plan' && !priv && <PeptidePart med={existing} part="plan" />}
       {existing && !existing.archived && tab === 'stock' && (onProtocol
         ? <><VialCard med={existing} />{!priv && <PeptidePart med={existing} part="stock" />}</>
@@ -583,7 +586,7 @@ function MixedVialFields({ f, set, errors, vials }: { f: Form; set: <K extends k
   const sizes = syringeSizes(f.syringe);
   const preview = {
     id: '', name: f.name, defaultAmount: Number(f.defaultAmount) || 0, strength: Number(f.strength), unit: f.unit, vials,
-    peptide: { kind: f.kind, waterMl: Number(f.waterMl), syringe: f.syringe, syringeUnits: Number(f.syringeUnits) || 30, amountPerClick: num(f.amountPerClick),
+    peptide: { kind: f.kind, waterMl: Number(f.waterMl), syringe: f.syringe, syringeUnits: Number(f.syringeUnits) || 50, amountPerClick: num(f.amountPerClick),
       blend: f.blend.filter((b) => b.name.trim() && Number(b.amount) > 0).map((b) => ({ name: b.name, amount: Number(b.amount), unit: b.unit })) },
   };
   return (
@@ -602,7 +605,7 @@ function MixedVialFields({ f, set, errors, vials }: { f: Form; set: <K extends k
           <TextInput label="Water usually added to a vial (mL)" type="number" inputMode="decimal" min="0" step="any" value={f.waterMl}
             onChange={(e) => set('waterMl', e.target.value)} error={errors.waterMl} />
           <div className="grid grid-cols-2 gap-3 items-start">
-            <Select label="Syringe" value={f.syringe} onChange={(e) => { set('syringe', e.target.value as SyringeType); set('syringeUnits', String(syringeSizes(e.target.value as SyringeType)[0].units)); }}>
+            <Select label="Syringe" value={f.syringe} onChange={(e) => { set('syringe', e.target.value as SyringeType); set('syringeUnits', String((syringeSizes(e.target.value as SyringeType).find((x) => x.ml === 0.5) ?? syringeSizes(e.target.value as SyringeType)[0]).units)); }}>
               {SYRINGES.map((x) => <option key={x.value} value={x.value}>{x.value}</option>)}
             </Select>
             <Select label="Size" value={f.syringeUnits} onChange={(e) => set('syringeUnits', e.target.value)}>
@@ -663,7 +666,7 @@ function StockLine({ med, onEdit }: { med: Medication; onEdit: () => void }) {
   if (!doses || !ss) return null;
   const f = forecastRunOut(med, doses, now, ss[1]);
   return (
-    <section aria-labelledby={`stock-${med.id}`} className="border-t border-border pt-5 space-y-2">
+    <section aria-labelledby={`stock-${med.id}`} className="box space-y-2">
       <h2 id={`stock-${med.id}`} className="text-sm font-medium text-muted">Stock</h2>
       {med.stockCount !== undefined ? (
         <p className="tnum"><span className="text-[22px] font-semibold">{Math.round(med.stockCount * 100) / 100}</span> left{f?.runOutAt != null ? <span className="text-muted"> · about {f.daysLeft} days, runs out {format(f.runOutAt, 'EEE d MMM')}</span> : null}</p>

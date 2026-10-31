@@ -12,7 +12,7 @@ import { proteinVsLean, readinessVsPerformance } from '../logic/fitnessInsights'
 import type { SleepImpact } from '../logic/habits';
 
 const Section = ({ id, title, children }: { id: string; title: string; children: React.ReactNode }) => (
-  <section className="border-t border-border pt-5 pb-1" aria-labelledby={id}>
+  <section className="box" aria-labelledby={id}>
     <h2 id={id} className="text-sm font-medium text-muted mb-2">{title}</h2>
     {children}
   </section>

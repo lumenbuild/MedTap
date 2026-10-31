@@ -290,7 +290,7 @@ const CONTENT: Record<string, ReactNode> = {
       <H>A vial you mix</H>
       <ol className="list-decimal pl-5 space-y-1">
         <li>Add the medication with Form <strong>Injection</strong>, and choose <strong>A vial I mix with water</strong>.</li>
-        <li>Enter the <strong>amount in each vial</strong>, the water you usually add, and your syringe (U-100 0.3 mL is common).</li>
+        <li>Enter the <strong>amount in each vial</strong>, the water you usually add, and your syringe (U-100 0.5 mL, 50 units, is the usual one).</li>
         <li>Set the dose and schedule your prescriber gave you.</li>
       </ol>
       <p>Each time you mix one, tap <strong>I've mixed a new vial</strong> and enter the water you used. Units are worked out from <em>that</em> vial, so a vial mixed with more or less water still shows the right units. Log dose shows what to draw, e.g. <strong>10 units · 0.1 mL</strong>, and Today shows it on the card.</p>

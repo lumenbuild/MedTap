@@ -22,6 +22,7 @@ import { Stat, Tile } from '../../components/ui/Visual';
 import { glance } from '../../logic/digest';
 import { stepsTarget } from '../../logic/movement';
 import { kgTo, weightUnit } from '../../logic/units';
+import { WorkingLink } from '../../components/Decisions';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
 import { RANGE_DAYS, rangeStart, type Range } from '../../logic/stats';
@@ -108,6 +109,7 @@ export function Trends() {
         ].filter(Boolean);
         return tiles.length ? <div className={`grid gap-2 ${tiles.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`} role="group" aria-label="At a glance">{tiles}</div> : null;
       })()}
+      <WorkingLink />
       <InsightFeed max={3} />
       <WeekReviewSection />
       <AskBox data={{ meds, doses, checkIns, body, daily, vitals, events }} now={now} />
@@ -123,7 +125,7 @@ export function Trends() {
         extra={<><NoticedBlock checkIns={checkIns} start={start} end={end} />{ciForecast && <CheckInForecastBlock f={ciForecast} />}</>} />
       {med && (
         <>
-          <section className="border-t border-border pt-5" aria-labelledby="med-h">
+          <section className="box" aria-labelledby="med-h">
             <h2 id="med-h" className="text-sm font-medium text-muted">Medicines</h2>
             {byUse.length > 1
               ? <div className="mt-2"><ChipPicker label="Medicine" value={med.id} onChange={pickMed} options={byUse.map((m) => ({ value: m.id, label: shownName(m) }))} /></div>
@@ -152,7 +154,7 @@ export function Trends() {
         caffeine={{ bedtime: settings.bedtime, halfLifeH: settings.caffeineHalfLifeH, foodLogs: allFood.filter((l) => personOf(l) === fam.personId) }} />
       </Fold>
       {(HAS_MEDS || bio) && (
-        <section aria-labelledby="records-h" className="border-t border-border pt-4">
+        <section aria-labelledby="records-h" className="box">
           <h2 id="records-h" className="text-sm font-medium text-muted mb-2">Records and tools</h2>
           <div className="grid grid-cols-2 gap-2">
             {bio && <Tile Icon={NotebookPen} label="Journal" href="#/journal" />}

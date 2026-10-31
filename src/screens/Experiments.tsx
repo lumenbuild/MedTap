@@ -46,7 +46,7 @@ export function Experiments({ guideId }: { guideId?: string } = {}) {
         const m = METRICS[e.metric];
         const over = today > (e.ended ?? lastDay(e));
         return (
-          <section key={e.id} aria-labelledby={`ex-${e.id}`} className="border-t border-border pt-4 space-y-2">
+          <section key={e.id} aria-labelledby={`ex-${e.id}`} className="box space-y-2">
             <h2 id={`ex-${e.id}`} className="font-semibold flex items-center gap-2"><FlaskConical size={18} aria-hidden="true" className="text-primary" />{e.title}</h2>
             {c && !over && <p className="leading-snug">Today: <strong>{c.arm === 'a' ? e.a : e.b}</strong> <span className="text-muted">(day {c.dayInBlock} of {e.blockDays}, block {c.block + 1} of {e.blocks.length})</span></p>}
             <div className="flex gap-1" role="img" aria-label={`Blocks: ${e.blocks.map((b) => (b === 'a' ? e.a : e.b)).join(', ')}`}>

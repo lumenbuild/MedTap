@@ -224,8 +224,9 @@ export function trainingCalendar(workouts: Workout[], now: number, s: ScheduleSe
 
 export interface Readiness { score: number; label: 'Ready' | 'OK' | 'Take it easy'; parts: { what: string; text: string; good: boolean }[] }
 
-/** Today against the person's own last 4 weeks: last night's sleep, resting heart rate and heart rate variability
- *  (from Health Connect / Apple Health), and soreness from a check-in today. Needs at least one of them. */
+/** Today against the person's own last 4 weeks: last night's sleep, resting heart rate and heart rate variability,
+ *  breathing rate, skin temperature and blood oxygen (from Health Connect / Apple Health), and soreness from a check-in
+ *  today. Needs at least one of them. */
 export function readiness(daily: DailyHealth[], checkIns: CheckIn[], now: number, s: ScheduleSettings): Readiness | null {
   const todayK = dayKey(now, s);
   const rows = daily.filter(live).sort((a, b) => a.date.localeCompare(b.date));
@@ -240,6 +241,13 @@ export function readiness(daily: DailyHealth[], checkIns: CheckIn[], now: number
   if (hr !== undefined && bh) { const d = (bh - hr) / bh; score += 150 * Math.max(-0.15, Math.min(0.1, d)); parts.push({ what: 'Resting heart rate', text: `${hr} bpm (usually ${Math.round(bh)})`, good: d >= -0.05 }); }
   const hv = today?.hrvMs, bv = b('hrvMs');
   if (hv !== undefined && bv) { const d = (hv - bv) / bv; score += 40 * Math.max(-0.4, Math.min(0.3, d)); parts.push({ what: 'Heart rate variability', text: `${Math.round(hv)} ms (usually ${Math.round(bv)})`, good: d >= -0.1 }); }
+  // Overnight from the watch: breathing faster, skin warmer or blood oxygen lower than usual all point to less recovered.
+  const br = today?.respRate, bb = median(base.map((d) => d.respRate).filter((x): x is number => typeof x === 'number'));
+  if (br !== undefined && bb) { const d = br - bb; if (d > 0.5) score -= Math.min(12, (d - 0.5) * 8); parts.push({ what: 'Breathing rate', text: `${br.toFixed(1)} a minute (usually ${bb.toFixed(1)})`, good: d <= 1 }); }
+  const st = today?.skinTempDelta;
+  if (st !== undefined) { if (st > 0.3) score -= Math.min(12, (st - 0.3) * 20); parts.push({ what: 'Skin temperature', text: `${st >= 0 ? '+' : '−'}${Math.abs(st).toFixed(1)} °C from your normal`, good: Math.abs(st) < 0.5 }); }
+  const ox = today?.spo2Avg;
+  if (ox !== undefined) { if (ox < 95) score -= Math.min(10, (95 - ox) * 4); parts.push({ what: 'Blood oxygen', text: `${ox.toFixed(1)}% overnight`, good: ox >= 94 }); }
   const sore = checkIns.filter((c) => live(c) && typeof c.soreness === 'number' && dayKey(Date.parse(c.at), s) === todayK).pop()?.soreness;
   if (sore !== undefined) { score -= (sore - 1) * 7; parts.push({ what: 'Soreness', text: `${sore} of 5`, good: sore <= 2 }); }
   if (!parts.length) return null;

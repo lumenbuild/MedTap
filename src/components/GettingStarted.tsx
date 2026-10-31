@@ -7,7 +7,7 @@ import { MiniRing } from './ui/Visual';
 export function GettingStartedCard({ items, onStep, onHide }: { items: SetupItem[]; onStep: (id: SetupId) => void; onHide: () => void }) {
   const done = items.filter((i) => i.done).length;
   return (
-    <section className="border-t border-border pt-4" aria-labelledby="setup-h">
+    <section className="box" aria-labelledby="setup-h">
       <div className="flex items-center gap-3">
         <MiniRing value={done} max={items.length} label={`${done} of ${items.length} set-up steps done`} />
         <div className="flex-1">

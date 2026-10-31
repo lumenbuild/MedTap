@@ -30,6 +30,9 @@ import { isNative } from '../../platform';
 import type { Workout } from '../../db/schema';
 import { TrendChart } from '../../components/charts/TrendChart';
 import { PathCard } from './Coach';
+import { daySuggestion, trainingLoad, vo2Trend } from '../../logic/trainingLoad';
+import { illnessWatch } from '../../logic/vitals';
+import { LoadCard } from '../../components/HealthCards';
 import { programById } from '../../logic/coach';
 
 const DAY = 86_400_000;
@@ -55,6 +58,10 @@ export function Training({ start = false }: { start?: boolean }) {
   const goals = person?.fitnessGoals ?? [];
   const open = ws.find((w) => !w.endedAt && w.sets.length >= 0 && now - Date.parse(w.startedAt) < 6 * 3_600_000 && !w.cardio);
   const ready = readiness(daily.filter(mine), checkIns.filter(mine), now, s);
+  // From the watch: training load against your usual, cardio fitness, anything off overnight, and what today suits.
+  const load = trainingLoad(ws, now);
+  const vo2 = vo2Trend(daily.filter(mine), now);
+  const suggestion = daySuggestion(ready, load, illnessWatch(daily.filter(mine), now, s));
   // The weekly sessions goal: one set by hand, or else the coach plan's days a week.
   const ownGoal = goals.find((g) => g.kind === 'sessions');
   const sessionsGoal = ownGoal ?? (person?.coach ? { perWeek: person.coach.days } : undefined);
@@ -76,28 +83,36 @@ export function Training({ start = false }: { start?: boolean }) {
   const maxCal = Math.max(1, ...cal.weeks.map((x) => x.sessions), sessionsGoal?.perWeek ?? 0);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <PersonSwitcher />
-      <PathCard personId={fam.personId} person={person} workouts={ws} body={body.filter(mine)} defs={defs} units={settings.units} moveSnooze={settings.coachMoveSnooze} now={now} />
-      <section className="border-t border-border pt-5 pb-3 space-y-2">
-        {open ? <Button className="w-full min-h-[56px]" onClick={() => go(`/training/workout/${open.id}`)}>Continue workout ({Math.round((now - Date.parse(open.startedAt)) / 60_000)} min)</Button>
-          : <Button className="w-full min-h-[56px]" onClick={() => setSheet('start')}>Start a workout</Button>}
+      {/* The headline: a workout going, or this week's sessions and how ready you are, with Start. */}
+      <section className="hero act" aria-label={open ? 'Workout going' : 'Training this week'}>
+        <p className="hero-label">{open ? 'Workout going' : 'This week'}</p>
+        <p className="mt-1 text-[44px] leading-[48px] font-bold tracking-[-0.02em] tnum">
+          {open ? <>{Math.round((now - Date.parse(open.startedAt)) / 60_000)}<span className="text-[20px] font-semibold ml-1">min</span></>
+            : <>{cal.thisWeek}{sessionsGoal?.perWeek ? <span className="text-[20px] font-semibold ml-1">of {sessionsGoal.perWeek} sessions</span> : <span className="text-[20px] font-semibold ml-1">session{cal.thisWeek === 1 ? '' : 's'}</span>}</>}
+        </p>
+        {suggestion && !open && <p className="mt-2 text-[17px] font-semibold">{suggestion.title}</p>}
+        <p className="mt-1 text-muted text-[15px]">{[ready ? `Ready to train: ${ready.score}, ${ready.label.toLowerCase()}` : null, load?.status ? `load ${load.status.toLowerCase()}` : null, cal.streak ? `${cal.streak}-week streak` : null].filter(Boolean).join(' · ') || 'Log a session to start your week'}</p>
+        <button type="button" className="hero-btn mt-4 w-full min-h-[52px] rounded-btn font-semibold text-[17px]"
+          onClick={() => (open ? go(`/training/workout/${open.id}`) : setSheet('start'))}>{open ? 'Continue workout' : 'Start a workout'}</button>
         {ws.filter((w) => w.cardio && !w.endedAt && now - Date.parse(w.startedAt) < 6 * 3_600_000).map((w) => (
-          <p key={w.id} className="text-[15px] rounded-btn bg-surface-2 p-3 tnum">
+          <p key={w.id} className="mt-3 text-[15px] tnum">
             {ACTIVITIES.find((a) => a.id === w.cardio!.activity)?.name} · {Math.round((now - Date.parse(w.startedAt)) / 60_000)} min
-            <button type="button" className="block mt-1 underline min-h-[44px]" onClick={() => finishCardio(w)}>Finish now</button>
+            <button type="button" className="ml-2 underline min-h-[44px]" onClick={() => finishCardio(w)}>Finish now</button>
           </p>
         ))}
-        <div className="grid grid-cols-4 gap-2 pt-1">
-          <Tile Icon={Footprints} label="Cardio" name="Log cardio" onClick={() => setSheet('cardio')} />
-          <Tile Icon={ListChecks} label="Routines" onClick={() => go('/training/routines')} />
-          <Tile Icon={Disc} label="Plates" onClick={() => setSheet('plates')} />
-          <Tile Icon={Nfc} label="Tags" onClick={() => go('/tags')} />
-        </div>
       </section>
+      <div className="grid grid-cols-4 gap-2">
+        <Tile Icon={Footprints} label="Cardio" name="Log cardio" onClick={() => setSheet('cardio')} />
+        <Tile Icon={ListChecks} label="Routines" onClick={() => go('/training/routines')} />
+        <Tile Icon={Disc} label="Plates" onClick={() => setSheet('plates')} />
+        <Tile Icon={Nfc} label="Tags" onClick={() => go('/tags')} />
+      </div>
+      <PathCard personId={fam.personId} person={person} workouts={ws} body={body.filter(mine)} defs={defs} units={settings.units} moveSnooze={settings.coachMoveSnooze} now={now} />
 
       {habit && isNative && !settings.trainingReminders && !settings.trainingReminderAsked && (
-        <section className="border-t border-border pt-4 pb-2" aria-label="Training reminders">
+        <section className="box" aria-label="Training reminders">
           <p className="text-[15px] flex items-center gap-2"><BellRing size={18} aria-hidden="true" /> You train {habitText(habit)}. Remind you?</p>
           <div className="flex gap-4">
             <button type="button" className="min-h-[44px] font-medium underline underline-offset-4" onClick={async () => { const on = await setTrainingReminders(true); toast(on ? 'Reminders on for your usual training days' : 'Notifications are off for this app. Turn them on in your phone’s settings.'); }}>Remind me</button>
@@ -106,9 +121,10 @@ export function Training({ start = false }: { start?: boolean }) {
         </section>
       )}
 
-      {ready && <section className="border-t border-border pt-5 pb-1"><ReadinessBlock r={ready} /></section>}
+      {ready && <section className="box"><ReadinessBlock r={ready} /></section>}
+      {(load || vo2) && <LoadCard load={load} vo2={vo2} />}
 
-      <section className="border-t border-border pt-5 pb-1" aria-labelledby="wk-h">
+      <section className="box" aria-labelledby="wk-h">
         <div className="flex items-center justify-between">
           <div>
             <h2 id="wk-h" className="text-sm font-medium text-muted">Sessions this week</h2>
@@ -137,7 +153,7 @@ export function Training({ start = false }: { start?: boolean }) {
       </section>
 
       <GoalTimeline bodyGoals={person?.goals ?? []} fitnessGoals={goals} body={body.filter(mine)} workouts={ws} defs={defs} units={settings.units} now={now} s={s} />
-      <section className="border-t border-border pt-4 pb-1" aria-labelledby="g-h">
+      <section className="box" aria-labelledby="g-h">
         <h2 id="g-h" className="text-sm font-medium text-muted mb-1">Training goals</h2>
         <ul>
           {goals.map((g) => (
@@ -150,7 +166,7 @@ export function Training({ start = false }: { start?: boolean }) {
       </section>
 
       {lifted.length > 0 && (
-        <section className="border-t border-border pt-5 pb-1" aria-labelledby="pb-h">
+        <section className="box" aria-labelledby="pb-h">
           <h2 id="pb-h" className="text-sm font-medium text-muted mb-1">Personal bests</h2>
           {recentPBs.length > 0 && <ul className="mb-2">{onePerLift(recentPBs).slice(0, 3).map((p, i) => <li key={i} className="text-[15px]"><span className="font-medium">{defs.find((d) => d.id === p.exerciseId)?.name}</span>: {p.text} <span className="text-xs text-muted">{format(p.t, 'd MMM')}</span></li>)}</ul>}
           <ul>
@@ -172,13 +188,13 @@ export function Training({ start = false }: { start?: boolean }) {
       )}
 
       {settings.lighterUntil > now && (
-        <section className="border-t border-border pt-4 pb-1" aria-label="Lighter week">
+        <section className="box" aria-label="Lighter week">
           <p className="text-[15px]"><span className="font-medium">Lighter week</span> until {format(settings.lighterUntil - 1, 'EEE d MMM')}: targets are about 10% lighter with a set fewer.</p>
           <button type="button" className="min-h-[44px] text-sm underline underline-offset-4" onClick={() => setSetting('lighterUntil', 0)}>End it now</button>
         </section>
       )}
       {settings.lighterUntil <= now && !coachPlansLighter && (lighter || flats.length > 0) && (
-        <section className="border-t border-border pt-4 pb-1" aria-label="A lighter week is due">
+        <section className="box" aria-label="A lighter week is due">
           <p className="text-[15px] font-medium">Time for a lighter week?</p>
           <p className="text-[15px]">{lighter ? `${lighter.reason}${lighter.lifts.length ? ` (${lighter.lifts.join(', ')})` : ''} ` : ''}{stalled.length ? `No improvement for about 3 weeks: ${stalled.join(', ')}. ` : ''}A week at about 90% with a set fewer usually brings progress back.</p>
           <div className="flex gap-5">
@@ -189,7 +205,7 @@ export function Training({ start = false }: { start?: boolean }) {
       )}
 
       {pushable.length > 0 && (
-        <section className="border-t border-border pt-5 pb-1" aria-labelledby="push-h">
+        <section className="box" aria-labelledby="push-h">
           <h2 id="push-h" className="text-sm font-medium text-muted mb-1">Room to push</h2>
           <ul className="text-[15px] space-y-1">{pushable.map((e) => <li key={e.exerciseId}><a className="font-medium underline underline-offset-4" href={`#/training/exercise/${e.exerciseId}`}>{defs.find((d) => d.id === e.exerciseId)?.name}</a>: {e.text}</li>)}</ul>
           <p className="text-xs text-muted mt-1">From RPE and your trend</p>
@@ -200,7 +216,7 @@ export function Training({ start = false }: { start?: boolean }) {
       {peptide && <PeptideTrainingCard med={peptide} doses={doses} workouts={ws} tz={s.tz} />}
 
       {bal.sessions > 0 && (
-        <section className="border-t border-border pt-5 pb-1" aria-labelledby="bal-h">
+        <section className="box" aria-labelledby="bal-h">
           <h2 id="bal-h" className="text-sm font-medium text-muted mb-2">Sets per muscle, last 7 days</h2>
           <ul className="grid grid-cols-2 gap-x-5 gap-y-1.5 text-[15px] tnum">
             {bal.byMuscle.map((m) => {
@@ -222,8 +238,8 @@ export function Training({ start = false }: { start?: boolean }) {
       )}
 
       {cardio.length > 0 && (
-        <section className="border-t border-border pt-5 pb-1" aria-labelledby="c-h">
-          <h2 id="c-h" className="text-sm font-medium text-muted mb-1">Cardio</h2>
+        <section className="box" aria-labelledby="c-h">
+          <h2 id="c-h" className="text-sm font-medium text-muted mb-1">Cardio and watch workouts</h2>
           {ACTIVITIES.filter((a) => cardio.some((w) => w.cardio!.activity === a.id && w.cardio!.distanceKm)).map((a) => {
             const bests = cardioBests(cardio, a.id).filter((b) => b.best);
             return bests.length ? <p key={a.id} className="text-[15px] tnum"><span className="font-medium">{a.name} bests</span>: {bests.map((b) => `${b.name} ${timeText(b.best!.min)}`).join(' · ')}</p> : null;
@@ -232,14 +248,16 @@ export function Training({ start = false }: { start?: boolean }) {
           <ul className="mt-1">
             {cardio.slice(0, 3).map((w) => (
               <li key={w.id} className="border-t border-border py-2 text-[15px] tnum">
-                {format(Date.parse(w.startedAt), 'EEE d MMM')} · {ACTIVITIES.find((a) => a.id === w.cardio!.activity)?.name} {!w.endedAt ? 'in progress' : ''}{w.cardio!.distanceKm ? `${w.cardio!.distanceKm} km · ` : ''}{w.endedAt ? timeText(w.cardio!.durationMin) : ''}{w.cardio!.distanceKm ? ` · ${paceText(w.cardio!.durationMin / w.cardio!.distanceKm)}` : ''}{w.source === 'health' ? ' · from Health' : ''}
+                <span className="font-medium">{w.cardio!.title ?? ACTIVITIES.find((a) => a.id === w.cardio!.activity)?.name}</span> <span className="text-muted">{format(Date.parse(w.startedAt), 'EEE d MMM')}{!w.endedAt ? ' · in progress' : ''}</span>
+                <span className="block text-sm text-muted">{[w.cardio!.distanceKm ? `${w.cardio!.distanceKm} km` : null, w.endedAt ? (w.cardio!.distanceKm ? timeText(w.cardio!.durationMin) : `${w.cardio!.durationMin} min`) : null, w.cardio!.distanceKm ? paceText(w.cardio!.durationMin / w.cardio!.distanceKm) : null,
+                  w.cardio!.avgHr ? `avg ${w.cardio!.avgHr} bpm${w.cardio!.maxHr ? `, max ${w.cardio!.maxHr}` : ''}` : null, w.cardio!.kcal ? `${w.cardio!.kcal} kcal` : null, w.source === 'health' ? 'from your watch' : null].filter(Boolean).join(' · ')}</span>
               </li>
             ))}
           </ul>
         </section>
       )}
 
-      <section className="border-t border-border pt-5 pb-3" aria-labelledby="h-h">
+      <section className="box" aria-labelledby="h-h">
         <h2 id="h-h" className="text-sm font-medium text-muted mb-1">Workouts</h2>
         {strength.length === 0 && <p className="text-muted">None yet. Start one above.</p>}
         <ul>
@@ -250,6 +268,7 @@ export function Training({ start = false }: { start?: boolean }) {
                 <a href={`#/training/workout/${w.id}`} className="block py-2.5 min-h-[48px]">
                   <span className="block">{w.name ?? 'Workout'} <span className="text-sm text-muted tnum">{format(Date.parse(w.startedAt), 'EEE d MMM')}</span></span>
                   <span className="block text-sm text-muted tnum">{[...new Set(sets.map((x) => x.exerciseId))].map((id) => defs.find((d) => d.id === id)?.name).join(', ') || 'No sets yet'}</span>
+                  {w.watch && <span className="block text-sm text-muted tnum">{[w.watch.minutes ? `${w.watch.minutes} min` : null, w.watch.avgHr ? `avg ${w.watch.avgHr} bpm${w.watch.maxHr ? `, max ${w.watch.maxHr}` : ''}` : null, w.watch.kcal ? `${w.watch.kcal} kcal` : null].filter(Boolean).join(' · ')} on the watch</span>}
                 </a>
               </li>
             );

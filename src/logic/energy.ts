@@ -78,3 +78,51 @@ export function leanAlert(body: BodyEntry[], now: number): LeanAlert | null {
 /** The latest weight (kg), for working out targets. */
 export const latestWeight = (body: BodyEntry[]) =>
   [...body].filter((b) => !b.deletedAt && typeof b.weightKg === 'number').sort((a, b) => b.date.localeCompare(a.date))[0]?.weightKg;
+
+// ── Energy balance with the watch ──────────────────────────────────────────────────────────────────────
+
+export interface EnergyDay { date: string; burned?: number; eaten?: number; from?: 'app' | 'other app' }
+export interface EnergyBalance {
+  days: EnergyDay[];
+  /** Over complete days with both burned and eaten (the last 14): the averages and the difference (− = deficit). */
+  avgBurned?: number; avgEaten?: number; avgBalance?: number; balanceDays: number;
+  /** What the watch says is burned on an average day (all days with it, last 28). */
+  watchMaintenance?: number;
+  /** What that balance means for weight in 4 weeks (kg, − = losing), if it holds. */
+  kgIn4Weeks?: number;
+  /** Today so far. */
+  today: EnergyDay;
+}
+
+/** Calories burned (the watch, via Health Connect) against calories eaten: this app's food log, or another app's on
+ *  days with none logged here. Only fully logged days (800+ kcal) count towards the balance; today isn't over. */
+export function energyBalance(daily: { date: string; kcalTotal?: number; foodOtherKcal?: number; deletedAt?: string }[], foodLogs: FoodLog[], now: number, s: ScheduleSettings): EnergyBalance | null {
+  const todayK = dayKey(now, s);
+  const eatenHere = new Map<string, number>();
+  for (const l of foodLogs) {
+    if (l.deletedAt || !l.nutrients.kcal) continue;
+    const t = Date.parse(l.at);
+    if (t > now || t < now - 29 * DAY) continue;
+    const k = dayKey(t, s);
+    eatenHere.set(k, (eatenHere.get(k) ?? 0) + l.nutrients.kcal);
+  }
+  const rows = new Map(daily.filter((d) => !d.deletedAt).map((d) => [d.date, d]));
+  const keys = [...new Set([...rows.keys(), ...eatenHere.keys()])].filter((k) => k <= todayK && new Date(`${k}T12:00`).getTime() > now - 29 * DAY).sort();
+  const days: EnergyDay[] = keys.map((k) => {
+    const here = eatenHere.get(k), other = rows.get(k)?.foodOtherKcal;
+    return { date: k, burned: rows.get(k)?.kcalTotal, eaten: here !== undefined ? Math.round(here) : other, from: here !== undefined ? 'app' : other !== undefined ? 'other app' : undefined };
+  });
+  if (!days.some((d) => d.burned !== undefined)) return null;
+  const done = days.filter((d) => d.date < todayK);
+  const both = done.filter((d) => d.burned !== undefined && d.eaten !== undefined && d.eaten >= PARTIAL_DAY).slice(-14);
+  const avg = (xs: number[]) => Math.round(xs.reduce((a, b) => a + b, 0) / xs.length);
+  const burnedAll = done.filter((d) => d.burned !== undefined).map((d) => d.burned!);
+  const out: EnergyBalance = { days: days.slice(-14), balanceDays: both.length, today: days.find((d) => d.date === todayK) ?? { date: todayK },
+    watchMaintenance: burnedAll.length >= 7 ? Math.round(avg(burnedAll) / 10) * 10 : undefined };
+  if (both.length >= 5) {
+    out.avgBurned = avg(both.map((d) => d.burned!)); out.avgEaten = avg(both.map((d) => d.eaten!));
+    out.avgBalance = out.avgEaten - out.avgBurned;
+    out.kgIn4Weeks = Math.round(((out.avgBalance * 28) / KCAL_PER_KG) * 10) / 10;
+  }
+  return out;
+}

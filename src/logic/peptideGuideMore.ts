@@ -117,7 +117,7 @@ export const MORE: GuideEntry[] = [
     chips: ['Slept well', 'Tingling'],
     sources: ['Raun et al., Eur J Endocrinol 1998.'],
     with: [{ id: 'cjc-1295', note: 'A common pairing: a stronger, natural-pattern pulse' }],
-    setup: { defaultAmount: 200, syringeUnits: 30, schedule: (t) => daily('22:00', { course: { start: t, days: 84, remindAfterDays: 28 } }) },
+    setup: { defaultAmount: 200, syringeUnits: 50, schedule: (t) => daily('22:00', { course: { start: t, days: 84, remindAfterDays: 28 } }) },
   },
   {
     id: 'cjc-1295', name: 'CJC-1295', aka: ['Mod GRF 1-29 (no DAC)', 'CJC-1295 with DAC'], match: ['cjc', 'mod grf'], goals: ['gh', 'sleep'],
@@ -135,7 +135,7 @@ export const MORE: GuideEntry[] = [
     chips: ['Slept well', 'Tingling'],
     sources: ['Teichman et al., J Clin Endocrinol Metab 2006.'],
     with: [{ id: 'ipamorelin', note: 'A common pairing' }],
-    setup: { defaultAmount: 100, syringeUnits: 30, schedule: (t) => daily('22:00', { course: { start: t, days: 84, remindAfterDays: 28 } }) },
+    setup: { defaultAmount: 100, syringeUnits: 50, schedule: (t) => daily('22:00', { course: { start: t, days: 84, remindAfterDays: 28 } }) },
   },
   {
     id: 'tesamorelin', name: 'Tesamorelin', aka: ['Egrifta'], match: [], goals: ['gh', 'weight'],
@@ -188,7 +188,7 @@ export const MORE: GuideEntry[] = [
     chips: ['Gut better'],
     sources: ['Dalmasso et al., Gastroenterology 2008.'],
     with: [{ id: 'bpc-157', note: 'Often paired for the gut' }],
-    setup: { defaultAmount: 500, syringeUnits: 30, schedule: (t) => daily('08:00', { course: { start: t, days: 28, remindAfterDays: 28 } }) },
+    setup: { defaultAmount: 500, syringeUnits: 50, schedule: (t) => daily('08:00', { course: { start: t, days: 28, remindAfterDays: 28 } }) },
   },
   {
     id: 'thymosin-alpha-1', name: 'Thymosin alpha-1', aka: ['Zadaxin', 'Thymalfasin'], match: ['ta1', 'thymosin alpha'], goals: ['immune'],
@@ -253,7 +253,7 @@ export const MORE: GuideEntry[] = [
     getHelp: [SITE, INFECTION], worthKnowing: ['Not studied in pregnancy or breastfeeding.'],
     tips: ['Weight and waist on the app show whether it’s doing anything for you; an experiment (on and off blocks) settles it.'], chips: [],
     sources: ['Heffernan et al., Endocrinology 2001; Metabolic Pharmaceuticals trial reports, 2007.'],
-    setup: { defaultAmount: 300, syringeUnits: 30, schedule: (t) => daily('07:00', { course: { start: t, days: 84, remindAfterDays: 28 } }) },
+    setup: { defaultAmount: 300, syringeUnits: 50, schedule: (t) => daily('07:00', { course: { start: t, days: 84, remindAfterDays: 28 } }) },
   },
   {
     id: 'selank', name: 'Selank', aka: ['N-Acetyl Selank'], match: ['na selank'], goals: ['focus', 'sleep'],
@@ -270,7 +270,7 @@ export const MORE: GuideEntry[] = [
     tips: ['Pairs with Semax for some: calm with Selank, focus with Semax.'], chips: ['Calm', 'Focus'],
     sources: ['Zozulya et al., Bull Exp Biol Med 2008.'],
     with: [{ id: 'semax', note: 'Often paired: focus and calm' }],
-    setup: { defaultAmount: 250, syringeUnits: 30, schedule: (t) => daily('08:00', { course: { start: t, days: 14, remindAfterDays: 7 } }) },
+    setup: { defaultAmount: 250, syringeUnits: 50, schedule: (t) => daily('08:00', { course: { start: t, days: 14, remindAfterDays: 7 } }) },
   },
   {
     id: 'pt-141', name: 'PT-141', aka: ['Bremelanotide', 'Vyleesi'], match: ['pt141', 'pt 141'], goals: ['libido'],
@@ -305,7 +305,7 @@ export const MORE: GuideEntry[] = [
     tips: ['A skin check (photos of your moles) before starting makes changes easy to spot.'], chips: ['Nausea'],
     sources: ['Dorr et al., Life Sci 1996.', 'Case reports of new and changing moles, and melanoma, in people using melanotan (dermatology journals, 2009 onwards).'],
     notWith: [{ id: 'pt-141', note: 'Both act on the same receptors' }],
-    setup: { defaultAmount: 0.25, syringeUnits: 30, schedule: (t) => daily('21:00', { course: { start: t, days: 14, remindAfterDays: 7 } }) },
+    setup: { defaultAmount: 0.25, syringeUnits: 50, schedule: (t) => daily('21:00', { course: { start: t, days: 14, remindAfterDays: 7 } }) },
   },
   {
     id: 'bpc-tb', name: 'BPC-157 + TB-500', aka: ['Wolverine stack'], match: ['bpc tb', 'wolverine', 'bpc 157 tb 500', 'bpc157 tb500'], goals: ['healing'],
@@ -323,7 +323,7 @@ export const MORE: GuideEntry[] = [
     worthKnowing: ['Both encourage new blood vessels: a consideration with any current or past cancer.', 'On the banned list in tested sport (WADA).', 'Not studied in pregnancy or breastfeeding.'],
     tips: ['The table shows the BPC-157 amount; each draw has the same amount of TB-500.'], chips: ['Pain better', 'Pain worse'],
     sources: ['See BPC-157 and TB-500.'],
-    setup: { defaultAmount: 0.5, syringeUnits: 30, schedule: (t) => daily('08:00', { course: { start: t, days: 42, remindAfterDays: 28 } }) },
+    setup: { defaultAmount: 0.5, syringeUnits: 50, schedule: (t) => daily('08:00', { course: { start: t, days: 42, remindAfterDays: 28 } }) },
   },
   {
     id: 'cjc-ipa', name: 'CJC-1295 + Ipamorelin', aka: [], match: ['cjc ipa', 'cjc 1295 ipamorelin', 'cjc ipamorelin'], goals: ['gh', 'sleep'],
@@ -340,7 +340,7 @@ export const MORE: GuideEntry[] = [
     getHelp: [SITE, INFECTION], worthKnowing: GH_KNOW,
     tips: ['The table shows the CJC-1295 amount; each draw has the same amount of ipamorelin.'], chips: ['Slept well'],
     sources: ['See CJC-1295 and ipamorelin.'],
-    setup: { defaultAmount: 100, syringeUnits: 30, schedule: (t) => daily('22:00', { course: { start: t, days: 84, remindAfterDays: 28 } }) },
+    setup: { defaultAmount: 100, syringeUnits: 50, schedule: (t) => daily('22:00', { course: { start: t, days: 84, remindAfterDays: 28 } }) },
   },
   {
     id: 'glow', name: 'GLOW blend', aka: ['GHK-Cu + BPC-157 + TB-500'], match: ['glow'], goals: ['skin', 'healing'],
@@ -358,6 +358,6 @@ export const MORE: GuideEntry[] = [
     worthKnowing: ['BPC-157 and TB-500 encourage new blood vessels: a consideration with any current or past cancer.', 'Extra copper or high-dose zinc supplements alongside change the copper balance.', 'Not studied in pregnancy or breastfeeding.'],
     tips: ['The table shows the GHK-Cu amount; the other two are a fifth of it each.'], chips: ['Site sting'],
     sources: ['See GHK-Cu, BPC-157 and TB-500.'],
-    setup: { defaultAmount: 1.25, syringeUnits: 30, schedule: (t) => daily('20:00', { course: { start: t, days: 42, remindAfterDays: 28 } }) },
+    setup: { defaultAmount: 1.25, syringeUnits: 50, schedule: (t) => daily('20:00', { course: { start: t, days: 42, remindAfterDays: 28 } }) },
   },
 ];
