@@ -27,7 +27,7 @@ export function DoseHeartSection({ med }: { med: Medication }) {
             {r.wearOffMin !== undefined ? `, and settles back by about ${hm(r.wearOffMin)}.` : '. It hasn’t settled back within 8 hours.'}
           </p>
           <DoseHeartChart r={r} />
-          <p className="text-sm text-muted">From {r.doses} doses, at rest only (moving and caffeine left out where possible). Your usual before a dose: {r.baseline} bpm.</p>
+          <p className="text-sm text-muted">From {r.doses} doses, at rest only (moving and caffeine left out where possible){r.controlDays ? `, with the usual morning rise on ${r.controlDays} days without a dose taken off` : '. Days without a dose (a weekend or a break) will make it more accurate by taking off the usual morning rise'}. Your usual before a dose: {r.baseline} bpm.</p>
         </>
       ) : (
         <p className="text-[15px] leading-snug text-muted">No clear rise after a dose yet (+{r.peakBpm} bpm at most, from {r.doses} doses). The forecast keeps using your focus check-ins.</p>

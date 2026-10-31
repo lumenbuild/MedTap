@@ -231,6 +231,9 @@ export interface Medication extends Stamped {
   ingredients?: { name: string; mg?: number }[];
   /** Price paid per vial or pen (peptide tools) or per pack, for cost tracking. */
   costPerUnit?: number;
+  /** The first reminder of the day follows when the watch says you woke: this many minutes after (when the wake time
+   *  is known by then and within 3 hours of the set time). */
+  followWakeMin?: number;
 }
 /** For one set time ('HH:mm'): remind at these times instead, on weekdays and/or weekends. */
 export interface ReminderTime { slot: string; weekday?: string; weekend?: string }
@@ -319,6 +322,22 @@ export interface Supply extends Stamped {
 export interface DeviceValue { key: string; value: unknown }
 
 /** A blood test or other lab result, typed in or read from a photo of the printout. */
+/** A self-experiment (biohacking tools): two conditions (e.g. magnesium on and off, or a dose before and after
+ *  breakfast) in blocks of days in a random order, measured by one outcome. */
+export interface Experiment extends Stamped {
+  title: string;
+  /** What A and B are, e.g. "Magnesium" / "No magnesium". */
+  a: string; b: string;
+  /** The outcome: a brain test score, focus or mood rating, sleep (hours or deep minutes, from the watch), HRV, resting
+   *  heart rate or weight. */
+  metric: 'brain' | 'focus' | 'mood' | 'energy' | 'sleepH' | 'deepMin' | 'hrv' | 'rhr' | 'weight';
+  /** Days in each block, and the blocks in order ('a' or 'b'), from `start` ('YYYY-MM-DD'). */
+  blockDays: number; blocks: ('a' | 'b')[]; start: string;
+  /** The night after a day counts for that day (sleep outcomes). */
+  ended?: string;
+  personId?: string; deletedAt?: string;
+}
+
 export interface LabResult extends Stamped {
   date: string; // local YYYY-MM-DD the sample was taken
   name: string; value: number; unit?: string;

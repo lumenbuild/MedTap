@@ -51,6 +51,8 @@ export interface HeartResponse {
   onsetMin?: number; peakMin?: number; peakBpm: number; wearOffMin?: number;
   /** The rise is big enough to read (4+ bpm at the peak). */
   signal: boolean;
+  /** Days without a dose used to take out the usual rise at that time of day (waking, moving, the body clock). */
+  controlDays: number;
 }
 
 const SPAN = 8 * HOUR;
@@ -87,12 +89,25 @@ export function heartResponse(med: Medication, doses: Dose[], checkIns: CheckIn[
   const curves = use.map((d) => doseCurve(Date.parse(d.takenAt), daily, s)).filter((c): c is NonNullable<typeof c> => !!c);
   if (curves.length < 4) return null;
   const n = SPAN / BLOCK;
-  const med_ = Array.from({ length: n }, (_, i) => { const v = curves.map((c) => c.delta[i]).filter((x): x is number => typeof x === 'number'); return v.length >= 3 ? median(v) : null; });
+  const raw = Array.from({ length: n }, (_, i) => { const v = curves.map((c) => c.delta[i]).filter((x): x is number => typeof x === 'number'); return v.length >= 3 ? median(v) : null; });
+  // Heart rate climbs through the morning anyway (getting up, moving, the body clock). On days without a dose, the same
+  // window at the usual dose time shows that rise; it's taken off, so what's left is the dose's own.
+  const dosedDays = new Set(mine.map((d) => dayKey(Date.parse(d.takenAt), s)));
+  const mins = use.map((d) => { const p = zonedParts(Date.parse(d.takenAt), s.tz); return p.h * 60 + p.mi; });
+  const usualMin = median(mins);
+  const controls: (number | null)[][] = [];
+  for (const row of daily.filter((x) => !x.deletedAt && x.hr5 && !dosedDays.has(x.date) && new Date(`${x.date}T12:00`).getTime() > now - 60 * DAY)) {
+    const t = new Date(`${row.date}T00:00`).getTime() + usualMin * MIN;
+    const c = doseCurve(t, daily, s);
+    if (c) controls.push(c.delta);
+  }
+  const control = controls.length >= 3 ? Array.from({ length: n }, (_, i) => { const v = controls.map((c) => c[i]).filter((x): x is number => typeof x === 'number'); return v.length >= 3 ? median(v) : null; }) : null;
+  const med_ = raw.map((v, i) => (v === null ? null : control?.[i] != null ? v - control[i]! : v));
   const sm = smooth(med_);
   const known = sm.map((v, i) => ({ v, i })).filter((x): x is { v: number; i: number } => typeof x.v === 'number');
   const top = known.reduce((m, x) => (x.v > m.v ? x : m), { v: -Infinity, i: 0 });
   const peakBpm = Number.isFinite(top.v) ? r1(top.v) : 0;
-  const out: HeartResponse = { doses: curves.length, baseline: Math.round(median(curves.map((c) => c.baseline))), curve: med_.map((v, i) => ({ min: i * 5, delta: v === null ? null : r1(v) })), peakBpm, signal: peakBpm >= 4 };
+  const out: HeartResponse = { doses: curves.length, baseline: Math.round(median(curves.map((c) => c.baseline))), curve: med_.map((v, i) => ({ min: i * 5, delta: v === null ? null : r1(v) })), peakBpm, signal: peakBpm >= 4, controlDays: control ? controls.length : 0 };
   if (!out.signal) return out;
   out.peakMin = top.i * 5;
   const on = known.find((x) => x.i <= top.i && x.v >= Math.max(3, top.v * 0.4));

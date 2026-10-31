@@ -50,6 +50,7 @@ export const useVitals = () => useLive(() => db.vitals.toArray());
 export const useSupplies = () => { const v = useViewMode(); return useLive(async () => ((await viewSettings()).peptideTools ? db.supplies.toArray() : []), [v]); };
 export const usePeople = () => useLive(listPeople);
 export const useLabs = () => useLive(() => db.labs.toArray());
+export const useExperiments = () => useLive(() => db.experiments.toArray());
 export const useAppointments = () => useLive(() => db.appointments.toArray());
 export const useQuestions = () => useLive(() => db.questions.toArray());
 export const useDaily = () => useLive(() => db.daily.toArray());

@@ -3,7 +3,7 @@ import { APP_NAME } from '../config';
 
 export const BACKUP_FORMAT = 1;
 
-export const BACKUP_TABLES = ['people', 'medications', 'tags', 'doses', 'checkIns', 'bodyEntries', 'vitals', 'medEvents', 'settings', 'photos', 'supplies', 'labs', 'appointments', 'questions', 'daily', 'exercises', 'workouts', 'routines', 'foods', 'foodLogs'] as const;
+export const BACKUP_TABLES = ['people', 'medications', 'tags', 'doses', 'checkIns', 'bodyEntries', 'vitals', 'medEvents', 'settings', 'photos', 'supplies', 'labs', 'appointments', 'questions', 'daily', 'exercises', 'workouts', 'routines', 'foods', 'foodLogs', 'experiments'] as const;
 export type BackupTable = (typeof BACKUP_TABLES)[number];
 
 export type Row = Record<string, unknown>;

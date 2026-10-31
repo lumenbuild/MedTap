@@ -21,6 +21,7 @@ import { PeptideGuide } from '../screens/PeptideGuide';
 import { Brain } from '../screens/Brain';
 import { Journal } from '../screens/Journal';
 import { YearReview } from '../screens/YearReview';
+import { Experiments } from '../screens/Experiments';
 import { guideById } from '../logic/peptideGuide';
 import { Supplies } from '../screens/Supplies';
 import { Appointments, AppointmentSummary, Labs } from '../screens/Visits';
@@ -69,6 +70,7 @@ function title(r: Route, peptides = HAS_PEPTIDES): string {
     case 'brain': return 'Brain test';
     case 'journal': return 'Journal';
     case 'year': return 'Year in review';
+    case 'experiments': return 'Experiments';
     case 'supplies': return peptides ? 'Supplies' : 'Today';
     case 'protocol': return peptides ? 'Protocol' : 'Today';
     case 'protocolReport': return peptides ? 'Protocol report' : 'Today';
@@ -101,7 +103,7 @@ function backTo(r: Route, protocol: boolean): string | undefined {
     case 'medNew': return r.guideId ? `#/guide/${r.guideId}` : '#/meds';
     case 'med': return '#/meds';
     case 'guide': return r.id ? '#/guide' : '#/protocol';
-    case 'brain': case 'journal': case 'year': return '#/settings';
+    case 'brain': case 'journal': case 'year': case 'experiments': return '#/settings';
     case 'backup': case 'sync': case 'join': case 'calc': case 'supplies': return '#/settings';
     case 'report': return protocol ? '#/progress' : '#/trends';
     case 'help': return r.topic ? '#/help' : '#/settings';
@@ -133,6 +135,7 @@ function Screen({ r }: { r: Route }) {
     case 'brain': return bio ? <Brain /> : <Today />;
     case 'journal': return bio ? <Journal /> : <Today />;
     case 'year': return bio ? <YearReview /> : <Today />;
+    case 'experiments': return bio ? <Experiments /> : <Today />;
     case 'supplies': return peptides ? <Supplies /> : <Today />;
     case 'protocol': return peptides ? <Protocol /> : <Today />;
     case 'protocolReport': return peptides ? <Suspense fallback={<ChartsLoading />}><ProtocolReport /></Suspense> : <Today />;

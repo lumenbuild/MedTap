@@ -7,7 +7,7 @@ import { ingredientsOf } from './ingredients';
 type Group =
   | 'serotonergic' | 'serotonin-other' | 'nsaid' | 'blood-thinner' | 'opioid' | 'sedative' | 'stimulant' | 'decongestant'
   | 'bp-raas' | 'diuretic' | 'potassium-keeping' | 'lithium' | 'pde5' | 'nitrate' | 'glp1' | 'low-sugar' | 'amylin'
-  | 'diabetes' | 'gh-releaser' | 'tirzepatide' | 'pill' | 'bremelanotide' | 'naltrexone';
+  | 'diabetes' | 'gh-releaser' | 'tirzepatide' | 'pill' | 'bremelanotide' | 'naltrexone' | 'maoi';
 
 const GROUPS: Record<Group, string[]> = {
   serotonergic: ['sertraline', 'escitalopram', 'citalopram', 'fluoxetine', 'paroxetine', 'fluvoxamine', 'venlafaxine', 'desvenlafaxine', 'duloxetine'],
@@ -33,16 +33,20 @@ const GROUPS: Record<Group, string[]> = {
   pill: ['oral contraceptive', 'levonorgestrel', 'ethinylestradiol', 'norethisterone', 'drospirenone', 'desogestrel', 'gestodene', 'cyproterone', 'nomegestrol', 'dienogest'],
   bremelanotide: ['bremelanotide'],
   naltrexone: ['naltrexone'],
+  maoi: ['phenelzine', 'tranylcypromine', 'moclobemide', 'selegiline', 'rasagiline'],
 };
 
 /** Research peptides: no studies of how they mix with medicines, so no pair can be ruled in or out. */
 export const RESEARCH_PEPTIDES = ['bpc-157', 'tb-500', 'ghk-cu', 'aod-9604', 'melanotan', 'epitalon', 'dsip', 'selank', 'semax', 'kpv', 'mots-c',
-  'ipamorelin', 'cjc-1295', 'hexarelin', 'ghrp', 'ibutamoren', 'retatrutide', 'cagrilintide', 'survodutide', 'mazdutide'];
+  'ipamorelin', 'cjc-1295', 'hexarelin', 'ghrp', 'ibutamoren', 'retatrutide', 'cagrilintide', 'survodutide', 'mazdutide',
+  'thymosin alpha-1', 'ss-31'];
 
 interface Rule { key: string; a: Group; b: Group; why: string }
 
 // Wording is shared by both apps (TapDose shows no peptide wording: these name the medicine, never the word).
 const RULES: Rule[] = [
+  { key: 'maoi-stim', a: 'maoi', b: 'stimulant', why: 'Labels say not together, or within 14 days: dangerous blood pressure rise' },
+  { key: 'maoi-sero', a: 'maoi', b: 'serotonergic', why: 'Labels say not together: serotonin toxicity' },
   { key: 'serotonin', a: 'serotonergic', b: 'serotonin-other', why: 'Together: rare serotonin toxicity' },
   { key: 'bleed-ssri', a: 'serotonergic', b: 'nsaid', why: 'Together: more bleeding risk' },
   { key: 'bleed-ssri-thinner', a: 'serotonergic', b: 'blood-thinner', why: 'Together: more bleeding risk' },

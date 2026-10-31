@@ -1,3 +1,4 @@
+import { SupplementsSection } from '../../components/HowToTake';
 import { Camera, CalendarClock, CalendarX, ChevronRight, FileText, Link2, Nfc, Package, Plus, Wallet, X, type LucideIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { isPrivate, shownColour, shownMedName, shownName } from '../../logic/privacy';
@@ -75,6 +76,8 @@ export function MedsList() {
         <ul className="space-y-2">{active.map((m) => <MedRow key={m.id} med={m} tags={tags} doses={doses} s={ss[1]} now={now} />)}</ul>
       )}
 
+
+      <SupplementsSection />
 
       {counting && <CountPicker meds={active.filter((m) => !m.peptide)} onClose={() => setCounting(false)} />}
 

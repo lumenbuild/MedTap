@@ -18,7 +18,7 @@ export function DayStrip({ ring, streaks, milestones, bare = false, news }: { ri
   if (!ring && !top) return null;
   const all = ring !== null && ring.done === ring.parts.length;
   return (
-    <section className={bare ? '' : 'border-t border-border pt-4'} aria-label="Your day">
+    <section className={bare ? '' : 'border-t border-border pt-4'} aria-label="Done today and streaks">
       <button type="button" onClick={() => setOpen(true)} className="w-full flex items-center gap-4 text-left min-h-[64px]">
         {ring && (
           <MiniRing value={Math.round(ring.value * 100)} max={100} size={60} tone={all ? 'good' : 'primary'} label={`${ring.done} of ${ring.parts.length} done today`}>

@@ -4,6 +4,17 @@
 import type { Medication, Schedule, StepPlan, StepUpCriteria } from '../db/schema';
 import { drawFor } from './peptide';
 import { LOWEST_STEP_UP } from './stepUp';
+import { inGroup } from './interactions';
+import { MORE } from './peptideGuideMore';
+
+export type Goal = 'weight' | 'healing' | 'sleep' | 'focus' | 'longevity' | 'skin' | 'gh' | 'immune' | 'libido' | 'gut';
+export const GOALS: { id: Goal; label: string }[] = [
+  { id: 'weight', label: 'Weight' }, { id: 'healing', label: 'Healing' }, { id: 'sleep', label: 'Sleep' }, { id: 'focus', label: 'Focus and calm' },
+  { id: 'longevity', label: 'Longevity' }, { id: 'skin', label: 'Skin and hair' }, { id: 'gh', label: 'Growth hormone' }, { id: 'gut', label: 'Gut' },
+  { id: 'immune', label: 'Immune' }, { id: 'libido', label: 'Libido' },
+];
+/** A note on another entry (by id) or a medicine group ('glp1'). */
+export interface StackNote { id: string; note: string }
 
 export interface GuideEntry {
   id: string; name: string;
@@ -11,6 +22,13 @@ export interface GuideEntry {
   aka: string[];
   /** Other spellings and short forms, matched but not shown. */
   match?: string[];
+  /** What it's used for (the list's filter). */
+  goals?: Goal[];
+  /** A blend: the other parts in a vial of the first size (the first part is `vials[0].amount`). */
+  blend?: { name: string; amount: number }[];
+  /** Commonly combined with, and not combined with. */
+  with?: StackNote[];
+  notWith?: StackNote[];
   what: string;
   /** What studies have found, the good and the limits. */
   research: string[];
@@ -23,6 +41,8 @@ export interface GuideEntry {
   tableDoses: number[];
   route: string;
   when: string;
+  /** The usual hours to take it (24 h clock, from–to; to < from runs past midnight), for checking actual doses. */
+  window?: [number, number];
   cycle?: string;
   doses: string[];
   /** A step-up, in `unit` per dose, each step lasting `weeks`. */
@@ -31,6 +51,8 @@ export interface GuideEntry {
   lowest?: { by: number; max: number };
   storage: { powder: string; mixed: string; useWithinDays: number };
   halfLifeHours?: number;
+  /** Hours to the highest level after a shot (for the swing between shots). */
+  tmaxHours?: number;
   sideEffects: string[];
   getHelp: string[];
   /** Interactions and conditions worth knowing about. */
@@ -47,7 +69,7 @@ const daily = (time: string, extra: Partial<Schedule> = {}): Schedule => ({ type
 const SITE = 'Swelling of the face or throat, or trouble breathing: call 000.';
 const INFECTION = 'Redness spreading out from the site, heat, pus or a fever.';
 
-export const GUIDE: GuideEntry[] = [
+const CORE: GuideEntry[] = [
   {
     id: 'retatrutide', name: 'Retatrutide', aka: ['LY3437943'], match: ['reta'],
     what: 'A weekly injection that acts on three hunger and metabolism hormones at once: GLP-1, GIP and glucagon. It lowers appetite, slows the stomach and raises energy use.',
@@ -140,6 +162,7 @@ export const GUIDE: GuideEntry[] = [
     unit: 'mg', tableDoses: [0.5, 1, 2],
     route: 'Under the skin: belly or thigh. Rotate sites.',
     when: 'Once a day, usually in the evening.',
+    window: [16, 1],
     cycle: 'Usually 4–8 weeks, then a break of a few weeks.',
     doses: ['Commonly 1–2 mg a day under the skin, for 4–8 weeks.'],
     storage: { powder: 'Fridge, away from light.', mixed: 'Fridge, away from light. Commonly used within 4 weeks of mixing. A blue colour is normal.', useWithinDays: 28 },
@@ -163,6 +186,7 @@ export const GUIDE: GuideEntry[] = [
     unit: 'mg', tableDoses: [0.1, 0.2, 0.25, 0.3, 0.5],
     route: 'Under the skin: belly or thigh.',
     when: 'In the evening, 30 minutes to 3 hours before bed.',
+    window: [18, 2],
     cycle: 'Usually short runs (a week or two), or a few nights a week.',
     doses: ['Commonly 100–300 mcg (0.1–0.3 mg) before bed; some use up to 500 mcg.'],
     storage: { powder: 'Fridge or freezer.', mixed: 'Fridge. Commonly used within 4 weeks of mixing.', useWithinDays: 28 },
@@ -210,6 +234,7 @@ export const GUIDE: GuideEntry[] = [
     unit: 'mg', tableDoses: [25, 50, 100],
     route: 'Under the skin (belly or thigh) or into a muscle. Inject slowly.',
     when: 'In the morning: it can be stimulating and keep you up.',
+    window: [6, 13],
     doses: ['Commonly 50–100 mg under the skin, two to three times a week. Many start at 25–50 mg to see how they react.', 'Clinic drips are often 250–1,000 mg over a few hours.'],
     storage: { powder: 'Fridge, away from light.', mixed: 'Fridge, away from light. Commonly used within 2–4 weeks of mixing.', useWithinDays: 28 },
     sideEffects: ['Flushing, warmth or a racing feeling soon after: more with a fast push or higher doses.', 'Nausea, stomach cramps or tightness in the chest.', 'Stinging at the site.', 'Headache.'],
@@ -232,6 +257,7 @@ export const GUIDE: GuideEntry[] = [
     unit: 'mcg', tableDoses: [100, 200, 300, 500],
     route: 'Usually in the nose (drops or a spray). Some inject it under the skin (belly or thigh) from a mixed vial.',
     when: 'In the morning or early afternoon: it’s stimulating and can keep you up if taken late.',
+    window: [6, 14],
     cycle: 'Usually 1–2 weeks on, then a break of a week or more.',
     doses: [
       'The Russian 0.1% drops have 1 mg per mL: one drop is about 50 mcg. For focus, 2–3 drops in each nostril, 2–3 times a day (about 400–900 mcg a day).',
@@ -263,6 +289,7 @@ export const GUIDE: GuideEntry[] = [
     unit: 'mg', tableDoses: [1, 5, 10],
     route: 'Under the skin: belly or thigh.',
     when: 'Once a day, usually in the evening.',
+    window: [16, 1],
     cycle: 'A short course (10–20 days), repeated once or twice a year.',
     doses: ['Commonly 5–10 mg a day for 10–20 days, repeated every 4–6 months. Some use 1–2 mg a day over a longer course.'],
     storage: { powder: 'Fridge or freezer.', mixed: 'Fridge. Commonly used within 4 weeks of mixing.', useWithinDays: 28 },
@@ -275,6 +302,20 @@ export const GUIDE: GuideEntry[] = [
     setup: { defaultAmount: 5, syringeUnits: 100, schedule: (t) => daily('21:00', { course: { start: t, days: 20, remindAfterDays: 140 } }) },
   },
 ];
+
+// Goals and stack notes for the first entries.
+const CORE_EXTRA: Record<string, Pick<GuideEntry, 'goals' | 'with' | 'notWith' | 'tmaxHours'>> = {
+  retatrutide: { goals: ['weight'], tmaxHours: 24, notWith: [{ id: 'glp1', note: 'Two GLP-1 medicines together' }] },
+  glutathione: { goals: ['longevity', 'skin'], with: [{ id: 'nad', note: 'Often taken together' }] },
+  'ghk-cu': { goals: ['skin', 'healing'], with: [{ id: 'bpc-157', note: 'Together in the GLOW blend' }] },
+  dsip: { goals: ['sleep'], with: [{ id: 'epitalon', note: 'Often taken together for sleep' }] },
+  'bpc-157': { goals: ['healing', 'gut'], with: [{ id: 'tb-500', note: 'The common healing pairing' }, { id: 'kpv', note: 'Often paired for the gut' }] },
+  nad: { goals: ['longevity', 'focus'], with: [{ id: 'mots-c', note: 'Both aimed at mitochondria' }] },
+  semax: { goals: ['focus'], with: [{ id: 'selank', note: 'Often paired: focus and calm' }] },
+  epitalon: { goals: ['longevity', 'sleep'], with: [{ id: 'dsip', note: 'Often taken together for sleep' }] },
+};
+
+export const GUIDE: GuideEntry[] = [...CORE.map((g) => ({ ...g, ...CORE_EXTRA[g.id] })), ...MORE];
 
 /** For all of them: supplies, mixing, injecting, checking a batch and getting help. */
 export const BASICS: { title: string; points: string[] }[] = [
@@ -313,15 +354,52 @@ const norm = (s: string) => ` ${s.toLowerCase().replace(/[^a-z0-9+]+/g, ' ').tri
 /** The guide entry a medication's name matches, if any. */
 export function guideFor(name: string): GuideEntry | undefined {
   const n = norm(name);
-  return GUIDE.find((g) => [g.name, g.id, ...g.aka, ...(g.match ?? [])].some((k) => n.includes(norm(k))));
+  // The longest name that matches wins, so a blend ("BPC-157 + TB-500") beats its parts.
+  let best: GuideEntry | undefined, len = 0;
+  for (const g of GUIDE) for (const k of [g.name, g.id, ...g.aka, ...(g.match ?? [])]) {
+    const nk = norm(k);
+    if (nk.trim() && nk.length > len && n.includes(nk)) { best = g; len = nk.length; }
+  }
+  return best;
+}
+
+/** Entries for a goal and a search (name, other names, what it is). */
+export function searchGuide(q: string, goal?: Goal): GuideEntry[] {
+  const n = q.trim().toLowerCase();
+  return GUIDE.filter((g) => (!goal || g.goals?.includes(goal)) && (!n || [g.name, g.id, ...g.aka, ...(g.match ?? []), g.what].some((k) => k.toLowerCase().includes(n))));
+}
+
+const GLP = new Set(['retatrutide', 'semaglutide', 'tirzepatide']);
+/** A GLP-1 medicine: by its ingredients, or a guide entry (short names like "Reta 10mg"). */
+export const isGlp = (med: Pick<Medication, 'name' | 'strength' | 'unit'>) => inGroup(med as Medication, 'glp1') || GLP.has(guideFor(med.name)?.id ?? '');
+/** On the GLP-1 family's gut and appetite pattern (GLP-1s and amylin). */
+export const isGlpLike = (med: Pick<Medication, 'name' | 'strength' | 'unit'>) => isGlp(med) || guideFor(med.name)?.id === 'cagrilintide';
+
+export interface StackCheck { kind: 'with' | 'notWith'; med: string; note: string; ref: string }
+/** This entry against what the person takes now: pairs that are commonly combined, and ones that aren't. */
+export function stackChecks(g: GuideEntry, meds: Pick<Medication, 'id' | 'name' | 'strength' | 'unit' | 'archived'>[], selfId?: string): StackCheck[] {
+  const out: StackCheck[] = [];
+  const hits = (n: StackNote, m: (typeof meds)[number]) => (n.id === 'glp1' ? isGlp(m) : guideFor(m.name)?.id === n.id);
+  for (const m of meds) {
+    if (m.archived || m.id === selfId || guideFor(m.name)?.id === g.id) continue;
+    const mg = guideFor(m.name);
+    const bad = g.notWith?.find((n) => hits(n, m)) ?? mg?.notWith?.find((n) => (n.id === 'glp1' ? GLP.has(g.id) : n.id === g.id));
+    if (bad) { out.push({ kind: 'notWith', med: m.name, note: bad.note, ref: g.notWith?.includes(bad) ? bad.id : mg!.id }); continue; }
+    const good = g.with?.find((n) => hits(n, m)) ?? mg?.with?.find((n) => n.id === g.id);
+    if (good) out.push({ kind: 'with', med: m.name, note: good.note, ref: g.with?.includes(good) ? good.id : mg!.id });
+  }
+  return out;
 }
 
 export const guideById = (id: string) => GUIDE.find((g) => g.id === id);
 
 /** The draw for each dose in the table, for a vial and water amount. Doses over the vial are left out. */
-export function mixTable(g: GuideEntry, vial: { amount: number; waterMl: number }): { dose: number; units: number; ml: number }[] {
-  return g.tableDoses.filter((d) => d <= vial.amount).map((dose) => ({ dose, ...drawFor(dose, vial.amount, vial.waterMl, 'U-100') }));
+export function mixTable(g: GuideEntry, vial: { amount: number; waterMl: number }): { dose: number; units: number; ml: number; others: { name: string; amount: number }[] }[] {
+  return g.tableDoses.filter((d) => d <= vial.amount).map((dose) => ({ dose, ...drawFor(dose, vial.amount, vial.waterMl, 'U-100'), others: blendParts(g, dose) }));
 }
+
+/** For a blend: how much of each other part comes with a dose of the first (same unit). */
+export const blendParts = (g: GuideEntry, dose: number) => (g.blend ?? []).map((b) => ({ name: b.name, amount: r3((dose * b.amount) / g.vials[0].amount) }));
 
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
 /** "250 mcg", "0.25 mg (250 mcg)", "5 mg" for 5,000 mcg. */
@@ -364,7 +442,8 @@ export function stepChanges(g: GuideEntry, start: string, split = false): { from
   return out;
 }
 
-/** How far the level falls between shots, as a share of its peak (absorption left out): 1 − 2^(−gap ÷ half-life). */
+/** How far the level falls between shots, as a share of its peak, if a shot were absorbed at once: 1 − 2^(−gap ÷ half-life).
+ *  An upper bound: see steadySwing for the version with absorption. */
 export const levelSwing = (halfLifeHours: number, gapHours: number) => 1 - 2 ** (-gapHours / halfLifeHours);
 
 /** The gaps between shots through a week, in days, for shots on these weekdays (0 = Sunday). */
@@ -383,13 +462,33 @@ export interface SplitView {
 
 /** For a long-acting peptide on set weekdays: how steady the level is between shots, against the other way of
  *  splitting the week. Only when the half-life is at least a day (shorter ones are gone between shots either way). */
-export function splitView(halfLifeHours: number | undefined, days: number[] | undefined): SplitView | null {
+export function splitView(halfLifeHours: number | undefined, days: number[] | undefined, tmaxHours = 24): SplitView | null {
   if (!halfLifeHours || halfLifeHours < 24 || !days?.length) return null;
-  const gaps = weekGaps(days);
-  const swing = levelSwing(halfLifeHours, Math.max(...gaps) * 24);
+  const swing = steadySwing(halfLifeHours, weekGaps(days), tmaxHours);
   return days.length === 1
-    ? { perWeek: 1, swing, other: { perWeek: 2, swing: levelSwing(halfLifeHours, 4 * 24) } }
-    : { perWeek: days.length, swing, other: { perWeek: 1, swing: levelSwing(halfLifeHours, 7 * 24) } };
+    ? { perWeek: 1, swing, other: { perWeek: 2, swing: steadySwing(halfLifeHours, [3, 4], tmaxHours) } }
+    : { perWeek: days.length, swing, other: { perWeek: 1, swing: steadySwing(halfLifeHours, [7], tmaxHours) } };
+}
+
+/** The rate it's absorbed from under the skin, from the hours to its highest level after a shot (`tmax`), for a
+ *  one-compartment model: tmax = ln(ka/ke) / (ka − ke), solved for ka. */
+function absorptionRate(ke: number, tmaxHours: number): number {
+  let lo = ke * 1.0001, hi = 50;
+  for (let i = 0; i < 80; i++) { const ka = (lo + hi) / 2; const t = Math.log(ka / ke) / (ka - ke); if (t > tmaxHours) lo = ka; else hi = ka; }
+  return (lo + hi) / 2;
+}
+
+/** How far the level falls from its highest to its lowest through a week once it's settled, with the shot absorbed over
+ *  a day or so rather than all at once (the swing is smaller than the elimination alone would say). Equal doses at the
+ *  given gaps (days), repeated for 12 weeks; the last week is measured. */
+export function steadySwing(halfLifeHours: number, gapsDays: number[], tmaxHours = 24): number {
+  const ke = Math.LN2 / halfLifeHours, ka = absorptionRate(ke, tmaxHours);
+  const shots: number[] = [];
+  for (let t = 0, i = 0; t < 12 * 168; t += gapsDays[i % gapsDays.length] * 24, i++) shots.push(t);
+  const level = (t: number) => shots.reduce((sum, s) => (t >= s ? sum + (Math.exp(-ke * (t - s)) - Math.exp(-ka * (t - s))) : sum), 0);
+  let hi = -Infinity, lo = Infinity;
+  for (let t = 11 * 168; t < 12 * 168; t += 1) { const v = level(t); hi = Math.max(hi, v); lo = Math.min(lo, v); }
+  return hi > 0 ? (hi - lo) / hi : 0;
 }
 
 /** The lowest-dose plan for a guide entry: step by `by` (a weekly amount, halved per shot when split) once loss slows. */

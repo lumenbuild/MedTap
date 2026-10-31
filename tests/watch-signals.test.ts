@@ -52,6 +52,16 @@ describe('heart rate after a dose', () => {
     expect(r.wearOffMin!).toBeGreaterThanOrEqual(200);
     expect(r.wearOffMin!).toBeLessThanOrEqual(240);
   });
+  it('takes off the usual morning rise, from days without a dose', () => {
+    // Every morning heart rate climbs 4 bpm from 8:30 whatever happens; dose days add the dose's 10 on top.
+    const climb = (d: DailyHealth): DailyHealth => ({ ...d, hr5: d.hr5!.map((v, i) => (v === null ? null : i * 5 - 8 * 60 >= 30 && i * 5 - 8 * 60 < 300 ? v + 4 : v)) });
+    const off = Array.from({ length: 5 }, (_, k) => { const d = climb(dayWithDose(20 + k)); return { ...d, hr5: d.hr5!.map((v, i) => (v === null ? null : (i * 5 - 8 * 60 >= 45 && i * 5 - 8 * 60 < 240 ? 62 + 4 : v))) }; });
+    const without = heartResponse(ritalin, doses, [], daily.map(climb), NOW, S)!;
+    const withCtl = heartResponse(ritalin, doses, [], [...daily.map(climb), ...off.map((d) => ({ ...d, hr5: d.hr5!.map((v, i) => (v === null ? null : i * 5 - 8 * 60 >= 30 && i * 5 - 8 * 60 < 300 ? 66 : 62)) }))], NOW, S)!;
+    expect(without.peakBpm).toBeGreaterThanOrEqual(13);
+    expect(withCtl.controlDays).toBe(5);
+    expect(withCtl.peakBpm).toBeLessThan(without.peakBpm - 2);
+  });
   it('no rise, no signal', () => {
     const flat = daily.map((d) => ({ ...d, hr5: d.hr5!.map((v) => (v === null ? null : 62)) }));
     expect(heartResponse(ritalin, doses, [], flat, NOW, S)!.signal).toBe(false);

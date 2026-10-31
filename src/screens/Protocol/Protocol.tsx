@@ -268,7 +268,7 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
         {med.peptide?.halfLifeHours
           ? <><Suspense fallback={<div className="h-[150px]" />}><LevelProjection med={med} doses={doses.filter((d) => d.medicationId === med.id)} s={s} now={now} /></Suspense>
             {(() => {
-              const sv = med.schedule.type === 'fixed' && !med.schedule.everyNDays ? splitView(med.peptide.halfLifeHours, med.schedule.days) : null;
+              const sv = med.schedule.type === 'fixed' && !med.schedule.everyNDays ? splitView(med.peptide.halfLifeHours, med.schedule.days, guideEntry?.tmaxHours) : null;
               if (!sv) return null;
               const better = sv.swing - sv.other.swing;
               return (

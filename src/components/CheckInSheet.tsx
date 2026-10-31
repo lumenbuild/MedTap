@@ -10,6 +10,8 @@ import { usualAnswers } from '../logic/reminders';
 import { getDayBounds, type ScheduleSettings } from '../logic/schedule';
 import { fmtAmount, fmtTime, fmtWhen, fromLocalInput, toLocalInput } from '../logic/format';
 import { useToast } from '../app/toast';
+import { useSettings } from '../app/data';
+import { HAS_PEPTIDES } from '../edition';
 import { Sheet, SheetActions, useFreshKey } from './ui/Sheet';
 import { Button } from './ui/Button';
 import { Stepper } from './ui/Stepper';
@@ -30,6 +32,8 @@ export function CheckInSheet({ seed, ...rest }: Props & { seed: CheckInSeed | nu
 
 function CheckInForm({ seed, onClose, doses, checkIns, meds, chips, s, personId, soreness }: Props & { seed: CheckInSeed }) {
   const toast = useToast();
+  // Biohacking tools: a note can double as the day's journal line.
+  const journalOn = HAS_PEPTIDES && !!useSettings()?.biohackTools;
   const [f, setF] = useState<CheckInInput>(() => seed.editing ? { ...seed.editing }
     : { at: new Date().toISOString(), chips: [], mood: seed.mood, relatedDoseId: seed.relatedDoseId });
   const [changeTime, setChangeTime] = useState(false);
@@ -143,6 +147,12 @@ function CheckInForm({ seed, onClose, doses, checkIns, meds, chips, s, personId,
           <textarea value={f.note ?? ''} onChange={(e) => set('note', e.target.value)} rows={2}
             className="w-full rounded-btn bg-surface-2 border border-border px-3.5 py-3" />
         </label>
+        {journalOn && f.note?.trim() && (
+          <label className="flex items-center gap-3 min-h-[44px] text-sm">
+            <input type="checkbox" checked={!!f.journal} onChange={(e) => set('journal', e.target.checked || undefined)} className="w-5 h-5 accent-[var(--primary)]" />
+            <span>Keep this note in my journal</span>
+          </label>
+        )}
         {suggested.length > 0 && (
           <div className="flex flex-wrap items-center gap-2" aria-label="From your note">
             <span className="text-sm text-muted">From your note:</span>
