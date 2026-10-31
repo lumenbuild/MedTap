@@ -82,7 +82,7 @@ const KNOWN: [string, Ingredient[]][] = [
   ['mk 677', [{ name: 'ibutamoren' }]], ['egrifta', [{ name: 'tesamorelin' }]], ['cagrisema', [{ name: 'cagrilintide' }, { name: 'semaglutide' }]],
   ['symlin', [{ name: 'pramlintide' }]], ['bpc 157', [{ name: 'bpc-157' }]], ['bpc', [{ name: 'bpc-157' }]], ['tb 500', [{ name: 'tb-500' }]],
   ['thymosin', [{ name: 'tb-500' }]], ['ghk', [{ name: 'ghk-cu' }]], ['aod 9604', [{ name: 'aod-9604' }]], ['melanotan', [{ name: 'melanotan' }]],
-  ['epitalon', [{ name: 'epitalon' }]], ['selank', [{ name: 'selank' }]], ['semax', [{ name: 'semax' }]], ['kpv', [{ name: 'kpv' }]], ['mots c', [{ name: 'mots-c' }]],
+  ['epitalon', [{ name: 'epitalon' }]], ['epithalon', [{ name: 'epitalon' }]], ['epithilian', [{ name: 'epitalon' }]], ['dsip', [{ name: 'dsip' }]], ['delta sleep', [{ name: 'dsip' }]], ['bpc157', [{ name: 'bpc-157' }]], ['selank', [{ name: 'selank' }]], ['semax', [{ name: 'semax' }]], ['kpv', [{ name: 'kpv' }]], ['mots c', [{ name: 'mots-c' }]],
 ].sort((a, b) => b[0].length - a[0].length) as [string, Ingredient[]][];
 
 const MASS = new Set(['mg', 'mcg', 'g']);

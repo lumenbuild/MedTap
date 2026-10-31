@@ -46,7 +46,7 @@ export const replace = (path: string) => {
 export type Route =
   | { name: 'today' } | { name: 'trends' } | { name: 'body' } | { name: 'settings'; section?: string }
   | { name: 'backup' } | { name: 'report' } | { name: 'help'; topic?: string }
-  | { name: 'meds' } | { name: 'medNew'; tagId?: string } | { name: 'med'; id: string }
+  | { name: 'meds' } | { name: 'medNew'; tagId?: string; guideId?: string } | { name: 'med'; id: string } | { name: 'guide'; id?: string }
   | { name: 'tag'; id: string } | { name: 'sync' } | { name: 'join'; code: string } | { name: 'calc' } | { name: 'supplies' }
   | { name: 'protocol' } | { name: 'protocolReport' } | { name: 'progress'; view?: 'trends' | 'body' }
   | { name: 'appointments' } | { name: 'appointmentSummary' } | { name: 'labs' } | { name: 'travel' }
@@ -64,6 +64,7 @@ export function parseRoute(path: string): Route {
     case 'tag': return { name: 'tag', id: b ?? '' };
     case 'sync': return { name: 'sync' };
     case 'calc': return { name: 'calc' };
+    case 'guide': return { name: 'guide', id: b || undefined };
     case 'supplies': return { name: 'supplies' };
     case 'protocol': return b === 'report' ? { name: 'protocolReport' } : { name: 'protocol' };
     case 'progress': return { name: 'progress', view: b === 'trends' || b === 'body' ? b : undefined };
@@ -81,7 +82,7 @@ export function parseRoute(path: string): Route {
       return { name: 'training', ...(b === 'start' ? { start: true } : {}) };
     case 'join': return { name: 'join', code: b ?? '' };
     case 'meds':
-      if (b === 'new') return { name: 'medNew', tagId: c === 'tag' ? d : undefined };
+      if (b === 'new') return { name: 'medNew', tagId: c === 'tag' ? d : undefined, guideId: c === 'guide' ? d : undefined };
       if (b) return { name: 'med', id: b };
       return { name: 'meds' };
     default: return { name: 'today' };

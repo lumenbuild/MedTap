@@ -36,7 +36,7 @@ const GROUPS: Record<Group, string[]> = {
 };
 
 /** Research peptides: no studies of how they mix with medicines, so no pair can be ruled in or out. */
-export const RESEARCH_PEPTIDES = ['bpc-157', 'tb-500', 'ghk-cu', 'aod-9604', 'melanotan', 'epitalon', 'selank', 'semax', 'kpv', 'mots-c',
+export const RESEARCH_PEPTIDES = ['bpc-157', 'tb-500', 'ghk-cu', 'aod-9604', 'melanotan', 'epitalon', 'dsip', 'selank', 'semax', 'kpv', 'mots-c',
   'ipamorelin', 'cjc-1295', 'hexarelin', 'ghrp', 'ibutamoren', 'retatrutide', 'cagrilintide', 'survodutide', 'mazdutide'];
 
 interface Rule { key: string; a: Group; b: Group; why: string }
@@ -66,6 +66,9 @@ const groupsOf = (m: Medication) => {
   const names = ingredientsOf(m).map((i) => i.name);
   return new Set((Object.keys(GROUPS) as Group[]).filter((g) => GROUPS[g].some((n) => names.includes(n))));
 };
+
+/** Whether a medicine belongs to a group (e.g. a GLP-1, a stimulant), from its ingredients. */
+export const inGroup = (m: Medication, g: Group) => groupsOf(m).has(g);
 
 export interface Interaction { key: string; a: Medication; b: Medication; why: string }
 

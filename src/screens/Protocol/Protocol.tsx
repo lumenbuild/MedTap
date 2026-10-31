@@ -24,13 +24,19 @@ import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { Button } from '../../components/ui/Button';
 import { WeekStrip } from './WeekStrip';
 import { Tile } from '../../components/ui/Visual';
-import { AlertTriangle, Calculator, CalendarRange, ChevronRight, FileText, Package, TrendingDown } from 'lucide-react';
+import { AlertTriangle, BookOpen, Calculator, CalendarRange, ChevronRight, FileText, Package, TrendingDown } from 'lucide-react';
+import { guideFor, lowestPlan, splitView } from '../../logic/peptideGuide';
+import { dosesPerWeek } from '../../logic/dosePlan';
+import { SwingBars } from '../../components/SwingBars';
+import { CourseBar } from '../../components/CourseBar';
+import { costPerKg, missedShot } from '../../logic/peptideSmart';
 import { ChipPicker } from '../../components/ui/Field';
 import { Sheet } from '../../components/ui/Sheet';
 import { LogDoseFlow } from '../../components/LogDoseFlow';
 import { StartVialSheet } from '../Meds/VialCard';
 
 import { useToast } from '../../app/toast';
+import { saveStepPlan, setHalfLife } from '../../db/repos/meds';
 import { removeDose } from '../../db/repos/doses';
 import { LeadTimeSheet, LotSheet } from './ProtocolSheets';
 
@@ -68,7 +74,10 @@ export function Protocol() {
       {!med ? (
         <section className="border-t border-border pt-5 space-y-3">
           <p>No peptides yet{fam.many ? ` for ${fam.person}` : ''}. Add one with the injection form and it shows here: the next shot, how it's going, its plan and stock.</p>
-          <Button onClick={() => go('/meds/new')}>Add a peptide</Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button onClick={() => go('/guide')}>Pick from the guide</Button>
+            <Button variant="secondary" onClick={() => go('/meds/new')}>Add your own</Button>
+          </div>
         </section>
       ) : (
         <>
@@ -98,9 +107,10 @@ export function Protocol() {
             );
           })}
         </dl>
-        <div className="pt-4 grid grid-cols-4 gap-2" role="group" aria-label="Tools">
+        <div className="pt-4 grid grid-cols-3 gap-2" role="group" aria-label="Tools">
           <Tile Icon={Calculator} label="Calculator" href="#/calc" />
           <Tile Icon={Package} label="Supplies" href="#/supplies" />
+          <Tile Icon={BookOpen} label="Guide" name="Peptide guide" href="#/guide" />
           {peptides.length > 0 && <Tile Icon={CalendarRange} label="Enough until" name="Enough until: stock for a trip or a date" onClick={() => setNeeds(true)} />}
           {peptides.length > 0 && <Tile Icon={FileText} label="Report" name="Protocol report for your doctor" href="#/protocol/report" />}
         </div>
@@ -137,6 +147,7 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
   const nextAmount = next !== null ? getExpectedAmount(med, doses, next, s) : med.defaultAmount;
   const guide = guideText(med, nextAmount);
   const plan = planLine(med, now, s);
+  const missed = missedShot(med, doses, now, s);
   const vial = vialStatus(med, doses, now);
   const rest = vialRest(med, doses, now, s);
   const restText = rest ? vialRestText(rest, med.unit, pen) : '';
@@ -157,6 +168,7 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
   const shotDay = weekly ? bestShotDay(med, doses, checkIns, busy) : null;
   const recs = weekRecords(med, doses, checkIns, now, s);
   const findings = weekFindings(recs);
+  const guideEntry = guideFor(med.name);
   const weeksWithCheckIns = recs.filter((w) => w.checkIns >= 2).length;
   const when = status === 'due' ? 'Due now' : next !== null ? fmtWhen(next, now) : status === 'done-today' ? 'Done today' : 'Not planned';
   const onLogged = (d: Dose) => {
@@ -178,6 +190,8 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
           <p className="text-[28px] leading-8 font-semibold tnum">{when}</p>
           {nextAmount > 0 && <p className="text-[17px] tnum mt-1">{fmtAmount(nextAmount, med.unit)}{guide ? <> · <span className="font-semibold">{pen ? guide : `draw ${guide}`}</span></> : null}</p>}
           {plan && <p className="text-sm text-muted mt-1">{plan}</p>}
+          {missed && <p className={`text-sm mt-2 rounded-btn p-2.5 ${missed.take ? 'bg-caution-soft' : 'bg-surface-2'}`}>{missed.text}</p>}
+          <CourseBar med={med} now={now} s={s} />
         </div>
         <WeekStrip med={med} doses={doses} s={s} now={now} label={false} />
         <div className={`rounded-btn p-3 ${problem ? 'bg-caution-soft' : 'bg-surface'}`}>
@@ -227,16 +241,47 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
               <span className="tnum">{findings.length} found</span>
             </Row>
           )}
+          {guideEntry && <Row label="Guide" onClick={() => go(`/guide/${guideEntry.id}`)}><span>Mixing, storage, side effects</span></Row>}
         </dl>
       </section>
 
       {/* 3. The dose plan: every way the dose changes, in one place (also the home for editing it), then the
           estimated level through it. */}
+      {guideEntry?.lowest && !med.stepPlan && (() => {
+        const lp = lowestPlan(guideEntry, dosesPerWeek(med, now, s));
+        return lp && (
+          <button type="button" className="w-full text-left rounded-card bg-surface-2 p-3 min-h-[56px]" onClick={async () => {
+            await saveStepPlan(med.id, lp.plan, lp.criteria);
+            toast(`Staying on ${fmtAmount(med.defaultAmount, med.unit)} while it works`, { onAction: () => saveStepPlan(med.id, undefined, med.stepUp) });
+          }}>
+            <span className="block font-medium">Stay on the lowest dose that works</span>
+            <span className="block text-sm text-muted">Holds {fmtAmount(med.defaultAmount, med.unit)} while you’re losing, and asks about a step only once loss slows under 0.25 kg a week for 3 weeks.</span>
+          </button>
+        );
+      })()}
       <DosePlanCard med={med} flat />
       <section aria-label="Estimated level" className="space-y-3">
         {med.peptide?.halfLifeHours
-          ? <Suspense fallback={<div className="h-[150px]" />}><LevelProjection med={med} doses={doses.filter((d) => d.medicationId === med.id)} s={s} now={now} /></Suspense>
-          : <p className="text-sm text-muted">Add a half-life on <a href={`#/meds/${med.id}`} className="underline underline-offset-4">its page</a> to see the estimated level through your plan.</p>}
+          ? <><Suspense fallback={<div className="h-[150px]" />}><LevelProjection med={med} doses={doses.filter((d) => d.medicationId === med.id)} s={s} now={now} /></Suspense>
+            {(() => {
+              const sv = med.schedule.type === 'fixed' && !med.schedule.everyNDays ? splitView(med.peptide.halfLifeHours, med.schedule.days) : null;
+              if (!sv) return null;
+              const better = sv.swing - sv.other.swing;
+              return (
+                <div>
+                  <p className="text-sm leading-snug">{sv.perWeek === 1
+                    ? (better > 0.1 ? `Your level drops about ${Math.round(sv.swing * 100)}% before each shot. Two half shots 3–4 days apart would make that about ${Math.round(sv.other.swing * 100)}%: steadier, and often less nausea after a shot.` : null)
+                    : `Splitting keeps your level steadier: it drops about ${Math.round(sv.swing * 100)}% before each shot, against ${Math.round(sv.other.swing * 100)}% with one shot a week.`}</p>
+                  {(sv.perWeek > 1 || better > 0.1) && <SwingBars view={sv} yours />}
+                </div>
+              );
+            })()}</>
+          : guideEntry?.halfLifeHours
+            ? <button type="button" className="w-full text-left rounded-card bg-surface-2 p-3 min-h-[56px]" onClick={async () => { await setHalfLife(med.id, guideEntry.halfLifeHours); toast(`Half-life set to ${Math.round(guideEntry.halfLifeHours! / 24)} days`, { onAction: () => setHalfLife(med.id, undefined) }); }}>
+                <span className="block font-medium">Use the {guideEntry.name} half-life ({Math.round(guideEntry.halfLifeHours / 24)} days)</span>
+                <span className="block text-sm text-muted">Shows your estimated level through the plan, and how steady it is between shots.</span>
+              </button>
+            : <p className="text-sm text-muted">Add a half-life on <a href={`#/meds/${med.id}`} className="underline underline-offset-4">its page</a> to see the estimated level through your plan.</p>}
       </section>
 
       {sheet === 'late' && <LateShotsSheet med={med} report={late ?? { events: [], basis: { weeks: 12 } }} onClose={() => setSheet(null)} />}
@@ -274,6 +319,14 @@ function MedStock({ med, doses, s, now, body, checkIns }: { med: Medication; dos
           {c.next12Weeks !== undefined && <span className="block text-sm text-muted tnum">Next 12 weeks {money(c.next12Weeks)} with your plan</span>}
         </>}
       </Row>}
+      {(() => {
+        const per = HAS_BODY ? costPerKg(med, doses, body, checkIns, now) : [];
+        return per.length > 0 && (
+          <Row label="Per kg lost">
+            {per.map((x) => <span key={x.dose} className="block tnum">{money(x.perKg)} <span className="text-sm text-muted">on {fmtAmount(x.dose, med.unit)} ({x.kgLost} kg in {x.weeks} wk)</span></span>)}
+          </Row>
+        );
+      })()}
       {batches.length > 0 && (
         <Row label="Batches" onClick={() => setLots(true)}>
           <span className="tnum">{batches.length} used</span>

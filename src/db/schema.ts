@@ -51,6 +51,8 @@ export interface StepPlan {
   max: number; maxPer: 'dose' | 'week';
   /** "Not yet": don't ask again before this date ('YYYY-MM-DD'). */
   snoozedUntil?: string;
+  /** The lowest dose that works: stay while it's working, step only once loss slows (worded that way). */
+  lowest?: boolean;
 }
 
 interface Stamped { id: string; createdAt: string; updatedAt: string }

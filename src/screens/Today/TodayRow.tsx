@@ -4,6 +4,7 @@ import { getDosesToday, getNextDue, getStatus, type ScheduleSettings } from '../
 import { fmtTime, fmtWhen } from '../../logic/format';
 import { medColour } from '../../logic/palette';
 import { planShort } from '../../logic/dosePlan';
+import { CourseBar, courseProgress } from '../../components/CourseBar';
 
 /** One scheduled medicine on Today (B2): a dot (filled when today's doses are done), its name, and where it's at. */
 export function TodayRow({ med, doses, s, now, onLog, person }: {
@@ -26,6 +27,7 @@ export function TodayRow({ med, doses, s, now, onLog, person }: {
         <span className="flex-1 min-w-0">
           <span className="block truncate">{shownMedName(med)}</span>
           {person && <span className="block text-xs text-muted">{person}</span>}
+          {(() => { const c = courseProgress(med, now, s); return c?.phase === 'on' ? <span className="block text-xs text-muted tnum">{c.label}<CourseBar med={med} now={now} s={s} compact /></span> : null; })()}
         </span>
         <span className={`text-[15px] tnum ${status === 'due' ? 'font-semibold' : 'text-muted'}`}>{right}</span>
       </button>

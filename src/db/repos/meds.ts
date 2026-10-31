@@ -284,6 +284,12 @@ export async function setLeadTime(medId: string, days: number | undefined) {
   await db.medications.update(medId, { peptide: { ...med.peptide, leadTimeDays: days }, updatedAt: nowIso() });
 }
 
+export async function setHalfLife(medId: string, hours: number | undefined) {
+  const med = await db.medications.get(medId);
+  if (!med?.peptide) return;
+  await db.medications.update(medId, { peptide: { ...med.peptide, halfLifeHours: hours }, updatedAt: nowIso() });
+}
+
 /** Flag a batch with a note (shown when mixing another vial from it), or clear the flag with `note === null`. */
 export async function setLotFlag(medId: string, lot: string, note: string | null) {
   const med = await db.medications.get(medId);

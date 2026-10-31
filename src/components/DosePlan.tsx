@@ -45,9 +45,9 @@ export function StepPrompt({ med, v }: { med: Medication; v: StepStatus }) {
       <div className="flex items-start gap-3">
         <Icon className="text-primary shrink-0 mt-0.5" aria-hidden="true" />
         <div className="flex-1 min-w-0">
-          <p className="font-semibold">{shownName(med)}: your plan's next step is due</p>
+          <p className="font-semibold">{p.lowest ? `${shownName(med)}: loss has slowed on ${fmtAmount(v.current, med.unit)}` : `${shownName(med)}: your plan's next step is due`}</p>
           <p className="text-[15px] tnum">{fmtAmount(v.current, med.unit)} → <strong>{fmtAmount(v.next, med.unit)}</strong>{p.byUnits ? ` (${up ? '+' : '−'}${fmtUnits(p.by)})` : ''}</p>
-          <p className="text-sm text-muted">Every condition you set is met: {v.checks.map((c) => c.label.toLowerCase()).join(', ')}.</p>
+          <p className="text-sm text-muted">{p.lowest ? `${v.checks.map((c) => `${c.label.toLowerCase()} (${c.value})`).join(', ')}. Step up, or stay longer and see if it picks up again.` : `Every condition you set is met: ${v.checks.map((c) => c.label.toLowerCase()).join(', ')}.`}</p>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2">
@@ -55,7 +55,7 @@ export function StepPrompt({ med, v }: { med: Medication; v: StepStatus }) {
           const u = await applyStep(med.id, v.next);
           if (u) toast(`${shownName(med)}: ${fmtAmount(v.next, med.unit)} from the next dose`, { onAction: () => undoPlanChange(u) });
         }}>{up ? 'Step up' : 'Step down'}</Button>
-        <Button variant="secondary" onClick={async () => { await snoozeStep(med.id, ymd(addDays(new Date(), 7))); toast('Asks again in a week'); }}>Not yet</Button>
+        <Button variant="secondary" onClick={async () => { await snoozeStep(med.id, ymd(addDays(new Date(), p.lowest ? 14 : 7))); toast(p.lowest ? 'Staying put. Asks again in 2 weeks' : 'Asks again in a week'); }}>{p.lowest ? 'Stay for now' : 'Not yet'}</Button>
       </div>
     </Card>
   );
@@ -106,6 +106,13 @@ function Checks({ checks }: { checks: StepCheck[] }) {
 
 /** Where the step plan is: due, waiting on what, or at the maximum. */
 export function stepSummary(med: Medication, v: StepStatus, now: number): string {
+  if (med.stepPlan?.lowest && !v.atLimit && !v.ready && !v.awaitingFirstDose) {
+    // The lowest dose that works: say why it's staying, from the loss itself.
+    const loss = v.checks.find((c) => c.key === 'maxLossKgWeek');
+    const line = med.stepUp?.maxLossKgWeek;
+    if (loss?.ok === false) return `Staying at ${fmtAmount(v.current, med.unit)} while it’s working: ${loss.value.replace('kg/wk', 'kg a week')}. It steps up only if loss slows under ${line} kg a week.`;
+    if (v.snoozedUntil) return `Staying at ${fmtAmount(v.current, med.unit)}. Asks again ${fmtDay(new Date(`${v.snoozedUntil}T12:00`).getTime(), now)}.`;
+  }
   if (v.atLimit) return `At your ${med.stepPlan?.down ? 'lowest' : 'highest'} dose: ${fmtAmount(v.limit, med.unit)}.`;
   if (v.awaitingFirstDose) return `Next: your first dose at ${fmtAmount(v.current, med.unit)}.`;
   if (v.ready) return `Ready for ${fmtAmount(v.next, med.unit)}.`;
@@ -154,8 +161,7 @@ export function DosePlanCard({ med, flat = false }: { med: Medication; flat?: bo
       <PlanLadder med={med} doses={recs.doses} now={now} />
       {med.stepPlan && v && (
         <div className="space-y-1">
-          <p className="text-[15px]"><span className="font-medium">When ready:</span> {describeStepPlan(med, med.stepPlan)}.</p>
-          {!next && <p className="text-[15px]">{stepSummary(med, v, now)}</p>}
+          <p className="text-[15px]"><span className="font-medium">{med.stepPlan.lowest ? 'Lowest dose that works:' : 'When ready:'}</span> {describeStepPlan(med, med.stepPlan)}.</p>
           {v.checks.length > 0 && !v.atLimit && <Checks checks={v.checks} />}
         </div>
       )}

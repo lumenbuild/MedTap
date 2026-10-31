@@ -9,6 +9,7 @@ import { useToast } from '../../app/toast';
 import type { Medication } from '../../db/schema';
 import type { CheckInAsk } from '../../logic/reminders';
 import { setSetting } from '../../db/repos/settings';
+import { addCheckIn, removeCheckIn } from '../../db/repos/checkIns';
 import { go } from '../../app/router';
 import { useInstallPrompt } from '../../app/install';
 import { fmtAgo, fmtTime } from '../../logic/format';
@@ -35,6 +36,35 @@ export function CheckInPrompt({ ask, med, now, onCheckIn }: { ask: CheckInAsk; m
             className="min-h-[56px] rounded-card bg-surface-2 flex items-center justify-center active:scale-95 transition-transform"><F size={28} aria-hidden="true" /></button>
         ))}
       </div>
+    </Card>
+  );
+}
+
+/** A stimulant dose taken a while ago: one tap rates focus since (1 scattered to 5 sharp), saved as a check-in tied to
+ *  the dose. These build up "which dose and time works best". */
+export function FocusQuick({ med, dose, now, personId }: { med: Medication; dose: { id: string; takenAt: string }; now: number; personId?: string }) {
+  const toast = useToast();
+  const key = `focusAsked:${dose.id}`;
+  const [gone, setGone] = useState(() => { try { return localStorage.getItem(key) === '1'; } catch { return false; } });
+  if (gone) return null;
+  const done = () => { try { localStorage.setItem(key, '1'); } catch { /* fine */ } setGone(true); };
+  return (
+    <Card className="space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="font-semibold">Focus since your {shownName(med)}?</p>
+        <button type="button" aria-label="Not now" className="w-11 h-11 -mr-2 flex items-center justify-center text-muted" onClick={done}><X size={20} /></button>
+      </div>
+      <p className="text-sm text-muted tnum -mt-2">{fmtAgo(now - Date.parse(dose.takenAt)).replace(' ago', '')} after the {fmtTime(Date.parse(dose.takenAt))} dose</p>
+      <div className="grid grid-cols-5 gap-2" role="group" aria-label="Focus, 1 scattered to 5 sharp">
+        {[1, 2, 3, 4, 5].map((v) => (
+          <button key={v} type="button" aria-label={`Focus ${v} of 5`} onClick={async () => {
+            const c = await addCheckIn({ at: new Date().toISOString(), focus: v, chips: [], relatedDoseId: dose.id, personId });
+            done();
+            toast(`Focus ${v} noted`, { onAction: () => removeCheckIn(c.id) });
+          }} className="min-h-[56px] rounded-card bg-surface-2 text-[20px] font-semibold tnum active:scale-95 transition-transform">{v}</button>
+        ))}
+      </div>
+      <div className="flex justify-between text-[12px] text-muted"><span>Scattered</span><span>Sharp</span></div>
     </Card>
   );
 }
