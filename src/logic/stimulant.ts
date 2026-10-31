@@ -10,6 +10,7 @@ import { dayKey } from './stats';
 import { zonedParts } from './tz';
 import { level, type Intake } from './caffeine';
 import { heartResponse } from './watchSignals';
+import { focusReader, hasFocus } from './focusReading';
 
 const HOUR = 3_600_000;
 const DAY = 86_400_000;
@@ -37,7 +38,8 @@ export function focusAsk(meds: Medication[], doses: Dose[], checkIns: CheckIn[],
     .sort((a, b) => b.takenAt.localeCompare(a.takenAt))[0];
   if (!d) return null;
   const t = Date.parse(d.takenAt);
-  if (checkIns.some((c) => !c.deletedAt && typeof c.focus === 'number' && Date.parse(c.at) > t && Date.parse(c.at) <= now)) return null;
+  // A rating or a test since the dose answers it.
+  if (checkIns.some((c) => !c.deletedAt && hasFocus(c) && Date.parse(c.at) > t && Date.parse(c.at) <= now)) return null;
   return { med: stim.get(d.medicationId)!, dose: d };
 }
 
@@ -79,16 +81,18 @@ export function secondDose(med: Medication, doses: Dose[], checkIns: CheckIn[], 
 
 export interface DoseResponse { by: 'amount' | 'time'; better: string; worse: string; focusBetter: number; focusWorse: number; n: number }
 
-/** Focus 45 minutes to 4 hours after a dose, by amount and by time taken (before or after 8 am, or the person's middle
+/** Focus (ratings and brain or reaction tests) 45 minutes to 4 hours after a dose, by amount and by time taken (before or after 8 am, or the person's middle
  *  time). Says which is better when the gap is half a point or more with 4+ answers each side. */
 export function doseResponse(med: Medication, doses: Dose[], checkIns: CheckIn[], now: number, s: ScheduleSettings): DoseResponse | null {
   const ds = doses.filter((d) => live(d) && d.medicationId === med.id && Date.parse(d.takenAt) > now - 120 * DAY).sort((a, b) => a.takenAt.localeCompare(b.takenAt));
   const rows: { amount: number; hour: number; focus: number }[] = [];
-  for (const c of checkIns.filter((x) => !x.deletedAt && typeof x.focus === 'number')) {
+  const focusOf = focusReader(checkIns);
+  for (const c of checkIns.filter((x) => !x.deletedAt && hasFocus(x))) {
     const t = Date.parse(c.at);
     const d = [...ds].reverse().find((x) => Date.parse(x.takenAt) <= t - 45 * 60_000);
-    if (!d || t - Date.parse(d.takenAt) > 4 * HOUR) continue;
-    rows.push({ amount: d.amount, hour: hourOf(Date.parse(d.takenAt), s), focus: c.focus! });
+    const f = focusOf(c);
+    if (!d || t - Date.parse(d.takenAt) > 4 * HOUR || f === undefined) continue;
+    rows.push({ amount: d.amount, hour: hourOf(Date.parse(d.takenAt), s), focus: f });
   }
   if (rows.length < 8) return null;
   const out: DoseResponse[] = [];

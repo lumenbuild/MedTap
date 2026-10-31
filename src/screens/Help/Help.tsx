@@ -326,7 +326,7 @@ const CONTENT: Record<string, ReactNode> = {
       <H>Biohacking tools</H>
       <p>Settings → <strong>Biohacking tools</strong> turns these on (and off again) together:</p>
       <ul className="list-disc pl-5 space-y-1">
-        <li><strong>Brain test</strong> (Progress → Records and tools): 2 minutes (reaction time, then a working-memory round) or 30 seconds of reaction time, also on the watch. Shows your scores, your sharpest hours, and whether there's a real evening dip as a stimulant wears off.</li>
+        <li><strong>Brain test</strong> (Progress → Records and tools): 2 minutes (reaction time, then a working-memory round) or 30 seconds of reaction time, also on the watch. Shows your scores, your sharpest hours, and whether there's a real evening dip as a stimulant wears off. Every test is saved and shows in Logged today, and once you've done 5 it counts as a focus reading (placed against your own usual score) in your best dose and time, the effect window and the wear-off forecast.</li>
         <li><strong>Readiness</strong> on Today: sleep, heart rate, HRV, last night's late dose or drink and this morning's test, with a plan for the day, a warning when heart rate and HRV look like you're getting sick, and how long you usually take to recover.</li>
         <li><strong>Tolerance and breaks</strong> on a stimulant's page: whether the effect is shrinking, dose creep, planned breaks (no reminders on those days) and how strong the first doses back are.</li>
         <li><strong>Muscle protection</strong> on Body, and <strong>water, gut and appetite</strong> around a weekly shot on Protocol.</li>

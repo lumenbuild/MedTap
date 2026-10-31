@@ -8,6 +8,7 @@ import { medOn } from './plans';
 import { dayKey } from './stats';
 import { dayStartOffset, plannedDoses } from './protocol';
 import { hhmmToMinutes } from './tz';
+import { focusReader } from './focusReading';
 
 const MIN = 60_000;
 const HOUR = 3_600_000;
@@ -143,6 +144,7 @@ export function effectWindow(med: Medication, doses: Dose[], checkIns: CheckIn[]
     .map((d) => Date.parse(d.takenAt)).sort((a, b) => a - b);
   if (mine.length < 3) return null;
   const cis = checkIns.filter((c) => !c.deletedAt && Date.parse(c.at) > now - 60 * DAY);
+  const focusOf = focusReader(cis); // ratings, and tests on the same scale
   const byHour = Array.from({ length: 13 }, (_, h) => ({ h, vals: [] as number[], wearing: 0 }));
   const baseline: number[] = [];
   const usedDoses = new Set<number>();
@@ -153,12 +155,13 @@ export function effectWindow(med: Medication, doses: Dose[], checkIns: CheckIn[]
     const h = before !== undefined ? (t - before) / HOUR : Infinity;
     if (h <= 12) {
       const b = byHour[Math.floor(h)];
-      if (typeof c.focus === 'number') b.vals.push(c.focus);
+      const f = focusOf(c);
+      if (f !== undefined) b.vals.push(f);
       // "Wearing off" soon after a dose is about something earlier (the dose before, or another medicine fading), not
       // this one: a dose can't wear off before it's had time to work. Counted only where it's believable.
       if (c.chips.includes('Wearing off') && h >= 1.5 && plausibleHours(med, h)) b.wearing++;
       used++; usedDoses.add(before!);
-    } else if (typeof c.focus === 'number') baseline.push(c.focus);
+    } else { const f = focusOf(c); if (f !== undefined) baseline.push(f); }
   }
   if (used < 6) return null;
   const base = baseline.length >= 3 ? avg(baseline) : undefined;
