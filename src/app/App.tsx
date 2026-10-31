@@ -208,7 +208,7 @@ export function App() {
                 // headline, so its title is for screen readers only.
                 <header className="app-header">
                   <div className="flex items-center justify-between h-14">
-                    <p className="text-sm text-muted">{r.name === 'today' ? DATE_LINE.format(now) : ''}</p>
+                    <p className="text-sm text-muted font-medium">{r.name === 'today' ? DATE_LINE.format(now) : ''}</p>
                     <div className="flex items-center -mr-3">
                       {r.name === 'today' && isNativeIOS && <ScanTagButton />}
                       {r.name !== 'settings' && (
@@ -216,7 +216,7 @@ export function App() {
                       )}
                     </div>
                   </div>
-                  <h1 className={r.name === 'today' ? 'sr-only' : 'text-[44px] leading-[48px] font-light tracking-[-0.04em] mt-4 mb-6'}>{heading}</h1>
+                  <h1 className={r.name === 'today' ? 'text-[34px] leading-[40px] font-extrabold tracking-[-0.02em] -mt-1 mb-4' : 'text-[34px] leading-[40px] font-extrabold tracking-[-0.02em] mt-2 mb-4'}>{heading}</h1>
                 </header>
               ))}
               <main><Screen r={r} /></main>

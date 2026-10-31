@@ -159,7 +159,7 @@ export function IntakeCard({ personId, today, day, proteinTarget, waterTarget, r
     );
   };
   return (
-    <section className="border-t border-border pt-4 space-y-4" aria-label="Protein, water and readiness">
+    <section className="box space-y-4" aria-label="Protein, water and readiness">
       {ready && <div className="pb-4 border-b border-border"><ReadinessBlock r={ready} compact /></div>}
       {row('Protein', Beef, 'proteinG', 'g', proteinTarget)}
       {row('Water', GlassWater, 'waterMl', 'mL', waterTarget)}

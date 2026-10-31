@@ -92,7 +92,7 @@ function Checks({ checks }: { checks: StepCheck[] }) {
       {checks.map((c) => (
         <li key={c.key} className="flex items-center gap-3 min-h-[36px]">
           <span aria-hidden="true" className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-            style={{ background: c.ok ? 'var(--success-soft)' : 'var(--surface-2)', color: c.ok ? 'var(--success)' : 'var(--text-muted)' }}>
+            style={{ background: c.ok ? 'var(--success-soft)' : 'var(--fill)', color: c.ok ? 'var(--success)' : 'var(--text-muted)' }}>
             {c.ok ? <Check size={14} /> : c.ok === false ? <X size={14} /> : <Minus size={14} />}
           </span>
           <span className="flex-1 text-[15px]">{c.label}</span>

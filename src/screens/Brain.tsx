@@ -77,7 +77,7 @@ export function Brain() {
             aria-label={`Focus by hour: ${fb.hours.filter((h) => h.score !== undefined).map((h) => `${clock(h.hour)} ${h.score! > 0 ? 'above' : 'below'} usual`).join(', ')}`}>
             {fb.hours.map((h) => {
               const v = h.score ?? 0;
-              return <div key={h.hour} className="h-8 rounded-[3px]" style={{ background: h.score === undefined ? 'var(--surface-2)' : v > 0 ? 'var(--success)' : 'var(--caution)', opacity: h.score === undefined ? 1 : Math.min(1, 0.25 + Math.abs(v) * 0.6) }} />;
+              return <div key={h.hour} className="h-8 rounded-[3px]" style={{ background: h.score === undefined ? 'var(--fill)' : v > 0 ? 'var(--success)' : 'var(--caution)', opacity: h.score === undefined ? 1 : Math.min(1, 0.25 + Math.abs(v) * 0.6) }} />;
             })}
           </div>
           <div className="flex justify-between text-[11px] text-muted tnum"><span>6 am</span><span>noon</span><span>6 pm</span><span>10 pm</span></div>
@@ -120,7 +120,7 @@ function Reaction({ trials, onDone, onCancel }: { trials: number; onDone: (r: Re
       <p className="text-sm text-muted tnum">Reaction · {done} of {trials}</p>
       <button type="button" onPointerDown={tap} aria-label={state === 'go' ? 'Tap now' : 'Wait for green'}
         className="w-full aspect-square max-h-[60vh] rounded-card flex items-center justify-center text-[22px] font-semibold select-none touch-manipulation"
-        style={{ background: state === 'go' ? 'var(--success)' : 'var(--surface-2)', color: state === 'go' ? '#fff' : 'var(--text)' }}>
+        style={{ background: state === 'go' ? 'var(--success)' : 'var(--fill)', color: state === 'go' ? '#fff' : 'var(--text)' }}>
         {state === 'go' ? 'Tap!' : state === 'shown' && last !== null ? `${last} ms` : 'Wait for green…'}
       </button>
       <p className="sr-only" aria-live="assertive">{state === 'go' ? 'Now' : ''}</p>

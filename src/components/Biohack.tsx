@@ -51,7 +51,7 @@ export function DailyBrief() {
   const evening = on && eveningTestDue(mine.meds, doses, mine.checkIns, now, s);
   if (!r && !ill && !evening && !brief.length) return null;
   return (
-    <section aria-labelledby="ready-h" className="border-t border-border pt-4 space-y-3">
+    <section aria-labelledby="ready-h" className="box space-y-3">
       <h2 id="ready-h" className="text-sm font-medium text-muted">Your day</h2>
       {brief.length > 0 && <ul className="space-y-1 leading-snug">{brief.map((b) => <li key={b.key} className="flex gap-2"><span aria-hidden="true" className="mt-[0.55em] w-1.5 h-1.5 rounded-full bg-text shrink-0" /><span>{b.text}</span></li>)}</ul>}
       {r && (

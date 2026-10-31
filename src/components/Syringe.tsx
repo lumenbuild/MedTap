@@ -24,7 +24,7 @@ export function SyringeGauge({ units, capacity }: { units: number; capacity: num
       <line x1={2} x2={24} y1={mid} y2={mid} stroke="var(--text-muted)" strokeWidth={1.5} strokeLinecap="round" />
       <rect x={24} y={mid - 5} width={x0 - 24} height={10} rx={2} fill="var(--border)" />
       {/* barrel, with the dose from the needle end up to the stopper */}
-      <rect x={x0} y={top} width={x1 - x0} height={bot - top} rx={3} fill="var(--surface-2)" stroke="var(--border)" />
+      <rect x={x0} y={top} width={x1 - x0} height={bot - top} rx={3} fill="var(--fill)" stroke="var(--border)" />
       <rect x={x0} y={top} width={stop - x0} height={bot - top} fill="var(--primary)" opacity={0.35} />
       {ticks.map((v) => (
         <line key={v} x1={at(v)} x2={at(v)} y1={bot} y2={v % 10 === 0 ? top + 10 : v % 5 === 0 ? top + 14 : top + 18} stroke="var(--text)" strokeWidth={v % 10 === 0 ? 1.2 : 0.6} />

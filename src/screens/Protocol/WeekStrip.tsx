@@ -23,8 +23,8 @@ export function WeekStrip({ med, doses, s, now, label = true }: { med: Medicatio
               d.state === 'taken' || d.state === 'extra' ? { background: c }
                 : d.state === 'partial' ? { background: `linear-gradient(90deg, ${c} 50%, transparent 50%)`, border: `1.5px solid ${c}` }
                   : d.state === 'missed' ? { border: `1.5px dashed ${c}` }
-                    : d.state === 'skipped' ? { border: '1.5px solid var(--border-strong)', background: 'var(--surface-2)' }
-                      : d.state === 'off' ? { background: 'var(--surface-2)', width: 8, height: 8 }
+                    : d.state === 'skipped' ? { border: '1.5px solid var(--border-strong)', background: 'var(--fill)' }
+                      : d.state === 'off' ? { background: 'var(--fill)', width: 8, height: 8 }
                         : { border: `1.5px solid ${c}`, ...(d.isToday ? { boxShadow: `0 0 0 3px var(--bg), 0 0 0 4.5px ${c}` } : {}) }}>
               {d.state === 'taken' && d.taken > 1 ? d.taken : ''}
             </span>

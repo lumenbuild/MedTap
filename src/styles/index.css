@@ -87,3 +87,19 @@ main h2 > svg.lucide, [role='dialog'] h3 > svg.lucide, main h2 > span > svg.luci
   .chart-table { display: none; }
   @page { margin: 12mm; }
 }
+
+/* Cards: white (dark: near-black with a hairline). Something grey inside a card (a chip, a field, a track) uses the
+   fill colour, so it still shows on the card. */
+.rounded-card.bg-surface, .rounded-card.bg-surface-2, .box { box-shadow: inset 0 0 0 1px var(--card-line); }
+.box { background: var(--surface); border-radius: var(--radius-card); padding: 16px; }
+:is(.box, .bg-surface, .bg-surface-2) :is(.bg-surface-2, .bg-surface) { background-color: var(--fill); }
+/* The headline cards: a colour by day, a glow by night. */
+.hero { background: var(--hero-meds); color: var(--hero-ink); border-radius: var(--radius-card); padding: 18px; box-shadow: inset 0 0 0 1px var(--card-line); }
+.hero.pep { background: var(--hero-pep); }
+.hero .text-muted { color: var(--hero-muted); }
+.hero .hero-btn { background: var(--hero-btn); color: var(--hero-btn-ink); }
+.hero.pep .hero-btn { color: var(--hero-pep-btn-ink); }
+.hero .text-primary { color: var(--hero-ink); }
+.hero .text-text { color: var(--hero-ink); }
+.hero .border-border-strong { border-color: color-mix(in srgb, var(--hero-ink) 45%, transparent); }
+.hero .divide-border > * + * { border-color: color-mix(in srgb, var(--hero-ink) 22%, transparent); }
