@@ -420,10 +420,11 @@ async function scheduleWearOff(settings: Awaited<ReturnType<typeof getSettings>>
     .map((m) => (settings.privacyPinHash ? (() => { const n = discreetName(m, settings.privacyHidePeptides, shownName); return n === null ? null : { ...m, name: n, nickname: undefined }; })() : m))
     .filter((m): m is Medication => !!m);
   const myCis = checkIns.filter((c) => personOf(c) === me), myDaily = daily.filter((d) => personOf(d) === me);
-  // A second dose to time: remind at that time. Otherwise half an hour before the first wears off.
+  // A second dose with no schedule: at the usual gap. Otherwise half an hour before the first wears off.
   const notes = mine.map((m) => {
     const sd = secondDose(m, doses, myCis, myDaily, now, s);
-    if (sd) return sd.at > now ? { at: sd.at, title: `Second ${shownName(m)} now`, body: `Working before the first wears off about ${fmtTime(sd.wearAt)}` } : null;
+    // A scheduled second dose already has its own dose reminder; this never adds another at a different time.
+    if (sd) return sd.source === 'usual' && sd.at > now ? { at: sd.at, title: `Second ${shownName(m)}`, body: `Your usual time, ${fmtTime(sd.at)}` } : null;
     const w = wearOffToday(m, doses, myCis, myDaily, now, s);
     return w && w.at - 30 * 60_000 > now ? { at: w.at - 30 * 60_000, title: `${shownName(m)} wearing off soon`, body: `Focus likely drops about ${fmtTime(w.at)}` } : null;
   }).filter((n): n is NonNullable<typeof n> => !!n);

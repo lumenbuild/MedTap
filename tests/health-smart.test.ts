@@ -58,6 +58,13 @@ describe('training load', () => {
     expect(daySuggestion({ score: 80, label: 'Ready', parts: [] }, t, null)?.kind).toBe('push');
     expect(daySuggestion({ score: 80, label: 'Ready', parts: [] }, t, { level: 'watch', signals: [], date: '' })?.kind).toBe('rest');
   });
+  it('no comparison when watch workouts have only just started coming in', () => {
+    // A few sessions logged in the app before; this week the watch's workouts arrive for the first time.
+    const before = [8, 15, 22].map((k) => ({ ...run(k), source: 'manual' as const, cardio: undefined, sets: [{ exerciseId: 'squat', reps: 5, weightKg: 60 }] as Workout['sets'] }));
+    const l = trainingLoad([...before, ...[1, 2, 3, 4, 5].map((k) => run(k, { durationMin: 60 }))], NOW);
+    expect(l?.ratio).toBeUndefined();
+    expect(daySuggestion(null, l, null)).toBeNull();
+  });
   it('VO2 max now and two months ago', () => {
     const v = vo2Trend([day(60, { vo2max: 41 }), day(30, { vo2max: 42.5 }), day(1, { vo2max: 43.2 })], NOW)!;
     expect(v).toMatchObject({ value: 43.2, change: 2.2 });

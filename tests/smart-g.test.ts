@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import type { BodyEntry, CheckIn, DailyHealth, Dose, FoodLog, Medication } from '../src/db/schema';
 import type { ScheduleSettings } from '../src/logic/schedule';
-import { doseResponse, eveningCrash, focusAsk, secondDose, stimulantLoad } from '../src/logic/stimulant';
+import { doseResponse, eveningCrash, focusAsk, secondDetail, secondDose, secondTitle, stimulantLoad } from '../src/logic/stimulant';
+import { fmtTime } from '../src/logic/format';
 import { focusReader } from '../src/logic/focusReading';
 import { heartWatch, underEating } from '../src/logic/crossSmart';
 import { costPerKg, missedShot } from '../src/logic/peptideSmart';
@@ -31,18 +32,31 @@ describe('stimulants', () => {
     expect(focusAsk([ritalin], [dose('r', NOW - 20 * 60_000, 10)], [], NOW)).toBeNull();
     expect(focusAsk([med({ name: 'Panadol' })], [d], [], NOW)).toBeNull();
   });
-  it('times the second dose to be working before the first wears off', () => {
-    const first = dose('r', at(0, 7), 10);
-    const sd = secondDose(ritalin, [first], [], [], at(0, 8), S)!;
-    expect(sd).toBeTruthy();
-    // Ritalin usually 3–5 h: wears off about 11 am, so the second about 10:30.
-    expect(sd.wearAt - first.takenAt.length).toBeGreaterThan(0);
-    expect((sd.wearAt - Date.parse(first.takenAt)) / HOUR).toBeCloseTo(4, 0);
-    expect(sd.wearAt - sd.at).toBe(30 * 60_000);
+  it('the second dose is always the scheduled time, never earlier', () => {
+    // Scheduled 7:36 am and 11:36 am; first taken 7:36. A short forecast wear-off (about 9:21) must not pull it to 9:36.
+    const r2 = med({ schedule: { type: 'fixed', slots: [{ time: '07:36' }, { time: '11:36' }] } });
+    const first = dose('r', at(0, 7, 36), 10);
+    const sd = secondDose(r2, [first], [], [], at(0, 9, 45), S)!;
+    expect(sd.at).toBe(at(0, 11, 36));
+    expect(sd.source).toBe('schedule');
+    expect(sd.at).toBeGreaterThanOrEqual(sd.wearAt - 30 * 60_000 - 1); // never moved to the wear-off
+    expect(secondTitle('Ritalin', sd, at(0, 9, 45))).toBe(`Second Ritalin at ${fmtTime(at(0, 11, 36))}`);
+    expect(secondDetail(sd)).toMatch(/^Your scheduled time\./);
+    expect(secondDetail(sd)).not.toMatch(/take it|earlier|skip/i);
+    // At or after the time: due now.
+    expect(secondTitle('Ritalin', secondDose(r2, [first], [], [], at(0, 11, 40), S)!, at(0, 11, 40))).toBe('Second Ritalin due now');
     // Already taken the second: nothing.
-    expect(secondDose(ritalin, [first, dose('r', at(0, 10, 30), 10)], [], [], at(0, 11), S)).toBeNull();
-    // Once a day by schedule and habit: nothing.
-    expect(secondDose(med({ schedule: { type: 'fixed', slots: [{ time: '07:00' }] } }), [first], [], [], at(0, 8), S)).toBeNull();
+    expect(secondDose(ritalin, [dose('r', at(0, 7), 10), dose('r', at(0, 10, 30), 10)], [], [], at(0, 11), S)).toBeNull();
+    // Once a day by schedule: nothing.
+    expect(secondDose(med({ schedule: { type: 'fixed', slots: [{ time: '07:00' }] } }), [dose('r', at(0, 7), 10)], [], [], at(0, 8), S)).toBeNull();
+  });
+  it('with no twice-a-day schedule, uses the usual gap between doses', () => {
+    const daily = med({ schedule: { type: 'prn' } as Medication['schedule'] });
+    const past = Array.from({ length: 6 }, (_, k) => [dose('r', at(k + 1, 7), 10), dose('r', at(k + 1, 11), 10)]).flat();
+    const first = dose('r', at(0, 7, 30), 10);
+    const sd = secondDose(daily, [...past, first], [], [], at(0, 8), S)!;
+    expect(sd.source).toBe('usual');
+    expect(sd.at).toBe(at(0, 11, 30));
   });
   it('finds the dose that works best', () => {
     const doses: Dose[] = [], cis: CheckIn[] = [];

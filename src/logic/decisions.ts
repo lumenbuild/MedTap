@@ -6,7 +6,7 @@
 import type { FoodLog, Medication, Workout } from '../db/schema';
 import { dayKey } from './stats';
 import type { ScheduleSettings } from './schedule';
-import { isStimulant, doseResponse, secondDose } from './stimulant';
+import { isStimulant, doseResponse, secondDose, secondDetail, secondTitle } from './stimulant';
 import { isGlpLike } from './peptideGuide';
 import { robustFit } from './forecast';
 import { readiness } from './training';
@@ -14,7 +14,7 @@ import { illnessWatch } from './vitals';
 import { daySuggestion, trainingLoad } from './trainingLoad';
 import { energyBalance, expenditure, calorieTarget } from './energy';
 import { medEffects } from './medEffects';
-import { costsOf, lower, MEANINGFUL, OUTCOMES, shortActing, type Outcome, type ProposedExperiment, type VerdictData } from './verdict';
+import { costsOf, lower, MEANINGFUL, OUTCOMES, selfTestable, shortActing, type Outcome, type ProposedExperiment, type VerdictData } from './verdict';
 import { bedtimeOf, caffeineDays, findCutoff, intakesOf } from './caffeine';
 import { fmtTime } from './format';
 
@@ -81,7 +81,7 @@ export function whatsWorking(d: AllData, now: number, s: ScheduleSettings): What
     const inWindow = days.filter((k) => on.has(k)).length;
     // A long-acting one (a weekly shot) is in the body every day: its days are shot days, not on and off.
     const short = shortActing(m);
-    if (inWindow >= 6 && days.length - inWindow >= 6) factors.push({ key: `med-${m.id}`, label: short ? `Taking ${m.nickname?.trim() || m.name}` : `${m.nickname?.trim() || m.name} shot day`, on, controllable: short, med: m });
+    if (inWindow >= 6 && days.length - inWindow >= 6) factors.push({ key: `med-${m.id}`, label: short ? `Taking ${m.nickname?.trim() || m.name}` : `${m.nickname?.trim() || m.name} shot day`, on, controllable: short && selfTestable(m), med: m });
   }
   const chipDays = (re: RegExp, after?: number) => new Set(d.checkIns.filter((c) => live(c) && c.chips.some((x) => re.test(x)) && (after === undefined || new Date(c.at).getHours() >= after)).map((c) => dayKey(Date.parse(c.at), s)));
   factors.push({ key: 'late-caffeine', label: 'Caffeine after 2 pm', on: chipDays(/caffeine|coffee/i, 14), controllable: true });
@@ -152,14 +152,11 @@ export function todaysCalls(d: AllData, now: number, s: ScheduleSettings, st: Ca
   const cut = own !== undefined ? new Date(new Date(now).setHours(Math.floor(own), Math.round((own % 1) * 60), 0, 0)).getTime() : bed - 8 * 3_600_000;
   if (cut > now - 3 * 3_600_000) out.push({ key: 'caffeine', title: `Last caffeine by ${fmtTime(cut)}`, detail: own !== undefined ? (st.caffeineCutoff ? 'Your cut-off.' : 'Your nights sleep worse with caffeine after this.') : `8 hours before your ${fmtTime(bed)} bedtime.`, tone: 'info' });
 
-  // A second stimulant dose: when, or whether to skip it today.
+  // A second stimulant dose: always the schedule's time (or the usual gap, with no schedule). Never moved, never skipped.
   for (const m of d.meds.filter((x) => !x.archived && isStimulant(x))) {
     const sd = secondDose(m, d.doses, d.checkIns, d.daily, now, s);
     if (!sd) continue;
-    const name = m.nickname?.trim() || m.name;
-    if (ill || (r && r.score < 50)) out.push({ key: 'second-dose', title: `Maybe skip the second ${name}`, detail: ill ? 'Several overnight readings are off.' : `Readiness ${r!.score}: a lighter day may suit.`, tone: 'easy' });
-    else if (sd.afterCutoff !== undefined) out.push({ key: 'second-dose', title: `Second ${name} would be late for sleep`, detail: `Due about ${fmtTime(sd.at)}, after your cut-off.`, tone: 'easy' });
-    else out.push({ key: 'second-dose', title: `Second ${name} at ${fmtTime(sd.at)}`, detail: `Before the first wears off at about ${fmtTime(sd.wearAt)}.`, tone: 'go' });
+    out.push({ key: 'second-dose', title: secondTitle(m.nickname?.trim() || m.name, sd, now), detail: secondDetail(sd), tone: 'info' });
     break;
   }
 

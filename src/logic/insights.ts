@@ -22,7 +22,7 @@ import { dayKey } from './stats';
 import { kgTo, weightUnit } from './units';
 import { shownName } from './privacy';
 import { fmtTime } from './format';
-import { doseResponse, eveningCrash, isStimulant, secondDose, stimulantLoad, type Lane } from './stimulant';
+import { doseResponse, eveningCrash, isStimulant, secondDetail, secondDose, stimulantLoad, type Lane } from './stimulant';
 import { heartWatch, underEating } from './crossSmart';
 import { missedShot } from './peptideSmart';
 import { sleepImpact } from './habits';
@@ -120,13 +120,12 @@ export function insights(d: InsightInput, now: number, s: ScheduleSettings): Ins
   // Today's wear-off, while it's ahead or just past.
   if (d.has.meds) {
     for (const m of d.meds.filter((x) => !x.archived && !x.peptide)) {
-      // A second dose to time: says when to take it, instead of only when the first wears off.
+      // A second dose today: the schedule's time (never moved by the forecast).
       const sd = secondDose(m, d.doses, d.checkIns, d.daily, now, s);
       if (sd) {
-        out.push({ id: `second:${m.id}:${Math.floor(sd.firstAt / DAY)}`, kind: 'second', importance: sd.at - now < 45 * 60_000 ? 75 : 62, confidence: 'medium', tone: 'good',
-          headline: `${shownName(m)}: second dose ${sd.at <= now ? 'now' : `about ${fmtTime(sd.at)}`}`,
-          evidence: `So it’s working before the first wears off about ${fmtTime(sd.wearAt)} (it takes about ${sd.leadMin} min to kick in)${sd.afterCutoff !== undefined ? `. That’s after ${hourText(sd.afterCutoff)}, when a dose tends to cost you sleep` : ''}`,
-          snoozeDays: 1, bar: { from: sd.firstAt, early: sd.at, late: sd.wearAt } });
+        out.push({ id: `second:${m.id}:${Math.floor(sd.firstAt / DAY)}`, kind: 'second', importance: sd.at - now < 45 * 60_000 ? 75 : 62, confidence: 'high', tone: 'plain',
+          headline: `${shownName(m)}: second dose ${sd.at <= now ? 'due now' : `at ${fmtTime(sd.at)}`}`,
+          evidence: secondDetail(sd), snoozeDays: 1 });
         continue;
       }
       const w = wearOffToday(m, d.doses, d.checkIns, d.daily, now, s);

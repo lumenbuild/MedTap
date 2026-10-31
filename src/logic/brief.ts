@@ -32,7 +32,7 @@ export function dailyBrief(d: { meds: Medication[]; doses: Dose[]; checkIns: Che
       if (at !== null && at !== undefined && at < start + DAY) out.push({ key: `first:${m.id}`, text: `${shownName(m)}: first dose ${at <= now ? 'now' : `about ${time(at)}`}${wakeAt ? ` (you woke ${time(woke!)})` : ''}` });
     } else {
       const sd = secondDose(m, d.doses, d.checkIns, d.daily, now, s);
-      if (sd) out.push({ key: `second:${m.id}`, text: `${shownName(m)}: second dose ${sd.at <= now ? 'now' : `about ${time(sd.at)}`}, before the first wears off about ${time(sd.wearAt)}` });
+      if (sd) out.push({ key: `second:${m.id}`, text: `${shownName(m)}: second dose ${sd.at <= now ? 'due now' : `at ${time(sd.at)}`} (${sd.source === 'schedule' ? 'your scheduled time' : 'your usual gap'})` });
     }
   }
   // Shots today or tomorrow, and what usually follows.

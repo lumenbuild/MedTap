@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { DailyHealth, Dose, Medication } from '../src/db/schema';
-import type { ScheduleSettings } from '../src/logic/schedule';
+import { getNextDue, type ScheduleSettings } from '../src/logic/schedule';
 import { courseSleep, heartResponse, heartToday, restingSeries, shotWeek } from '../src/logic/watchSignals';
 import { sleepImpact } from '../src/logic/habits';
 import { wearOffToday } from '../src/logic/wearOff';
@@ -81,7 +81,8 @@ describe('heart rate after a dose', () => {
     expect((w.at - at(0, 8)) / HOUR).toBeGreaterThan(3.2);
     expect((w.at - at(0, 8)) / HOUR).toBeLessThan(4.1);
     const sd = secondDose(ritalin, [...doses, d], [], [...daily, today], at(0, 9), S)!;
-    expect(sd.leadMin).toBeGreaterThanOrEqual(55);
+    // The second dose stays at its scheduled time whatever the forecast says.
+    expect(sd.at).toBe(getNextDue(ritalin, [...doses, d], at(0, 9), S));
     // Settled early today (back to 62 from 2½ hours): wearing off now, ahead of the usual time.
     const early = { ...today, hr5: today.hr5!.map((v, i) => (v !== null && i * 5 - 8 * 60 >= 150 ? 62 : v)) };
     const w2 = wearOffToday(ritalin, [...doses, d], [], [...daily, early], at(0, 11, 15), S)!;
