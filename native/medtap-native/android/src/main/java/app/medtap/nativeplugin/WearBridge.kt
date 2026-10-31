@@ -70,7 +70,8 @@ object WearBridge {
 }
 
 /** Receives the watch's messages: "log" {"medId": "...", "at": 1730000000000}, "set done" {"setId": "...", "at": ...} and
- *  "check-in" {"focus"?, "chip"?, "rtMs"?, "rtLapses"?, "rtEarly"?, "at"}. */
+ *  "check-in" (mood/focus/energy/chips, a test, a drink, water, heart rate, how last night was, or a skipped dose; the
+ *  app reads the fields). Messages the watch kept while the phone was away arrive with the time they were made. */
 class MedTapWearListener : WearableListenerService() {
     override fun onMessageReceived(event: MessageEvent) {
         val queue = when (event.path) { WearBridge.LOG_PATH -> WearBridge.LOGS; WearBridge.SET_PATH -> WearBridge.SETS; WearBridge.CHECKIN_PATH -> WearBridge.CHECKINS; else -> return }

@@ -131,6 +131,8 @@ export interface AppSettings {
   snoozes: Snooze[];
   /** A notification 30 minutes before a medicine's forecast wear-off (app). */
   wearOffNotify: boolean;
+  /** Dose reminders from the watch app itself (Log, Snooze, Skip on the wrist, and they work without the phone nearby). */
+  watchReminders: boolean;
   /** Caffeine: the person's own daily limit (mg), usual bedtime ('HH:mm') and how fast they clear it (half-life, h). */
   caffeineLimitMg: number | null;
   bedtime: string;
@@ -244,6 +246,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pharmacyContact: '',
   snoozes: [],
   wearOffNotify: true,
+  watchReminders: false,
   caffeineLimitMg: 400,
   bedtime: '22:30',
   caffeineHalfLifeH: 5,

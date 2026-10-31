@@ -54,7 +54,7 @@ export interface MedTapNativePlugin {
   /** Android: "log" taps from a paired Wear OS watch, waiting to be logged (cleared when read). */
   takeWatchLogs(): Promise<{ items: { medId: string; at: number }[] }>;
   /** From the watch: focus ratings, symptoms and reaction tests (biohacking tools), cleared. */
-  takeWatchCheckIns(): Promise<{ items: { at: number; focus?: number; chip?: string; rtMs?: number; rtLapses?: number; rtEarly?: number }[] }>;
+  takeWatchCheckIns(): Promise<{ items: WatchCheckIn[] }>;
   /** Android: download a newer build of this app from its GitHub release and open the installer. Rejects with `code`
    *  'permission' (the "install unknown apps" setting was opened), 'mismatch' or 'io'. */
   installUpdate(options: { url: string }): Promise<void>;
@@ -83,3 +83,12 @@ export interface HealthData {
 export const isNative = Capacitor.isNativePlatform();
 export const nativePlatform = Capacitor.getPlatform() as 'ios' | 'android' | 'web';
 export const MedTapNative = registerPlugin<MedTapNativePlugin>('MedTapNative');
+
+/** What the watch sends back besides dose taps and sets (as it sent it: check each field). */
+export interface WatchCheckIn {
+  at: number; focus?: number; mood?: number; energy?: number; sleepQuality?: number; chip?: string; chips?: unknown[];
+  rtMs?: number; rtLapses?: number; rtEarly?: number; nbackPct?: number;
+  caffeineMg?: number; drink?: string; waterMl?: number; hrBpm?: number; note?: string;
+  /** A dose skipped from the watch's reminder: the medicine's id, and the set time it was for. */
+  skip?: string; dueAt?: number;
+}
