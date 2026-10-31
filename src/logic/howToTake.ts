@@ -12,7 +12,7 @@ import { supplementRules, supplementsOf } from './supplements';
 import type { ScheduleSettings } from './schedule';
 import { zonedParts } from './tz';
 
-export interface Advice { text: string; yours: boolean }
+export interface Advice { text: string; yours: boolean; /** Shown on a peptide's own overview already. */ shownOnPeptide?: boolean }
 
 const median = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 const clockMin = (min: number) => { const h = Math.floor(min / 60) % 24, m = Math.round(min % 60); return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`; };
@@ -63,9 +63,9 @@ export function howToTake(med: Medication, d: { meds: Medication[]; doses: Dose[
   if (med.peptide && (isGlpLike(med))) {
     const gut = gutByShotDay(med, d.doses, d.checkIns, now);
     const worst = gut?.map((x) => ({ day: x.day, pct: x.chips[0]?.pct ?? 0, chip: x.chips[0]?.chip })).sort((a, b) => b.pct - a.pct)[0];
-    if (worst && worst.pct >= 25) yours(`${worst.chip} is most common ${worst.day === 0 ? 'on shot day' : `on day ${worst.day} after a shot`} (${worst.pct}% of check-ins): plan lighter meals then.`);
+    if (worst && worst.pct >= 25) out.push({ yours: true, shownOnPeptide: true, text: `${worst.chip} is most common ${worst.day === 0 ? 'on shot day' : `on day ${worst.day} after a shot`} (${worst.pct}% of check-ins): plan lighter meals then.` });
     const app = appetiteAhead(med, d.doses, d.checkIns, now);
-    if (app) yours(`Appetite usually comes back about day ${app.day}: a good day for bigger, protein-rich meals.`);
+    if (app) out.push({ yours: true, shownOnPeptide: true, text: `Appetite usually comes back about day ${app.day}: a good day for bigger, protein-rich meals.` });
   }
   if (g?.window && mine.length >= 4) {
     const [from, to] = g.window;

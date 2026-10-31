@@ -46,6 +46,9 @@ const ExerciseScreen = lazy(() => import('../screens/Training/ExerciseScreen').t
 const Tags = lazy(() => import('../screens/Tags/Tags').then((m) => ({ default: m.Tags })));
 const Routines = lazy(() => import('../screens/Training/Routines').then((m) => ({ default: m.Routines })));
 const FoodScreen = lazy(() => import('../screens/Food').then((m) => ({ default: m.FoodScreen })));
+const Sleep = lazy(() => import('../screens/Sleep').then((m) => ({ default: m.Sleep })));
+/** MedTap's layout: Today, Stack, Insights (and Training, Sleep). The other apps keep their own tabs. */
+const STACK = HAS_PEPTIDES;
 const ProtocolReport = lazy(() => import('../screens/Protocol/ProtocolReport').then((m) => ({ default: m.ProtocolReport })));
 const ChartsLoading = () => <div className="space-y-4" aria-busy="true" aria-label="Loading">{[0, 1].map((i) => <div key={i} className="h-60 rounded-card bg-surface-2 animate-pulse" />)}</div>;
 
@@ -56,7 +59,8 @@ function title(r: Route, peptides = HAS_PEPTIDES): string {
     case 'today': return 'Today';
     case 'trends': return 'Trends';
     case 'body': return HAS_BODY ? 'Body' : 'Vitals';
-    case 'meds': return HAS_MEDS ? 'Meds' : 'Today';
+    case 'meds': return HAS_MEDS ? (STACK ? 'Stack' : 'Meds') : 'Today';
+    case 'sleep': return 'Sleep';
     case 'settings': return r.section && r.section in SECTION_TITLE && !(!HAS_MEDS && ['doses', 'reminders'].includes(r.section)) && !(!HAS_TRAINING && r.section === 'training')
       ? SECTION_TITLE[r.section as SettingsSection] : 'Settings';
     case 'medNew': return HAS_MEDS ? 'Add medication' : 'Today';
@@ -75,7 +79,7 @@ function title(r: Route, peptides = HAS_PEPTIDES): string {
     case 'supplies': return peptides ? 'Supplies' : 'Today';
     case 'protocol': return peptides ? 'Protocol' : 'Today';
     case 'protocolReport': return peptides ? 'Protocol report' : 'Today';
-    case 'progress': return 'Progress';
+    case 'progress': return STACK ? 'Insights' : 'Progress';
     case 'training': return HAS_TRAINING ? 'Training' : 'Today';
     case 'workout': return HAS_TRAINING ? 'Workout' : 'Today';
     case 'exercise': return HAS_TRAINING ? 'Exercise' : 'Today';
@@ -93,7 +97,7 @@ function title(r: Route, peptides = HAS_PEPTIDES): string {
 
 function backTo(r: Route, protocol: boolean): string | undefined {
   switch (r.name) {
-    case 'protocolReport': return '#/protocol';
+    case 'protocolReport': return '#/meds';
     case 'workout': case 'exercise': case 'routines': return '#/training';
     case 'appointments': return protocol ? '#/progress' : '#/trends';
     case 'travel': return '#/meds';
@@ -105,9 +109,9 @@ function backTo(r: Route, protocol: boolean): string | undefined {
     case 'settings': return r.section ? '#/settings' : '#/today';
     case 'medNew': return r.guideId ? `#/guide/${r.guideId}` : '#/meds';
     case 'med': return '#/meds';
-    case 'guide': return r.id ? '#/guide' : '#/protocol';
+    case 'guide': return r.id ? '#/guide' : '#/meds';
     case 'brain': case 'journal': case 'year': case 'experiments': return protocol ? '#/progress' : '#/trends';
-    case 'calc': case 'supplies': return '#/protocol';
+    case 'calc': case 'supplies': return '#/meds';
     case 'backup': case 'sync': case 'join': return '#/settings';
     case 'report': return protocol ? '#/progress' : '#/trends';
     case 'help': return r.topic ? '#/help' : '#/settings';
@@ -120,6 +124,7 @@ function Screen({ r }: { r: Route }) {
   const st = useSettings();
   const peptides = HAS_PEPTIDES && !!st?.peptideTools;
   const bio = HAS_PEPTIDES && !!st?.biohackTools;
+  const sleepOn = HAS_PEPTIDES && !!st?.sleepTools;
   switch (r.name) {
     case 'settings': return <Settings section={r.section} />;
     case 'trends': return <Suspense fallback={<ChartsLoading />}><Trends /></Suspense>;
@@ -127,7 +132,8 @@ function Screen({ r }: { r: Route }) {
     // TapWeigh and TapLift have no medicines: their links land on Today.
     case 'meds': return HAS_MEDS ? <MedsList /> : <Today />;
     case 'medNew': return HAS_MEDS ? <MedEditor key={`new-${r.tagId ?? ''}-${r.guideId ?? ''}`} tagId={r.tagId} guideId={peptides ? r.guideId : undefined} /> : <Today />;
-    case 'med': return HAS_MEDS ? <MedEditor key={r.id} id={r.id} /> : <Today />;
+    case 'med': return HAS_MEDS ? <MedEditor key={r.id} id={r.id} section={r.section} /> : <Today />;
+    case 'sleep': return sleepOn ? <Suspense fallback={<ChartsLoading />}><Sleep /></Suspense> : <Today />;
     case 'tag': return <TagLanding key={r.id} id={r.id} />;
     case 'backup': return <Backup />;
     case 'report': return HAS_MEDS ? <Suspense fallback={<ChartsLoading />}><Report /></Suspense> : <Today />;
@@ -165,18 +171,24 @@ export function App() {
   const settings = useSettings();
   const meds = useMeds();
   // Peptide tools on (MedTap): the tabs are Today, Protocol, Progress (Trends and Body together) and Meds.
-  const protocol = HAS_PEPTIDES && !!settings?.peptideTools;
+  const protocol = STACK;
   const training = HAS_TRAINING && !!settings?.trainingTools;
   const back = backTo(r, protocol);
   const now = useNow(60_000);
   const showTabs = !back && r.name !== 'tag';
   // A medicine's page is titled with its name.
   const pageMed = r.name === 'med' ? meds?.find((m) => m.id === r.id) : undefined;
-  const heading = pageMed ? shownName(pageMed) : title(r, protocol);
+  const heading = pageMed ? shownName(pageMed) : r.name === 'sleep' && settings && !settings.sleepTools ? 'Today' : title(r, protocol);
   // Progress is Trends and Body together, for the peptide layout. Without it they're separate tabs, so a link to
   // Progress opens the matching one.
-  const loose = r.name === 'progress' && settings !== undefined && !protocol;
+  const loose = r.name === 'progress' && settings !== undefined && !STACK;
   useEffect(() => { if (loose) replace(r.view === 'body' ? '/body' : '/trends'); }, [loose, r]);
+  // MedTap: Trends and Body live in Insights, and the peptide dashboard in each peptide's page on Stack.
+  useEffect(() => {
+    if (STACK && (r.name === 'trends' || r.name === 'body')) replace(`/progress/${r.name}`);
+    if (STACK && r.name === 'protocol') replace('/meds');
+  }, [r]);
+  const sleepTab = HAS_PEPTIDES && !!settings?.sleepTools;
   // First run only: no medications yet and never onboarded. Tag taps and help skip it.
   const onboarding = r.name === 'welcome' || (settings && meds && !settings.onboarded && meds.length === 0 && !['tag', 'help', 'medNew', 'backup', 'join'].includes(r.name));
 
@@ -208,7 +220,7 @@ export function App() {
                 </header>
               ))}
               <main><Screen r={r} /></main>
-              {showTabs && <TabBar route={'/' + r.name} protocol={protocol} training={training} />}
+              {showTabs && <TabBar route={'/' + r.name} stack={STACK} training={training} sleep={sleepTab} />}
             </>
           )}
           <UpdatePrompt />

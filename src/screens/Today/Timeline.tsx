@@ -31,6 +31,8 @@ export function Timeline({ doses, checkIns, body, vitals, meds, s, units, now, o
   personLabel?: (r: { personId?: string }) => string | undefined;
 }) {
   const [back, setBack] = useState(0);
+  // The latest few, so Today stays short; the rest one tap away.
+  const [all, setAll] = useState(false);
   const todayStart = getDayBounds(now, s.dayStartsAt, s.tz).start;
   // Midday of the day shown (days start at "Day starts at", so step from the start of today).
   const ref = back === 0 ? now : todayStart - back * DAY + DAY / 2;
@@ -60,7 +62,7 @@ export function Timeline({ doses, checkIns, body, vitals, meds, s, units, now, o
         <p className="text-muted mt-1">{back === 0 ? 'Nothing logged yet today.' : `Nothing logged ${label}.`}</p>
       ) : (
         <ol className="mt-2 -mx-2">
-          {items.map((it) => {
+          {(all ? items : items.slice(-4)).map((it) => {
             let icon, title, sub: string | undefined, onClick, extra = null;
             if (it.kind === 'dose') {
               const med = meds.get(it.dose.medicationId)!;
@@ -121,6 +123,11 @@ export function Timeline({ doses, checkIns, body, vitals, meds, s, units, now, o
             );
           })}
         </ol>
+      )}
+      {items.length > 4 && (
+        <button type="button" aria-expanded={all} onClick={() => setAll((x) => !x)} className="min-h-[44px] text-sm font-medium underline underline-offset-4">
+          {all ? 'Show the latest only' : `Show all ${items.length} (${items.length - 4} earlier)`}
+        </button>
       )}
     </Card>
   );

@@ -12,14 +12,14 @@ import { isStimulant } from '../logic/stimulant';
 import { bloodTestSoon, dailyTotals, supplementRules, supplementsOf } from '../logic/supplements';
 import { Switch } from './ui/Switch';
 
-export function HowToTakeCard({ med }: { med: Medication }) {
+export function HowToTakeCard({ med, onPeptidePage = false }: { med: Medication; onPeptidePage?: boolean }) {
   const meds = useMeds(); const doses = useDoses(); const checkIns = useCheckIns(); const daily = useDaily(); const ss = useScheduleSettings();
   const now = useNow(600_000);
   const toast = useToast();
   if (!meds || !doses || !checkIns || !daily || !ss || med.archived) return null;
   const who = personOf(med);
   const me = <T extends { personId?: string }>(x: T) => personOf(x) === who;
-  const advice = howToTake(med, { meds: meds.filter((m) => medIsFor(m, who)), doses, checkIns: checkIns.filter(me), daily: daily.filter(me) }, now, ss[1]);
+  const advice = howToTake(med, { meds: meds.filter((m) => medIsFor(m, who)), doses, checkIns: checkIns.filter(me), daily: daily.filter(me) }, now, ss[1]).filter((a) => !(onPeptidePage && a.shownOnPeptide));
   const canFollow = med.schedule.type === 'fixed' && !med.peptide && (isStimulant(med) || supplementsOf(med).length > 0 || (med.schedule.slots?.[0]?.time ?? '99') < '11:00');
   if (!advice.length && !canFollow) return null;
   return (

@@ -7,7 +7,10 @@ import { format } from 'date-fns';
 import type { Medication, SyringeType } from '../../db/schema';
 import { db } from '../../db/db';
 import { useLive } from '../../db/live';
-import { useFamily, useMeds, useSettings } from '../../app/data';
+import { useDoses, useFamily, useMeds, useScheduleSettings, useSettings } from '../../app/data';
+import { useNow } from '../../app/useNow';
+import { forecastRunOut } from '../../logic/plans';
+import { PeptidePart } from '../Protocol/Protocol';
 import { useViewMode } from '../../app/viewMode';
 import { disguise, privateRule } from '../../logic/privateView';
 import { getSettings, setSetting } from '../../db/repos/settings';
@@ -185,7 +188,9 @@ function fromGuide(p: Form, g: GuideEntry, keepName?: string, split = false): Fo
   return { ...filled, name: keepName ?? filled.name, personId: p.personId };
 }
 
-export function MedEditor({ id, tagId, guideId }: { id?: string; tagId?: string; guideId?: string }) {
+export type MedView = 'overview' | 'plan' | 'stock' | 'patterns' | 'details';
+
+export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?: string; guideId?: string; section?: MedView }) {
   // In the private view a left-out medicine doesn't exist here, and a covered one is edited under its cover name.
   const view = useViewMode();
   const priv = view === 'private';
@@ -214,9 +219,15 @@ export function MedEditor({ id, tagId, guideId }: { id?: string; tagId?: string;
   useEffect(() => { if (existing) setF(fromMed(existing)); }, [loadedId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const settings = useSettings();
-  const [editing, setEditing] = useState(false);
-  // An injection on the Protocol tab keeps its dose plan there.
+  // A peptide (with the peptide tools on) shows its shots, plan and vials here.
   const onProtocol = HAS_PEPTIDES && !!settings?.peptideTools && !!existing?.peptide;
+  // A medicine's page in sections, so no one view is a long scroll: what matters now, the plan, stock, patterns, details.
+  const views: { value: MedView; label: string }[] = onProtocol
+    ? [{ value: 'overview', label: 'Overview' }, { value: 'plan', label: 'Plan' }, { value: 'stock', label: 'Stock' }, { value: 'details', label: 'Details' }]
+    : [{ value: 'overview', label: 'Overview' }, { value: 'stock', label: 'Stock' }, { value: 'patterns', label: 'Patterns' }, { value: 'details', label: 'Details' }];
+  const tab: MedView = existing?.archived ? 'details' : views.some((v) => v.value === section) ? section! : 'overview';
+  const pickTab = (v: MedView) => { if (existing) replace(`/meds/${existing.id}${v === 'overview' ? '' : `/${v}`}`); };
+  const editing = !!existing && tab === 'details';
   // New medications are for whoever is selected.
   const fam = useFamily();
   const famLoaded = !!fam;
@@ -361,31 +372,20 @@ export function MedEditor({ id, tagId, guideId }: { id?: string; tagId?: string;
         }} />
       )}
       {/* The dose plan: for an injection its home is Protocol (with the shots, vials and level); for the rest, here. */}
-      {existing && !existing.archived && !priv && (onProtocol
-        ? <a href="#/protocol" onClick={() => { try { localStorage.setItem('protocolMed', existing.id); } catch { /* fine */ } }}
-            className="flex items-center gap-3 rounded-card border border-border p-4 min-h-[56px]">
-            <TrendingUp size={20} className="text-primary shrink-0" aria-hidden="true" />
-            <span className="flex-1"><span className="block font-medium">Dose plan</span><span className="block text-sm text-muted tnum">{planShort(existing, Date.now(), scheduleSettings(settings!)) ?? `Now ${fmtAmount(existing.defaultAmount, existing.unit)}`} · on Protocol</span></span>
-            <ChevronRight size={18} className="text-muted shrink-0" aria-hidden="true" />
-          </a>
-        : <DosePlanCard med={existing} />)}
-      {existing && !existing.archived && <HowToTakeCard med={existing} />}
-      {HAS_PEPTIDES && existing?.peptide && !existing.archived && <VialCard med={existing} />}
-      {existing && !existing.archived && !existing.peptide && <BottlesSection med={existing} />}
-      {existing && !existing.archived && <MedPatterns med={existing} />}
-      {existing && <TagsSection med={existing} />}
-
-      {/* A medication already set up opens on what matters day to day (above); its details fold under one row. */}
-      {existing && !editing && (
-        <button type="button" onClick={() => setEditing(true)} className="w-full text-left rounded-card border border-border p-4 min-h-[64px] flex items-center gap-3">
-          <Pencil size={20} aria-hidden="true" className="text-primary shrink-0" />
-          <span className="flex-1 min-w-0">
-            <span className="block font-medium">Edit details</span>
-            <span className="block text-sm text-muted truncate tnum">{fmtSchedule(existing.schedule, existing.unit)}{existing.stockCount !== undefined ? ` · ${Math.round(existing.stockCount * 100) / 100} left` : ''}</span>
-          </span>
-          <ChevronDown size={18} aria-hidden="true" className="text-muted shrink-0" />
-        </button>
+      {existing && !existing.archived && (
+        <div className="sticky top-0 z-20 -mx-6 px-6 py-2 bg-bg">
+          <Segmented<MedView> label="Show" value={tab} onChange={pickTab} options={views} />
+        </div>
       )}
+      {existing && !existing.archived && tab === 'overview' && (onProtocol && !priv
+        ? <><PeptidePart med={existing} part="overview" /><HowToTakeCard med={existing} onPeptidePage /></>
+        : <><HowToTakeCard med={existing} />{!priv && <DosePlanCard med={existing} />}</>)}
+      {existing && !existing.archived && tab === 'plan' && !priv && <PeptidePart med={existing} part="plan" />}
+      {existing && !existing.archived && tab === 'stock' && (onProtocol
+        ? <><VialCard med={existing} />{!priv && <PeptidePart med={existing} part="stock" />}</>
+        : <>{existing.peptide && HAS_PEPTIDES && <VialCard med={existing} />}{!existing.peptide && <BottlesSection med={existing} />}<StockLine med={existing} onEdit={() => pickTab('details')} /></>)}
+      {existing && !existing.archived && tab === 'patterns' && <MedPatterns med={existing} />}
+      {existing && tab === 'details' && <TagsSection med={existing} />}
       {(!existing || editing) && (<>
       <Card className="space-y-4">
         <h2 className="text-sm font-medium text-muted">Medication</h2>
@@ -654,5 +654,22 @@ function BlendFields({ f, set }: { f: Form; set: <K extends keyof Form>(k: K, v:
         <Plus size={18} aria-hidden="true" /> Add a peptide
       </Button>
     </div>
+  );
+}
+
+/** A tablet or capsule medicine's stock at a glance: what's left, how long it lasts, repeats. Counts are changed in Details. */
+function StockLine({ med, onEdit }: { med: Medication; onEdit: () => void }) {
+  const doses = useDoses(); const ss = useScheduleSettings(); const now = useNow(600_000);
+  if (!doses || !ss) return null;
+  const f = forecastRunOut(med, doses, now, ss[1]);
+  return (
+    <section aria-labelledby={`stock-${med.id}`} className="border-t border-border pt-5 space-y-2">
+      <h2 id={`stock-${med.id}`} className="text-sm font-medium text-muted">Stock</h2>
+      {med.stockCount !== undefined ? (
+        <p className="tnum"><span className="text-[22px] font-semibold">{Math.round(med.stockCount * 100) / 100}</span> left{f?.runOutAt != null ? <span className="text-muted"> · about {f.daysLeft} days, runs out {format(f.runOutAt, 'EEE d MMM')}</span> : null}</p>
+      ) : <p className="text-muted">No count yet: add one to see when it runs out.</p>}
+      {med.repeatsLeft !== undefined && <p className="tnum">{med.repeatsLeft} repeat{med.repeatsLeft === 1 ? '' : 's'} left on the script</p>}
+      <button type="button" onClick={onEdit} className="min-h-[44px] text-sm font-medium underline underline-offset-4">Change the count or repeats</button>
+    </section>
   );
 }
