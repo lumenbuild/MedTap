@@ -179,9 +179,9 @@ class AlarmReceiver : BroadcastReceiver() {
                 WatchState.setFlag(c, key)
                 val mins = ((System.currentTimeMillis() - data.optLong("at")) / 60_000L).toInt()
                 Alarms.buzz(c, longArrayOf(0, 120))
-                val open = Alarms.openApp(c, "hr?note=${android.net.Uri.encode("$mins min after ${data.optString("name")}")}", 3)
+                val open = Alarms.openApp(c, "hr?note=${android.net.Uri.encode("$mins min after a dose")}", 3)
                 nm.notify(key.hashCode(), NotificationCompat.Builder(c, Alarms.CH_NUDGES).setSmallIcon(R.drawable.ic_dose)
-                    .setContentTitle("Heart-rate check").setContentText("${data.optString("name")} $mins min ago. Sit still for 20 seconds.")
+                    .setContentTitle("Heart-rate check").setContentText("Dose $mins min ago. Sit still for 20 seconds.")
                     .setContentIntent(open).addAction(0, "Measure", open).setAutoCancel(true).setTimeoutAfter(45 * 60_000L).build())
             }
             "rest" -> {

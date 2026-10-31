@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import type { CheckIn, DailyHealth, Dose, Medication } from '../src/db/schema';
 import type { ScheduleSettings } from '../src/logic/schedule';
-import { watchExtras, type WatchInput } from '../src/logic/watch';
+import { watchExtras, watchLabel, watchPayload, type WatchInput } from '../src/logic/watch';
+import { widgetsPayload } from '../src/logic/widgets';
 
 const S: ScheduleSettings = { dayStartsAt: '04:00', tz: Intl.DateTimeFormat().resolvedOptions().timeZone, guardMinutes: 10 };
 const NOW = new Date(2026, 9, 31, 12, 0).getTime();
@@ -45,5 +46,21 @@ describe('watch extras', () => {
     expect(w.sleep?.ask).toBe(true);
     const answered = watchExtras(base({ sleepTools: true, daily, checkIns: [{ id: 'q', at: new Date(at(8)).toISOString(), chips: [], sleepQuality: 4, createdAt: '', updatedAt: '' } as CheckIn] }), NOW, S);
     expect(answered.sleep?.ask).toBe(false);
+  });
+  it('the watch is never sent a medicine’s name', () => {
+    const prn1 = { ...rit, id: 'p1', name: 'Paracetamol', schedule: { type: 'prn' } } as Medication;
+    const prn2 = { ...rit, id: 'p2', name: 'Ibuprofen', schedule: { type: 'prn' } } as Medication;
+    const reta = { ...rit, id: 'pep', name: 'Retatrutide', peptide: { kind: 'vial' }, schedule: { type: 'fixed', slots: [{ time: '08:00' }], daysOfWeek: [6] } } as unknown as Medication;
+    const meds = [rit, prn1, prn2, reta];
+    const doses = [dose('a', at(7, 5))];
+    const widget = widgetsPayload({ app: 'MedTap', meds, doses, checkIns: [], body: [], daily: [], workouts: [], events: [], own: [], goals: [], units: 'metric',
+      proteinTarget: null, waterTarget: null, body_: false, training: false, peptides: true }, NOW, S);
+    expect(JSON.stringify(widget)).toMatch(/Ritalin/); // the phone's widgets keep the names
+    const extras = watchExtras(base({ meds, doses, nameOf: watchLabel(meds), peptides: true }), NOW, S);
+    const json = JSON.stringify(watchPayload(widget, meds, extras, { ring: { from: NOW - 3_600_000, to: NOW + 3_600_000 }, readiness: 70, chips: ['Tired'] }));
+    expect(json).not.toMatch(/Ritalin|Paracetamol|Ibuprofen|Retatrutide/);
+    expect(json).toMatch(/"As needed 1"/);
+    expect(json).toMatch(/"As needed 2"/);
+    expect(json).toMatch(/"Dose"/);
   });
 });

@@ -140,7 +140,7 @@ class FocusTileService : BaseTile() {
         val range = if (w.late - w.early > 10 * 60_000L) "Wears off ${fmtRange(this, w.early, w.late)}" else "Until ${time(w.to)}"
         return Futures.immediateFuture(tile(EdgeContentLayout.Builder(d)
             .setEdgeContent(ring(WearOff.progress(w, now), Palette.MIND))
-            .setPrimaryLabelTextContent(text(w.name, Typography.TYPOGRAPHY_CAPTION1, Palette.MIND))
+            .setPrimaryLabelTextContent(text("Focus", Typography.TYPOGRAPHY_CAPTION1, Palette.MIND))
             .setContent(column(text(leftText, Typography.TYPOGRAPHY_TITLE2, Palette.TEXT), text(range, Typography.TYPOGRAPHY_CAPTION2, Palette.MUTED, 2)))
             .build(), 5 * 60_000L, open("home/focus")))
     }

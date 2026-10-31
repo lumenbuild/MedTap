@@ -46,7 +46,8 @@ export interface MedTapNativePlugin {
   openBatterySettings(): Promise<void>;
   openNotificationSettings(): Promise<void>;
   /** What the home-screen widgets show (Android; see src/logic/widgets.ts). Also sent to the watch. */
-  setWidget(options: { json: string }): Promise<void>;
+  /** `watchJson`: the watch's own copy (no medicine names); without it the watch gets `json`. */
+  setWidget(options: { json: string; watchJson?: string }): Promise<void>;
   /** Android: taps on the widgets still to log (cleared when read). */
   takeWidgetActions(): Promise<{ items: WidgetAction[] }>;
   /** Android: a widget was tapped (read them with takeWidgetActions). */

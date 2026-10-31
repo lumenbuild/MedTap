@@ -25,7 +25,7 @@ class DoseComplicationService : ComplicationDataSourceService() {
     override fun getPreviewData(type: ComplicationType): ComplicationData? = when (type) {
         ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(PlainComplicationText.Builder("2h 15m").build(), PlainComplicationText.Builder("Next dose").build())
             .setTitle(PlainComplicationText.Builder("Dose").build()).build()
-        ComplicationType.LONG_TEXT -> LongTextComplicationData.Builder(PlainComplicationText.Builder("Morning tablet in 2h 15m").build(), PlainComplicationText.Builder("Next dose").build()).build()
+        ComplicationType.LONG_TEXT -> LongTextComplicationData.Builder(PlainComplicationText.Builder("Dose in 2h 15m").build(), PlainComplicationText.Builder("Next dose").build()).build()
         ComplicationType.RANGED_VALUE -> RangedValueComplicationData.Builder(0.4f, 0f, 1f, PlainComplicationText.Builder("Effect 40%").build())
             .setText(PlainComplicationText.Builder("1:10").build()).build()
         else -> null
@@ -58,8 +58,8 @@ class DoseComplicationService : ComplicationDataSourceService() {
                     val from = ring.optLong("from"); val to = ring.optLong("to")
                     val p = ((now - from).toFloat() / (to - from).toFloat()).coerceIn(0f, 1f)
                     val until = android.text.format.DateFormat.getTimeFormat(this).format(java.util.Date(to)).replace(" ", "").lowercase()
-                    RangedValueComplicationData.Builder(p, 0f, 1f, PlainComplicationText.Builder("${ring.optString("name")} until $until").build())
-                        .setText(PlainComplicationText.Builder(until).build()).setTitle(PlainComplicationText.Builder(ring.optString("name").take(7)).build()).setTapAction(tap).build()
+                    RangedValueComplicationData.Builder(p, 0f, 1f, PlainComplicationText.Builder("Focus until $until").build())
+                        .setText(PlainComplicationText.Builder(until).build()).setTitle(PlainComplicationText.Builder("Focus").build()).setTapAction(tap).build()
                 }
             }
             ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(short, describe)

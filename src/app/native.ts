@@ -8,7 +8,7 @@ import { dosesForPerson, listPeople, medIsFor, personOf, storedPerson } from '..
 import { bedtimeOf, CAFFEINE, intakesOf, usualDrinks, usualHabits, usualKey, usualToAsk } from '../logic/caffeine';
 import { shortcutItems } from '../logic/widgets';
 import { widgetsPayload } from '../logic/widgets';
-import { watchExtras } from '../logic/watch';
+import { watchExtras, watchLabel, watchPayload } from '../logic/watch';
 import { addVital } from '../db/repos/vitals';
 import { HAS_BODY, HAS_PEPTIDES } from '../edition';
 import { addIntake } from '../db/repos/training';
@@ -231,12 +231,12 @@ async function syncExtras() {
       return { ring, readiness: r?.score, chips: ['Nausea', 'Headache', 'Anxious', 'Wearing off', 'Heart racing', 'Tired'] };
     })() : undefined;
     // The watch app: today's doses, its own reminders, sleep, drinks and the heart-rate checks after a stimulant dose.
-    const named = (m: Medication) => settings.discreetReminders ? 'Your medicine' : settings.privacyPinHash ? discreetName(m, settings.privacyHidePeptides, shownName) ?? 'Your medicine' : shownName(m);
-    const watch = watchExtras({ meds: mine, doses: live, checkIns: theirs(checkIns), daily: theirs(daily), nameOf: named, remindersOnWatch: settings.remindersEnabled && settings.watchReminders,
+    // It never shows a medicine's name ("Dose", "Shot", "As needed"), so it gets its own copy.
+    const watch = watchExtras({ meds: mine, doses: live, checkIns: theirs(checkIns), daily: theirs(daily), nameOf: watchLabel(mine), remindersOnWatch: settings.remindersEnabled && settings.watchReminders,
       snoozeMin: settings.snoozeMin, sleepTools: HAS_PEPTIDES && settings.sleepTools, sleepTargetH: settings.sleepTargetH, caffeineLimitMg: settings.caffeineLimitMg,
       caffeineHalfLifeH: settings.caffeineHalfLifeH, waterTarget: settings.waterTargetMl, waterAdd: settings.intakeAmounts?.waterMl[0] ?? 250,
       peptides: HAS_PEPTIDES && settings.peptideTools && !(settings.privacyPinHash && settings.privacyHidePeptides) }, Date.now(), scheduleSettings(settings));
-    await MedTapNative.setWidget({ json: JSON.stringify({ ...payload, ...(bio ? { bio } : {}), watch }) });
+    await MedTapNative.setWidget({ json: JSON.stringify(bio ? { ...payload, bio } : payload), watchJson: JSON.stringify(watchPayload(payload, mine, watch, bio)) });
     await MedTapNative.setShortcuts({ items: shortcutItems(mine) });
   } catch (e) { console.error('widget/shortcuts', e); }
 }

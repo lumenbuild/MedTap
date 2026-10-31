@@ -688,7 +688,8 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
     public void setWidget(PluginCall call) {
         String json = call.getString("json", "{}");
         WidgetStore.save(getContext(), json);
-        WearBridge.push(getContext(), json);
+        // The watch gets its own copy when there is one (it never shows medicine names).
+        WearBridge.push(getContext(), call.getString("watchJson", json));
         call.resolve();
     }
 

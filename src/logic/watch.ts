@@ -118,3 +118,25 @@ export function watchExtras(d: WatchInput, now: number, s: ScheduleSettings): Wa
 
   return { doses, reminders, snoozeMin: d.snoozeMin, sleep, shot: pep ? { name: d.nameOf(pep.m), at: pep.at } : undefined, drinks, hr };
 }
+
+/** The watch never shows a medicine's name: "Dose", "Shot", or "As needed" (numbered when there are several). */
+export function watchLabel(meds: Medication[]): (m: Medication) => string {
+  const prn = meds.filter((m) => !m.archived && m.schedule.type === 'prn' && !m.peptide);
+  return (m) => m.peptide ? 'Shot' : m.schedule.type === 'prn' ? (prn.length > 1 ? `As needed ${prn.indexOf(m) + 1}` : 'As needed') : 'Dose';
+}
+
+/** What the watch is sent: only what it uses, with no medicine names (the phone's widgets keep theirs). */
+export function watchPayload(w: { app: string; t: number; done: number; total: number; label: string; when: string; dueAt: number | null; logId: string; detail: string; prn: { id: string }[];
+  wear?: { dosedAt: number; at: number; early: number; late: number } }, meds: Medication[], extras: WatchExtras, bio?: { ring?: { from: number; to: number }; readiness?: number; chips: string[] }) {
+  const name = watchLabel(meds);
+  const byId = new Map(meds.map((m) => [m.id, m]));
+  const logged = byId.get(w.logId);
+  return {
+    v: 2, app: w.app, t: w.t, done: w.done, total: w.total,
+    label: w.label, title: logged ? name(logged) : '', when: w.when, dueAt: w.dueAt, logId: w.logId, detail: w.detail,
+    prn: w.prn.filter((p) => byId.has(p.id)).map((p) => ({ id: p.id, name: name(byId.get(p.id)!) })),
+    ...(w.wear ? { wear: { name: 'Focus', dosedAt: w.wear.dosedAt, at: w.wear.at, early: w.wear.early, late: w.wear.late } } : {}),
+    ...(bio ? { bio: { readiness: bio.readiness, chips: bio.chips, ...(bio.ring ? { ring: { name: 'Focus', from: bio.ring.from, to: bio.ring.to } } : {}) } } : {}),
+    watch: extras,
+  };
+}

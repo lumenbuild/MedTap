@@ -82,17 +82,17 @@ class FocusComplicationService : SimpleComplication() {
     override fun getPreviewData(type: ComplicationType): ComplicationData? = when (type) {
         ComplicationType.RANGED_VALUE -> RangedValueComplicationData.Builder(0.6f, 0f, 1f, Complications.text("Focus 60% through")).setText(Complications.text("1h 20m")).build()
         ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(Complications.text("1h 20m"), Complications.text("Focus left")).setTitle(Complications.text("Focus")).build()
-        ComplicationType.LONG_TEXT -> LongTextComplicationData.Builder(Complications.text("Ritalin until 3:40 pm"), Complications.text("Focus window")).build()
+        ComplicationType.LONG_TEXT -> LongTextComplicationData.Builder(Complications.text("Focus until 3:40 pm"), Complications.text("Focus window")).build()
         else -> null
     }
     override fun build(type: ComplicationType): ComplicationData? {
         val w = WearOff.now(this) ?: return null
-        val desc = Complications.text("${w.name} usually until ${Alarms.fmtTime(this, w.to)}")
+        val desc = Complications.text("Focus usually until ${Alarms.fmtTime(this, w.to)}")
         val tap = Complications.open(this, "home/focus")
         return when (type) {
             ComplicationType.RANGED_VALUE -> RangedValueComplicationData.Builder(WearOff.progress(w), 0f, 1f, desc).setText(Complications.countdown(w.to)).setTitle(Complications.text("Focus")).setTapAction(tap).build()
             ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(Complications.countdown(w.to), desc).setTitle(Complications.text("Focus")).setTapAction(tap).build()
-            ComplicationType.LONG_TEXT -> LongTextComplicationData.Builder(Complications.text("${w.name} until ${Alarms.fmtTime(this, w.to)}"), desc).setTitle(Complications.countdown(w.to)).setTapAction(tap).build()
+            ComplicationType.LONG_TEXT -> LongTextComplicationData.Builder(Complications.text("Focus until ${Alarms.fmtTime(this, w.to)}"), desc).setTitle(Complications.countdown(w.to)).setTapAction(tap).build()
             else -> null
         }
     }
@@ -108,7 +108,7 @@ class ShotComplicationService : SimpleComplication() {
         val today = cal.apply { set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0); set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0) }.timeInMillis
         val days = Math.floorDiv(at - today, 86_400_000L).toInt()
         val short = when { days <= 0 -> "Today"; days == 1 -> "1d"; else -> "${days}d" }
-        val words = when { days <= 0 -> "${s.optString("name")} today"; days == 1 -> "${s.optString("name")} tomorrow"; else -> "${s.optString("name")} in $days days" }
+        val words = when { days <= 0 -> "Shot today"; days == 1 -> "Shot tomorrow"; else -> "Shot in $days days" }
         return make(type, short, words)
     }
     private fun make(type: ComplicationType, short: String, words: String): ComplicationData? {

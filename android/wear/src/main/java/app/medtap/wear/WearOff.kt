@@ -42,7 +42,7 @@ object WearOff {
         val left = w.to - System.currentTimeMillis()
         val open = Alarms.openApp(context, "home/focus", 6)
         val b = NotificationCompat.Builder(context, Alarms.CH_FOCUS).setSmallIcon(R.drawable.ic_dose)
-            .setContentTitle("${w.name} working").setContentText("Usually until ${Alarms.fmtTime(context, w.to)}")
+            .setContentTitle("Focus window").setContentText("Usually until ${Alarms.fmtTime(context, w.to)}")
             .setUsesChronometer(true).setChronometerCountDown(true).setWhen(w.to).setShowWhen(true)
             .setOngoing(true).setOnlyAlertOnce(true).setSilent(true).setCategory(NotificationCompat.CATEGORY_STOPWATCH)
             .setContentIntent(open).setTimeoutAfter(left)

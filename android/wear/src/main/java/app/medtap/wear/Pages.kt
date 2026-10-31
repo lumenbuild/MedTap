@@ -83,7 +83,7 @@ fun NowPage(version: Int, tick: Int, nav: NavHostController, goTo: (Tab) -> Unit
             }
         }
         if (total > 0) item { Small("$done of $total today") }
-        if (wear != null) item { Action("${wear.name}: ${fmtLeft(wear.to - now)} left", C.mind, "Focus window") { goTo(Tab.FOCUS) } }
+        if (wear != null) item { Action("Focus: ${fmtLeft(wear.to - now)} left", C.mind, "Until ${Alarms.fmtTime(ctx, wear.to)}") { goTo(Tab.FOCUS) } }
         if (waiting > 0) item { Small("$waiting waiting for your phone", C.act) }
     }
 }
@@ -159,7 +159,7 @@ fun FocusPage(version: Int, tick: Int, nav: NavHostController) {
         item { Scale("Focus now?", rated, C.mind) { v -> rated = v; scope.launch { confirm(ctx, WatchState.checkIn(ctx, JSONObject().put("focus", v)), "Focus $v") } } }
         item { Action("Reaction test", C.mind, "30 seconds") { nav.navigate("reaction") } }
         item { Action("Full brain test", C.mind, "Reaction + memory · 2 min") { nav.navigate("brain") } }
-        item { Action("Heart rate", C.heart, "20-second reading") { nav.navigate("hr?note=${android.net.Uri.encode(if (w != null) "${fmtLeft(now - w.from)} after ${w.name}" else "Watch")}") } }
+        item { Action("Heart rate", C.heart, "20-second reading") { nav.navigate("hr?note=${android.net.Uri.encode(if (w != null) "${fmtLeft(now - w.from)} after a dose" else "Watch")}") } }
     }
 }
 
