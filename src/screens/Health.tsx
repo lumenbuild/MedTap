@@ -17,6 +17,7 @@ import { dayKey } from '../logic/stats';
 import { MiniRing } from '../components/ui/Visual';
 import { fmtHM } from '../logic/sleep';
 import type { ScheduleSettings } from '../logic/schedule';
+import { WorkingLink } from '../components/Decisions';
 import { EnergyCard, GlucoseCard, IllnessCard, LoadCard, MedEffectsList, NightVitalsCard } from '../components/HealthCards';
 
 const DAY = 86_400_000;
@@ -72,6 +73,7 @@ export function Health() {
         </section>
       )}
       {ill && <IllnessCard ill={ill} />}
+      <WorkingLink />
       {vitals && <NightVitalsCard stats={vitals.stats} />}
       {(load || vo2) && <LoadCard load={load} vo2={vo2} />}
       {energy && <EnergyCard e={energy} />}

@@ -188,6 +188,8 @@ export interface PeptideVial {
 }
 
 export interface Medication extends Stamped {
+  /** What "Is it working?" judges it by (an Outcome in logic/verdict), when the person picked one. */
+  judgeBy?: string;
   name: string; strength: number; unit: string; form: string; defaultAmount: number;
   schedule: Schedule; color: string; icon: string;
   stockCount?: number; lowStockAt?: number; scriptNotes?: string; archived: boolean;

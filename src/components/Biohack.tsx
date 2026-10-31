@@ -41,7 +41,7 @@ export function DailyBrief() {
   const brief = dailyBrief({ ...mine, waterTarget: st.waterTargetMl, biohack: on }, now, s);
   // Self-experiments running today.
   for (const e of (experiments ?? []).filter((x) => !x.deletedAt && me(x))) {
-    const c = on && !e.ended ? conditionOn(e, format(now, 'yyyy-MM-dd')) : null;
+    const c = !e.ended ? conditionOn(e, format(now, 'yyyy-MM-dd')) : null;
     if (c) brief.push({ key: `exp:${e.id}`, text: `Experiment “${e.title}”: today is ${c.arm === 'a' ? e.a : e.b}` });
   }
   const ill = on ? illnessWarning(mine.daily, now, s) : null;

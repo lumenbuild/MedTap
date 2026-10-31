@@ -48,6 +48,7 @@ const Routines = lazy(() => import('../screens/Training/Routines').then((m) => (
 const FoodScreen = lazy(() => import('../screens/Food').then((m) => ({ default: m.FoodScreen })));
 const Sleep = lazy(() => import('../screens/Sleep').then((m) => ({ default: m.Sleep })));
 const Health = lazy(() => import('../screens/Health').then((m) => ({ default: m.Health })));
+const Working = lazy(() => import('../screens/Working').then((m) => ({ default: m.Working })));
 /** MedTap's layout: Today, Stack, Insights (and Training, Sleep). The other apps keep their own tabs. */
 const STACK = HAS_PEPTIDES;
 const ProtocolReport = lazy(() => import('../screens/Protocol/ProtocolReport').then((m) => ({ default: m.ProtocolReport })));
@@ -63,6 +64,7 @@ function title(r: Route, peptides = HAS_PEPTIDES): string {
     case 'meds': return HAS_MEDS ? (STACK ? 'Stack' : 'Meds') : 'Today';
     case 'sleep': return 'Sleep';
     case 'health': return 'Health';
+    case 'working': return "What's working";
     case 'settings': return r.section && r.section in SECTION_TITLE && !(!HAS_MEDS && ['doses', 'reminders'].includes(r.section)) && !(!HAS_TRAINING && r.section === 'training')
       ? SECTION_TITLE[r.section as SettingsSection] : 'Settings';
     case 'medNew': return HAS_MEDS ? 'Add medication' : 'Today';
@@ -114,6 +116,7 @@ function backTo(r: Route, protocol: boolean): string | undefined {
     case 'guide': return r.id ? '#/guide' : '#/meds';
     case 'brain': case 'journal': case 'year': case 'experiments': return protocol ? '#/progress' : '#/trends';
     case 'calc': case 'supplies': return '#/meds';
+    case 'working': return protocol ? '#/progress' : '#/trends';
     case 'backup': case 'sync': case 'join': return '#/settings';
     case 'report': return protocol ? '#/progress' : '#/trends';
     case 'help': return r.topic ? '#/help' : '#/settings';
@@ -137,6 +140,7 @@ function Screen({ r }: { r: Route }) {
     case 'med': return HAS_MEDS ? <MedEditor key={r.id} id={r.id} section={r.section} /> : <Today />;
     case 'sleep': return sleepOn ? <Suspense fallback={<ChartsLoading />}><Sleep /></Suspense> : <Today />;
     case 'health': return <Suspense fallback={<ChartsLoading />}><Health /></Suspense>;
+    case 'working': return <Suspense fallback={<ChartsLoading />}><Working /></Suspense>;
     case 'tag': return <TagLanding key={r.id} id={r.id} />;
     case 'backup': return <Backup />;
     case 'report': return HAS_MEDS ? <Suspense fallback={<ChartsLoading />}><Report /></Suspense> : <Today />;
@@ -148,7 +152,7 @@ function Screen({ r }: { r: Route }) {
     case 'brain': return bio ? <Brain /> : <Today />;
     case 'journal': return bio ? <Journal /> : <Today />;
     case 'year': return bio ? <YearReview /> : <Today />;
-    case 'experiments': return bio ? <Experiments key={r.guideId ?? 'list'} guideId={r.guideId} /> : <Today />;
+    case 'experiments': return <Experiments key={r.guideId ?? 'list'} guideId={r.guideId} />;
     case 'supplies': return peptides ? <Supplies /> : <Today />;
     case 'protocol': return peptides ? <Protocol /> : <Today />;
     case 'protocolReport': return peptides ? <Suspense fallback={<ChartsLoading />}><ProtocolReport /></Suspense> : <Today />;

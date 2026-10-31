@@ -22,6 +22,7 @@ import { Stat, Tile } from '../../components/ui/Visual';
 import { glance } from '../../logic/digest';
 import { stepsTarget } from '../../logic/movement';
 import { kgTo, weightUnit } from '../../logic/units';
+import { WorkingLink } from '../../components/Decisions';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { useNow } from '../../app/useNow';
 import { RANGE_DAYS, rangeStart, type Range } from '../../logic/stats';
@@ -108,6 +109,7 @@ export function Trends() {
         ].filter(Boolean);
         return tiles.length ? <div className={`grid gap-2 ${tiles.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`} role="group" aria-label="At a glance">{tiles}</div> : null;
       })()}
+      <WorkingLink />
       <InsightFeed max={3} />
       <WeekReviewSection />
       <AskBox data={{ meds, doses, checkIns, body, daily, vitals, events }} now={now} />

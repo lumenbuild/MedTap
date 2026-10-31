@@ -46,6 +46,7 @@ import { SYRINGES } from '../../logic/peptide';
 import type { LabelDetails } from '../../logic/label';
 import { HAS_PEPTIDES } from '../../edition';
 import { MedHero, MedBodyEffects } from '../../components/MedHero';
+import { MedVerdict } from '../../components/Decisions';
 import { canSplit, guideById, guideFor, guideMed, lowestPlan, savedVial, stepChanges, fmtDose, type GuideEntry } from '../../logic/peptideGuide';
 import { Switch } from '../../components/ui/Switch';
 import { fmtAmount, fmtSchedule } from '../../logic/format';
@@ -380,8 +381,8 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
         </div>
       )}
       {existing && !existing.archived && tab === 'overview' && (onProtocol && !priv
-        ? <><PeptidePart med={existing} part="overview" /><HowToTakeCard med={existing} onPeptidePage /><MedBodyEffects med={existing} /></>
-        : <><MedHero med={existing} /><HowToTakeCard med={existing} />{!priv && <DosePlanCard med={existing} />}<MedBodyEffects med={existing} /></>)}
+        ? <><PeptidePart med={existing} part="overview" /><MedVerdict med={existing} /><HowToTakeCard med={existing} onPeptidePage /><MedBodyEffects med={existing} /></>
+        : <><MedHero med={existing} />{!priv && <MedVerdict med={existing} />}<HowToTakeCard med={existing} />{!priv && <DosePlanCard med={existing} />}<MedBodyEffects med={existing} /></>)}
       {existing && !existing.archived && tab === 'plan' && !priv && <PeptidePart med={existing} part="plan" />}
       {existing && !existing.archived && tab === 'stock' && (onProtocol
         ? <><VialCard med={existing} />{!priv && <PeptidePart med={existing} part="stock" />}</>
