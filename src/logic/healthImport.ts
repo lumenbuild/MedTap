@@ -25,7 +25,10 @@ export function planHealthImport(data: HealthData, existing: { daily: DailyHealt
     const row: DailyHealth = {
       ...(old ?? { id: crypto.randomUUID(), date: d.date, createdAt: nowIso, personId }),
       steps: d.steps ?? old?.steps, sleepMin: d.sleepMin ?? old?.sleepMin, restingHr: d.restingHr ?? old?.restingHr,
-      exerciseMin: d.exerciseMin ?? old?.exerciseMin, hrvMs: d.hrvMs ?? old?.hrvMs, hrByHour: d.hrByHour ?? old?.hrByHour, updatedAt: nowIso,
+      exerciseMin: d.exerciseMin ?? old?.exerciseMin, hrvMs: d.hrvMs ?? old?.hrvMs, hrByHour: d.hrByHour ?? old?.hrByHour,
+      hr5: d.hr5 ?? old?.hr5, steps5: d.steps5 ?? old?.steps5,
+      sleepDeepMin: d.sleepDeepMin ?? old?.sleepDeepMin, sleepRemMin: d.sleepRemMin ?? old?.sleepRemMin, sleepAwakeMin: d.sleepAwakeMin ?? old?.sleepAwakeMin,
+      sleepWakes: d.sleepWakes ?? old?.sleepWakes, sleepStart: d.sleepStart ?? old?.sleepStart, sleepEnd: d.sleepEnd ?? old?.sleepEnd, updatedAt: nowIso,
     };
     daily.push(row);
   }

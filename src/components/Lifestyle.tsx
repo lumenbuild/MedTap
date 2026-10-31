@@ -59,7 +59,7 @@ export function LinksSection({ checkIns, daily, body, workouts, sleep, units, no
   if (sleep) {
     const t = format(new Date(2026, 0, 1, sleep.cutoffHour), 'h a').toLowerCase();
     parts.push({ key: 'sleep', title: 'Last dose and sleep', a: `Last dose before ${t} (${sleep.before.nights} nights)`, b: `After (${sleep.after.nights})`,
-      rows: [row('Sleep', sleep.before.hours, sleep.after.hours, hrs), row('Sleep quality (1–5)', sleep.before.quality, sleep.after.quality)] });
+      rows: [row('Sleep', sleep.before.hours, sleep.after.hours, hrs), row('Deep sleep', sleep.before.deepMin, sleep.after.deepMin, (v) => `${Math.round(v)} min`), row('Sleep quality (1–5)', sleep.before.quality, sleep.after.quality)] });
   }
   for (const x of substanceFindings(checkIns, now, s, 90, caffeine)) {
     parts.push({ key: x.what, title: x.title, a: `With (${x.with.days} nights)`, b: `Without (${x.without.days})`, rows: [

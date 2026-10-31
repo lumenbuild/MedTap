@@ -64,7 +64,13 @@ export interface MedTapNativePlugin {
 
 export type WidgetAction = { at: number } & ({ kind: 'dose'; medId: string } | { kind: 'intake'; field: 'proteinG' | 'waterMl'; amount: number } | { kind: 'chip'; chip: string });
 
-export interface HealthDay { date: string; steps?: number; sleepMin?: number; restingHr?: number; exerciseMin?: number; hrvMs?: number; hrByHour?: (number | null)[] }
+export interface HealthDay {
+  date: string; steps?: number; sleepMin?: number; restingHr?: number; exerciseMin?: number; hrvMs?: number; hrByHour?: (number | null)[];
+  /** Heart rate and steps in 5-minute blocks (288 a day, local time). */
+  hr5?: (number | null)[]; steps5?: number[];
+  /** Sleep stages for the night ending that day, and when the main sleep began and ended (ms). */
+  sleepDeepMin?: number; sleepRemMin?: number; sleepAwakeMin?: number; sleepWakes?: number; sleepStart?: number; sleepEnd?: number;
+}
 export interface HealthData {
   days: HealthDay[]; weights: { t: number; kg: number }[]; bp: { t: number; sys: number; dia: number }[];
   /** Exercise sessions from a watch or app: type is run, walk, ride, swim, row, strength or other. Older app versions leave these out. */

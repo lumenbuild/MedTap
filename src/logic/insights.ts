@@ -117,13 +117,13 @@ export function insights(d: InsightInput, now: number, s: ScheduleSettings): Ins
   if (d.has.meds) {
     const stims = d.meds.filter((m) => !m.archived && isStimulant(m));
     for (const m of stims) {
-      const cut = sleepImpact([m], d.doses, d.checkIns, now, s);
+      const cut = sleepImpact([m], d.doses, d.checkIns, now, s, d.daily);
       if (cut) {
-        const q = (x: { quality?: number; hours?: number }) => (x.quality !== undefined ? `sleep ${x.quality} of 5` : `${x.hours} h sleep`);
+        const q = (x: { quality?: number; hours?: number; deepMin?: number }) => [x.hours !== undefined ? `${x.hours} h asleep` : null, x.deepMin !== undefined ? `${x.deepMin} min deep` : null, x.quality !== undefined ? `sleep ${x.quality} of 5` : null].filter(Boolean).join(', ');
         const lateToday = d.doses.some((x) => !x.deletedAt && !x.skipped && x.medicationId === m.id && dayKey(Date.parse(x.takenAt), s) === dayKey(now, s) && new Date(x.takenAt).getHours() >= cut.cutoffHour);
         out.push({ id: `dosecut:${m.id}:${cut.cutoffHour}${lateToday ? `:${dayKey(now, s)}` : ''}`, kind: 'dosecut', importance: lateToday ? 55 : 40, confidence: cut.before.nights + cut.after.nights >= 20 ? 'high' : 'medium', tone: lateToday ? 'watch' : 'plain',
           headline: lateToday ? `Tonight: ${shownName(m)} today was after ${hourText(cut.cutoffHour)}` : `${shownName(m)} after ${hourText(cut.cutoffHour)} costs you sleep`,
-          evidence: `${q(cut.before)} when the last dose is earlier, ${q(cut.after)} when it’s later (${cut.before.nights + cut.after.nights} nights)`, snoozeDays: lateToday ? 1 : 30 });
+          evidence: `${q(cut.before)} when the last dose is earlier, ${q(cut.after)} when it’s later (${cut.before.nights + cut.after.nights} nights${cut.watch ? ', from your watch' : ''})`, snoozeDays: lateToday ? 1 : 30 });
       }
       const br = doseResponse(m, d.doses, d.checkIns, now, s);
       if (br) out.push({ id: `bestdose:${m.id}:${br.by}:${br.better}`, kind: 'bestdose', importance: 42, confidence: br.n >= 16 ? 'high' : 'medium', tone: 'good',

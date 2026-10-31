@@ -276,7 +276,7 @@ const CONTENT: Record<string, ReactNode> = {
       <p>Meds → <strong>Count</strong> (also on a medication's page, and on the Today card when stock is low): type the count, or for tablets and capsules take a photo of them in one layer on a plain surface (touching is fine; not stacked) (counted on the phone; the photo isn't kept). It compares with what your logs say should be left, and can log doses you took but didn't log.</p>
       <H>In the app</H>
       <ul className="list-disc pl-5 space-y-1">
-        <li><strong>Health Connect / Apple Health</strong> (Settings): read only; steps, sleep and heart rate{HAS_BODY ? ', weigh-ins' : ''} and blood pressure. Imports again when you open the app.</li>
+        <li><strong>Health Connect / Apple Health</strong> (Settings): read only; steps, sleep (with deep sleep and time awake) and heart rate{HAS_BODY ? ', weigh-ins' : ''} and blood pressure. Imports again when you open the app, at most once an hour. A watch's heart rate in 5-minute blocks shows how a stimulant dose rises and settles (on the medicine's page), sharpens the wear-off forecast and second-dose reminder, and shows resting heart rate through the week after a shot (Protocol).</li>
         <li><strong>Widget</strong> (Android): add {APP_NAME} from your home screen's widgets: the next dose with a countdown, and buttons for as-needed medicines.</li>
         <li><strong>Shortcuts</strong>: on Android, long-press the app icon for “Log …” (drag one to your home screen). On iPhone, ask Siri “Log Vyvanse in {APP_NAME}”, or use the Shortcuts app.</li>
         <li><strong>Reminder check</strong> (Settings → Reminders): what could stop or delay reminders on your phone, with a fix for each, and a test reminder.</li>

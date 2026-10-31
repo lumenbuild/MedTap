@@ -53,11 +53,11 @@ export async function importHealth(full = false): Promise<ImportResult> {
   return { days: plan.daily.length, weighIns: HAS_BODY ? plan.body.length : 0, readings: plan.vitals.length, workouts: HAS_TRAINING ? plan.cardio.length : 0 };
 }
 
-/** On opening the app: import again if it's on and it's been 6 hours. */
+/** On opening the app: import again if it’s on and it’s been an hour (so today’s heart rate after a dose shows the same day). */
 export async function autoImportHealth() {
   if (!isNative) return;
   const s = await getSettings();
   if (!s.healthImport) return;
-  if (s.healthLastImport && Date.now() - Date.parse(s.healthLastImport) < 6 * 3_600_000) return;
+  if (s.healthLastImport && Date.now() - Date.parse(s.healthLastImport) < 3_600_000) return;
   try { await importHealth(); } catch (e) { console.error('health import', e); }
 }

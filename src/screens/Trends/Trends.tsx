@@ -91,7 +91,7 @@ export function Trends() {
     food: HAS_FOOD && settings.foodTracking, intake: training, readiness: training,
     targets: { energy: settings.energyTargetKcal, protein: settings.proteinTargetG, water: settings.waterTargetMl, steps: settings.stepsTargetOwn ?? stepsTarget(daily, now), caffeineLimit: settings.caffeineLimitMg },
   });
-  const sleep = sleepImpact(meds.filter((m) => !m.peptide && !m.archived), doses, checkIns, now, s);
+  const sleep = sleepImpact(meds.filter((m) => !m.peptide && !m.archived), doses, checkIns, now, s, daily);
   const ciForecast = checkInForecast(meds, doses, checkIns, now, s);
 
   return (

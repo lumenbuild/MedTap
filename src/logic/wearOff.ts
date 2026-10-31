@@ -8,6 +8,7 @@ import { CAFFEINE } from './lifestyle';
 import { getDayBounds, type ScheduleSettings } from './schedule';
 import { dayKey } from './stats';
 import { zonedParts } from './tz';
+import { heartResponse, heartToday } from './watchSignals';
 
 const HOUR = 3_600_000;
 const DAY = 86_400_000;
@@ -41,10 +42,15 @@ function observed(med: Medication, doses: Dose[], checkIns: CheckIn[], now: numb
 
 export function wearOffToday(med: Medication, doses: Dose[], checkIns: CheckIn[], daily: DailyHealth[], now: number, s: ScheduleSettings): WearOff | null {
   const win = effectWindow(med, doses, checkIns, now);
+  // How the dose shows in the watch's heart rate, when it shows clearly and is believable for this medicine.
+  const hr = heartResponse(med, doses, checkIns, daily, now, s);
+  const heartH = hr?.signal && hr.wearOffMin !== undefined && plausibleHours(med, hr.wearOffMin / 60) ? hr.wearOffMin / 60 : undefined;
   // Without a believable learned time, a medicine we know falls back to its usual one (the middle of its range).
   const usual = usualHours(med);
-  if (!win && !usual) return null;
-  const learned = win?.wearOffH;
+  if (!win && !usual && heartH === undefined) return null;
+  const fromFocus = win?.wearOffH;
+  // Focus check-ins and heart rate both: the middle of the two. Either alone: that one.
+  const learned = fromFocus !== undefined && heartH !== undefined ? (fromFocus + heartH) / 2 : fromFocus ?? heartH;
   if (learned === undefined && !usual) return null;
   const dayStart = getDayBounds(now, s.dayStartsAt, s.tz).start;
   const today = doses.filter((d) => d.medicationId === med.id && !d.deletedAt && !d.skipped && Date.parse(d.takenAt) >= dayStart && Date.parse(d.takenAt) <= now)
@@ -53,7 +59,9 @@ export function wearOffToday(med: Medication, doses: Dose[], checkIns: CheckIn[]
   const t0 = Date.parse(today.takenAt);
   let hours = learned ?? (usual!.min + usual!.max) / 2;
   const obs = observed(med, doses, checkIns, now);
-  const reasons: string[] = learned === undefined ? [`The usual for ${usual!.name} (${usual!.min}–${usual!.max} h), until your check-ins show yours`] : [];
+  const reasons: string[] = learned === undefined ? [`The usual for ${usual!.name} (${usual!.min}–${usual!.max} h), until your check-ins or watch show yours`]
+    : heartH !== undefined && fromFocus !== undefined ? [`From your focus check-ins and your heart rate after ${hr!.doses} doses`]
+    : heartH !== undefined ? [`From your heart rate after ${hr!.doses} doses`] : [];
 
   // Personal shifts, each only when there's enough on both sides and it's at least 15 minutes.
   const sleepOn = (t: number) => {
@@ -85,7 +93,10 @@ export function wearOffToday(med: Medication, doses: Dose[], checkIns: CheckIn[]
 
   // Heart rate back to the usual daytime level for this time since the dose, before the forecast: likely wearing off now.
   let heartBack = false;
-  const row = daily.find((x) => x.date === dayKey(now, s));
+  // From the watch's 5-minute heart rate: today's rise has come and settled back after the usual peak.
+  const ht = hr ? heartToday(hr, today, daily, now, s) : null;
+  if (ht?.settled && now < at) { heartBack = true; at = Math.min(at, now + 15 * 60_000); reasons.push('Heart rate already back to your usual'); }
+  const row = heartBack ? undefined : daily.find((x) => x.date === dayKey(now, s));
   const resting = row?.restingHr ?? mean(daily.filter((x) => x.restingHr).slice(-14).map((x) => x.restingHr!));
   if (row?.hrByHour && resting && now < at && now - t0 > 2 * HOUR) {
     const h = Math.floor(zonedParts(now - HOUR, s.tz).h);

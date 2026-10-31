@@ -29,6 +29,7 @@ import { guideFor, lowestPlan, splitView } from '../../logic/peptideGuide';
 import { dosesPerWeek } from '../../logic/dosePlan';
 import { SwingBars } from '../../components/SwingBars';
 import { CourseBar } from '../../components/CourseBar';
+import { WatchPeptide } from '../../components/WatchPeptide';
 import { costPerKg, missedShot } from '../../logic/peptideSmart';
 import { ChipPicker } from '../../components/ui/Field';
 import { Sheet } from '../../components/ui/Sheet';
@@ -214,6 +215,7 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
         <h2 id="going-h" className="sr-only">How it's going</h2>
         <WeeklySummaryBlock w={weeklySummary(med, doses, checkIns, HAS_BODY ? body : [], now, s)} med={med} units={units} onProtocol />
         <FlagList flags={flags} />
+        <WatchPeptide med={med} doses={doses.filter((d) => d.medicationId === med.id)} now={now} s={s} />
         {fc && <ComingWeek fc={fc} />}
         {curve && <AppetiteStrip c={curve} />}
         {path && (

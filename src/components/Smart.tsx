@@ -1,6 +1,7 @@
 // Smart features shared by both apps: learned reminder times, missed-slot patterns, the effect window and script
 // planning (medication page), the sheet for odd records (an insight on Today), and the coming days' check-in forecast
 // (Trends). Each one shows what it rests on.
+import { DoseHeartSection } from './DoseHeart';
 import { format } from 'date-fns';
 import type { CheckIn, Dose, Medication } from '../db/schema';
 import type { ScheduleSettings } from '../logic/schedule';
@@ -116,7 +117,10 @@ export function MedPatterns({ med }: { med: Medication }) {
   const now = useNow(60_000);
   if (!doses || !checkIns || !ss) return null;
   const person = personOf(med);
-  return <HabitsSection med={med} doses={med.shared ? doses.filter((d) => (d.personId ?? person) === person) : doses} checkIns={checkIns.filter((c) => personOf(c) === person)} s={ss[1]} now={now} />;
+  return <>
+    <HabitsSection med={med} doses={med.shared ? doses.filter((d) => (d.personId ?? person) === person) : doses} checkIns={checkIns.filter((c) => personOf(c) === person)} s={ss[1]} now={now} />
+    <DoseHeartSection med={med} />
+  </>;
 }
 
 const shift = (hhmm: string, min: number) => {

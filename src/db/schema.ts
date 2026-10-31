@@ -340,6 +340,11 @@ export interface DailyHealth extends Stamped {
   proteinG?: number; waterMl?: number;
   /** Average heart rate in each hour of the day (local), null where there's none. */
   hrByHour?: (number | null)[];
+  /** Heart rate and steps in 5-minute blocks (288 a day, local time): how a dose shows, at rest. */
+  hr5?: (number | null)[]; steps5?: number[];
+  /** The night ending this morning, from the watch: deep and REM sleep, time awake, how often awake, and when the main
+   *  sleep began and ended (ms). */
+  sleepDeepMin?: number; sleepRemMin?: number; sleepAwakeMin?: number; sleepWakes?: number; sleepStart?: number; sleepEnd?: number;
   personId?: string; deletedAt?: string;
 }
 
