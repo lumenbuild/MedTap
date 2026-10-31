@@ -143,7 +143,7 @@ const CORE: GuideEntry[] = [
     sideEffects: ['Stinging, redness or a lump where it went in.', 'Stomach cramps or bloating.', 'Rash.', 'Lighter skin with high doses over time.'],
     getHelp: [SITE, INFECTION],
     worthKnowing: ['During chemotherapy, antioxidants may interfere with some treatments: worth raising with the oncologist.', 'Not studied in pregnancy or breastfeeding.', 'Breathed in (nebulised) it can trigger wheezing in asthma; injections don’t do this.'],
-    tips: ['200 mg from a 600 mg vial in 3 mL is 1 mL: use a 1 mL (100-unit) syringe.', 'Yellowing or cloudiness means it has broken down.'],
+    tips: ['Bigger doses can be over 0.5 mL: a 1 mL (100-unit) syringe makes them one draw.', 'Yellowing or cloudiness means it has broken down.'],
     chips: ['Site sting'],
     sources: ['Sonthalia et al., Indian J Dermatol Venereol Leprol 2016: glutathione for the skin.', 'Cascinu et al., J Clin Oncol 1995: glutathione and nerve damage from cisplatin.'],
     setup: { defaultAmount: 200, syringeUnits: 100, schedule: () => daily('08:00', { days: [1, 3, 5] }) },
@@ -239,7 +239,7 @@ const CORE: GuideEntry[] = [
     sideEffects: ['Flushing, warmth or a racing feeling soon after: more with a fast push or higher doses.', 'Nausea, stomach cramps or tightness in the chest.', 'Stinging at the site.', 'Headache.'],
     getHelp: ['Chest pain that doesn’t ease within a few minutes.', SITE, INFECTION],
     worthKnowing: ['Not studied in pregnancy or breastfeeding.', 'With an active cancer, raising NAD+ is a debated question.'],
-    tips: ['Injecting slowly over 30–60 seconds makes the biggest difference to flushing and cramps.', 'A 500 mg vial with 5 mL of water is 100 mg per mL: 50 mg is 50 units on a 1 mL syringe.'],
+    tips: ['Injecting slowly over 30–60 seconds makes the biggest difference to flushing and cramps.'],
     chips: ['Flushing', 'Energy up'],
     sources: ['Rajman et al., Cell Metab 2018: review of NAD+ in people.'],
     setup: { defaultAmount: 50, syringeUnits: 100, schedule: () => daily('08:00', { days: [1, 3, 5] }) },
@@ -292,14 +292,14 @@ const CORE: GuideEntry[] = [
     cycle: 'Commonly a 10–20 day course, repeated every 4–6 months.',
     doses: [
       'Trials: the Russian studies in older people mostly used epithalamin, the pineal extract it’s based on, as short courses repeated twice a year.',
-      'Common use: about 100 mg a course, taken as 10 mg a day for 10 days or 5 mg a day for 20 days, repeated every 4–6 months. On 10 mg vials that’s 10 vials a course: a whole vial a day, or half a vial a day.',
+      'Common use: about 100 mg a course, taken as 10 mg a day for 10 days or 5 mg a day for 20 days, repeated every 4–6 months.',
       'Starting low: lower daily amounts over the same or a longer course are also used; the human research doesn’t settle which amount works best.',
     ],
     storage: { powder: 'Fridge (2–8 °C), or the freezer for longer storage.', mixed: 'Fridge. Commonly used within 4 weeks of mixing.', useWithinDays: 28 },
     sideEffects: ['Few reported.', 'Redness at the site.', 'Changes in sleep, vivid dreams.'],
     getHelp: [SITE, INFECTION],
     worthKnowing: ['Not studied in pregnancy or breastfeeding.', 'Because it acts on telomerase, its use with an active cancer is a debated question.'],
-    tips: ['A 10 mg vial with 1 mL of water is 10 mg per mL: 5 mg is 50 units (half the vial, so one vial lasts 2 days), and 10 mg is the whole vial (100 units on a 1 mL syringe).', 'Buy for the whole course: about 10 vials of 10 mg.'],
+    tips: ['Buy for the whole course: about 100 mg in all. The mixing table works out how many of your vials that is.'],
     chips: ['Slept well'],
     sources: ['Khavinson et al.: studies of epithalamin and epitalon (1990s–2000s).', 'Khavinson et al., Bull Exp Biol Med 2003: epitalon and telomerase in human cells.'],
     setup: { defaultAmount: 5, syringeUnits: 100, schedule: (t) => daily('21:00', { course: { start: t, days: 20, remindAfterDays: 140 } }) },
@@ -397,12 +397,19 @@ export function stackChecks(g: GuideEntry, meds: Pick<Medication, 'id' | 'name' 
 export const guideById = (id: string) => GUIDE.find((g) => g.id === id);
 
 /** The draw for each dose in the table, for a vial and water amount. Doses over the vial are left out. */
-export function mixTable(g: GuideEntry, vial: { amount: number; waterMl: number }): { dose: number; units: number; ml: number; others: { name: string; amount: number }[] }[] {
-  return g.tableDoses.filter((d) => d <= vial.amount).map((dose) => ({ dose, ...drawFor(dose, vial.amount, vial.waterMl, 'U-100'), others: blendParts(g, dose) }));
+export function mixTable(g: GuideEntry, vial: { amount: number; waterMl: number; parts?: number[] }): { dose: number; units: number; ml: number; others: { name: string; amount: number }[] }[] {
+  return g.tableDoses.filter((d) => d <= vial.amount).map((dose) => ({ dose, ...drawFor(dose, vial.amount, vial.waterMl, 'U-100'), others: blendParts(g, dose, vial) }));
 }
 
-/** For a blend: how much of each other part comes with a dose of the first (same unit). */
-export const blendParts = (g: GuideEntry, dose: number) => (g.blend ?? []).map((b) => ({ name: b.name, amount: r3((dose * b.amount) / g.vials[0].amount) }));
+/** For a blend: how much of each other part comes with a dose of the first (same unit), from the person's vial (its
+ *  `parts`, in blend order) or the common one. */
+export const blendParts = (g: GuideEntry, dose: number, vial?: { amount: number; parts?: number[] }) => (g.blend ?? []).map((b, i) => {
+  const mine = vial?.parts?.[i];
+  return { name: b.name, amount: r3(mine !== undefined && vial ? (dose * mine) / vial.amount : (dose * b.amount) / g.vials[0].amount) };
+});
+
+/** The first part of a blend ("BPC-157" in "BPC-157 + TB-500"; GLOW's is GHK-Cu). */
+export const firstPart = (g: GuideEntry) => (g.aka.find((a) => a.includes('+')) ?? g.name).split(/\s*\+\s*/)[0];
 
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
 /** "250 mcg", "0.25 mg (250 mcg)", "5 mg" for 5,000 mcg. */
@@ -415,12 +422,35 @@ export function fmtDose(n: number, unit: string): string {
 /** A once-a-week entry can be split into two shots a week. */
 export const canSplit = (g: GuideEntry) => g.setup.schedule('2026-01-01', 1).days?.length === 1;
 
-/** A medication set up from the guide: the first vial size, its water, U-100 syringes, its schedule and starting amount.
- *  `split`: half the amount twice a week, 3 then 4 days apart (from today's weekday). */
-export function guideMed(g: GuideEntry, now: number, split = false): Omit<Medication, 'id' | 'createdAt' | 'updatedAt' | 'color' | 'icon' | 'archived'> {
+/** Vial sizes vary by supplier, so the guide never assumes one: the person's own vial (amount in the guide's unit and
+ *  the water they add), remembered per guide on this device. */
+export interface GuideVial { amount: number; waterMl: number; parts?: number[] }
+const VIAL_KEY = (id: string) => `guideVial.${id}`;
+export function savedVial(id: string): GuideVial | undefined {
+  try { const v = JSON.parse(localStorage.getItem(VIAL_KEY(id)) ?? 'null'); return v && v.amount > 0 && v.waterMl > 0 ? v : undefined; } catch { return undefined; }
+}
+export function saveVial(id: string, v: GuideVial) { try { localStorage.setItem(VIAL_KEY(id), JSON.stringify(v)); } catch { /* storage off */ } }
+
+/** Water for a vial so the starting dose is an easy draw: the usual water for that size when it's a common one;
+ *  otherwise a whole (or half) mL that puts it on a multiple of 5 units, 10–50 if it can (5–100 if not), else the one
+ *  closest to 25 units. */
+export function suggestWater(g: GuideEntry, amount: number): number {
+  const common = g.vials.find((v) => Math.abs(v.amount - amount) < 1e-9);
+  if (common) return common.waterMl;
+  const dose = Math.min(g.setup.defaultAmount, amount);
+  const options = [1, 2, 3, 1.5, 2.5, 0.5, 4, 5, 10];
+  const units = (w: number) => (dose / (amount / w)) * 100;
+  const round5 = (u: number) => Math.abs(u / 5 - Math.round(u / 5)) < 0.02;
+  const easy = options.find((w) => units(w) >= 10 && units(w) <= 50 && round5(units(w))) ?? options.find((w) => units(w) >= 5 && units(w) <= 100 && round5(units(w)));
+  return easy ?? options.filter((w) => units(w) <= 100).sort((a, b) => Math.abs(units(a) - 25) - Math.abs(units(b) - 25))[0] ?? 1;
+}
+
+/** A medication set up from the guide: the person's vial (or the first common size, to be changed), its water, U-100
+ *  syringes, its schedule and starting amount. `split`: half the amount twice a week, 3 then 4 days apart. */
+export function guideMed(g: GuideEntry, now: number, split = false, vial?: GuideVial): Omit<Medication, 'id' | 'createdAt' | 'updatedAt' | 'color' | 'icon' | 'archived'> {
   const d = new Date(now);
   const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  const v = g.vials[0];
+  const v = vial ?? g.vials[0];
   const sc = g.setup.schedule(today, d.getDay());
   const halve = split && canSplit(g);
   return {

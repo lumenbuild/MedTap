@@ -274,7 +274,7 @@ export function Onboarding({ again = false }: { again?: boolean }) {
         <div className="flex gap-1.5" role="img" aria-label={`Step ${step + 1} of ${screens.length}`}>
           {screens.map((_, i) => <span key={i} className={`h-1.5 rounded-full transition-all ${i === step ? 'w-6 bg-primary' : i < step ? 'w-1.5 bg-primary' : 'w-1.5 bg-border-strong'}`} />)}
         </div>
-        <button onClick={() => finish()} className="min-h-[48px] px-3 -mr-3 text-primary font-semibold">Skip</button>
+        <button onClick={() => finish()} className="min-h-[48px] px-3 -mr-3 text-primary-hover font-semibold">Skip</button>
       </div>
       <main className="flex-1 flex flex-col">
         <div className="flex-1 flex flex-col justify-center space-y-4 py-4">
