@@ -74,3 +74,21 @@ describe('daily brief', () => {
     expect(b[0].text).toMatch(/Ritalin: first dose about 6:35 am \(you woke 6:05 am\)/);
   });
 });
+
+describe('supplement names: a medicine is never read as a supplement', () => {
+  const of = (name: string) => supplementsOf({ name } as never).map((s) => s.key);
+  it('medicines whose names or salts look like supplements', () => {
+    for (const name of ['Tirzepatide', 'Mounjaro (tirzepatide)', 'Diazepam 5 mg', 'Temazepam', 'Clonazepam', 'Esomeprazole magnesium 20 mg', 'Atorvastatin calcium 40 mg',
+      'Rosuvastatin calcium', 'Levothyroxine sodium', 'Naproxen sodium 550', 'Diclofenac sodium', 'Copper peptide (GHK-Cu)', 'Retatrutide', 'Semaglutide'])
+      expect(of(name), name).toEqual([]);
+  });
+  it('the supplements themselves still match', () => {
+    expect(of('Fish oil 1000')).toEqual(['fish-oil']);
+    expect(of('Omega-3')).toEqual(['fish-oil']);
+    expect(of('EPA DHA')).toEqual(['fish-oil']);
+    expect(of('Magnesium glycinate')).toEqual(['magnesium']);
+    expect(of('Calcium carbonate')).toEqual(['calcium']);
+    expect(of('Hydralyte')).toEqual(['electrolytes']);
+    expect(of('Copper bisglycinate')).toEqual(['copper']);
+  });
+});

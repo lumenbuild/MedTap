@@ -120,7 +120,6 @@ export function VialCard({ med }: { med: Medication }) {
           )}
         </div>
       )}
-      <ShopList med={med} doses={doses} now={now} />
       <a href="#/supplies" className="block text-center min-h-[44px] leading-[44px] text-primary font-semibold">Supplies</a>
       {!pen && <a href="#/calc" className="block text-center min-h-[44px] leading-[44px] text-primary font-semibold">Peptide calculator</a>}
 
@@ -134,7 +133,7 @@ export function VialCard({ med }: { med: Medication }) {
 }
 
 /** What to buy for the rest of the course (or the next course, or 4 weeks): vials, water, syringes and swabs. */
-function ShopList({ med, doses, now }: { med: Medication; doses: Dose[]; now: number }) {
+export function ShopList({ med, doses, now }: { med: Medication; doses: Dose[]; now: number }) {
   const ss = useScheduleSettings();
   if (!ss) return null;
   const c = courseShop(med, doses, now, ss[1]);

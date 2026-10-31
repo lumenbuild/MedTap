@@ -3,7 +3,6 @@
 // (Trends). Each one shows what it rests on.
 import { DoseHeartSection } from './DoseHeart';
 import { ToleranceSection } from './Biohack';
-import { HowToTakeCard } from './HowToTake';
 import { format } from 'date-fns';
 import type { CheckIn, Dose, Medication } from '../db/schema';
 import type { ScheduleSettings } from '../logic/schedule';
@@ -120,7 +119,6 @@ export function MedPatterns({ med }: { med: Medication }) {
   if (!doses || !checkIns || !ss) return null;
   const person = personOf(med);
   return <>
-    <HowToTakeCard med={med} />
     <HabitsSection med={med} doses={med.shared ? doses.filter((d) => (d.personId ?? person) === person) : doses} checkIns={checkIns.filter((c) => personOf(c) === person)} s={ss[1]} now={now} />
     <DoseHeartSection med={med} />
     <ToleranceSection med={med} />

@@ -36,6 +36,7 @@ import { planShort } from '../../logic/dosePlan';
 import { scheduleSettings } from '../../db/repos/settings';
 import { VialCard } from './VialCard';
 import { MedPatterns } from '../../components/Smart';
+import { HowToTakeCard } from '../../components/HowToTake';
 import { CountButton, countsFromPhoto } from '../../components/CountSheet';
 import { DrawGuide, syringeSizes } from '../../components/Syringe';
 import { SYRINGES } from '../../logic/peptide';
@@ -359,8 +360,6 @@ export function MedEditor({ id, tagId, guideId }: { id?: string; tagId?: string;
           toast('Filled in from the label. Check each detail before saving.');
         }} />
       )}
-      {existing && <TagsSection med={existing} />}
-      {HAS_PEPTIDES && existing?.peptide && !existing.archived && <VialCard med={existing} />}
       {/* The dose plan: for an injection its home is Protocol (with the shots, vials and level); for the rest, here. */}
       {existing && !existing.archived && !priv && (onProtocol
         ? <a href="#/protocol" onClick={() => { try { localStorage.setItem('protocolMed', existing.id); } catch { /* fine */ } }}
@@ -370,8 +369,11 @@ export function MedEditor({ id, tagId, guideId }: { id?: string; tagId?: string;
             <ChevronRight size={18} className="text-muted shrink-0" aria-hidden="true" />
           </a>
         : <DosePlanCard med={existing} />)}
+      {existing && !existing.archived && <HowToTakeCard med={existing} />}
+      {HAS_PEPTIDES && existing?.peptide && !existing.archived && <VialCard med={existing} />}
       {existing && !existing.archived && !existing.peptide && <BottlesSection med={existing} />}
       {existing && !existing.archived && <MedPatterns med={existing} />}
+      {existing && <TagsSection med={existing} />}
 
       {/* A medication already set up opens on what matters day to day (above); its details fold under one row. */}
       {existing && !editing && (

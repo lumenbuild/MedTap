@@ -85,7 +85,7 @@ const CONTENT: Record<string, ReactNode> = {
       </Step>
       <Step n={3} title="Link the tag">
         <p>On the medicine's page, tap <strong>Link a tag</strong> and hold your phone on it.{isNativeIOS ? ' On iPhone, hold the top of the phone near the tag.' : ' On Android, the back of the phone, near the middle.'}</p>
-        <p>One tag per medicine. A tag can also log a coffee, water, a check-in or a gym machine: Settings → Tags.</p>
+        <p>One tag per medicine. A tag can also log a coffee, water, a check-in or a gym machine: Meds → <strong>Tags</strong>.</p>
       </Step>
       <Step n={4} title="Log a dose">
         <p>Tap the tag: the dose is logged at your usual amount, with <strong>Undo</strong> for a few seconds. Tapped twice by mistake? {APP_NAME} asks before logging the same medicine again within a few minutes.</p>
@@ -240,12 +240,12 @@ const CONTENT: Record<string, ReactNode> = {
       {HAS_VISITS ? (
         <>
           <H>Appointments, lab results and trips</H>
-          <p>Settings → <strong>Appointments and lab results</strong>: add appointments and questions, then print a one-page summary of what's changed since the last one. Lab results can be read from a photo of the printout. Settings → <strong>Plan a trip</strong> shows dose times across time zones, switching straight away or moving 2 hours a day.</p>
+          <p>Trends → <strong>Appointments</strong>: add appointments and questions, then print a one-page summary of what's changed since the last one. Lab results can be read from a photo of the printout. Meds → <strong>Trip</strong> shows dose times across time zones, switching straight away or moving 2 hours a day.</p>
         </>
       ) : (
         <>
           <H>Lab results</H>
-          <p>Settings → <strong>Lab results</strong>: type them in or read them from a photo of the printout. They're in the doctor report.</p>
+          <p>{HAS_PEPTIDES ? 'Progress' : 'Trends'} → <strong>Lab results</strong> (under Records and tools): type them in or read them from a photo of the printout. They're in the doctor report.</p>
         </>
       )}
       <p>Check-in notes suggest chips (“bit queasy” → Nausea)<Pep>, and adding vials can read the lot and expiry from a photo of the label</Pep>.</p>
@@ -301,7 +301,7 @@ const CONTENT: Record<string, ReactNode> = {
       <H>Stock and batches</H>
       <p>On the medication's page, <strong>Add</strong> vials or pens to stock with their lot, expiry, supplier and purity. Mixing a new vial takes the one that expires soonest. Tap any vial to add photos of its label or certificate of analysis, and to see the doses taken from it, so you can trace a batch.</p>
       <H>Supplies</H>
-      <p>Protocol → <strong>Supplies</strong> (also in Settings, under Tools). Enter how many syringes, pen needles and swabs you have, and your water. They count down as you log injections and mix vials. The sharps container counts up, and Today reminds you when it's nearly full.</p>
+      <p>Protocol → <strong>Supplies</strong>. Enter how many syringes, pen needles and swabs you have, and your water. They count down as you log injections and mix vials. The sharps container counts up, and Today reminds you when it's nearly full.</p>
       <p>Courses, on and off cycles, and stepping the dose when ready are in <a href="#/help/schedules" className="underline underline-offset-4">Setting up a schedule</a>.</p>
       <H>Titration</H>
       <p>Protocol → <strong>Dose plan</strong> → <strong>Change the plan</strong> → <strong>Steps on a schedule</strong>: the first dose, the step up (or down), how often, and the final dose. Each step switches over on its day, and it's marked on the weight chart.</p>
@@ -326,17 +326,17 @@ const CONTENT: Record<string, ReactNode> = {
       <H>Biohacking tools</H>
       <p>Settings → <strong>Biohacking tools</strong> turns these on (and off again) together:</p>
       <ul className="list-disc pl-5 space-y-1">
-        <li><strong>Brain test</strong> (Settings → Tools): 2 minutes (reaction time, then a working-memory round) or 30 seconds of reaction time, also on the watch. Shows your scores, your sharpest hours, and whether there's a real evening dip as a stimulant wears off.</li>
+        <li><strong>Brain test</strong> (Progress → Records and tools): 2 minutes (reaction time, then a working-memory round) or 30 seconds of reaction time, also on the watch. Shows your scores, your sharpest hours, and whether there's a real evening dip as a stimulant wears off.</li>
         <li><strong>Readiness</strong> on Today: sleep, heart rate, HRV, last night's late dose or drink and this morning's test, with a plan for the day, a warning when heart rate and HRV look like you're getting sick, and how long you usually take to recover.</li>
         <li><strong>Tolerance and breaks</strong> on a stimulant's page: whether the effect is shrinking, dose creep, planned breaks (no reminders on those days) and how strong the first doses back are.</li>
         <li><strong>Muscle protection</strong> on Body, and <strong>water, gut and appetite</strong> around a weekly shot on Protocol.</li>
-        <li><strong>Journal</strong> and <strong>Year in review</strong> (Settings → Tools), and <strong>Doctor mode</strong> on the report.</li>
+        <li><strong>Journal</strong>, <strong>Experiments</strong> and <strong>Year in review</strong> (Progress → Records and tools), and <strong>Doctor mode</strong> on the report.</li>
         <li><strong>Watch</strong>: the tile and a ring complication show how far through today's stimulant you are; log focus or a symptom, or take the reaction test, from the wrist; a buzz before bed when it may still be working.</li>
       </ul>
       <H>Peptide guide</H>
       <p>Protocol → <strong>Guide</strong>: retatrutide, glutathione, GHK-Cu, DSIP, BPC-157, NAD+, Semax and epitalon. What each one is, what the research shows and what people notice, a mixing table, how it’s taken and stored, the doses used, side effects, and when to get help. <strong>Set it up</strong> fills in the injection form, once or twice a week for retatrutide; change the dose to yours.</p>
       <H>Calculator</H>
-      <p>Protocol → <strong>Calculator</strong> (also in Settings, under Tools): units for a dose, the dose for a number of units, or the water that makes your dose an easy number of units.</p>
+      <p>Protocol → <strong>Calculator</strong>: units for a dose, the dose for a number of units, or the water that makes your dose an easy number of units.</p>
       <H>Check your numbers</H>
       <p>{APP_NAME} only does sums on the numbers you enter; it doesn't suggest doses. Check against the label, your prescriber's directions or your pharmacist, especially the first time. Under 2 units is hard to measure accurately.</p>
     </>
