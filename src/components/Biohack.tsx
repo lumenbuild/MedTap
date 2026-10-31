@@ -7,11 +7,13 @@ import { Activity, AlertTriangle, Brain, Droplets, Plus, Trash2 } from 'lucide-r
 import type { Medication } from '../db/schema';
 import { medIsFor, personOf } from '../db/repos/people';
 import { setBreaks } from '../db/repos/meds';
-import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useMeds, useScheduleSettings, useSettings, useWorkouts } from '../app/data';
+import { useBodyEntries, useCheckIns, useDaily, useDoses, useExperiments, useFamily, useMeds, useScheduleSettings, useSettings, useWorkouts } from '../app/data';
 import { useNow } from '../app/useNow';
 import { useToast } from '../app/toast';
 import { afterBreak, doseCreep, eveningTestDue, focusByHour, illnessWarning, mindReadiness, recoveryTimes, tolerance } from '../logic/biohack';
 import { appetiteAhead, fluids, gutByShotDay, muscleScore } from '../logic/bodyhack';
+import { dailyBrief } from '../logic/brief';
+import { conditionOn } from '../logic/experiments';
 import { isStimulant } from '../logic/stimulant';
 import { inGroup } from '../logic/interactions';
 import { guideFor } from '../logic/peptideGuide';
@@ -25,25 +27,34 @@ import { TextInput } from './ui/Field';
 const useOn = () => { const st = useSettings(); return HAS_PEPTIDES && !!st?.biohackTools; };
 const fmtL = (ml: number) => `${Math.round(ml / 100) / 10} L`;
 
-/** Today: readiness, the plan for the day, an illness warning, how long recovery usually takes, and an evening test. */
-export function ReadinessCard() {
+/** Today: the daily brief (doses, shots, appetite, water), and with the biohacking tools readiness, the plan for the
+ *  day, an illness warning, how long recovery usually takes, and an evening test. */
+export function DailyBrief() {
   const on = useOn();
   const daily = useDaily(); const checkIns = useCheckIns(); const doses = useDoses(); const meds = useMeds(); const workouts = useWorkouts(); const fam = useFamily(); const ss = useScheduleSettings();
+  const experiments = useExperiments();
   const now = useNow(300_000);
   const [more, setMore] = useState(false);
-  if (!on || !daily || !checkIns || !doses || !meds || !workouts || !fam || !ss || fam.everyone) return null;
+  if (!daily || !checkIns || !doses || !meds || !workouts || !fam || !ss || fam.everyone) return null;
   const [st, s] = ss;
   const me = <T extends { personId?: string }>(x: T) => personOf(x) === fam.personId;
   const mine = { daily: daily.filter(me), checkIns: checkIns.filter(me), doses, meds: meds.filter((m) => medIsFor(m, fam.personId)), workouts: workouts.filter(me) };
-  const ill = illnessWarning(mine.daily, now, s);
-  const best = focusByHour(mine.checkIns, now, s)?.best;
-  const r = mindReadiness(mine, now, s, { illness: !!ill, bestHours: best, bedtime: fmtHHmm(st.bedtime) });
-  const rec = recoveryTimes(mine, now, s);
-  const evening = eveningTestDue(mine.meds, doses, mine.checkIns, now, s);
-  if (!r && !ill && !evening) return null;
+  const brief = dailyBrief({ ...mine, waterTarget: st.waterTargetMl, biohack: on }, now, s);
+  // Self-experiments running today.
+  for (const e of (experiments ?? []).filter((x) => !x.deletedAt && me(x))) {
+    const c = on && !e.ended ? conditionOn(e, format(now, 'yyyy-MM-dd')) : null;
+    if (c) brief.push({ key: `exp:${e.id}`, text: `Experiment “${e.title}”: today is ${c.arm === 'a' ? e.a : e.b}` });
+  }
+  const ill = on ? illnessWarning(mine.daily, now, s) : null;
+  const best = on ? focusByHour(mine.checkIns, now, s)?.best : undefined;
+  const r = on ? mindReadiness(mine, now, s, { illness: !!ill, bestHours: best, bedtime: fmtHHmm(st.bedtime) }) : null;
+  const rec = on ? recoveryTimes(mine, now, s) : [];
+  const evening = on && eveningTestDue(mine.meds, doses, mine.checkIns, now, s);
+  if (!r && !ill && !evening && !brief.length) return null;
   return (
     <section aria-labelledby="ready-h" className="border-t border-border pt-4 space-y-3">
-      <h2 id="ready-h" className="sr-only">Readiness</h2>
+      <h2 id="ready-h" className="text-sm font-medium text-muted">Your day</h2>
+      {brief.length > 0 && <ul className="space-y-1 leading-snug">{brief.map((b) => <li key={b.key} className="flex gap-2"><span aria-hidden="true" className="mt-[0.55em] w-1.5 h-1.5 rounded-full bg-text shrink-0" /><span>{b.text}</span></li>)}</ul>}
       {r && (
         <div className="flex items-start gap-3">
           <MiniRing value={r.score} max={100} size={52} tone={r.score >= 75 ? 'good' : r.score >= 55 ? 'primary' : 'watch'} label={`Readiness ${r.score} of 100`}>{r.score}</MiniRing>

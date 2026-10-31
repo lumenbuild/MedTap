@@ -376,6 +376,7 @@ export function Settings({ section }: { section?: string }) {
         {HAS_PEPTIDES && settings.peptideTools && <Row href="#/calc" Icon={Calculator} title="Peptide calculator" />}
         {HAS_PEPTIDES && settings.peptideTools && <Row href="#/supplies" Icon={Package} title="Supplies" />}
         {HAS_PEPTIDES && settings.biohackTools && <Row href="#/brain" Icon={Brain} title="Brain test" />}
+        {HAS_PEPTIDES && settings.biohackTools && <Row href="#/experiments" Icon={FlaskConical} title="Experiments" />}
         {HAS_PEPTIDES && settings.biohackTools && <Row href="#/journal" Icon={NotebookPen} title="Journal" />}
         {HAS_PEPTIDES && settings.biohackTools && <Row href="#/year" Icon={CalendarRange} title="Year in review" />}
         <Row href="#/sync" Icon={Tablet} title="Sync with your own tablet or second phone" />

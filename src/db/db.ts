@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Food, FoodLog, Appointment, BodyEntry, CheckIn, DailyHealth, Exercise, Routine, Workout, DeviceValue, Dose, LabResult, MedEvent, Medication, Person, Photo, Question, Setting, Tag, Vital, Supply } from './schema';
+import type { Experiment, Food, FoodLog, Appointment, BodyEntry, CheckIn, DailyHealth, Exercise, Routine, Workout, DeviceValue, Dose, LabResult, MedEvent, Medication, Person, Photo, Question, Setting, Tag, Vital, Supply } from './schema';
 import { LEGACY_COLOURS } from '../logic/palette';
 import { edition } from '../edition';
 
@@ -25,6 +25,7 @@ class MedDB extends Dexie {
   routines!: Table<Routine, string>;
   foods!: Table<Food, string>;
   foodLogs!: Table<FoodLog, string>;
+  experiments!: Table<Experiment, string>;
 
   constructor() {
     super(edition.dbName); // each edition keeps its own data, even on the same website
@@ -60,6 +61,8 @@ class MedDB extends Dexie {
     this.version(9).stores({ exercises: 'id', workouts: 'id, startedAt', routines: 'id' });
     // v10: food: saved products, meals and recipes, and what was eaten.
     this.version(10).stores({ foods: 'id, barcode', foodLogs: 'id, at' });
+    // v11: self-experiments (biohacking tools).
+    this.version(11).stores({ experiments: 'id, start' });
   }
 }
 

@@ -127,8 +127,11 @@ function OddInsightSheet({ settings, onClose }: { settings: AppSettings; onClose
 export function TopInsights({ max = 2 }: { max?: number }) {
   const r = useInsights();
   if (!r || !r.list.length) return null;
-  const top = r.list.slice(0, max);
-  const more = r.list.length - top.length;
+  // The daily brief above already says these (second dose, appetite coming back, water).
+  const list = r.list.filter((x) => !['second', 'appetite', 'fluids'].includes(x.kind));
+  if (!list.length) return null;
+  const top = list.slice(0, max);
+  const more = list.length - top.length;
   return (
     <section aria-labelledby="ins-h" className="border-t border-border pt-3">
       <h2 id="ins-h" className="sr-only">For you</h2>

@@ -63,3 +63,14 @@ describe('when and how, and waking', () => {
     expect(new Date(plain[0].at).getHours()).toBe(8);
   });
 });
+
+describe('daily brief', () => {
+  it('first dose after waking, and a shot tomorrow', async () => {
+    const { dailyBrief } = await import('../src/logic/brief');
+    const rit = med('Ritalin', { followWakeMin: 30 });
+    const now = at(0, 6, 30);
+    const daily: DailyHealth[] = [{ id: 't', date: ymd(now), sleepEnd: at(0, 6, 5), ...st }];
+    const b = dailyBrief({ meds: [rit], doses: [], checkIns: [], daily, workouts: [], waterTarget: null, biohack: false }, now, S);
+    expect(b[0].text).toMatch(/Ritalin: first dose about 6:35 am \(you woke 6:05 am\)/);
+  });
+});
