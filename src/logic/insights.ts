@@ -152,7 +152,7 @@ export function insights(d: InsightInput, now: number, s: ScheduleSettings): Ins
       }
       const br = doseResponse(m, d.doses, d.checkIns, now, s);
       if (br) out.push({ id: `bestdose:${m.id}:${br.by}:${br.better}`, kind: 'bestdose', importance: 42, confidence: br.n >= 16 ? 'high' : 'medium', n: br.n, nOf: 'check-ins', tone: 'good',
-        headline: br.by === 'amount' ? `${shownName(m)}: your focus is best on ${br.better}` : `${shownName(m)}: focus is better when taken ${br.better}`,
+        headline: br.by === 'amount' ? `${shownName(m)}: focus rated higher on ${br.better} days` : `${shownName(m)}: focus rated higher when taken ${br.better}`,
         evidence: `Focus ${br.focusBetter} of 5 ${br.by === 'amount' ? `on ${br.better}` : br.better}, against ${br.focusWorse} ${br.by === 'amount' ? `on ${br.worse}` : br.worse} (${br.n} check-ins)`, snoozeDays: 30 });
     }
     const cr = eveningCrash(stims, d.doses, d.checkIns, now, s);
@@ -215,12 +215,12 @@ export function insights(d: InsightInput, now: number, s: ScheduleSettings): Ins
     const ill = illnessWarning(d.daily, now, s);
     if (ill) out.push({ id: `illness:${dayKey(now, s)}`, kind: 'illness', importance: 82, confidence: ill.hrv !== undefined ? 'high' : 'medium', tone: 'watch',
       headline: 'Your body may be fighting something',
-      evidence: `Resting heart rate ${ill.rhr} bpm (usually ${ill.baseRhr})${ill.hrv !== undefined ? `, HRV ${ill.hrv} ms (usually ${ill.baseHrv})` : ''}, two days running. Rest, fluids, and hold any planned dose step-up`, snoozeDays: 2 });
+      evidence: `Resting heart rate ${ill.rhr} bpm (usually ${ill.baseRhr})${ill.hrv !== undefined ? `, HRV ${ill.hrv} ms (usually ${ill.baseHrv})` : ''}, two days running. Rest and fluids; check with your prescriber before any planned dose step-up`, snoozeDays: 2 });
     for (const m of d.meds.filter((x) => !x.archived && isStimulant(x) && !x.peptide)) {
       const t = tolerance(m, d.doses, d.checkIns, d.daily, now, s);
       if (t?.drops.length) out.push({ id: `tolerance:${m.id}:${Math.floor(now / (2 * WEEK))}`, kind: 'tolerance', importance: 57, confidence: 'medium', tone: 'watch',
-        headline: `${shownName(m)}: the effect is shrinking`, evidence: `${t.drops.map((x) => `${x.what.toLowerCase()} ${x.from} → ${x.to}`).join('; ')}. A planned break often brings it back`,
-        action: { kind: 'go', label: 'Plan a break', href: `#/meds/${m.id}` }, snoozeDays: 14 });
+        headline: `${shownName(m)}: the effect is shrinking`, evidence: `${t.drops.map((x) => `${x.what.toLowerCase()} ${x.from} → ${x.to}`).join('; ')}. Worth raising with your prescriber`,
+        action: { kind: 'go', label: 'See', href: `#/meds/${m.id}` }, snoozeDays: 14 });
       const c = doseCreep(m, d.doses, now, s);
       if (c) out.push({ id: `creep:${m.id}:${Math.floor(now / (2 * WEEK))}`, kind: 'creep', importance: 47, confidence: 'medium', tone: 'plain',
         headline: `${shownName(m)}: more each day than 2 months ago`, evidence: c.lines.join('; '), action: { kind: 'go', label: 'See', href: `#/meds/${m.id}` }, snoozeDays: 21 });

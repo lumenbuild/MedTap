@@ -49,15 +49,15 @@ export function doseDecision(med: Medication, d: AllData, now: number, s: Schedu
     const costs = costsOf(med, d, now);
     const kg = pts[pts.length - 1].v;
     const why = [`${perWeek <= 0 ? 'Losing' : 'Gaining'} ${Math.abs(perWeek)} kg a week over the last 4 weeks at ${amount}`, ...(costs.length ? costs : ['Few side effects and steady heart rate and sleep'])];
-    if (perWeek < -(kg * 0.012)) return { call: 'ease-off-option', title: `Fast: staying at ${amount} or easing off are both options`, why: [...why, 'More than about 1% of body weight a week makes holding on to muscle harder.'] };
-    if (perWeek <= -0.3) return { call: 'stay', title: `Stay at ${amount}: it's still working`, why };
+    if (perWeek < -(kg * 0.012)) return { call: 'ease-off-option', title: `Fast loss at ${amount}: worth a word with your prescriber`, why: [...why, 'More than about 1% of body weight a week makes holding on to muscle harder.'] };
+    if (perWeek <= -0.3) return { call: 'stay', title: `Still working at ${amount}`, why };
     if (costs.length >= 2) return { call: 'ease-off-option', title: `Slowing, with costs: worth a word with your prescriber`, why };
-    return { call: 'step-up-option', title: `Slowing at ${amount}: the next step is an option`, why: [...why, 'Check sleep, protein and food logging first: they often explain a slow patch.'] };
+    return { call: 'step-up-option', title: `Slowing at ${amount}`, why: [...why, 'Sleep, protein and food logging often explain a slow patch. Any dose change is one for your prescriber.'] };
   }
   if (isStimulant(med)) {
     const r = doseResponse(med, mine, d.checkIns, now, s);
     if (!r) return null;
-    return { call: 'best-dose', title: r.by === 'amount' ? `Best focus at ${r.better}` : `Best focus when taken ${r.better}`,
+    return { call: 'best-dose', title: r.by === 'amount' ? `Focus rated higher at ${r.better}` : `Focus rated higher when taken ${r.better}`,
       why: [`Focus ${r.focusBetter.toFixed(1)} at ${r.better} against ${r.focusWorse.toFixed(1)} at ${r.worse} (${r.n} ratings)`] };
   }
   return null;
@@ -210,7 +210,7 @@ export function earlyWarnings(d: AllData, now: number, s: ScheduleSettings): War
     const lately = at.filter((c) => Date.parse(c.at) > now - 21 * DAY).map((c) => c.focus!);
     const before = at.filter((c) => Date.parse(c.at) <= now - 21 * DAY && Date.parse(c.at) > now - 63 * DAY).map((c) => c.focus!);
     if (lately.length >= 5 && before.length >= 5 && mean(before) - mean(lately) >= 0.5)
-      out.push({ key: `tolerance-${m.id}`, title: `${m.nickname?.trim() || m.name} may be doing less`, detail: `Focus at ${common} ${m.unit}: ${r1(mean(lately))} lately against ${r1(mean(before))} before.`, action: 'Sleep, timing and caffeine change it too; a break day or a word with your prescriber are options.' });
+      out.push({ key: `tolerance-${m.id}`, title: `${m.nickname?.trim() || m.name} may be doing less`, detail: `Focus at ${common} ${m.unit}: ${r1(mean(lately))} lately against ${r1(mean(before))} before.`, action: 'Sleep and caffeine change it too. Any change to the dose is one for your prescriber.' });
   }
 
   // Resting heart rate creeping up since starting a medicine.

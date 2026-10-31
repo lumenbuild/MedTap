@@ -122,6 +122,11 @@ describe('peptides', () => {
     expect(missedShot(reta, [dose('g', at(4, 8), 1)], sun, S)?.take).toBe(false);
     // Taken: nothing.
     expect(missedShot(reta, [dose('g', at(1, 8), 1)], NOW, S)).toBeNull();
+    // A weekly Thursday shot taken two days early (Tuesday): not missed, so never "take it now" on top of it.
+    const weekly = { ...reta, schedule: { type: 'fixed' as const, slots: [{ time: '08:00' }], days: [4] } };
+    expect(missedShot(weekly, [dose('g', at(10, 8), 1), dose('g', at(3, 8), 1)], NOW, S)).toBeNull();
+    // The week before's only: missed.
+    expect(missedShot(weekly, [dose('g', at(8, 8), 1)], NOW, S)?.take).toBe(true);
   });
   it('cost per kg lost, by dose', () => {
     const priced = { ...reta, costPerUnit: 100, strength: 10, peptide: { waterMl: 1, syringe: 'U-100' as const, syringeUnits: 50 } };
