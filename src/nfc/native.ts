@@ -35,7 +35,8 @@ export interface MedTapNativePlugin {
   addListener(event: 'watchLog' | 'watchSet' | 'watchCheckIn', fn: () => void): Promise<PluginListenerHandle>;
 
   // Health Connect (Android) / Apple Health (iPhone), read only. `granted` names the record types allowed (iPhone: ['unknown']).
-  healthStatus(): Promise<{ status: 'available' | 'needs-update' | 'unsupported'; granted: string[] }>;
+  /** `asked`: how many kinds of data the app asks for (Android), to offer ones not allowed yet. */
+  healthStatus(): Promise<{ status: 'available' | 'needs-update' | 'unsupported'; granted: string[]; asked?: number }>;
   healthRequest(): Promise<{ status: string; granted: string[] }>;
   healthRead(options: { from: number; to: number; zone: string }): Promise<HealthData>;
   openHealthConnect(): Promise<void>;
@@ -73,11 +74,14 @@ export interface HealthDay {
   hr5?: (number | null)[]; steps5?: number[];
   /** Sleep stages for the night ending that day, and when the main sleep began and ended (ms). */
   sleepDeepMin?: number; sleepRemMin?: number; sleepAwakeMin?: number; sleepWakes?: number; sleepStart?: number; sleepEnd?: number;
+  spo2Avg?: number; spo2Min?: number; respRate?: number; skinTempDelta?: number; vo2max?: number; kcalTotal?: number; kcalActive?: number;
+  floors?: number; climbM?: number; waterOtherMl?: number; foodOtherKcal?: number; foodOtherProteinG?: number; foodOtherCarbsG?: number; foodOtherFatG?: number;
+  mindfulMin?: number; glucoseAvg?: number; glucoseMin?: number; glucoseMax?: number; glucoseInRange?: number; glucoseByHour?: (number | null)[];
 }
 export interface HealthData {
   days: HealthDay[]; weights: { t: number; kg: number }[]; bp: { t: number; sys: number; dia: number }[];
   /** Exercise sessions from a watch or app: type is run, walk, ride, swim, row, strength or other. Older app versions leave these out. */
-  workouts?: { t: number; end: number; type: string; km?: number; title?: string; avgHr?: number; maxHr?: number; kcal?: number }[];
+  workouts?: { t: number; end: number; type: string; km?: number; title?: string; avgHr?: number; maxHr?: number; kcal?: number; hrMin?: (number | null)[]; kmh?: number; watts?: number; climbM?: number }[];
   bodyFat?: { t: number; pct: number }[]; lean?: { t: number; kg: number }[];
 }
 

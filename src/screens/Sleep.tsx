@@ -3,6 +3,8 @@
 // watch's nights (Health Connect), with doses, caffeine, alcohol and workouts from the app.
 import { useState } from 'react';
 import { BedDouble, ChevronDown, Moon, Sunrise, TrendingDown, TrendingUp } from 'lucide-react';
+import { nightVitals } from '../logic/vitals';
+import { NightVitalsCard } from '../components/HealthCards';
 import { useCheckIns, useDaily, useDoses, useFamily, useMeds, useScheduleSettings, useWorkouts } from '../app/data';
 import { useNow } from '../app/useNow';
 import { useToast } from '../app/toast';
@@ -75,6 +77,7 @@ export function Sleep() {
   return (
     <div className="space-y-3 pb-8">
       <LastNight n={last} score={score} usual={usual} s={s} />
+      {(() => { const v = nightVitals(mine.daily, now, s); return v ? <NightVitalsCard stats={v.stats} title="Night vitals" /> : null; })()}
 
       {coach && (
         <section aria-labelledby="tonight-h" className="box space-y-3">

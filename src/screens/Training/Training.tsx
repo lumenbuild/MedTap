@@ -30,6 +30,9 @@ import { isNative } from '../../platform';
 import type { Workout } from '../../db/schema';
 import { TrendChart } from '../../components/charts/TrendChart';
 import { PathCard } from './Coach';
+import { daySuggestion, trainingLoad, vo2Trend } from '../../logic/trainingLoad';
+import { illnessWatch } from '../../logic/vitals';
+import { LoadCard } from '../../components/HealthCards';
 import { programById } from '../../logic/coach';
 
 const DAY = 86_400_000;
@@ -55,6 +58,10 @@ export function Training({ start = false }: { start?: boolean }) {
   const goals = person?.fitnessGoals ?? [];
   const open = ws.find((w) => !w.endedAt && w.sets.length >= 0 && now - Date.parse(w.startedAt) < 6 * 3_600_000 && !w.cardio);
   const ready = readiness(daily.filter(mine), checkIns.filter(mine), now, s);
+  // From the watch: training load against your usual, cardio fitness, anything off overnight, and what today suits.
+  const load = trainingLoad(ws, now);
+  const vo2 = vo2Trend(daily.filter(mine), now);
+  const suggestion = daySuggestion(ready, load, illnessWatch(daily.filter(mine), now, s));
   // The weekly sessions goal: one set by hand, or else the coach plan's days a week.
   const ownGoal = goals.find((g) => g.kind === 'sessions');
   const sessionsGoal = ownGoal ?? (person?.coach ? { perWeek: person.coach.days } : undefined);
@@ -85,7 +92,8 @@ export function Training({ start = false }: { start?: boolean }) {
           {open ? <>{Math.round((now - Date.parse(open.startedAt)) / 60_000)}<span className="text-[20px] font-semibold ml-1">min</span></>
             : <>{cal.thisWeek}{sessionsGoal?.perWeek ? <span className="text-[20px] font-semibold ml-1">of {sessionsGoal.perWeek} sessions</span> : <span className="text-[20px] font-semibold ml-1">session{cal.thisWeek === 1 ? '' : 's'}</span>}</>}
         </p>
-        <p className="mt-1 text-muted text-[15px]">{[ready ? `Ready to train: ${ready.score}, ${ready.label.toLowerCase()}` : null, cal.streak ? `${cal.streak}-week streak` : null].filter(Boolean).join(' · ') || 'Log a session to start your week'}</p>
+        {suggestion && !open && <p className="mt-2 text-[17px] font-semibold">{suggestion.title}</p>}
+        <p className="mt-1 text-muted text-[15px]">{[ready ? `Ready to train: ${ready.score}, ${ready.label.toLowerCase()}` : null, load?.status ? `load ${load.status.toLowerCase()}` : null, cal.streak ? `${cal.streak}-week streak` : null].filter(Boolean).join(' · ') || 'Log a session to start your week'}</p>
         <button type="button" className="hero-btn mt-4 w-full min-h-[52px] rounded-btn font-semibold text-[17px]"
           onClick={() => (open ? go(`/training/workout/${open.id}`) : setSheet('start'))}>{open ? 'Continue workout' : 'Start a workout'}</button>
         {ws.filter((w) => w.cardio && !w.endedAt && now - Date.parse(w.startedAt) < 6 * 3_600_000).map((w) => (
@@ -114,6 +122,7 @@ export function Training({ start = false }: { start?: boolean }) {
       )}
 
       {ready && <section className="box"><ReadinessBlock r={ready} /></section>}
+      {(load || vo2) && <LoadCard load={load} vo2={vo2} />}
 
       <section className="box" aria-labelledby="wk-h">
         <div className="flex items-center justify-between">

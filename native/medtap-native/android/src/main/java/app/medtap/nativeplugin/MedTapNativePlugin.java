@@ -558,6 +558,8 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
         JSObject o = new JSObject();
         o.put("status", status);
         if (!"available".equals(status)) { o.put("granted", new JSArray()); call.resolve(o); return; }
+        // How many kinds of data this app asks for, so the app can offer to allow ones added since.
+        o.put("asked", HealthBridge.declared(getContext()).size());
         HealthBridge.granted(getContext(), (json, err) -> {
             try { o.put("granted", json != null ? new JSArray(json) : new JSArray()); } catch (JSONException e) { o.put("granted", new JSArray()); }
             call.resolve(o);

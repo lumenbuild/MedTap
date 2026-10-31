@@ -1,8 +1,11 @@
 // Today's numbers at a glance, from the watch and weigh-ins: last night's sleep score, HRV against your usual, steps
 // towards your target and weight with this week's change. Each in its own colour; tap for the full picture. Only the
 // ones with data show.
-import { Footprints, HeartPulse, Moon, Scale, type LucideIcon } from 'lucide-react';
-import { useBodyEntries, useDaily, useFamily, useScheduleSettings } from '../app/data';
+import { Activity, Footprints, HeartPulse, Moon, Scale, type LucideIcon } from 'lucide-react';
+import { useBodyEntries, useCheckIns, useDaily, useFamily, useScheduleSettings } from '../app/data';
+import { readiness } from '../logic/training';
+import { illnessWatch } from '../logic/vitals';
+import { IllnessCard } from './HealthCards';
 import { useNow } from '../app/useNow';
 import { personOf } from '../db/repos/people';
 import { nightsOf, sleepScore, usualNight, fmtHM } from '../logic/sleep';
@@ -16,13 +19,18 @@ const median = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); cons
 interface TileData { key: string; label: string; Icon: LucideIcon; color: string; value: string; unit?: string; sub?: React.ReactNode; bar?: number; href: string }
 
 export function TodayNumbers() {
-  const daily = useDaily(); const body = useBodyEntries(); const fam = useFamily(); const ss = useScheduleSettings();
+  const daily = useDaily(); const body = useBodyEntries(); const fam = useFamily(); const ss = useScheduleSettings(); const checkIns = useCheckIns();
   const now = useNow(600_000);
-  if (!daily || !body || !fam || !ss) return null;
+  if (!daily || !body || !fam || !ss || !checkIns) return null;
   const [settings, s] = ss;
   const me = <T extends { personId?: string }>(x: T) => personOf(x) === fam.personId;
   const days = daily.filter((d) => !d.deletedAt && me(d));
   const tiles: TileData[] = [];
+  // Readiness: last night's recovery from the watch, against your usual.
+  const health = settings.healthImport ? '#/health' : '#/training';
+  const r = readiness(days, checkIns.filter(me), now, s);
+  if (r) tiles.push({ key: 'ready', label: 'Readiness', Icon: Activity, color: 'body', value: String(r.score), unit: r.label.toLowerCase(), bar: r.score / 100, href: health });
+  const ill = illnessWatch(days, now, s);
 
   // Last night, if the watch has it (within the last day and a half).
   const ns = nightsOf(days, now);
@@ -59,11 +67,13 @@ export function TodayNumbers() {
         sub: change === undefined || Math.abs(change) < 0.1 ? 'this week: steady' : <span className={change < 0 ? 'text-success' : 'text-muted'}>{change < 0 ? '▼' : '▲'} {Math.abs(Math.round(change * 10) / 10)} this week</span>, href: '#/progress/body' });
     }
   }
-  if (!tiles.length) return null;
+  if (!tiles.length && !ill) return null;
   return (
+    <>
+    {ill && <IllnessCard ill={ill} />}
     <section aria-label="Your numbers" className="grid grid-cols-2 gap-3">
-      {tiles.map((t) => (
-        <a key={t.key} href={t.href} className="box block min-h-[124px] active:scale-[0.98] transition-transform">
+      {tiles.map((t, i) => (
+        <a key={t.key} href={t.href} className={`box block min-h-[124px] active:scale-[0.98] transition-transform ${tiles.length % 2 && i === tiles.length - 1 ? 'col-span-2' : ''}`}>
           <span className="flex items-center gap-2">
             <span aria-hidden="true" className="w-7 h-7 rounded-[9px] flex items-center justify-center text-white" style={{ background: `var(--c-${t.color})` }}><t.Icon size={16} /></span>
             <span className="text-[15px] font-semibold" style={{ color: `var(--c-${t.color}-ink)` }}>{t.label}</span>
@@ -74,5 +84,6 @@ export function TodayNumbers() {
         </a>
       ))}
     </section>
+    </>
   );
 }

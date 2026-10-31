@@ -22,6 +22,8 @@ const LABEL: Record<string, string> = {
 };
 
 const CARDIO: CardioActivity[] = ['run', 'walk', 'ride', 'swim', 'row'];
+const EXTRA = ['spo2Avg', 'spo2Min', 'respRate', 'skinTempDelta', 'vo2max', 'kcalTotal', 'kcalActive', 'floors', 'climbM', 'waterOtherMl', 'foodOtherKcal',
+  'foodOtherProteinG', 'foodOtherCarbsG', 'foodOtherFatG', 'mindfulMin', 'glucoseAvg', 'glucoseMin', 'glucoseMax', 'glucoseInRange', 'glucoseByHour'] as const;
 /** Walks shorter than this are everyday walking a watch picked up, not a session. */
 const MIN_WALK = 10;
 
@@ -40,6 +42,8 @@ export function planHealthImport(data: HealthData, existing: { daily: DailyHealt
       sleepDeepMin: d.sleepDeepMin ?? old?.sleepDeepMin, sleepRemMin: d.sleepRemMin ?? old?.sleepRemMin, sleepAwakeMin: d.sleepAwakeMin ?? old?.sleepAwakeMin,
       sleepWakes: d.sleepWakes ?? old?.sleepWakes, sleepStart: d.sleepStart ?? old?.sleepStart, sleepEnd: d.sleepEnd ?? old?.sleepEnd, updatedAt: nowIso,
     };
+    // Overnight vitals, energy, fitness, other apps' logs and glucose: the newest import wins, else what was there.
+    for (const k of EXTRA) if (d[k] !== undefined || old?.[k] !== undefined) (row as unknown as Record<string, unknown>)[k] = d[k] ?? old?.[k];
     daily.push(row);
   }
   // One weigh-in per day (the latest), only where nothing's been logged for that day.
@@ -77,7 +81,9 @@ export function planHealthImport(data: HealthData, existing: { daily: DailyHealt
     const stats = {
       ...(w.avgHr && w.avgHr > 0 ? { avgHr: Math.round(w.avgHr) } : {}), ...(w.maxHr && w.maxHr > 0 ? { maxHr: Math.round(w.maxHr) } : {}),
       ...(w.kcal && w.kcal > 0 ? { kcal: Math.round(w.kcal) } : {}),
+      ...(w.hrMin && w.hrMin.some((x) => x !== null) ? { hrMin: w.hrMin } : {}),
     };
+    const extra = { ...(w.kmh ? { kmh: w.kmh } : {}), ...(w.watts ? { watts: w.watts } : {}), ...(w.climbM ? { climbM: w.climbM } : {}) };
     const hasStats = Object.keys(stats).length > 0;
     // A strength session also logged here (started from 30 minutes before the watch's to its end): add to that one.
     if (w.type === 'strength') {
@@ -86,12 +92,12 @@ export function planHealthImport(data: HealthData, existing: { daily: DailyHealt
     }
     const match = all.find((x) => sameOwner(x) && x.cardio && Math.abs(Date.parse(x.startedAt) - w.t) < 5 * 60_000);
     if (match) {
-      if (!match.deletedAt && match.source === 'health' && match.cardio!.avgHr === undefined && match.cardio!.kcal === undefined && hasStats) enrich.push({ id: match.id, cardio: stats });
+      if (!match.deletedAt && match.source === 'health' && match.cardio!.hrMin === undefined && (stats.hrMin || (match.cardio!.avgHr === undefined && hasStats))) enrich.push({ id: match.id, cardio: { ...stats, ...extra } });
       continue;
     }
     const activity: CardioActivity = CARDIO.includes(w.type as CardioActivity) ? (w.type as CardioActivity) : 'other';
     const title = w.title?.trim() || (activity === 'other' ? LABEL[w.type] ?? 'Workout' : undefined);
-    cardio.push({ at: new Date(w.t).toISOString(), activity, durationMin, ...(w.km && w.km > 0.05 ? { distanceKm: Math.round(w.km * 100) / 100 } : {}), ...(title ? { title } : {}), ...stats });
+    cardio.push({ at: new Date(w.t).toISOString(), activity, durationMin, ...(w.km && w.km > 0.05 ? { distanceKm: Math.round(w.km * 100) / 100 } : {}), ...(title ? { title } : {}), ...stats, ...extra });
   }
   return { daily, body, vitals, comp, cardio, enrich };
 }

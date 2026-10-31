@@ -7,6 +7,21 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
+import androidx.health.connect.client.HealthConnectFeatures
+import androidx.health.connect.client.feature.ExperimentalMindfulnessSessionApi
+import androidx.health.connect.client.records.BloodGlucoseRecord
+import androidx.health.connect.client.records.ElevationGainedRecord
+import androidx.health.connect.client.records.FloorsClimbedRecord
+import androidx.health.connect.client.records.HydrationRecord
+import androidx.health.connect.client.records.MindfulnessSessionRecord
+import androidx.health.connect.client.records.NutritionRecord
+import androidx.health.connect.client.records.OxygenSaturationRecord
+import androidx.health.connect.client.records.PowerRecord
+import androidx.health.connect.client.records.RespiratoryRateRecord
+import androidx.health.connect.client.records.SkinTemperatureRecord
+import androidx.health.connect.client.records.SpeedRecord
+import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
+import androidx.health.connect.client.records.Vo2MaxRecord
 import androidx.health.connect.client.records.BloodPressureRecord
 import androidx.health.connect.client.records.BodyFatRecord
 import androidx.health.connect.client.records.DistanceRecord
@@ -53,6 +68,27 @@ object HealthBridge {
         HealthPermission.getReadPermission(LeanBodyMassRecord::class),
         HealthPermission.getReadPermission(HeartRateVariabilityRmssdRecord::class),
         HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
+        // Overnight vitals, fitness and energy, and what other apps log (water, food, glucose).
+        HealthPermission.getReadPermission(OxygenSaturationRecord::class),
+        HealthPermission.getReadPermission(RespiratoryRateRecord::class),
+        HealthPermission.getReadPermission(Vo2MaxRecord::class),
+        HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
+        HealthPermission.getReadPermission(FloorsClimbedRecord::class),
+        HealthPermission.getReadPermission(ElevationGainedRecord::class),
+        HealthPermission.getReadPermission(SpeedRecord::class),
+        HealthPermission.getReadPermission(PowerRecord::class),
+        HealthPermission.getReadPermission(HydrationRecord::class),
+        HealthPermission.getReadPermission(NutritionRecord::class),
+        HealthPermission.getReadPermission(BloodGlucoseRecord::class),
+    ) + FEATURE_PERMISSIONS.keys
+
+    /** Permissions that only newer Health Connect versions know: asked for only where the feature is there. Skin
+     *  temperature, mindfulness, and reading history from before the app was allowed in (otherwise 30 days at most). */
+    @OptIn(ExperimentalMindfulnessSessionApi::class)
+    private val FEATURE_PERMISSIONS: Map<String, Int> get() = mapOf(
+        HealthPermission.getReadPermission(SkinTemperatureRecord::class) to HealthConnectFeatures.FEATURE_SKIN_TEMPERATURE,
+        HealthPermission.getReadPermission(MindfulnessSessionRecord::class) to HealthConnectFeatures.FEATURE_MINDFULNESS_SESSION,
+        HealthPermission.PERMISSION_READ_HEALTH_DATA_HISTORY to HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_HISTORY,
     )
 
     /** Health Connect's exercise types (from the watch or any app), as the app's activities. */
@@ -108,7 +144,9 @@ object HealthBridge {
         val asked = try {
             context.packageManager.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_PERMISSIONS).requestedPermissions?.toSet() ?: emptySet()
         } catch (e: Exception) { emptySet() }
-        return PERMISSIONS.filter { it in asked }.toSet()
+        val features = try { HealthConnectClient.getOrCreate(context).features } catch (e: Exception) { null }
+        val featureOk = { p: String -> FEATURE_PERMISSIONS[p]?.let { f -> features?.getFeatureStatus(f) == HealthConnectFeatures.FEATURE_STATUS_AVAILABLE } ?: true }
+        return PERMISSIONS.filter { it in asked && featureOk(it) }.toSet()
     }
 
     @JvmStatic
@@ -193,6 +231,9 @@ object HealthBridge {
                     for (r in readAll(client, RestingHeartRateRecord::class, range)) day(r.time.atZone(z).toLocalDate()).put("restingHr", r.beatsPerMinute)
                 }
                 val workouts = JSONArray()
+                // Each session's heart rate, minute by minute (for time in each zone), filled in from the heart rate below.
+                class Session(val start: Long, val end: Long, val w: JSONObject) { val mins = ((end - start) / 60_000L).toInt().coerceIn(1, 600); val sum = DoubleArray(mins); val n = IntArray(mins) }
+                val sessions = ArrayList<Session>()
                 if (has(ExerciseSessionRecord::class)) {
                     val distance = has(DistanceRecord::class)
                     val heart = has(HeartRateRecord::class)
@@ -207,6 +248,9 @@ object HealthBridge {
                             if (distance) add(DistanceRecord.DISTANCE_TOTAL)
                             if (heart) { add(HeartRateRecord.BPM_AVG); add(HeartRateRecord.BPM_MAX) }
                             if (calories) add(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)
+                            if (has(SpeedRecord::class)) add(SpeedRecord.SPEED_AVG)
+                            if (has(PowerRecord::class)) add(PowerRecord.POWER_AVG)
+                            if (has(ElevationGainedRecord::class)) add(ElevationGainedRecord.ELEVATION_GAINED_TOTAL)
                         }
                         if (metrics.isNotEmpty()) {
                             try {
@@ -215,10 +259,21 @@ object HealthBridge {
                                 agg[HeartRateRecord.BPM_AVG]?.takeIf { it > 0 }?.let { w.put("avgHr", it) }
                                 agg[HeartRateRecord.BPM_MAX]?.takeIf { it > 0 }?.let { w.put("maxHr", it) }
                                 agg[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories?.takeIf { it > 0 }?.let { w.put("kcal", it.roundToInt()) }
+                                agg[SpeedRecord.SPEED_AVG]?.inKilometersPerHour?.takeIf { it > 0 }?.let { w.put("kmh", Math.round(it * 10) / 10.0) }
+                                agg[PowerRecord.POWER_AVG]?.inWatts?.takeIf { it > 0 }?.let { w.put("watts", it.roundToInt()) }
+                                agg[ElevationGainedRecord.ELEVATION_GAINED_TOTAL]?.inMeters?.takeIf { it > 0 }?.let { w.put("climbM", it.roundToInt()) }
                             } catch (_: Exception) { /* a metric this phone can't total */ }
                         }
                         workouts.put(w)
+                        sessions.add(Session(r.startTime.toEpochMilli(), r.endTime.toEpochMilli(), w))
                     }
+                }
+                sessions.sortBy { it.start }
+                val starts = LongArray(sessions.size) { sessions[it].start }
+                fun sessionAt(t: Long): Session? {
+                    var i = java.util.Arrays.binarySearch(starts, t)
+                    if (i < 0) i = -i - 2
+                    return if (i >= 0 && t < sessions[i].end) sessions[i] else null
                 }
                 if (has(HeartRateVariabilityRmssdRecord::class)) {
                     val sums = HashMap<LocalDate, DoubleArray>()
@@ -241,6 +296,15 @@ object HealthBridge {
                         val i = t.hour * 12 + t.minute / 5
                         sums5.getOrPut(k) { DoubleArray(288) }[i] += s.beatsPerMinute.toDouble()
                         counts5.getOrPut(k) { IntArray(288) }[i] += 1
+                        sessionAt(s.time.toEpochMilli())?.let { se ->
+                            val m = ((s.time.toEpochMilli() - se.start) / 60_000L).toInt()
+                            if (m in 0 until se.mins) { se.sum[m] += s.beatsPerMinute.toDouble(); se.n[m] += 1 }
+                        }
+                    }
+                    for (se in sessions) if (se.n.any { it > 0 }) {
+                        val arr = JSONArray()
+                        for (m in 0 until se.mins) arr.put(if (se.n[m] > 0) (se.sum[m] / se.n[m]).roundToInt() else JSONObject.NULL)
+                        se.w.put("hrMin", arr)
                     }
                     for ((k, sum) in sums5) {
                         val c = counts5[k]!!
@@ -255,6 +319,102 @@ object HealthBridge {
                         day(LocalDate.parse(k)).put("hrByHour", arr)
                     }
                 }
+                // Overnight: blood oxygen and breathing rate during the main sleep (by the morning it ends), and the night's
+                // skin temperature against the person's own baseline. Then the day's energy, climbing, fitness and what
+                // other apps log. Each part on its own, so one this phone can't read doesn't stop the rest.
+                val nights = days.values.filter { it.has("sleepStart") }.map { Triple(it.getLong("sleepStart"), it.getLong("sleepEnd"), it.getString("date")) }
+                fun nightKey(i: Instant): String? {
+                    val t = i.toEpochMilli()
+                    nights.firstOrNull { t >= it.first && t <= it.second }?.let { return it.third }
+                    val zt = i.atZone(z)
+                    return when { zt.hour < 11 -> zt.toLocalDate().toString(); zt.hour >= 19 -> zt.toLocalDate().plusDays(1).toString(); else -> null }
+                }
+                fun round1(v: Double) = Math.round(v * 10) / 10.0
+                suspend fun part(f: suspend () -> Unit) { try { f() } catch (_: Exception) { } }
+                part {
+                    if (has(OxygenSaturationRecord::class)) {
+                        val acc = HashMap<String, DoubleArray>()
+                        for (r in readAll(client, OxygenSaturationRecord::class, range)) {
+                            val k = nightKey(r.time) ?: continue
+                            val a = acc.getOrPut(k) { doubleArrayOf(0.0, 0.0, 101.0) }
+                            val v = r.percentage.value
+                            a[0] += v; a[1] += 1.0; if (v < a[2]) a[2] = v
+                        }
+                        for ((k, a) in acc) day(LocalDate.parse(k)).put("spo2Avg", round1(a[0] / a[1])).put("spo2Min", round1(a[2]))
+                    }
+                }
+                part {
+                    if (has(RespiratoryRateRecord::class)) {
+                        val acc = HashMap<String, DoubleArray>()
+                        for (r in readAll(client, RespiratoryRateRecord::class, range)) {
+                            val k = nightKey(r.time) ?: continue
+                            val a = acc.getOrPut(k) { DoubleArray(2) }
+                            a[0] += r.rate; a[1] += 1.0
+                        }
+                        for ((k, a) in acc) day(LocalDate.parse(k)).put("respRate", round1(a[0] / a[1]))
+                    }
+                }
+                part {
+                    if (has(SkinTemperatureRecord::class)) {
+                        for (r in readAll(client, SkinTemperatureRecord::class, range)) {
+                            if (r.deltas.isEmpty()) continue
+                            val avg = r.deltas.map { it.delta.inCelsius }.average()
+                            day(r.endTime.atZone(z).toLocalDate()).put("skinTempDelta", Math.round(avg * 100) / 100.0)
+                        }
+                    }
+                }
+                part {
+                    if (has(Vo2MaxRecord::class)) for (r in readAll(client, Vo2MaxRecord::class, range)) day(r.time.atZone(z).toLocalDate()).put("vo2max", round1(r.vo2MillilitersPerMinuteKilogram))
+                }
+                part {
+                    // By day: calories burned (all, and active), floors and metres climbed, and water and food logged in other apps.
+                    val metrics = buildSet {
+                        if (has(TotalCaloriesBurnedRecord::class)) add(TotalCaloriesBurnedRecord.ENERGY_TOTAL)
+                        if (has(ActiveCaloriesBurnedRecord::class)) add(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)
+                        if (has(FloorsClimbedRecord::class)) add(FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL)
+                        if (has(ElevationGainedRecord::class)) add(ElevationGainedRecord.ELEVATION_GAINED_TOTAL)
+                        if (has(HydrationRecord::class)) add(HydrationRecord.VOLUME_TOTAL)
+                        if (has(NutritionRecord::class)) { add(NutritionRecord.ENERGY_TOTAL); add(NutritionRecord.PROTEIN_TOTAL); add(NutritionRecord.TOTAL_CARBOHYDRATE_TOTAL); add(NutritionRecord.TOTAL_FAT_TOTAL) }
+                    }
+                    if (metrics.isNotEmpty()) {
+                        val start = from.atZone(z).toLocalDate().atStartOfDay()
+                        val end = to.atZone(z).toLocalDate().plusDays(1).atStartOfDay()
+                        for (r in client.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(metrics, TimeRangeFilter.between(start, end), Period.ofDays(1)))) {
+                            val row = day(r.startTime.toLocalDate())
+                            r.result[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories?.takeIf { it > 0 }?.let { row.put("kcalTotal", it.roundToInt()) }
+                            r.result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories?.takeIf { it > 0 }?.let { row.put("kcalActive", it.roundToInt()) }
+                            r.result[FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL]?.takeIf { it > 0 }?.let { row.put("floors", it.roundToInt()) }
+                            r.result[ElevationGainedRecord.ELEVATION_GAINED_TOTAL]?.inMeters?.takeIf { it > 0 }?.let { row.put("climbM", it.roundToInt()) }
+                            r.result[HydrationRecord.VOLUME_TOTAL]?.inMilliliters?.takeIf { it > 0 }?.let { row.put("waterOtherMl", it.roundToInt()) }
+                            r.result[NutritionRecord.ENERGY_TOTAL]?.inKilocalories?.takeIf { it > 0 }?.let { row.put("foodOtherKcal", it.roundToInt()) }
+                            r.result[NutritionRecord.PROTEIN_TOTAL]?.inGrams?.takeIf { it > 0 }?.let { row.put("foodOtherProteinG", it.roundToInt()) }
+                            r.result[NutritionRecord.TOTAL_CARBOHYDRATE_TOTAL]?.inGrams?.takeIf { it > 0 }?.let { row.put("foodOtherCarbsG", it.roundToInt()) }
+                            r.result[NutritionRecord.TOTAL_FAT_TOTAL]?.inGrams?.takeIf { it > 0 }?.let { row.put("foodOtherFatG", it.roundToInt()) }
+                        }
+                    }
+                }
+                part { readMindfulness(client, range, z, ::day, granted) }
+                part {
+                    // Blood glucose (a CGM or meter app): the day's average, lowest, highest, time in range (3.9–10 mmol/L)
+                    // and the average in each hour.
+                    if (has(BloodGlucoseRecord::class)) {
+                        class G { var sum = 0.0; var n = 0; var lo = 99.0; var hi = 0.0; var inRange = 0; val hs = DoubleArray(24); val hn = IntArray(24) }
+                        val acc = HashMap<String, G>()
+                        for (r in readAll(client, BloodGlucoseRecord::class, range)) {
+                            val t = r.time.atZone(z)
+                            val v = r.level.inMillimolesPerLiter
+                            val g = acc.getOrPut(t.toLocalDate().toString()) { G() }
+                            g.sum += v; g.n++; if (v < g.lo) g.lo = v; if (v > g.hi) g.hi = v; if (v in 3.9..10.0) g.inRange++
+                            g.hs[t.hour] += v; g.hn[t.hour]++
+                        }
+                        for ((k, g) in acc) {
+                            val hours = JSONArray()
+                            for (h in 0 until 24) hours.put(if (g.hn[h] > 0) round1(g.hs[h] / g.hn[h]) else JSONObject.NULL)
+                            day(LocalDate.parse(k)).put("glucoseAvg", round1(g.sum / g.n)).put("glucoseMin", round1(g.lo)).put("glucoseMax", round1(g.hi))
+                                .put("glucoseInRange", Math.round(g.inRange * 100.0 / g.n).toInt()).put("glucoseByHour", hours)
+                        }
+                    }
+                }
                 val weights = JSONArray()
                 if (has(WeightRecord::class)) for (r in readAll(client, WeightRecord::class, range)) weights.put(JSONObject().put("t", r.time.toEpochMilli()).put("kg", r.weight.inKilograms))
                 val bp = JSONArray()
@@ -267,6 +427,16 @@ object HealthBridge {
                     .put("workouts", workouts).put("bodyFat", bodyFat).put("lean", lean)
                 cb.done(out.toString(), null)
             } catch (e: Exception) { cb.done(null, e.message ?: "error") }
+        }
+    }
+
+    /** Minutes of mindfulness (meditation, breathing) by day. */
+    @OptIn(ExperimentalMindfulnessSessionApi::class)
+    private suspend fun readMindfulness(client: HealthConnectClient, range: TimeRangeFilter, z: ZoneId, day: (LocalDate) -> JSONObject, granted: Set<String>) {
+        if (HealthPermission.getReadPermission(MindfulnessSessionRecord::class) !in granted) return
+        for (r in readAll(client, MindfulnessSessionRecord::class, range)) {
+            val row = day(r.startTime.atZone(z).toLocalDate())
+            row.put("mindfulMin", row.optInt("mindfulMin", 0) + ((r.endTime.toEpochMilli() - r.startTime.toEpochMilli()) / 60_000L).toInt())
         }
     }
 

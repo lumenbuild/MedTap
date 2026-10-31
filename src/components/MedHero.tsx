@@ -1,6 +1,8 @@
 // A medicine's page, at the top: when the next dose is, how much, and Log. In the meds colour, like Today's headline.
 import type { Medication } from '../db/schema';
-import { useDoses, useScheduleSettings } from '../app/data';
+import { useDaily, useDoses, useFamily, useScheduleSettings } from '../app/data';
+import { personOf } from '../db/repos/people';
+import { MedEffectsCard } from './HealthCards';
 import { useNow } from '../app/useNow';
 import { getDosesToday, getExpectedAmount, getNextDue, getStatus } from '../logic/schedule';
 import { fmtAmount, fmtTime, fmtWhen } from '../logic/format';
@@ -30,4 +32,12 @@ export function MedHero({ med }: { med: Medication }) {
       <button type="button" className="hero-btn mt-4 w-full min-h-[52px] rounded-btn font-semibold text-[17px]" onClick={() => { go('/today'); requestLog(med.id); }}>Log dose</button>
     </section>
   );
+}
+
+/** A medicine's page: what moved in the watch's numbers since starting it. */
+export function MedBodyEffects({ med }: { med: Medication }) {
+  const doses = useDoses(); const daily = useDaily(); const fam = useFamily();
+  const now = useNow(3_600_000);
+  if (!doses || !daily || !fam) return null;
+  return <MedEffectsCard med={med} doses={doses.filter((d) => d.medicationId === med.id)} daily={daily.filter((d) => !d.deletedAt && personOf(d) === fam.personId)} now={now} />;
 }
