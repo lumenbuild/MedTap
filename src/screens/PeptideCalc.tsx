@@ -11,12 +11,18 @@ const num = (s: string) => (s.trim() === '' ? NaN : Number(s));
 const fmt = (n: number, dp = 3) => (Number.isFinite(n) ? String(Math.round(n * 10 ** dp) / 10 ** dp) : '–');
 
 /** Reconstitution calculator: vial + water + dose → syringe units, and the reverse. Uses only the person's numbers. */
+/** Numbers handed over from a guide's mixing table (once). */
+function preset(): { vialMg: number; waterMl: number; dose: number; doseUnit: string } | null {
+  try { const s = sessionStorage.getItem('calcPreset'); sessionStorage.removeItem('calcPreset'); return s ? JSON.parse(s) : null; } catch { return null; }
+}
+
 export function PeptideCalc() {
-  const [vial, setVial] = useState('5');
+  const [p] = useState(preset);
+  const [vial, setVial] = useState(p ? String(p.vialMg) : '5');
   const [vialUnit, setVialUnit] = useState<AmountUnit>('mg');
-  const [water, setWater] = useState('2');
-  const [dose, setDose] = useState('250');
-  const [doseUnit, setDoseUnit] = useState<AmountUnit>('mcg');
+  const [water, setWater] = useState(p ? String(p.waterMl) : '2');
+  const [dose, setDose] = useState(p ? String(p.dose) : '250');
+  const [doseUnit, setDoseUnit] = useState<AmountUnit>(p && (p.doseUnit === 'mg' || p.doseUnit === 'mcg') ? p.doseUnit : 'mcg');
   const [syringe, setSyringe] = useState<SyringeType>('U-100');
   const [sizeMl, setSizeMl] = useState('0.3');
   const [units, setUnits] = useState('10');

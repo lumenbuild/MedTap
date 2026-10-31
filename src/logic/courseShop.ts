@@ -77,7 +77,8 @@ export function courseShop(med: Medication, doses: Dose[], now: number, s: Sched
 }
 
 /** For a guide entry, before it's set up: a course (or 4 weeks) at the starting dose, in vials of its first size. */
-export function guideCourse(g: GuideEntry): { shots: number; total: number; vials: number; days: number; course: boolean } {
+/** `vialAmount`: the person's vial size (in the guide's unit); the first common size when not given. */
+export function guideCourse(g: GuideEntry, vialAmount = g.vials[0].amount): { shots: number; total: number; vials: number; days: number; course: boolean } {
   const sc = g.setup.schedule('2026-01-05', 1); // a Monday
   if (sc.type !== 'fixed') return { shots: 0, total: 0, vials: 0, days: 0, course: false };
   const days = sc.course?.days ?? 28;
@@ -85,6 +86,6 @@ export function guideCourse(g: GuideEntry): { shots: number; total: number; vial
   const shots = Math.round((days / 7) * perWeek * (sc.slots?.length ?? 1));
   const total = r3(shots * g.setup.defaultAmount);
   // One vial lasts until it's empty or past its use-within days, whichever comes first.
-  const perVialShots = Math.max(1, Math.min(Math.floor(g.vials[0].amount / g.setup.defaultAmount + 1e-9), Math.floor((g.storage.useWithinDays / 7) * perWeek * (sc.slots?.length ?? 1))));
+  const perVialShots = Math.max(1, Math.min(Math.floor(vialAmount / g.setup.defaultAmount + 1e-9), Math.floor((g.storage.useWithinDays / 7) * perWeek * (sc.slots?.length ?? 1))));
   return { shots, total, vials: Math.ceil(shots / perVialShots), days, course: !!sc.course };
 }

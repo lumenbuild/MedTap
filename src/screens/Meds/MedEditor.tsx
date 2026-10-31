@@ -45,7 +45,7 @@ import { DrawGuide, syringeSizes } from '../../components/Syringe';
 import { SYRINGES } from '../../logic/peptide';
 import type { LabelDetails } from '../../logic/label';
 import { HAS_PEPTIDES } from '../../edition';
-import { canSplit, guideById, guideFor, guideMed, lowestPlan, stepChanges, fmtDose, type GuideEntry } from '../../logic/peptideGuide';
+import { canSplit, guideById, guideFor, guideMed, lowestPlan, savedVial, stepChanges, fmtDose, type GuideEntry } from '../../logic/peptideGuide';
 import { Switch } from '../../components/ui/Switch';
 import { fmtAmount, fmtSchedule } from '../../logic/format';
 
@@ -183,7 +183,8 @@ function fromLabel(p: Form, d: LabelDetails): Form {
 
 /** The form filled in from a guide entry, keeping the colour and who it's for. */
 function fromGuide(p: Form, g: GuideEntry, keepName?: string, split = false): Form {
-  const m = guideMed(g, Date.now(), split);
+  // The vial the person entered on the guide, if any (sizes vary by supplier).
+  const m = guideMed(g, Date.now(), split, savedVial(g.id));
   const filled = fromMed({ ...m, id: '', createdAt: '', updatedAt: '', archived: false, color: p.color, icon: 'syringe' });
   return { ...filled, name: keepName ?? filled.name, personId: p.personId };
 }
@@ -348,7 +349,7 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
         );
                 return (
           <Card className="bg-primary-soft shadow-none space-y-2">
-            <p>Filled in from the <a href={`#/guide/${g.id}`} className="underline underline-offset-4 font-medium">{g.name} guide</a>: a {fmtDose(g.vials[0].amount, g.unit)} vial with {g.vials[0].waterMl} mL of water, U-100 syringes and its usual schedule.</p>
+            <p>Filled in from the <a href={`#/guide/${g.id}`} className="underline underline-offset-4 font-medium">{g.name} guide</a>: {savedVial(g.id) ? 'your' : 'a'} {fmtDose(Number(f.strength) || g.vials[0].amount, g.unit)} vial with {f.waterMl || g.vials[0].waterMl} mL of water, U-100 syringes and its usual schedule.{savedVial(g.id) ? '' : ' Check the vial size against your label.'}</p>
             <p className="text-sm">The dose is set to {fmtDose(split ? g.setup.defaultAmount / 2 : g.setup.defaultAmount, g.unit)}{split ? ' a shot' : ''}, {split ? 'half the usual weekly starting dose' : 'the usual starting dose'}. Change anything to match your vial and your plan.</p>
             {canSplit(g) && <Switch label="Two shots a week" checked={split} onChange={(v) => { setSplit(v); setF((p) => fromGuide(p, g, p.name, v)); }}>Half the weekly amount, 3 and 4 days apart, for a steadier level.</Switch>}
             {(g.steps || g.lowest) && (
