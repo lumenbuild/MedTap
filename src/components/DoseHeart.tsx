@@ -18,7 +18,7 @@ export function DoseHeartSection({ med }: { med: Medication }) {
   const r = heartResponse(med, doses, checkIns.filter((c) => personOf(c) === who), daily.filter((d) => personOf(d) === who), now, ss[1]);
   if (!r) return null;
   return (
-    <section aria-labelledby={`hr-${med.id}`} className="border-t border-border pt-5 space-y-2">
+    <section aria-labelledby={`hr-${med.id}`} className="box space-y-2">
       <h2 id={`hr-${med.id}`} className="text-sm font-medium text-muted">Your heart rate after a dose</h2>
       {r.signal ? (
         <>

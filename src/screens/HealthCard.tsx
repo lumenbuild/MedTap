@@ -25,7 +25,7 @@ export default function HealthCard({ on, last, personId, personName, now }: { on
   const run = async (f: () => Promise<void>) => { setBusy(true); try { await f(); } catch (e) { toast((e as Error).message || `Couldn't reach ${name}.`); } finally { setBusy(false); } };
   const n = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many}`;
   const said = (r?: { days: number; weighIns: number; readings: number; workouts?: number }) => r
-    ? `Imported ${n(r.days, 'day', 'days')}${r.weighIns ? `, ${n(r.weighIns, 'weigh-in', 'weigh-ins')}` : ''}${r.readings ? `, ${n(r.readings, 'blood pressure reading', 'blood pressure readings')}` : ''}${r.workouts ? `, ${n(r.workouts, 'cardio session', 'cardio sessions')}` : ''}.`
+    ? `Imported ${n(r.days, 'day', 'days')}${r.weighIns ? `, ${n(r.weighIns, 'weigh-in', 'weigh-ins')}` : ''}${r.readings ? `, ${n(r.readings, 'blood pressure reading', 'blood pressure readings')}` : ''}${r.workouts ? `, ${n(r.workouts, 'workout', 'workouts')}` : ''}.`
     : '';
   const open = () => MedTapNative.openHealthConnect().catch(() => toast(`Couldn't open ${name}. Open it from your phone's Settings.`));
   const refresh = () => healthStatus().then(setStatus).catch(() => undefined);
@@ -44,7 +44,7 @@ export default function HealthCard({ on, last, personId, personName, now }: { on
       )}
       {status?.status === 'available' && !on && (
         <>
-          <p className="text-[15px]">Steps, sleep, heart rate{HAS_BODY ? ', weigh-ins' : ''} and blood pressure, copied in when you open the app.</p>
+          <p className="text-[15px]">Steps, sleep, heart rate, workouts from your watch (with heart rate and calories){HAS_BODY ? ', weigh-ins' : ''} and blood pressure, copied in when you open the app.</p>
           <div className="flex flex-wrap gap-2">
             <Button disabled={busy} onClick={() => run(async () => {
               const r = await connectHealth(personId);

@@ -55,13 +55,13 @@ export function ExerciseScreen({ id }: { id: string }) {
       <h2 className="text-[26px] font-light">{def.name}</h2>
       <p className="text-sm text-muted">{def.muscles.map((m) => MUSCLES.find((x) => x.id === m)?.name).join(', ')}{def.perHand ? ' · weight is per dumbbell' : ''}{def.timed ? ' · held for time' : ''}</p>
       {def.cues && (
-        <section className="border-t border-border pt-4 pb-2">
+        <section className="box">
           <h3 className="text-sm font-medium text-muted mb-1">How to</h3>
           <ul className="list-disc pl-5 text-[15px]">{def.cues.map((c) => <li key={c}>{c}</li>)}</ul>
           {swaps.length > 0 && <p className="text-sm text-muted mt-2">Similar: {swaps.map((x, i) => <span key={x.id}>{i ? ', ' : ''}<a className="underline" href={`#/training/exercise/${x.id}`}>{x.name}</a></span>)}</p>}
         </section>
       )}
-      <section className="border-t border-border pt-4 pb-2">
+      <section className="box">
         <h3 className="text-sm font-medium text-muted mb-1">Personal bests</h3>
         {!pb.heaviest ? <p className="text-muted">None yet: log it in a workout.</p> : (
           <dl className="grid grid-cols-2 gap-y-2 tnum">
@@ -77,14 +77,14 @@ export function ExerciseScreen({ id }: { id: string }) {
         )}
       </section>
       {pts.length >= 2 && (
-        <section className="border-t border-border pt-4 pb-2">
+        <section className="box">
           <h3 className="text-sm font-medium text-muted mb-1">{def.timed ? 'Longest hold' : noLoad ? 'Most reps' : 'Estimated max'}</h3>
           <Suspense fallback={<div className="h-[170px]" />}><StrengthChart points={pts} target={target} f={f} now={now} units={units} unitLabel={def.timed ? 's' : noLoad ? 'reps' : undefined} /></Suspense>
           {g && f && <p className="text-[15px] mt-1 tnum">Goal {L(g.targetKg!)}{(g.reps ?? 1) > 1 ? ` × ${g.reps}` : ''}: {f.status === 'reached' ? 'reached' : f.eta ? `likely around ${format(f.eta, 'd MMM')}${f.etaEarly && f.etaLate ? ` (${format(f.etaEarly, 'd MMM')}–${format(f.etaLate, 'd MMM')})` : ''}` : f.status === 'need-data' ? 'a few more sessions for a date' : 'no date while it’s flat'}</p>}
           <p className="text-xs text-muted">{noLoad ? 'Your best set each session.' : 'Estimated max from your best set each session (weight × reps, Epley). A guide, not a test.'}</p>
         </section>
       )}
-      <section className="border-t border-border pt-4 pb-2">
+      <section className="box">
         <h3 className="text-sm font-medium text-muted mb-1">Next time</h3>
         <p className="text-[17px] tnum">{t.why === 'push' ? 'Push: ' : t.why === 'hold' ? 'Hold: ' : ''}{t.sets} × {t.reps}{def.timed ? ' s' : ''}{t.weightKg ? ` at ${L(t.weightKg)}${each}` : ''}</p>
         <p className="text-[15px] text-muted">{t.reason}</p>
@@ -102,12 +102,12 @@ export function ExerciseScreen({ id }: { id: string }) {
         <Button variant="secondary" className="mt-2" onClick={() => setGoal(true)}>{g ? 'Edit goal' : 'Set a goal'}</Button>
       </section>
       {pb.repsAt.length > 0 && !def.timed && pb.repsAt.some((x) => x.kg > 0) && (
-        <section className="border-t border-border pt-4 pb-2">
+        <section className="box">
           <h3 className="text-sm font-medium text-muted mb-1">Best reps at each weight</h3>
           <p className="text-[15px] tnum">{pb.repsAt.slice(0, 10).map((x) => `${L(x.kg)} × ${x.reps}`).join(' · ')}</p>
         </section>
       )}
-      <section className="border-t border-border pt-4 pb-2">
+      <section className="box">
         <h3 className="text-sm font-medium text-muted mb-1">Sessions</h3>
         <ul>
           {sessions.map((s) => (

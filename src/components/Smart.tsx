@@ -103,7 +103,7 @@ export function HabitsSection({ med, doses, checkIns, s, now }: { med: Medicatio
   }
   if (!rows.length) return null;
   return (
-    <section aria-labelledby="habits-h" className="border-t border-border pt-5 pb-1">
+    <section aria-labelledby="habits-h" className="box">
       <h2 id="habits-h" className="text-sm font-medium text-muted mb-2">Patterns</h2>
       <ul className="space-y-4">{rows}</ul>
     </section>
@@ -192,7 +192,7 @@ export function EffectWindowCards({ meds, doses, checkIns, now }: { meds: Medica
   const rows = meds.filter((m) => !m.peptide).map((m) => ({ m, w: effectWindow(m, doses, checkIns, now) })).filter((x) => x.w);
   if (!rows.length) return null;
   return (
-    <section className="border-t border-border pt-5 pb-1" aria-labelledby="window-h">
+    <section className="box" aria-labelledby="window-h">
       <h2 id="window-h" className="text-sm font-medium text-muted mb-2">Effect window</h2>
       <ul className="space-y-4">
         {rows.map(({ m, w }) => (

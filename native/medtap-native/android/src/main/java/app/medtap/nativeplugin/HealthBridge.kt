@@ -6,6 +6,7 @@ import android.os.Build
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.BloodPressureRecord
 import androidx.health.connect.client.records.BodyFatRecord
 import androidx.health.connect.client.records.DistanceRecord
@@ -51,16 +52,27 @@ object HealthBridge {
         HealthPermission.getReadPermission(BodyFatRecord::class),
         HealthPermission.getReadPermission(LeanBodyMassRecord::class),
         HealthPermission.getReadPermission(HeartRateVariabilityRmssdRecord::class),
+        HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
     )
 
-    /** Health Connect's exercise types, as the app's cardio activities. */
+    /** Health Connect's exercise types (from the watch or any app), as the app's activities. */
     private fun activity(type: Int): String = when (type) {
         ExerciseSessionRecord.EXERCISE_TYPE_RUNNING, ExerciseSessionRecord.EXERCISE_TYPE_RUNNING_TREADMILL -> "run"
         ExerciseSessionRecord.EXERCISE_TYPE_WALKING, ExerciseSessionRecord.EXERCISE_TYPE_HIKING -> "walk"
         ExerciseSessionRecord.EXERCISE_TYPE_BIKING, ExerciseSessionRecord.EXERCISE_TYPE_BIKING_STATIONARY -> "ride"
         ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_POOL, ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_OPEN_WATER -> "swim"
         ExerciseSessionRecord.EXERCISE_TYPE_ROWING, ExerciseSessionRecord.EXERCISE_TYPE_ROWING_MACHINE -> "row"
-        ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING, ExerciseSessionRecord.EXERCISE_TYPE_WEIGHTLIFTING -> "strength"
+        ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING, ExerciseSessionRecord.EXERCISE_TYPE_WEIGHTLIFTING, ExerciseSessionRecord.EXERCISE_TYPE_CALISTHENICS -> "strength"
+        ExerciseSessionRecord.EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING, ExerciseSessionRecord.EXERCISE_TYPE_BOOT_CAMP -> "hiit"
+        ExerciseSessionRecord.EXERCISE_TYPE_YOGA -> "yoga"
+        ExerciseSessionRecord.EXERCISE_TYPE_PILATES -> "pilates"
+        ExerciseSessionRecord.EXERCISE_TYPE_ELLIPTICAL -> "elliptical"
+        ExerciseSessionRecord.EXERCISE_TYPE_STAIR_CLIMBING, ExerciseSessionRecord.EXERCISE_TYPE_STAIR_CLIMBING_MACHINE -> "stairs"
+        ExerciseSessionRecord.EXERCISE_TYPE_DANCING -> "dance"
+        ExerciseSessionRecord.EXERCISE_TYPE_BOXING, ExerciseSessionRecord.EXERCISE_TYPE_MARTIAL_ARTS -> "boxing"
+        ExerciseSessionRecord.EXERCISE_TYPE_TENNIS, ExerciseSessionRecord.EXERCISE_TYPE_BADMINTON, ExerciseSessionRecord.EXERCISE_TYPE_SQUASH,
+        ExerciseSessionRecord.EXERCISE_TYPE_SOCCER, ExerciseSessionRecord.EXERCISE_TYPE_BASKETBALL, ExerciseSessionRecord.EXERCISE_TYPE_FOOTBALL_AUSTRALIAN,
+        ExerciseSessionRecord.EXERCISE_TYPE_GOLF, ExerciseSessionRecord.EXERCISE_TYPE_VOLLEYBALL -> "sport"
         else -> "other"
     }
 
@@ -183,13 +195,27 @@ object HealthBridge {
                 val workouts = JSONArray()
                 if (has(ExerciseSessionRecord::class)) {
                     val distance = has(DistanceRecord::class)
+                    val heart = has(HeartRateRecord::class)
+                    val calories = has(ActiveCaloriesBurnedRecord::class)
                     for (r in readAll(client, ExerciseSessionRecord::class, range)) {
                         val d = r.startTime.atZone(z).toLocalDate()
                         day(d).put("exerciseMin", day(d).optInt("exerciseMin", 0) + ((r.endTime.toEpochMilli() - r.startTime.toEpochMilli()) / 60000).toInt())
                         val w = JSONObject().put("t", r.startTime.toEpochMilli()).put("end", r.endTime.toEpochMilli()).put("type", activity(r.exerciseType))
-                        if (distance) {
-                            val km = client.aggregate(AggregateRequest(setOf(DistanceRecord.DISTANCE_TOTAL), TimeRangeFilter.between(r.startTime, r.endTime)))[DistanceRecord.DISTANCE_TOTAL]?.inKilometers
-                            if (km != null && km > 0) w.put("km", km)
+                        r.title?.takeIf { it.isNotBlank() }?.let { w.put("title", it) }
+                        // Distance, heart rate (average and highest) and active calories over the session, where they were recorded.
+                        val metrics = buildSet {
+                            if (distance) add(DistanceRecord.DISTANCE_TOTAL)
+                            if (heart) { add(HeartRateRecord.BPM_AVG); add(HeartRateRecord.BPM_MAX) }
+                            if (calories) add(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)
+                        }
+                        if (metrics.isNotEmpty()) {
+                            try {
+                                val agg = client.aggregate(AggregateRequest(metrics, TimeRangeFilter.between(r.startTime, r.endTime)))
+                                agg[DistanceRecord.DISTANCE_TOTAL]?.inKilometers?.takeIf { it > 0 }?.let { w.put("km", it) }
+                                agg[HeartRateRecord.BPM_AVG]?.takeIf { it > 0 }?.let { w.put("avgHr", it) }
+                                agg[HeartRateRecord.BPM_MAX]?.takeIf { it > 0 }?.let { w.put("maxHr", it) }
+                                agg[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories?.takeIf { it > 0 }?.let { w.put("kcal", it.roundToInt()) }
+                            } catch (_: Exception) { /* a metric this phone can't total */ }
                         }
                         workouts.put(w)
                     }

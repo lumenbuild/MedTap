@@ -59,7 +59,7 @@ export function ChartCard({ title, summary, empty, children, table, height = 220
   table?: { head: string[]; rows: (string | number)[][] }; headline?: Headline | null; legend?: LegendItem[];
 }) {
   return (
-    <section className="border-t border-border pt-5 pb-2 chart-card" aria-label={title}>
+    <section className="box chart-card" aria-label={title}>
       <h2 className="text-sm font-medium text-muted">{title}</h2>
       {controls && <div className="mt-2">{controls}</div>}
       {empty ? (

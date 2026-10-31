@@ -27,19 +27,19 @@ export function YearReview() {
         <Stat label="Workouts" value={y.workouts} />
       </div>
       {y.doses.length > 0 && (
-        <section aria-labelledby="yr-doses" className="border-t border-border pt-4">
+        <section aria-labelledby="yr-doses" className="box">
           <h2 id="yr-doses" className="text-sm font-medium text-muted mb-1">Doses</h2>
           <ul>{y.doses.map((d) => <li key={d.med.id} className="flex justify-between py-1.5 tnum"><span>{shownName(d.med)}</span><span>{d.taken} taken{d.share !== undefined ? ` · ${d.share}% on plan` : ''}</span></li>)}</ul>
         </section>
       )}
       {y.labs.length > 0 && (
-        <section aria-labelledby="yr-labs" className="border-t border-border pt-4">
+        <section aria-labelledby="yr-labs" className="box">
           <h2 id="yr-labs" className="text-sm font-medium text-muted mb-1">Lab results</h2>
           <ul>{y.labs.map((l) => <li key={l.name} className="flex justify-between py-1.5 tnum"><span>{l.name}</span><span>{l.from} → {l.to}</span></li>)}</ul>
         </section>
       )}
       {y.topChips.length > 0 && (
-        <section aria-labelledby="yr-chips" className="border-t border-border pt-4">
+        <section aria-labelledby="yr-chips" className="box">
           <h2 id="yr-chips" className="text-sm font-medium text-muted mb-1">Noted most in check-ins</h2>
           <p>{y.topChips.map((c) => `${c.chip} (${c.n})`).join(', ')}</p>
           <p className="text-sm text-muted tnum mt-1">{y.checkIns} check-ins in the year</p>

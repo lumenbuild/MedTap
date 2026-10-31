@@ -1,6 +1,6 @@
 // Health Connect (Android) / Apple Health (iPhone) import, in the app only: read-only, kept on the phone. Steps, sleep,
 // resting and hourly heart rate, heart rate variability and exercise go into daily rows; weigh-ins, body fat, lean mass,
-// blood pressure and cardio sessions become records.
+// blood pressure and workouts (with heart rate and calories) become records.
 import { db } from '../db/db';
 import { getSettings, setSetting } from '../db/repos/settings';
 import { storedPerson } from '../db/repos/people';
@@ -45,12 +45,18 @@ export async function importHealth(full = false): Promise<ImportResult> {
   if (HAS_BODY) for (const c of plan.comp) await upsertBody(c.date, { ...(c.bodyFatPct !== undefined ? { bodyFatPct: c.bodyFatPct } : {}), ...(c.leanKg !== undefined ? { leanKg: c.leanKg } : {}) }, s.healthPersonId);
   if (HAS_TRAINING) {
     const at = new Date(now).toISOString();
-    await db.workouts.bulkAdd(plan.cardio.map((c) => ({ id: crypto.randomUUID(), startedAt: c.at, endedAt: c.at, sets: [], source: 'health' as const, personId: person, createdAt: at, updatedAt: at,
-      cardio: { activity: c.activity, durationMin: c.durationMin, ...(c.distanceKm ? { distanceKm: c.distanceKm } : {}) } })));
+    await db.workouts.bulkAdd(plan.cardio.map(({ at: start, ...c }) => ({ id: crypto.randomUUID(), startedAt: start, endedAt: start, sets: [], source: 'health' as const, personId: person, createdAt: at, updatedAt: at,
+      cardio: c })));
+    // Heart rate and calories from the watch, added to workouts already here.
+    for (const e of plan.enrich) {
+      const w = await db.workouts.get(e.id);
+      if (!w) continue;
+      await db.workouts.update(e.id, { ...(e.cardio && w.cardio ? { cardio: { ...w.cardio, ...e.cardio } } : {}), ...(e.watch ? { watch: e.watch } : {}), updatedAt: at });
+    }
   }
   for (const v of plan.vitals) await addVital({ at: v.at, systolic: v.systolic, diastolic: v.diastolic, note: 'From Health', personId: person });
   await setSetting('healthLastImport', new Date(now).toISOString());
-  return { days: plan.daily.length, weighIns: HAS_BODY ? plan.body.length : 0, readings: plan.vitals.length, workouts: HAS_TRAINING ? plan.cardio.length : 0 };
+  return { days: plan.daily.length, weighIns: HAS_BODY ? plan.body.length : 0, readings: plan.vitals.length, workouts: HAS_TRAINING ? plan.cardio.length + plan.enrich.length : 0 };
 }
 
 /** On opening the app: import again if it’s on and it’s been an hour (so today’s heart rate after a dose shows the same day). */

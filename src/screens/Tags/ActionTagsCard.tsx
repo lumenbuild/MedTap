@@ -19,7 +19,7 @@ export function ActionTagsCard({ action, name, hint }: { action: TagAction; name
   const [writing, setWriting] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
   return (
-    <section className="border-t border-border pt-5 pb-1" aria-labelledby="tg-h">
+    <section className="box" aria-labelledby="tg-h">
       <h2 id="tg-h" className="text-sm font-medium text-muted mb-1">Tags</h2>
       {tags.length === 0 ? <p className="text-[15px] text-muted">{hint}</p> : (
         <ul>

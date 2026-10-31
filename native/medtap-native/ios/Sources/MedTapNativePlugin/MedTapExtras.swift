@@ -220,10 +220,19 @@ extension MedTapNativePlugin {
                 case .swimming: type = "swim"
                 case .rowing: type = "row"
                 case .traditionalStrengthTraining, .functionalStrengthTraining: type = "strength"
+                case .highIntensityIntervalTraining, .crossTraining: type = "hiit"
+                case .yoga: type = "yoga"
+                case .pilates: type = "pilates"
+                case .elliptical: type = "elliptical"
+                case .stairClimbing, .stairs: type = "stairs"
+                case .socialDance, .cardioDance: type = "dance"
+                case .boxing, .martialArts, .kickboxing: type = "boxing"
+                case .tennis, .badminton, .squash, .soccer, .basketball, .australianFootball, .golf, .volleyball: type = "sport"
                 default: type = "other"
                 }
                 var row: [String: Any] = ["t": w.startDate.timeIntervalSince1970 * 1000, "end": w.endDate.timeIntervalSince1970 * 1000, "type": type]
                 if let km = w.totalDistance?.doubleValue(for: .meterUnit(with: .kilo)), km > 0 { row["km"] = km }
+                if let kcal = w.totalEnergyBurned?.doubleValue(for: .kilocalorie()), kcal > 0 { row["kcal"] = Int(kcal.rounded()) }
                 workouts.append(row)
             }
         }

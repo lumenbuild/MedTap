@@ -23,7 +23,7 @@ export function HowToTakeCard({ med, onPeptidePage = false }: { med: Medication;
   const canFollow = med.schedule.type === 'fixed' && !med.peptide && (isStimulant(med) || supplementsOf(med).length > 0 || (med.schedule.slots?.[0]?.time ?? '99') < '11:00');
   if (!advice.length && !canFollow) return null;
   return (
-    <section aria-labelledby={`how-${med.id}`} className="border-t border-border pt-5 space-y-2">
+    <section aria-labelledby={`how-${med.id}`} className="box space-y-2">
       <h2 id={`how-${med.id}`} className="text-sm font-medium text-muted">When and how to take it</h2>
       <ul className="space-y-1.5">
         {advice.map((a) => (
@@ -55,7 +55,7 @@ export function SupplementsSection() {
   const rules = supplementRules(mine, { bloodTestSoon: bloodTestSoon((appts ?? []).filter((a) => personOf(a) === fam.personId), now) });
   const totals = dailyTotals(mine, doses, now, ss[1]);
   return (
-    <section aria-labelledby="sup-h" className="border-t border-border pt-4 space-y-3">
+    <section aria-labelledby="sup-h" className="box space-y-3">
       <h2 id="sup-h" className="text-sm font-medium text-muted">Supplements and timing</h2>
       {(['avoid', 'apart', 'pair', 'lab'] as const).map((k) => {
         const rs = rules.filter((r) => r.kind === k);

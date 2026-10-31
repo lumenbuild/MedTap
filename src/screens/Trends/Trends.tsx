@@ -123,7 +123,7 @@ export function Trends() {
         extra={<><NoticedBlock checkIns={checkIns} start={start} end={end} />{ciForecast && <CheckInForecastBlock f={ciForecast} />}</>} />
       {med && (
         <>
-          <section className="border-t border-border pt-5" aria-labelledby="med-h">
+          <section className="box" aria-labelledby="med-h">
             <h2 id="med-h" className="text-sm font-medium text-muted">Medicines</h2>
             {byUse.length > 1
               ? <div className="mt-2"><ChipPicker label="Medicine" value={med.id} onChange={pickMed} options={byUse.map((m) => ({ value: m.id, label: shownName(m) }))} /></div>
@@ -152,7 +152,7 @@ export function Trends() {
         caffeine={{ bedtime: settings.bedtime, halfLifeH: settings.caffeineHalfLifeH, foodLogs: allFood.filter((l) => personOf(l) === fam.personId) }} />
       </Fold>
       {(HAS_MEDS || bio) && (
-        <section aria-labelledby="records-h" className="border-t border-border pt-4">
+        <section aria-labelledby="records-h" className="box">
           <h2 id="records-h" className="text-sm font-medium text-muted mb-2">Records and tools</h2>
           <div className="grid grid-cols-2 gap-2">
             {bio && <Tile Icon={NotebookPen} label="Journal" href="#/journal" />}

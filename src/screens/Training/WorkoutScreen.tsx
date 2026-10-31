@@ -188,7 +188,7 @@ export function WorkoutScreen({ id }: { id: string }) {
         const best = def.timed ? (pb.mostReps ? `Longest ${pb.mostReps.reps} s` : '') : pb.e1rm ? `Best est. max ${fmtLoad(pb.e1rm.v, units)}` : pb.mostReps ? `Most reps ${pb.mostReps.reps}` : '';
         const aimLoad = t.weightKg ? ` at ${fmtLoad(t.weightKg, units)}${def.perHand ? ' each' : ''}` : '';
         return (
-          <section key={exId} id={`ex-${exId}`} className="border-t border-border pt-4 pb-2 scroll-mt-16" aria-label={def.name}>
+          <section key={exId} id={`ex-${exId}`} className="box scroll-mt-16" aria-label={def.name}>
             {g && <p className="text-xs font-medium text-muted uppercase tracking-wide">Superset {LETTERS[gi]}{inGroup.indexOf(exId) + 1}</p>}
             <div className="flex items-baseline justify-between gap-3">
               <a href={`#/training/exercise/${exId}`} className="text-[19px] font-medium">{def.name}</a>

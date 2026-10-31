@@ -45,6 +45,7 @@ import { DrawGuide, syringeSizes } from '../../components/Syringe';
 import { SYRINGES } from '../../logic/peptide';
 import type { LabelDetails } from '../../logic/label';
 import { HAS_PEPTIDES } from '../../edition';
+import { MedHero } from '../../components/MedHero';
 import { canSplit, guideById, guideFor, guideMed, lowestPlan, savedVial, stepChanges, fmtDose, type GuideEntry } from '../../logic/peptideGuide';
 import { Switch } from '../../components/ui/Switch';
 import { fmtAmount, fmtSchedule } from '../../logic/format';
@@ -380,7 +381,7 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
       )}
       {existing && !existing.archived && tab === 'overview' && (onProtocol && !priv
         ? <><PeptidePart med={existing} part="overview" /><HowToTakeCard med={existing} onPeptidePage /></>
-        : <><HowToTakeCard med={existing} />{!priv && <DosePlanCard med={existing} />}</>)}
+        : <><MedHero med={existing} /><HowToTakeCard med={existing} />{!priv && <DosePlanCard med={existing} />}</>)}
       {existing && !existing.archived && tab === 'plan' && !priv && <PeptidePart med={existing} part="plan" />}
       {existing && !existing.archived && tab === 'stock' && (onProtocol
         ? <><VialCard med={existing} />{!priv && <PeptidePart med={existing} part="stock" />}</>
@@ -664,7 +665,7 @@ function StockLine({ med, onEdit }: { med: Medication; onEdit: () => void }) {
   if (!doses || !ss) return null;
   const f = forecastRunOut(med, doses, now, ss[1]);
   return (
-    <section aria-labelledby={`stock-${med.id}`} className="border-t border-border pt-5 space-y-2">
+    <section aria-labelledby={`stock-${med.id}`} className="box space-y-2">
       <h2 id={`stock-${med.id}`} className="text-sm font-medium text-muted">Stock</h2>
       {med.stockCount !== undefined ? (
         <p className="tnum"><span className="text-[22px] font-semibold">{Math.round(med.stockCount * 100) / 100}</span> left{f?.runOutAt != null ? <span className="text-muted"> · about {f.daysLeft} days, runs out {format(f.runOutAt, 'EEE d MMM')}</span> : null}</p>

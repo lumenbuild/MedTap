@@ -22,7 +22,7 @@ export function MarkersCard({ personId, heightCm, labs, vitals, body, daily, uni
   const imperial = units === 'imperial';
   if (!list.length && heightCm) return null;
   return (
-    <section className="border-t border-border pt-5 pb-1" aria-labelledby="mk-h">
+    <section className="box" aria-labelledby="mk-h">
       <h2 id="mk-h" className="text-sm font-medium text-muted mb-1">Health markers</h2>
       {list.length > 0 && (
         <ul className="divide-y divide-border">

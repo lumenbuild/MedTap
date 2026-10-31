@@ -49,7 +49,7 @@ export function CaffeineCard({ intakes, prefs, now, s, onLog }: { intakes: Intak
     toast(`${last.name ?? 'Caffeine'} · ${last.mg} mg: ${afterLog(intakes, { id: c.id, t: Date.parse(c.at), mg: last.mg }, prefs, s)}`, { onAction: () => removeCheckIn(c.id) });
   };
   return (
-    <section className="border-t border-border pt-4 space-y-3" aria-labelledby="caf-h">
+    <section className="box space-y-3" aria-labelledby="caf-h">
       <div className="flex items-center gap-2">
         <Coffee size={18} aria-hidden="true" className="text-primary" />
         <h2 id="caf-h" className="font-medium flex-1">Caffeine</h2>
@@ -87,7 +87,7 @@ export function UsualCard({ asks, personId, now, s, onNotToday }: { asks: UsualH
     toast(`${h.name} logged at ${fmtTime(h.at)}`, { onAction: () => removeCheckIn(c.id) });
   };
   return (
-    <section className="border-t border-border pt-4 space-y-2" aria-labelledby="usual-h">
+    <section className="box space-y-2" aria-labelledby="usual-h">
       <h2 id="usual-h" className="font-medium">Same as usual?</h2>
       <ul className="space-y-2">
         {asks.map((h) => (
@@ -122,7 +122,7 @@ export function SleepAsk({ checkIns, daily, personId, checkFrom, now, s }: {
     toast('Sleep noted for your caffeine check', { onAction: () => removeCheckIn(c.id) });
   };
   return (
-    <section className="border-t border-border pt-4 space-y-2" aria-labelledby="sleep-ask-h">
+    <section className="box space-y-2" aria-labelledby="sleep-ask-h">
       <h2 id="sleep-ask-h" className="font-medium">How did you sleep?</h2>
       <p className="text-sm text-muted">For your caffeine check.</p>
       <div className="grid grid-cols-5 gap-2">

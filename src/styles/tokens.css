@@ -22,6 +22,11 @@
   --hero-meds: linear-gradient(135deg, #D81B45 0%, #F0466A 100%);
   --hero-pep: linear-gradient(135deg, #00809A 0%, #2FA9C2 100%);
   --hero-ink: #FFFFFF; --hero-muted: rgba(255,255,255,.86); --hero-btn: #FFFFFF; --hero-btn-ink: #C8103A; --hero-pep-btn-ink: #00758A;
+  --hero-act: linear-gradient(135deg, #A84300 0%, #D2600A 100%);
+  --hero-sleep: linear-gradient(135deg, #3B39B4 0%, #5654D8 100%);
+  --hero-body: linear-gradient(135deg, #00539F 0%, #0A72D6 100%);
+  --hero-mind: linear-gradient(135deg, #7A1FA8 0%, #9B3FCB 100%);
+  --hero-act-btn-ink: #A84300; --hero-sleep-btn-ink: #3B39B4; --hero-body-btn-ink: #00539F; --hero-mind-btn-ink: #7A1FA8;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -42,6 +47,12 @@
     --hero-meds: radial-gradient(130% 120% at 0% 0%, #4A1424 0%, #12161C 72%);
     --hero-pep: radial-gradient(130% 120% at 0% 0%, #0F3A42 0%, #12161C 72%);
     --hero-ink: #EEF1F5; --hero-muted: #9AA2AE; --hero-btn: #FF375F; --hero-btn-ink: #07090C; --hero-pep-btn-ink: #07090C;
+    --hero-act: radial-gradient(130% 120% at 0% 0%, #4A2A06 0%, #12161C 72%);
+    --hero-sleep: radial-gradient(130% 120% at 0% 0%, #23214F 0%, #12161C 72%);
+    --hero-body: radial-gradient(130% 120% at 0% 0%, #0C2A4C 0%, #12161C 72%);
+    --hero-mind: radial-gradient(130% 120% at 0% 0%, #3A1650 0%, #12161C 72%);
+    --hero-act-btn-ink: #07090C; --hero-sleep-btn-ink: #07090C; --hero-body-btn-ink: #07090C; --hero-mind-btn-ink: #07090C;
+    --hero-act-btn: #FF9F0A; --hero-sleep-btn: #7472FF; --hero-body-btn: #3D9BFF; --hero-mind-btn: #BF5AF2; --hero-pep-btn: #3CC4DA;
   }
 }
 :root[data-theme="dark"] {
@@ -62,6 +73,12 @@
   --hero-meds: radial-gradient(130% 120% at 0% 0%, #4A1424 0%, #12161C 72%);
   --hero-pep: radial-gradient(130% 120% at 0% 0%, #0F3A42 0%, #12161C 72%);
   --hero-ink: #EEF1F5; --hero-muted: #9AA2AE; --hero-btn: #FF375F; --hero-btn-ink: #07090C; --hero-pep-btn-ink: #07090C;
+  --hero-act: radial-gradient(130% 120% at 0% 0%, #4A2A06 0%, #12161C 72%);
+  --hero-sleep: radial-gradient(130% 120% at 0% 0%, #23214F 0%, #12161C 72%);
+  --hero-body: radial-gradient(130% 120% at 0% 0%, #0C2A4C 0%, #12161C 72%);
+  --hero-mind: radial-gradient(130% 120% at 0% 0%, #3A1650 0%, #12161C 72%);
+  --hero-act-btn-ink: #07090C; --hero-sleep-btn-ink: #07090C; --hero-body-btn-ink: #07090C; --hero-mind-btn-ink: #07090C;
+  --hero-act-btn: #FF9F0A; --hero-sleep-btn: #7472FF; --hero-body-btn: #3D9BFF; --hero-mind-btn: #BF5AF2; --hero-pep-btn: #3CC4DA;
 }
 
 /* Medication / chart series colours: a validated categorical palette (CVD-safe adjacent order),

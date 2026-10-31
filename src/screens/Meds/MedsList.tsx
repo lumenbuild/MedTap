@@ -71,7 +71,7 @@ export function MedsList() {
   ].filter((x): x is NonNullable<typeof x> => !!x).sort((a, b) => a.by - b.by);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <PersonSwitcher />
       <div className="grid grid-cols-2 gap-2">
         <Button className="min-h-[52px]" onClick={() => go('/meds/new')}><Plus size={18} aria-hidden="true" className="inline mr-1 -mt-0.5" />Add{fam.many ? ` for ${fam.person}` : ''}</Button>
@@ -103,18 +103,18 @@ export function MedsList() {
       )}
       {groups.map((g) => (
         <section key={g.key} aria-labelledby={`grp-${g.key}`}>
-          <h2 id={`grp-${g.key}`} className="text-sm font-medium text-muted mb-1">{g.title} <span className="tnum">({g.items.length})</span></h2>
-          <ul>{g.items.map((m) => <MedRow key={m.id} med={m} tags={tags} doses={doses} s={s} now={now} />)}</ul>
+          <h2 id={`grp-${g.key}`} className="text-sm font-medium text-muted mb-2 px-1">{g.title} <span className="tnum">({g.items.length})</span></h2>
+          <ul className="box divide-y divide-border" style={{ paddingTop: 0, paddingBottom: 0 }}>{g.items.map((m) => <MedRow key={m.id} med={m} tags={tags} doses={doses} s={s} now={now} />)}</ul>
           {g.key === 'supps' && <SupplementsSection />}
         </section>
       ))}
 
       {active.length > 0 && (
-        <section aria-labelledby="orders-h" className="border-t border-border pt-4 space-y-1">
+        <section aria-labelledby="orders-h" className="box space-y-1">
           <h2 id="orders-h" className="text-sm font-medium text-muted">Stock and orders</h2>
           {orders.length ? (
-            <ul>{orders.map((o) => (
-              <li key={o.key}><a href={o.href} className="flex items-center gap-3 min-h-[52px] border-b border-border">
+            <ul className="divide-y divide-border">{orders.map((o) => (
+              <li key={o.key}><a href={o.href} className="flex items-center gap-3 min-h-[52px]">
                 <Package size={18} aria-hidden="true" className={o.by - now < 3 * DAY ? 'text-caution' : 'text-muted'} />
                 <span className="flex-1 min-w-0"><span className="block font-medium truncate">{o.name}</span><span className={`block text-sm tnum ${o.by - now < 3 * DAY ? 'text-caution' : 'text-muted'}`}>{o.by <= now ? 'Order now' : `Order by ${format(o.by, 'EEE d MMM')}`} · runs out {format(o.out, 'd MMM')}</span></span>
                 <ChevronRight size={18} aria-hidden="true" className="text-muted" />
@@ -124,7 +124,7 @@ export function MedsList() {
         </section>
       )}
 
-      <section aria-labelledby="tools-h" className="border-t border-border pt-4">
+      <section aria-labelledby="tools-h" className="box">
         <h2 id="tools-h" className="text-sm font-medium text-muted mb-2">Tools</h2>
         <div className="grid grid-cols-3 gap-2">
           {peptidesOn && <Tile Icon={BookOpen} label="Guide" name="Peptide guide" href="#/guide" />}
@@ -143,7 +143,7 @@ export function MedsList() {
       {archived.length > 0 && (
         <details className="pt-2">
           <summary className="min-h-[48px] flex items-center text-muted font-semibold cursor-pointer">Archived ({archived.length})</summary>
-          <ul className="opacity-80">{archived.map((m) => <MedRow key={m.id} med={m} tags={tags} doses={doses} s={s} now={now} />)}</ul>
+          <ul className="box divide-y divide-border opacity-80" style={{ paddingTop: 0, paddingBottom: 0 }}>{archived.map((m) => <MedRow key={m.id} med={m} tags={tags} doses={doses} s={s} now={now} />)}</ul>
         </details>
       )}
     </div>
@@ -161,7 +161,7 @@ function MedRow({ med, tags, doses, s, now }: { med: Medication; tags: Tag[]; do
   const bottleSoon = bottle && Date.parse(`${bottle.expiry}T23:59:59`) - now < 30 * 86_400_000;
   return (
     <li>
-      <a href={`#/meds/${med.id}`} className="border-t border-border py-3.5 flex items-center gap-3">
+      <a href={`#/meds/${med.id}`} className="py-3.5 flex items-center gap-3">
         <MedBadge color={shownColour(med)} icon={med.icon} />
         <span className="flex-1 min-w-0 space-y-1">
           <span className="block font-semibold truncate">{shownMedName(med)}{isPrivate(med) && <span className="ml-2 text-xs font-medium text-muted">Nickname</span>}{med.shared && <span className="ml-2 text-xs font-medium text-primary">Shared</span>}</span>

@@ -405,13 +405,17 @@ export interface WorkoutSet {
   group?: string;
 }
 
-export interface CardioEntry { activity: CardioActivity; distanceKm?: number; durationMin: number; title?: string }
+export interface CardioEntry { activity: CardioActivity; distanceKm?: number; durationMin: number; title?: string;
+  /** From the watch (via Health Connect / Apple Health): average and highest heart rate (bpm) and active calories. */
+  avgHr?: number; maxHr?: number; kcal?: number }
 
 export interface Workout extends Stamped {
   startedAt: string; endedAt?: string;
   routineId?: string; name?: string; note?: string;
   sets: WorkoutSet[];
   cardio?: CardioEntry;
+  /** A strength workout logged here that the watch also recorded: its heart rate, calories and minutes. */
+  watch?: { avgHr?: number; maxHr?: number; kcal?: number; minutes?: number };
   source: 'manual' | 'health';
   personId?: string; deletedAt?: string;
 }

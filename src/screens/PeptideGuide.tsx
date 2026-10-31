@@ -12,6 +12,7 @@ import { labsFor } from '../logic/peptideLabs';
 import { experimentFor } from '../logic/experiments';
 import { SwingBars } from '../components/SwingBars';
 import { convert, fmtMl } from '../logic/peptide';
+import { SyringeGauge } from '../components/Syringe';
 import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useLabs, useMeds, useScheduleSettings, useSettings } from '../app/data';
 import { useNow } from '../app/useNow';
 import { medIsFor, personOf } from '../db/repos/people';
@@ -100,13 +101,45 @@ function Points({ items, tone }: { items: string[]; tone?: 'watch' }) {
 function Section({ title, Icon, children }: { title: string; Icon?: typeof Syringe; children: React.ReactNode }) {
   const hid = `g-${title.replace(/\W+/g, '-').toLowerCase()}`;
   return (
-    <section aria-labelledby={hid} className="border-t border-border pt-4">
+    <section aria-labelledby={hid} className="box">
       <h2 id={hid} className="text-sm font-medium text-muted flex items-center gap-1.5 mb-2">{Icon && <Icon size={16} aria-hidden="true" />}{title}</h2>
       {children}
     </section>
   );
 }
 
+
+/** How often, in a word: "Weekly", "Daily", "Twice a day", "10-day course". */
+function howOften(g: GuideEntry): string | undefined {
+  const sc = g.setup.schedule('2026-01-05', 1);
+  if (sc.type === 'interval') return sc.intervalHours ? `Every ${sc.intervalHours} h` : undefined;
+  if (sc.type !== 'fixed') return 'As needed';
+  const per = sc.slots?.length ?? 1;
+  const base = sc.days?.length === 1 ? 'Weekly' : sc.days?.length ? `${sc.days.length}× a week` : per === 1 ? 'Daily' : per === 2 ? 'Twice a day' : `${per}× a day`;
+  return sc.course ? `${base} · ${sc.course.days}-day course` : base;
+}
+
+/** The top of a guide: the starting dose (and, with your vial, the units to draw on a syringe), then quick facts. */
+function GuideHero({ g, vial }: { g: GuideEntry; vial?: GuideVial }) {
+  const d = vial && g.setup.defaultAmount <= vial.amount ? mixTable({ ...g, tableDoses: [g.setup.defaultAmount] }, vial)[0] : undefined;
+  const half = g.halfLifeHours ? (g.halfLifeHours >= 48 ? `${Math.round(g.halfLifeHours / 24)}-day half-life` : `${Math.round(g.halfLifeHours)}-hour half-life`) : undefined;
+  const facts = [howOften(g), half, `Fridge · ${g.storage.useWithinDays >= 28 ? `${Math.round(g.storage.useWithinDays / 7)} wks` : `${g.storage.useWithinDays} days`} mixed`].filter(Boolean) as string[];
+  return (
+    <>
+      <section className="hero pep" aria-label={`Starting dose ${fmtDose(g.setup.defaultAmount, g.unit)}${d ? `, ${v(d.units)} units` : ''}`}>
+        <p className="hero-label">Starting dose</p>
+        <p className="mt-1 tnum"><span className="text-[52px] leading-[56px] font-bold tracking-[-0.03em]">{fmtDose(g.setup.defaultAmount, g.unit)}</span>
+          {d && <span className="text-[24px] font-semibold ml-2">= {v(d.units)} units</span>}</p>
+        {d ? <><div className="mt-2"><SyringeGauge units={d.units} capacity={d.units > 50 ? 100 : d.units > 30 ? 50 : 30} onHero /></div>
+          <p className="mt-1 text-muted text-[15px]">Your {fmtDose(vial!.amount, g.unit)} vial + {v(vial!.waterMl)} mL water</p></>
+          : <p className="mt-1 text-muted text-[15px]">Add your vial under Mixing and drawing to see the units.</p>}
+      </section>
+      <ul className="flex flex-wrap gap-2" aria-label="At a glance">
+        {facts.map((f) => <li key={f} className="min-h-[40px] px-3.5 rounded-full inline-flex items-center text-[15px] font-medium" style={{ background: 'var(--fill)' }}>{f}</li>)}
+      </ul>
+    </>
+  );
+}
 
 function GuidePage({ g }: { g: GuideEntry }) {
   const mine = useMine(g);
@@ -120,6 +153,7 @@ function GuidePage({ g }: { g: GuideEntry }) {
   const vial = edited !== null ? edited : own ?? savedVial(g.id);
   return (
     <div className="space-y-4 pb-8">
+      <GuideHero g={g} vial={vial} />
       <div className="space-y-2">
         <p className="text-[15px] leading-snug">{g.what}</p>
         {g.aka.length > 0 && <p className="text-sm text-muted">Also called {g.aka.join(', ')}.</p>}
