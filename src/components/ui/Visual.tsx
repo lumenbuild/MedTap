@@ -6,11 +6,11 @@ import type { LucideIcon } from 'lucide-react';
 
 export type Tone = 'primary' | 'good' | 'watch' | 'bad' | 'plain';
 const TONE: Record<Tone, { fg: string; bg: string }> = {
-  primary: { fg: 'var(--primary)', bg: 'var(--surface-2)' },
+  primary: { fg: 'var(--primary)', bg: 'var(--fill)' },
   good: { fg: 'var(--success)', bg: 'var(--success-soft)' },
   watch: { fg: 'var(--caution)', bg: 'var(--caution-soft)' },
   bad: { fg: 'var(--danger)', bg: 'var(--danger-soft)' },
-  plain: { fg: 'var(--text-muted)', bg: 'var(--surface-2)' },
+  plain: { fg: 'var(--text-muted)', bg: 'var(--fill)' },
 };
 export const toneColour = (t: Tone) => TONE[t].fg;
 
@@ -21,7 +21,7 @@ export function MiniRing({ value, max, size = 44, tone = 'primary', label, child
   return (
     <span role="img" aria-label={label} className="relative inline-flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90" aria-hidden="true">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--surface-2)" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--fill)" strokeWidth={stroke} />
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={TONE[tone].fg} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - p)} className="ring-progress" />
       </svg>
       <span aria-hidden="true" className="absolute text-[12px] font-semibold tnum">{children ?? `${value}/${max}`}</span>
@@ -33,7 +33,7 @@ export function MiniRing({ value, max, size = 44, tone = 'primary', label, child
 export function Bar({ value, max, tone = 'primary', marker, label, height = 8 }: { value: number; max: number; tone?: Tone; marker?: number; label: string; height?: number }) {
   const p = max > 0 ? Math.min(1, Math.max(0, value / max)) : 0;
   return (
-    <div role="img" aria-label={label} className="relative w-full rounded-full overflow-hidden" style={{ height, background: 'var(--surface-2)' }}>
+    <div role="img" aria-label={label} className="relative w-full rounded-full overflow-hidden" style={{ height, background: 'var(--fill)' }}>
       <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${Math.max(p * 100, value > 0 ? 3 : 0)}%`, background: TONE[tone].fg }} />
       {marker !== undefined && max > 0 && <div aria-hidden="true" className="absolute top-0 bottom-0 w-0.5 bg-text" style={{ left: `${Math.min(100, (marker / max) * 100)}%` }} />}
     </div>

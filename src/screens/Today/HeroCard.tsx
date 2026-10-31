@@ -41,7 +41,7 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer, pe
     const [hm, ap] = format(next, 'h:mm a').split(' ');
     const sameDay = next < getDayBounds(now, s.dayStartsAt, s.tz).end;
     label = sameDay ? 'Next' : `Next · ${fmtDay(next)}`;
-    big = <>{hm}<span className="text-[28px] tracking-normal ml-1.5">{ap.toLowerCase()}</span></>;
+    big = <>{hm}<span className="text-[24px] font-semibold tracking-normal ml-1.5 opacity-80">{ap.toLowerCase()}</span></>;
     sub = `Done for today · next in ${fmtCountdownLong(next - now)}`;
   } else if (status === 'done-today') {
     big = 'Done'; label = 'Today'; sub = 'All taken';
@@ -52,7 +52,7 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer, pe
     const [hm, ap] = format(next, 'h:mm a').split(' ');
     const sameDay = next < getDayBounds(now, s.dayStartsAt, s.tz).end;
     if (!sameDay) label = `Next · ${fmtDay(next)}`;
-    big = <>{hm}<span className="text-[28px] tracking-normal ml-1.5">{ap.toLowerCase()}</span></>;
+    big = <>{hm}<span className="text-[24px] font-semibold tracking-normal ml-1.5 opacity-80">{ap.toLowerCase()}</span></>;
     sub = `in ${fmtCountdownLong(next - now)}`;
   } else if (status === 'not-today') {
     const nd = nextScheduledDayStart(med, now, s);
@@ -80,9 +80,9 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer, pe
   const latestMs = latest ? timeInDay(dayStart, latest, s) : undefined;
 
   return (
-    <article aria-label={person ? `${person}: ${shownName(med)}` : shownName(med)} className={`pt-6 ${footer ? 'pb-2' : 'pb-6'} ${className}`}>
+    <article aria-label={person ? `${person}: ${shownName(med)}` : shownName(med)} className={`hero ${med.peptide ? 'pep' : ''} ${footer ? 'pb-2' : ''} ${className}`}>
       <p className="text-sm font-medium text-muted">{person ? `${label} · ${person}` : label}</p>
-      <p className="mt-1.5 font-light text-[84px] leading-[84px] tracking-[-0.04em] tnum" aria-hidden="true">{big}</p>
+      <p className="mt-1 font-bold text-[64px] leading-[66px] tracking-[-0.03em] tnum" aria-hidden="true">{big}</p>
       <p className="mt-4 text-xl font-medium flex items-center gap-2.5">
         <MedBadge color={shownColour(med)} icon={med.icon} size={34} /> <span className="min-w-0">{shownMedName(med)}</span>
       </p>
@@ -94,7 +94,7 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer, pe
       )}
 
       {guide && (
-        <div className="ml-5 mt-4 border-l-2 pl-4 py-1" style={{ borderColor: 'var(--text)' }}>
+        <div className="ml-5 mt-4 border-l-2 pl-4 py-1" style={{ borderColor: 'currentColor' }}>
           {guide.kind === 'draw' ? (
             <>
               <p className="text-2xl font-medium tnum">Draw to {fmtUnits(guide.draw.units)}</p>
@@ -119,7 +119,7 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer, pe
       )}
       <p className="sr-only" aria-live="polite">{person ? `${person}, ` : ''}{shownName(med)}: {typeof big === 'string' ? big : `next at ${next ? fmtTime(next) : ''}`}. {sub}.</p>
 
-      <Button className="w-full min-h-[56px] mt-7 text-[17px]" onClick={onLog}>Log dose</Button>
+      <Button className="hero-btn w-full min-h-[56px] mt-6 text-[17px] font-semibold" onClick={onLog}>Log dose</Button>
       {footer}
     </article>
   );
@@ -147,10 +147,10 @@ export function HeroGroup({ meds, doses, s, now, at, due, onLog, onLogAll, whose
   const label = due ? 'Due now' : sameDay ? 'Next' : `Next · ${fmtDay(at)}`;
   const all = items.filter((x) => !x.med.shared);
   return (
-    <article aria-label={`${label}: ${meds.map((m) => shownName(m)).join(', ')}`} className="pt-6 pb-6">
+    <article aria-label={`${label}: ${meds.map((m) => shownName(m)).join(', ')}`} className="hero">
       <p className="text-sm font-medium text-muted">{label}</p>
-      <p className="mt-1.5 font-light text-[84px] leading-[84px] tracking-[-0.04em] tnum" aria-hidden="true">
-        {due ? 'Now' : <>{hm}<span className="text-[28px] tracking-normal ml-1.5">{ap.toLowerCase()}</span></>}
+      <p className="mt-1 font-bold text-[64px] leading-[66px] tracking-[-0.03em] tnum" aria-hidden="true">
+        {due ? 'Now' : <>{hm}<span className="text-[24px] font-semibold tracking-normal ml-1.5 opacity-80">{ap.toLowerCase()}</span></>}
       </p>
       <p className="mt-2 text-[15px] text-muted tnum">{due ? `Due since ${fmtTime(at)}` : `in ${fmtCountdownLong(at - now)}`} · {meds.length} medicines</p>
       <ul className="mt-3 divide-y divide-border">
@@ -166,7 +166,7 @@ export function HeroGroup({ meds, doses, s, now, at, due, onLog, onLogAll, whose
         ))}
       </ul>
       <p className="sr-only" aria-live="polite">{label}{due ? '' : ` at ${fmtTime(at)}`}: {meds.map((m) => shownName(m)).join(', ')}.</p>
-      {all.length > 1 && (due || at - now <= 60 * 60_000) && <Button className="w-full min-h-[56px] mt-4 text-[17px]" onClick={() => onLogAll(all)}>Log all {all.length} now</Button>}
+      {all.length > 1 && (due || at - now <= 60 * 60_000) && <Button className="hero-btn w-full min-h-[56px] mt-4 text-[17px] font-semibold" onClick={() => onLogAll(all)}>Log all {all.length} now</Button>}
     </article>
   );
 }

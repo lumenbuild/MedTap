@@ -23,7 +23,16 @@ const ICON: Record<InsightKind, LucideIcon> = {
   second: Clock, dosecut: Moon, bestdose: Target, crash: BatteryLow, load: Layers, heart: Activity, undereat: Utensils, missed: CalendarX,
   illness: Thermometer, tolerance: TrendingDown, creep: TrendingUp, fluids: Droplet, appetite: Utensils, rebound: Brain, review: ClipboardList, supplement: Pill,
 };
-const TONE = { watch: { bg: 'var(--caution-soft)', fg: 'var(--caution)' }, good: { bg: 'var(--success-soft)', fg: 'var(--success)' }, plain: { bg: 'var(--surface-2)', fg: 'var(--primary)' } };
+const TONE = { watch: { bg: 'var(--caution-soft)', fg: 'var(--caution)' }, good: { bg: 'var(--success-soft)', fg: 'var(--success)' }, plain: { bg: 'var(--fill)', fg: 'var(--primary)' } };
+/** Each kind in the colour of its part of the app (sleep, heart, activity, body, peptides, focus, medicines). */
+const AREA: Partial<Record<InsightKind, string>> = {
+  sleep: 'sleep', dosecut: 'sleep', cutoff: 'sleep',
+  reading: 'heart', heart: 'heart', illness: 'heart',
+  steps: 'act', protein: 'act', lean: 'act',
+  regain: 'body', maintain: 'body', calories: 'body', undereat: 'body', eating: 'body',
+  stall: 'pep', fluids: 'pep', appetite: 'pep', gut: 'pep', missed: 'pep',
+  wearoff: 'mind', second: 'mind', bestdose: 'mind', crash: 'mind', rebound: 'mind', load: 'mind', tolerance: 'mind', creep: 'mind', review: 'mind',
+};
 
 /** Every insight for the person shown, worked out once a minute (or when the records change). */
 export function useInsights(): { list: Insight[]; settings: AppSettings } | null {
@@ -54,7 +63,9 @@ export function InsightRow({ x, settings }: { x: Insight; settings: AppSettings 
   const toast = useToast();
   const [odd, setOdd] = useState(false);
   const now = useNow(60_000);
-  const tone = TONE[x.tone];
+  const area = AREA[x.kind] ?? 'meds';
+  // Watch and good keep their meaning; the rest wear their area's colour.
+  const tone = x.tone === 'plain' ? { bg: `var(--c-${area})`, fg: '#FFFFFF' } : TONE[x.tone];
   const Icon = ICON[x.kind] ?? Lightbulb;
   const hide = async (days: number) => {
     const until = now + (days > 0 ? days : 3650) * 86_400_000;
@@ -133,7 +144,7 @@ export function TopInsights({ max = 2 }: { max?: number }) {
   const top = list.slice(0, max);
   const more = list.length - top.length;
   return (
-    <section aria-labelledby="ins-h" className="border-t border-border pt-3">
+    <section aria-labelledby="ins-h" className="box">
       <h2 id="ins-h" className="sr-only">For you</h2>
       <ul className="divide-y divide-border">{top.map((x) => <InsightRow key={x.id} x={x} settings={r.settings} />)}</ul>
       {more > 0 && <a href="#/progress/trends" className="min-h-[44px] flex items-center text-sm font-medium underline underline-offset-4">{more} more insight{more === 1 ? '' : 's'}</a>}

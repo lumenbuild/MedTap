@@ -1,34 +1,67 @@
+/* The look: by day bright and colourful (pale grey page, white rounded cards, a colour for each part of the app); by
+   night dark and premium (near-black page, dark cards with a hairline edge, the same colours with a glow). Text
+   colours meet WCAG AA on their surfaces; the brighter category colours are for icons, rings and fills. */
 :root {
-  /* B2: white, near-black and one grey, hairlines instead of boxes. Colour comes only from the medicines. */
-  --bg: #FFFFFF;        --surface: #FFFFFF;     --surface-2: #F4F4F4;
-  --text: #0A0A0A;      --text-muted: #6B6B6B;  --border: #EBEBEB;  --border-strong: #D4D4D4;
-  --primary: #0A0A0A;   --primary-hover: #2B2B2B; --on-primary: #FFFFFF;
-  --primary-soft: #F2F2F2;
-  --success: #15803D;   --success-soft: #EEF7F1;
-  --caution: #B45309;   --caution-soft: #FDF4E7;
-  --danger: #B91C1C;    --danger-soft: #FCEEEE;
-  --radius-card: 14px;  --radius-btn: 14px;  --radius-chip: 999px;
+  --bg: #F2F2F7;        --surface: #FFFFFF;     --surface-2: #FFFFFF;   --fill: #EBEBF0;
+  --text: #0A0A0B;      --text-muted: #636366;  --border: #E3E3E8;     --border-strong: #C7C7CC;  --card-line: transparent;
+  --primary: #0071E3;   --primary-hover: #0062C4; --on-primary: #FFFFFF;
+  --primary-soft: #E6F0FC;
+  --success: #1F7A36;   --success-soft: #E6F6EA;
+  --caution: #B25000;   --caution-soft: #FFF1E3;
+  --danger: #C8102E;    --danger-soft: #FFEBEE;
+  --radius-card: 18px;  --radius-btn: 14px;  --radius-chip: 999px;
   --shadow-card: none;
+  /* Parts of the app: icon and fill colours, and a darker one for text on white. */
+  --c-meds: #FF2D55;  --c-meds-ink: #C8103A;
+  --c-sleep: #5E5CE6; --c-sleep-ink: #4B49C9;
+  --c-heart: #FF3B30; --c-heart-ink: #C8102E;
+  --c-act: #FF9500;   --c-act-ink: #B25000;
+  --c-body: #0A84FF;  --c-body-ink: #0062C4;
+  --c-pep: #30B0C7;   --c-pep-ink: #00758A;
+  --c-mind: #AF52DE;  --c-mind-ink: #8A2EB8;
+  --hero-meds: linear-gradient(135deg, #D81B45 0%, #F0466A 100%);
+  --hero-pep: linear-gradient(135deg, #00809A 0%, #2FA9C2 100%);
+  --hero-ink: #FFFFFF; --hero-muted: rgba(255,255,255,.86); --hero-btn: #FFFFFF; --hero-btn-ink: #C8103A; --hero-pep-btn-ink: #00758A;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0A0A0A; --surface: #0A0A0A; --surface-2: #1A1A1A;
-    --text: #F5F5F5; --text-muted: #A3A3A3; --border: #262626; --border-strong: #3A3A3A;
-    --primary: #F5F5F5; --primary-hover: #D4D4D4; --on-primary: #0A0A0A;
-    --primary-soft: #1F1F1F;
-    --success: #4ADE80; --success-soft: #0F2A1A;
-    --caution: #F5A54A; --caution-soft: #2A1F0F;
-    --danger: #F87171;  --danger-soft: #2A1414;
+    --bg: #07090C; --surface: #12161C; --surface-2: #12161C; --fill: #1C222A;
+    --text: #EEF1F5; --text-muted: #9AA2AE; --border: #1E242C; --border-strong: #2F3742; --card-line: #1E242C;
+    --primary: #4C9EFF; --primary-hover: #74B4FF; --on-primary: #07090C;
+    --primary-soft: #0E2236;
+    --success: #30D158; --success-soft: #0F2A1A;
+    --caution: #FF9F0A; --caution-soft: #2A1F0F;
+    --danger: #FF5A52;  --danger-soft: #2A1215;
+    --c-meds: #FF375F;  --c-meds-ink: #FF6B88;
+    --c-sleep: #7472FF; --c-sleep-ink: #A3A2FF;
+    --c-heart: #FF453A; --c-heart-ink: #FF7A72;
+    --c-act: #FF9F0A;   --c-act-ink: #FFB547;
+    --c-body: #3D9BFF;  --c-body-ink: #74B4FF;
+    --c-pep: #3CC4DA;   --c-pep-ink: #6FD6E6;
+    --c-mind: #BF5AF2;  --c-mind-ink: #D58BF7;
+    --hero-meds: radial-gradient(130% 120% at 0% 0%, #4A1424 0%, #12161C 72%);
+    --hero-pep: radial-gradient(130% 120% at 0% 0%, #0F3A42 0%, #12161C 72%);
+    --hero-ink: #EEF1F5; --hero-muted: #9AA2AE; --hero-btn: #FF375F; --hero-btn-ink: #07090C; --hero-pep-btn-ink: #07090C;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0A0A0A; --surface: #0A0A0A; --surface-2: #1A1A1A;
-  --text: #F5F5F5; --text-muted: #A3A3A3; --border: #262626; --border-strong: #3A3A3A;
-  --primary: #F5F5F5; --primary-hover: #D4D4D4; --on-primary: #0A0A0A;
-  --primary-soft: #1F1F1F;
-  --success: #4ADE80; --success-soft: #0F2A1A;
-  --caution: #F5A54A; --caution-soft: #2A1F0F;
-  --danger: #F87171;  --danger-soft: #2A1414;
+  --bg: #07090C; --surface: #12161C; --surface-2: #12161C; --fill: #1C222A;
+  --text: #EEF1F5; --text-muted: #9AA2AE; --border: #1E242C; --border-strong: #2F3742; --card-line: #1E242C;
+  --primary: #4C9EFF; --primary-hover: #74B4FF; --on-primary: #07090C;
+  --primary-soft: #0E2236;
+  --success: #30D158; --success-soft: #0F2A1A;
+  --caution: #FF9F0A; --caution-soft: #2A1F0F;
+  --danger: #FF5A52;  --danger-soft: #2A1215;
+  --c-meds: #FF375F;  --c-meds-ink: #FF6B88;
+  --c-sleep: #7472FF; --c-sleep-ink: #A3A2FF;
+  --c-heart: #FF453A; --c-heart-ink: #FF7A72;
+  --c-act: #FF9F0A;   --c-act-ink: #FFB547;
+  --c-body: #3D9BFF;  --c-body-ink: #74B4FF;
+  --c-pep: #3CC4DA;   --c-pep-ink: #6FD6E6;
+  --c-mind: #BF5AF2;  --c-mind-ink: #D58BF7;
+  --hero-meds: radial-gradient(130% 120% at 0% 0%, #4A1424 0%, #12161C 72%);
+  --hero-pep: radial-gradient(130% 120% at 0% 0%, #0F3A42 0%, #12161C 72%);
+  --hero-ink: #EEF1F5; --hero-muted: #9AA2AE; --hero-btn: #FF375F; --hero-btn-ink: #07090C; --hero-pep-btn-ink: #07090C;
 }
 
 /* Medication / chart series colours: a validated categorical palette (CVD-safe adjacent order),

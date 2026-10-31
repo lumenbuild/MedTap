@@ -337,7 +337,7 @@ export function FoodToday({ personId, energy, target, now }: { personId: string;
   const tot = totalsFor(logs.filter((l) => personOf(l) === personId), start.getTime(), start.getTime() + 2 * 86_400_000);
   const n = logs.filter((l) => !l.deletedAt && personOf(l) === personId).length;
   return (
-    <section className="border-t border-border pt-4 space-y-3" aria-labelledby="food-h">
+    <section className="box space-y-3" aria-labelledby="food-h">
       <div className="flex items-center gap-3">
         <h2 id="food-h" className="flex-1 font-medium">Food</h2>
         <a href="#/food" className="min-h-[44px] flex items-center text-sm text-muted underline underline-offset-4">{n ? `${n} logged` : 'Details'}</a>

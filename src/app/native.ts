@@ -8,6 +8,8 @@ import { dosesForPerson, listPeople, medIsFor, personOf, storedPerson } from '..
 import { bedtimeOf, CAFFEINE, intakesOf, usualDrinks, usualHabits, usualKey, usualToAsk } from '../logic/caffeine';
 import { shortcutItems } from '../logic/widgets';
 import { widgetsPayload } from '../logic/widgets';
+import { watchExtras, watchLabel, watchPayload } from '../logic/watch';
+import { addVital } from '../db/repos/vitals';
 import { HAS_BODY, HAS_PEPTIDES } from '../edition';
 import { addIntake } from '../db/repos/training';
 import { addCheckIn } from '../db/repos/checkIns';
@@ -122,23 +124,45 @@ async function logWatchTaps() {
   } catch (e) { console.error('watch', e); }
 }
 
-/** From the watch (biohacking tools): a focus rating, a noted symptom, or a reaction test, saved as a check-in for the
- *  person the watch shows, tied to the last stimulant dose within 8 hours. */
+/** From the watch: a check-in (mood, focus, energy, symptoms), a reaction or brain test, how last night was, a drink,
+ *  water, a heart-rate reading, or a skipped dose. Saved for the person the watch shows; check-ins are tied to the last
+ *  stimulant dose within 8 hours. */
 async function logWatchCheckIns() {
   try {
     const { items } = await MedTapNative.takeWatchCheckIns();
     if (!items.length) return;
     const settings = await getSettings();
     const who = storedPerson(settings.activePersonId);
+    const s = scheduleSettings(settings);
     const [meds, doses] = await Promise.all([db.medications.toArray(), db.doses.toArray()]);
     const stim = new Set(meds.filter((m) => isStimulant(m)).map((m) => m.id));
+    const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
     for (const it of items) {
       const at = Number(it.at) || Date.now();
+      const iso = new Date(at).toISOString();
+      // A dose skipped from the watch's reminder.
+      if (typeof it.skip === 'string') {
+        const med = meds.find((m) => m.id === it.skip);
+        if (!med || med.archived || med.shared) continue;
+        const mine = doses.filter((d) => !d.deletedAt && d.medicationId === med.id);
+        if (getRecentDose(mine, med.id, at, settings.guardMinutes)) continue;
+        const due = num(it.dueAt);
+        await logDose({ medicationId: med.id, takenAt: new Date(due && due <= at + 3_600_000 ? due : at).toISOString(), amount: getExpectedAmount(med, mine, due ?? at, s), source: 'watch', skipped: true, skipReason: 'Skipped on the watch' });
+        continue;
+      }
+      if (num(it.waterMl)) { await addIntake(settings.activePersonId, dayKey(at, s), 'waterMl', num(it.waterMl)!); continue; }
+      if (num(it.hrBpm)) { await addVital({ at: iso, heartRate: Math.round(num(it.hrBpm)!), note: typeof it.note === 'string' ? it.note : 'Watch', personId: who }); continue; }
       const last = doses.filter((d) => !d.deletedAt && !d.skipped && stim.has(d.medicationId) && Date.parse(d.takenAt) <= at && Date.parse(d.takenAt) > at - 8 * 3_600_000)
         .sort((a, b) => b.takenAt.localeCompare(a.takenAt))[0];
-      const test = typeof it.rtMs === 'number' ? { rtMs: it.rtMs, rtLapses: it.rtLapses ?? 0, rtEarly: it.rtEarly ?? 0, test: 'watch' as const } : {};
-      await addCheckIn({ at: new Date(at).toISOString(), chips: it.chip ? [it.chip] : [], ...(typeof it.focus === 'number' ? { focus: it.focus } : {}), ...test, relatedDoseId: last?.id, personId: who });
+      const test = num(it.rtMs) !== undefined ? { rtMs: num(it.rtMs), rtLapses: num(it.rtLapses) ?? 0, rtEarly: num(it.rtEarly) ?? 0, ...(num(it.nbackPct) !== undefined ? { nbackPct: num(it.nbackPct), test: 'full' as const } : { test: 'watch' as const }) } : {};
+      const chips = [...(typeof it.chip === 'string' ? [it.chip] : []), ...(Array.isArray(it.chips) ? it.chips.filter((c: unknown): c is string => typeof c === 'string') : [])];
+      const mg = num(it.caffeineMg);
+      const drink = mg !== undefined ? { caffeineMg: mg, ...(typeof it.drink === 'string' ? { note: it.drink } : {}) } : {};
+      if (mg !== undefined && !chips.includes(CAFFEINE)) chips.push(CAFFEINE);
+      const scores = Object.fromEntries((['focus', 'mood', 'energy', 'sleepQuality'] as const).filter((k) => num(it[k]) !== undefined).map((k) => [k, num(it[k])]));
+      await addCheckIn({ at: iso, chips, ...scores, ...test, ...drink, ...('sleepQuality' in scores ? {} : { relatedDoseId: last?.id }), personId: who });
     }
+    await syncExtras();
   } catch (e) { console.error('watch check-ins', e); }
 }
 
@@ -206,7 +230,13 @@ async function syncExtras() {
       const r = mindReadiness({ daily: dy, checkIns: cis, doses: live, meds: mine }, now, s);
       return { ring, readiness: r?.score, chips: ['Nausea', 'Headache', 'Anxious', 'Wearing off', 'Heart racing', 'Tired'] };
     })() : undefined;
-    await MedTapNative.setWidget({ json: JSON.stringify(bio ? { ...payload, bio } : payload) });
+    // The watch app: today's doses, its own reminders, sleep, drinks and the heart-rate checks after a stimulant dose.
+    // It never shows a medicine's name ("Dose", "Shot", "As needed"), so it gets its own copy.
+    const watch = watchExtras({ meds: mine, doses: live, checkIns: theirs(checkIns), daily: theirs(daily), nameOf: watchLabel(mine), remindersOnWatch: settings.remindersEnabled && settings.watchReminders,
+      snoozeMin: settings.snoozeMin, sleepTools: HAS_PEPTIDES && settings.sleepTools, sleepTargetH: settings.sleepTargetH, caffeineLimitMg: settings.caffeineLimitMg,
+      caffeineHalfLifeH: settings.caffeineHalfLifeH, waterTarget: settings.waterTargetMl, waterAdd: settings.intakeAmounts?.waterMl[0] ?? 250,
+      peptides: HAS_PEPTIDES && settings.peptideTools && !(settings.privacyPinHash && settings.privacyHidePeptides) }, Date.now(), scheduleSettings(settings));
+    await MedTapNative.setWidget({ json: JSON.stringify(bio ? { ...payload, bio } : payload), watchJson: JSON.stringify(watchPayload(payload, mine, watch, bio)) });
     await MedTapNative.setShortcuts({ items: shortcutItems(mine) });
   } catch (e) { console.error('widget/shortcuts', e); }
 }

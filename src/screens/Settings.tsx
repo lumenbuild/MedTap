@@ -302,10 +302,18 @@ export function Settings({ section }: { section?: string }) {
     watch: () => (
       <Card className="space-y-3">
         <ul className="space-y-1">
-          <li><IconRow Icon={Clock} tone="primary">Next dose: app, tile and watch face</IconRow></li>
-          <li><IconRow Icon={Check} tone="primary">Log with one tap</IconRow></li>
+          <li><IconRow Icon={Clock} tone="primary">Next dose and today’s doses: app, tiles and watch face</IconRow></li>
+          <li><IconRow Icon={Check} tone="primary">Log, snooze or skip from the wrist, even away from the phone</IconRow></li>
+          {HAS_PEPTIDES && <li><IconRow Icon={Moon} tone="primary">Sleep score, bedtime and a wind-down buzz</IconRow></li>}
+          {HAS_PEPTIDES && <li><IconRow Icon={Brain} tone="primary">Focus window countdown, check-ins, brain tests, heart rate after a dose</IconRow></li>}
+          <li><IconRow Icon={Coffee} tone="primary">Caffeine and water</IconRow></li>
           {HAS_TRAINING && <li><IconRow Icon={Timer} tone="primary">Workouts: next set, Done, rest timer</IconRow></li>}
         </ul>
+        {HAS_MEDS && settings.remindersEnabled && (
+          <Switch label="Reminders on the watch" checked={settings.watchReminders} onChange={(v) => setSetting('watchReminders', v)}>
+            Buzzes for each dose with Log, Snooze and Skip, even away from the phone. To avoid two buzzes, turn off this app’s notifications in the Pixel Watch app.
+          </Switch>
+        )}
         <a href={watchDownload} className="flex items-center justify-center gap-2 min-h-[48px] rounded-btn bg-primary text-on-primary font-semibold"><Download size={18} aria-hidden="true" /> {edition.watchApk}</a>
         <details className="text-sm">
           <summary className="cursor-pointer min-h-[44px] flex items-center font-medium">Install steps</summary>

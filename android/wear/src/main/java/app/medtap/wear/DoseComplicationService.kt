@@ -1,8 +1,6 @@
 package app.medtap.wear
 
 import android.app.PendingIntent
-import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import androidx.wear.watchface.complications.data.ComplicationData
 import androidx.wear.watchface.complications.data.ComplicationType
@@ -14,7 +12,6 @@ import androidx.wear.watchface.complications.data.ShortTextComplicationData
 import androidx.wear.watchface.complications.data.TimeDifferenceComplicationText
 import androidx.wear.watchface.complications.data.TimeDifferenceStyle
 import androidx.wear.watchface.complications.datasource.ComplicationDataSourceService
-import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
 import androidx.wear.watchface.complications.datasource.ComplicationRequest
 import java.time.Instant
 
@@ -28,7 +25,7 @@ class DoseComplicationService : ComplicationDataSourceService() {
     override fun getPreviewData(type: ComplicationType): ComplicationData? = when (type) {
         ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(PlainComplicationText.Builder("2h 15m").build(), PlainComplicationText.Builder("Next dose").build())
             .setTitle(PlainComplicationText.Builder("Dose").build()).build()
-        ComplicationType.LONG_TEXT -> LongTextComplicationData.Builder(PlainComplicationText.Builder("Morning tablet in 2h 15m").build(), PlainComplicationText.Builder("Next dose").build()).build()
+        ComplicationType.LONG_TEXT -> LongTextComplicationData.Builder(PlainComplicationText.Builder("Dose in 2h 15m").build(), PlainComplicationText.Builder("Next dose").build()).build()
         ComplicationType.RANGED_VALUE -> RangedValueComplicationData.Builder(0.4f, 0f, 1f, PlainComplicationText.Builder("Effect 40%").build())
             .setText(PlainComplicationText.Builder("1:10").build()).build()
         else -> null
@@ -40,13 +37,15 @@ class DoseComplicationService : ComplicationDataSourceService() {
         val workout = WatchState.workout(this)
         val restUntil = workout?.optLong("restUntil") ?: 0L
         val d = WatchState.load(this)
-        val title = d.optString("title", "")
-        val dueAt = d.optLong("dueAt", 0L)
+        val next = WatchState.nextDose(this)
+        val title = next?.name ?: d.optString("title", "")
+        val dueAt = next?.at?.takeIf { next.state == "later" } ?: if (next != null) 0L else d.optLong("dueAt", 0L)
         val describe = PlainComplicationText.Builder(if (restUntil > now) "Rest left" else "Next dose").build()
         // The text: a live countdown when there's a time to count to, else the plain words.
         val (short, label) = when {
             restUntil > now -> countdown(restUntil) to "Rest"
-            dueAt > now -> countdown(dueAt) to d.optString("label", "Dose").take(7)
+            dueAt > now -> countdown(dueAt) to (if (next != null) "Next" else d.optString("label", "Dose").take(7))
+            next?.state == "due" -> PlainComplicationText.Builder("Now").build() to next.name.take(7)
             title.isNotEmpty() -> PlainComplicationText.Builder(title.take(7)).build() to "Dose"
             else -> PlainComplicationText.Builder("—").build() to "Dose"
         }
@@ -59,8 +58,8 @@ class DoseComplicationService : ComplicationDataSourceService() {
                     val from = ring.optLong("from"); val to = ring.optLong("to")
                     val p = ((now - from).toFloat() / (to - from).toFloat()).coerceIn(0f, 1f)
                     val until = android.text.format.DateFormat.getTimeFormat(this).format(java.util.Date(to)).replace(" ", "").lowercase()
-                    RangedValueComplicationData.Builder(p, 0f, 1f, PlainComplicationText.Builder("${ring.optString("name")} until $until").build())
-                        .setText(PlainComplicationText.Builder(until).build()).setTitle(PlainComplicationText.Builder(ring.optString("name").take(7)).build()).setTapAction(tap).build()
+                    RangedValueComplicationData.Builder(p, 0f, 1f, PlainComplicationText.Builder("Focus until $until").build())
+                        .setText(PlainComplicationText.Builder(until).build()).setTitle(PlainComplicationText.Builder("Focus").build()).setTapAction(tap).build()
                 }
             }
             ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(short, describe)
@@ -68,6 +67,7 @@ class DoseComplicationService : ComplicationDataSourceService() {
             ComplicationType.LONG_TEXT -> {
                 val words = when {
                     restUntil > now -> "Rest, then ${workout?.optJSONObject("next")?.optString("exercise") ?: "next set"}"
+                    next != null -> if (next.state == "due") "${next.name} due now" else "${next.name} at ${Alarms.fmtTime(this, next.at ?: now)}"
                     title.isNotEmpty() -> "$title ${d.optString("when", "")}".trim()
                     else -> "Open the app on your phone to set up"
                 }
@@ -81,10 +81,4 @@ class DoseComplicationService : ComplicationDataSourceService() {
     private fun countdown(at: Long) = TimeDifferenceComplicationText.Builder(TimeDifferenceStyle.SHORT_DUAL_UNIT, CountDownTimeReference(Instant.ofEpochMilli(at)))
         .setMinimumTimeUnit(java.util.concurrent.TimeUnit.MINUTES).build()
 
-    companion object {
-        /** Redraw this complication on any watch face using it (the phone sent something new). */
-        fun refresh(context: Context) {
-            try { ComplicationDataSourceUpdateRequester.create(context, ComponentName(context, DoseComplicationService::class.java)).requestUpdateAll() } catch (_: Exception) {}
-        }
-    }
 }

@@ -243,7 +243,7 @@ export function AdherenceHeatmap({ meds, doses, start, end, s, realNames, oneMed
                   return {
                     title: `${fmtDay(ymdToMs(c.day))}: ${off ? 'not scheduled' : `${c.count}${t ? ` of ${t}` : ''}`}`,
                     className: off ? 'border border-dashed border-border' : '',
-                    style: { background: off ? 'transparent' : level ? medColour(med.color) : 'var(--surface-2)', opacity: level ? level : 1 },
+                    style: { background: off ? 'transparent' : level ? medColour(med.color) : 'var(--fill)', opacity: level ? level : 1 },
                     inner: over ? <span className="absolute left-1/2 top-1/2 w-2 h-2 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: 'var(--surface)' }} /> : null,
                   };
                 }} />
@@ -252,7 +252,7 @@ export function AdherenceHeatmap({ meds, doses, start, end, s, realNames, oneMed
         })}
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted" aria-hidden="true">
           <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded-[3px] border border-dashed border-border" /> Not scheduled</span>
-          <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded-[3px]" style={{ background: 'var(--surface-2)' }} /> None</span>
+          <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded-[3px]" style={{ background: 'var(--fill)' }} /> None</span>
           <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded-[3px] bg-text opacity-45" /> Some</span>
           <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded-[3px] bg-text" /> Your daily number</span>
           <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded-[3px] bg-text relative"><span className="absolute inset-[4px] rounded-full bg-surface" /></span> More</span>

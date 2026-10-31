@@ -50,6 +50,7 @@ import { AutoBackupPermission, BackupReminder, CheckInAutoOpen, CheckInPrompt, F
 import { focusAsk } from '../../logic/stimulant';
 import { TopInsights } from '../../components/InsightList';
 import { DailyBrief } from '../../components/Biohack';
+import { TodayNumbers } from '../../components/TodayNumbers';
 import { HAS_MEDS, HAS_BODY, HAS_TRAINING, HAS_FOOD, FOCUS, HAS_PEPTIDES } from '../../edition';
 import { IntakeCard } from '../../components/Fitness';
 import { WeekTeaser } from '../../components/WeekReview';
@@ -238,7 +239,7 @@ export function Today() {
         ? <HeroGroup meds={up.meds} doses={viewDoses} s={s} now={now} at={up.at} due={up.due} onLog={setLogFor} onLogAll={logAll} whose={fam.many ? whose : undefined} />
         : headline && hero(headline)}
       {scheduled.length > 1 && (
-        <section aria-labelledby="today-meds" className="border-t border-border pt-4">
+        <section aria-labelledby="today-meds" className="box">
           {/* One ring for the day (doses due today, check-in, water, protein), with the streak, heading the list. */}
           <h2 id="today-meds" className="sr-only">Today</h2>
           {motivation && !fam.everyone && <DayStrip ring={motivation.ring} streaks={motivation.streaks} milestones={motivation.milestones} bare news={streakNews} />}
@@ -258,6 +259,7 @@ export function Today() {
           {scheduled.length <= 1 && <DayStrip ring={motivation.ring} streaks={motivation.streaks} milestones={motivation.milestones} news={streakNews} />}
         </>;
       })()}
+      {!fam.everyone && <TodayNumbers />}
       {!fam.everyone && settings.usualAsk && (
         <UsualCard asks={usualToAsk(usualHabits(intakes, now, s), intakes, now, settings.usualDismissed, s)} personId={storedPerson(fam.personId)} now={now} s={s}
           onNotToday={(k) => setSetting('usualDismissed', [k, ...settings.usualDismissed].slice(0, 60))} />
@@ -303,7 +305,7 @@ export function Today() {
       {!fam.everyone && <TopInsights />}
 
       {prn.length > 0 && (
-        <section className="border-t border-border pt-4" aria-label="As needed">
+        <section className="box" aria-label="As needed">
           <h2 className="text-sm font-medium text-muted">As needed</h2>
           {prn.map((m) => <PrnCard key={m.id} med={m} doses={viewDoses} s={s} now={now} onLog={() => setLogFor(m)} person={whose(m)} limits={!(fam.everyone && m.shared)} />)}
         </section>
@@ -312,7 +314,7 @@ export function Today() {
       {fam.everyone ? (
         <p className="text-sm text-muted text-center px-4">Pick a person above to log for them.</p>
       ) : (
-      <div role="group" className="border-t border-border pt-4 grid grid-cols-4 gap-2" aria-label={fam.many ? `Log for ${fam.person}` : 'Log something else'}>
+      <div role="group" className="grid grid-cols-4 gap-2" aria-label={fam.many ? `Log for ${fam.person}` : 'Log something else'}>
         {([
           ['Check in', 'Check in', Smile, () => setCheckIn({})],
           ['BP', 'Log blood pressure and pulse', HeartPulse, () => setVitalSheet({})],
