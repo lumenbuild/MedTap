@@ -171,7 +171,7 @@ const CORE: GuideEntry[] = [
     tips: ['If it stings a lot, mix it with more water so the same dose is a bigger, weaker draw.'],
     chips: ['Site sting'],
     sources: ['Pickart & Margolina, Int J Mol Sci 2018: review of GHK-Cu.'],
-    setup: { defaultAmount: 1, syringeUnits: 30, schedule: (t) => daily('20:00', { course: { start: t, days: 42, remindAfterDays: 28 } }) },
+    setup: { defaultAmount: 1, syringeUnits: 50, schedule: (t) => daily('20:00', { course: { start: t, days: 42, remindAfterDays: 28 } }) },
   },
   {
     id: 'dsip', name: 'DSIP', aka: ['delta sleep-inducing peptide'], match: ['delta sleep inducing peptide', 'disp'],
@@ -195,7 +195,7 @@ const CORE: GuideEntry[] = [
     tips: ['Log how you slept the next morning: the check-in’s sleep score shows whether it’s doing anything for you.'],
     chips: ['Slept well', 'Groggy'],
     sources: ['Kovalzon & Strekalova, J Neurochem 2006: review of DSIP research.'],
-    setup: { defaultAmount: 0.25, syringeUnits: 30, schedule: (t) => daily('21:00', { course: { start: t, days: 14, remindAfterDays: 14 } }) },
+    setup: { defaultAmount: 0.25, syringeUnits: 50, schedule: (t) => daily('21:00', { course: { start: t, days: 14, remindAfterDays: 14 } }) },
   },
   {
     id: 'bpc-157', name: 'BPC-157', aka: ['body protection compound'], match: ['bpc', 'bpc 157', 'bpc157'],
@@ -218,7 +218,7 @@ const CORE: GuideEntry[] = [
     tips: ['Log pain or how the injury feels in check-ins, so you can see the trend.'],
     chips: ['Pain better', 'Pain worse'],
     sources: ['Vasireddi et al., HSS J 2025: review of BPC-157 for musculoskeletal healing.', 'Sikiric et al.: animal studies of BPC-157 (1990s–2020s).'],
-    setup: { defaultAmount: 250, syringeUnits: 30, schedule: (t) => daily('08:00', { course: { start: t, days: 28, remindAfterDays: 28 } }) },
+    setup: { defaultAmount: 250, syringeUnits: 50, schedule: (t) => daily('08:00', { course: { start: t, days: 28, remindAfterDays: 28 } }) },
   },
   {
     id: 'nad', name: 'NAD+', aka: ['nicotinamide adenine dinucleotide'], match: ['nad', 'nad 500', 'nad500'],
@@ -273,7 +273,7 @@ const CORE: GuideEntry[] = [
     tips: ['Log focus and anxiety in check-ins for a week on and a week off: the difference shows what it’s doing for you.', 'For a nose spray, a typical pump gives about 0.1 mL a spray: in a 1 mg per mL mix that’s about 100 mcg.'],
     chips: ['Focus', 'Anxious'],
     sources: ['Russian State Register: Semax 0.1% and 1% nasal drops.', 'Dolotov et al., Brain Res 2006: Semax and BDNF.'],
-    setup: { defaultAmount: 200, syringeUnits: 30, schedule: (t) => daily('08:00', { course: { start: t, days: 14, remindAfterDays: 7 } }) },
+    setup: { defaultAmount: 200, syringeUnits: 50, schedule: (t) => daily('08:00', { course: { start: t, days: 14, remindAfterDays: 7 } }) },
   },
   {
     id: 'epitalon', name: 'Epitalon', aka: ['Epithalon', 'AEDG'], match: ['epithilian', 'epithalamin'],
@@ -324,7 +324,7 @@ export const GUIDE: GuideEntry[] = [...CORE.map((g) => ({ ...g, ...CORE_EXTRA[g.
 export const BASICS: { title: string; points: string[] }[] = [
   { title: 'What you need', points: [
     'Bacteriostatic water (with 0.9% benzyl alcohol): it keeps a vial you use more than once clean. Sterile water is for a single use.',
-    'Insulin syringes: U-100, 29–31 gauge, 8 mm or shorter. 0.3 mL (30 units) for small doses, 0.5 mL (50 units) or 1 mL (100 units) for bigger ones.',
+    'Insulin syringes: U-100, 29–31 gauge, 8 mm or shorter. 0.5 mL (50 units) is the usual size; 1 mL (100 units) for bigger doses, 0.3 mL (30 units) for very small ones.',
     'A bigger syringe to add the water (e.g. 3 mL with a drawing-up needle), alcohol swabs and a sharps container.',
   ] },
   { title: 'Mixing a vial', points: [

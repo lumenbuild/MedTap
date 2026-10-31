@@ -72,7 +72,7 @@ const blank: Form = {
   name: '', strength: '', unit: 'mg', form: 'tablet',
   color: MED_COLOURS[0].value, icon: 'pill', stockCount: '', lowStockAt: '', scriptNotes: '',
   repeatsLeft: '', scriptExpiry: '', instructions: '', instructionsBy: '', nickname: '', privateView: '', coverName: '', personId: '',
-  mixed: false, kind: 'vial', waterMl: '', syringe: 'U-100', syringeUnits: '30', useWithinDays: '',
+  mixed: false, kind: 'vial', waterMl: '', syringe: 'U-100', syringeUnits: '50', useWithinDays: '',
   amountPerClick: '', blend: [], halfLife: '', halfLifeUnit: 'days', ingredients: '', cost: '',
 };
 
@@ -88,7 +88,7 @@ function fromMed(m: Medication): Form {
     instructions: m.instructions ?? '', instructionsBy: m.instructionsBy ?? '', nickname: m.nickname ?? '', privateView: m.privateView ?? '', coverName: m.coverName ?? '',
     personId: m.shared ? 'shared' : personOf(m),
     mixed: !!m.peptide, kind: m.peptide?.kind ?? 'vial', waterMl: str(m.peptide?.waterMl), syringe: m.peptide?.syringe ?? 'U-100',
-    syringeUnits: str(m.peptide?.syringeUnits) || '30', useWithinDays: str(m.peptide?.useWithinDays),
+    syringeUnits: str(m.peptide?.syringeUnits) || '50', useWithinDays: str(m.peptide?.useWithinDays),
     amountPerClick: str(m.peptide?.amountPerClick), blend: (m.peptide?.blend ?? []).map((b) => ({ ...b, amount: String(b.amount) })),
     // Half-lives of a day or more read better in days.
     halfLife: !m.peptide?.halfLifeHours ? '' : m.peptide.halfLifeHours >= 24 ? str(Math.round((m.peptide.halfLifeHours / 24) * 100) / 100) : str(m.peptide.halfLifeHours),
@@ -110,7 +110,7 @@ function toInput(f: Form, before?: Medication): MedInput {
     instructions, instructionsBy: instructions ? f.instructionsBy.trim() || undefined : undefined,
     peptide: f.mixed ? {
       kind: f.kind,
-      waterMl: f.kind === 'vial' ? Number(f.waterMl) : 0, syringe: f.syringe, syringeUnits: Number(f.syringeUnits) || 30,
+      waterMl: f.kind === 'vial' ? Number(f.waterMl) : 0, syringe: f.syringe, syringeUnits: Number(f.syringeUnits) || 50,
       useWithinDays: num(f.useWithinDays), mixedAt: before?.peptide?.mixedAt,
       amountPerClick: f.kind === 'pen' ? num(f.amountPerClick) : undefined,
       blend: f.kind === 'vial' ? f.blend.filter((b) => b.name.trim() && Number(b.amount) > 0).map((b) => ({ name: b.name.trim(), amount: Number(b.amount), unit: b.unit })) : undefined,
@@ -585,7 +585,7 @@ function MixedVialFields({ f, set, errors, vials }: { f: Form; set: <K extends k
   const sizes = syringeSizes(f.syringe);
   const preview = {
     id: '', name: f.name, defaultAmount: Number(f.defaultAmount) || 0, strength: Number(f.strength), unit: f.unit, vials,
-    peptide: { kind: f.kind, waterMl: Number(f.waterMl), syringe: f.syringe, syringeUnits: Number(f.syringeUnits) || 30, amountPerClick: num(f.amountPerClick),
+    peptide: { kind: f.kind, waterMl: Number(f.waterMl), syringe: f.syringe, syringeUnits: Number(f.syringeUnits) || 50, amountPerClick: num(f.amountPerClick),
       blend: f.blend.filter((b) => b.name.trim() && Number(b.amount) > 0).map((b) => ({ name: b.name, amount: Number(b.amount), unit: b.unit })) },
   };
   return (
@@ -604,7 +604,7 @@ function MixedVialFields({ f, set, errors, vials }: { f: Form; set: <K extends k
           <TextInput label="Water usually added to a vial (mL)" type="number" inputMode="decimal" min="0" step="any" value={f.waterMl}
             onChange={(e) => set('waterMl', e.target.value)} error={errors.waterMl} />
           <div className="grid grid-cols-2 gap-3 items-start">
-            <Select label="Syringe" value={f.syringe} onChange={(e) => { set('syringe', e.target.value as SyringeType); set('syringeUnits', String(syringeSizes(e.target.value as SyringeType)[0].units)); }}>
+            <Select label="Syringe" value={f.syringe} onChange={(e) => { set('syringe', e.target.value as SyringeType); set('syringeUnits', String((syringeSizes(e.target.value as SyringeType).find((x) => x.ml === 0.5) ?? syringeSizes(e.target.value as SyringeType)[0]).units)); }}>
               {SYRINGES.map((x) => <option key={x.value} value={x.value}>{x.value}</option>)}
             </Select>
             <Select label="Size" value={f.syringeUnits} onChange={(e) => set('syringeUnits', e.target.value)}>

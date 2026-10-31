@@ -130,7 +130,7 @@ function GuideHero({ g, vial }: { g: GuideEntry; vial?: GuideVial }) {
         <p className="hero-label">Starting dose</p>
         <p className="mt-1 tnum"><span className="text-[52px] leading-[56px] font-bold tracking-[-0.03em]">{fmtDose(g.setup.defaultAmount, g.unit)}</span>
           {d && <span className="text-[24px] font-semibold ml-2">= {v(d.units)} units</span>}</p>
-        {d ? <><div className="mt-2"><SyringeGauge units={d.units} capacity={d.units > 50 ? 100 : d.units > 30 ? 50 : 30} onHero /></div>
+        {d ? <><div className="mt-2"><SyringeGauge units={d.units} capacity={d.units > 50 ? 100 : 50} onHero /></div>
           <p className="mt-1 text-muted text-[15px]">Your {fmtDose(vial!.amount, g.unit)} vial + {v(vial!.waterMl)} mL water</p></>
           : <p className="mt-1 text-muted text-[15px]">Add your vial under Mixing and drawing to see the units.</p>}
       </section>

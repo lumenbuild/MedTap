@@ -81,6 +81,8 @@ export function PeptideCalc() {
     if (m.peptide?.waterMl) setWater(String(m.peptide.waterMl));
     setDose(String(m.defaultAmount)); setDoseUnit(u);
     if (m.peptide?.syringe) setSyringe(m.peptide.syringe);
+    const size = syringeSizes(m.peptide?.syringe ?? 'U-100').find((x) => x.units === m.peptide?.syringeUnits);
+    setSizeMl(String(size?.ml ?? 0.5));
   };
 
   const sizes = syringeSizes(syringe);
