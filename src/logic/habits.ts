@@ -2,7 +2,7 @@
 // tend to be missed, when a medicine's effect starts and wears off, how late doses go with sleep, and what the coming
 // days usually look like. Pure; `now` and settings are passed in. Estimates with their basis, never advice.
 import { plausibleHours } from './durations';
-import type { CheckIn, Dose, Medication, ReminderTime } from '../db/schema';
+import type { CheckIn, DailyHealth, Dose, Medication, ReminderTime } from '../db/schema';
 import { getDayBounds, getSlots, isScheduledDay, timeInDay, weekdayOf, type ScheduleSettings } from './schedule';
 import { medOn } from './plans';
 import { dayKey } from './stats';
@@ -187,16 +187,21 @@ export function effectWindow(med: Medication, doses: Dose[], checkIns: CheckIn[]
 export interface SleepImpact {
   /** Last dose at or after this hour (local) usually goes with worse sleep. */
   cutoffHour: number;
-  before: { nights: number; quality?: number; hours?: number };
-  after: { nights: number; quality?: number; hours?: number };
+  before: { nights: number; quality?: number; hours?: number; deepMin?: number };
+  after: { nights: number; quality?: number; hours?: number; deepMin?: number };
+  /** Sleep from the watch (hours and deep sleep) rather than check-ins alone. */
+  watch: boolean;
 }
 
-/** The day's last dose time against that night's sleep (from the next check-in with sleep in it, before 2 pm next day).
- *  Finds the hour after which sleep is clearly worse: 0.7+ lower quality or 0.7+ fewer hours, 4+ nights each side. */
-export function sleepImpact(meds: Medication[], doses: Dose[], checkIns: CheckIn[], now: number, s: ScheduleSettings): SleepImpact | null {
+/** The day's last dose time against that night's sleep: hours asleep and deep sleep from the watch where there is a
+ *  night, and quality (and hours, without a watch) from the next check-in with sleep in it, before 2 pm next day.
+ *  Finds the hour after which sleep is clearly worse: 0.7+ lower quality, 0.7+ fewer hours or 10+ fewer minutes of
+ *  deep sleep, 4+ nights each side. */
+export function sleepImpact(meds: Medication[], doses: Dose[], checkIns: CheckIn[], now: number, s: ScheduleSettings, daily: DailyHealth[] = []): SleepImpact | null {
   const ids = new Set(meds.map((m) => m.id));
   const taken = doses.filter((d) => ids.has(d.medicationId) && !d.deletedAt && !d.skipped && Date.parse(d.takenAt) > now - 90 * DAY);
-  const nights: { lastHour: number; quality?: number; hours?: number }[] = [];
+  const nights: { lastHour: number; quality?: number; hours?: number; deep?: number }[] = [];
+  const watchNight = new Map(daily.filter((x) => !x.deletedAt && x.sleepMin).map((x) => [x.date, x]));
   const byDay = new Map<string, number>();
   for (const d of taken) {
     const t = Date.parse(d.takenAt);
@@ -208,8 +213,9 @@ export function sleepImpact(meds: Medication[], doses: Dose[], checkIns: CheckIn
   for (const [, last] of byDay) {
     const dayEnd = getDayBounds(last, s.dayStartsAt, s.tz).end;
     const next = sleepCis.find((c) => { const t = Date.parse(c.at); return t > last && t >= dayEnd - 6 * HOUR && t < dayEnd + 10 * HOUR; });
-    if (!next) continue;
-    nights.push({ lastHour: hourOf(last), quality: next.sleepQuality, hours: next.sleepHours });
+    const w = watchNight.get(dayKey(dayEnd + 6 * HOUR, s));
+    if (!next && !w) continue;
+    nights.push({ lastHour: hourOf(last), quality: next?.sleepQuality, hours: w?.sleepMin ? r(w.sleepMin / 60) : next?.sleepHours, deep: w?.sleepDeepMin });
   }
   if (nights.length < 8) return null;
   let best: SleepImpact | null = null;
@@ -219,11 +225,13 @@ export function sleepImpact(meds: Medication[], doses: Dose[], checkIns: CheckIn
     if (a.length < 4 || b.length < 4) continue;
     const q = (xs: typeof nights) => { const v = xs.map((x) => x.quality).filter((x): x is number => typeof x === 'number'); return v.length >= 3 ? r(avg(v)) : undefined; };
     const h = (xs: typeof nights) => { const v = xs.map((x) => x.hours).filter((x): x is number => typeof x === 'number'); return v.length >= 3 ? r(avg(v)) : undefined; };
-    const qa = q(a), qb = q(b), ha = h(a), hb = h(b);
-    const gap = Math.max(qa !== undefined && qb !== undefined ? qa - qb : 0, ha !== undefined && hb !== undefined ? ha - hb : 0);
+    const dp = (xs: typeof nights) => { const v = xs.map((x) => x.deep).filter((x): x is number => typeof x === 'number'); return v.length >= 3 ? Math.round(avg(v)) : undefined; };
+    const qa = q(a), qb = q(b), ha = h(a), hb = h(b), da = dp(a), db_ = dp(b);
+    // Deep sleep counts on the same scale: 10 minutes is about as telling as 0.7 of a point or of an hour.
+    const gap = Math.max(qa !== undefined && qb !== undefined ? qa - qb : 0, ha !== undefined && hb !== undefined ? ha - hb : 0, da !== undefined && db_ !== undefined ? ((da - db_) / 10) * 0.7 : 0);
     if (gap >= 0.7 && gap > bestGap) {
       bestGap = gap;
-      best = { cutoffHour: cut, before: { nights: a.length, quality: qa, hours: ha }, after: { nights: b.length, quality: qb, hours: hb } };
+      best = { cutoffHour: cut, before: { nights: a.length, quality: qa, hours: ha, deepMin: da }, after: { nights: b.length, quality: qb, hours: hb, deepMin: db_ }, watch: watchNight.size > 0 };
     }
   }
   return best;

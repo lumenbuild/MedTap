@@ -9,6 +9,7 @@ import { getDayBounds, type ScheduleSettings } from './schedule';
 import { dayKey } from './stats';
 import { zonedParts } from './tz';
 import { level, type Intake } from './caffeine';
+import { heartResponse } from './watchSignals';
 
 const HOUR = 3_600_000;
 const DAY = 86_400_000;
@@ -64,11 +65,13 @@ export function secondDose(med: Medication, doses: Dose[], checkIns: CheckIn[], 
   if (today.length !== 1) return null;
   const w = wearOffToday(med, doses, checkIns, daily, now, s);
   if (!w) return null;
-  const onset = effectWindow(med, doses, checkIns, now)?.onsetH;
+  // How long it takes to kick in: from focus check-ins, else from when the heart rate rise usually starts.
+  const hrOnset = heartResponse(med, doses, checkIns, daily, now, s)?.onsetMin;
+  const onset = effectWindow(med, doses, checkIns, now)?.onsetH ?? (hrOnset !== undefined ? hrOnset / 60 : undefined);
   const leadMin = Math.round(Math.min(60, Math.max(20, onset !== undefined ? onset * 60 : 30)));
   const at = Math.max(w.dosedAt + 2 * HOUR, w.at - leadMin * 60_000);
   if (at < now - HOUR) return null;
-  const cut = sleepImpact([med], doses, checkIns, now, s)?.cutoffHour;
+  const cut = sleepImpact([med], doses, checkIns, now, s, daily)?.cutoffHour;
   return { med, firstAt: w.dosedAt, wearAt: w.at, at, leadMin, afterCutoff: cut !== undefined && hourOf(at, s) >= cut ? cut : undefined };
 }
 

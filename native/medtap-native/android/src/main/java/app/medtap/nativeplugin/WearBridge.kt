@@ -20,8 +20,11 @@ object WearBridge {
     /** The workout in progress (next set, rest end), and the watch's "set done" taps. */
     const val WORKOUT_PATH = "/medtap/workout"
     const val SET_PATH = "/medtap/set"
+    /** From the watch: a focus rating or a noted symptom, or a reaction test result (biohacking tools). */
+    const val CHECKIN_PATH = "/medtap/checkin"
     const val LOGS = "queue"
     const val SETS = "sets"
+    const val CHECKINS = "checkins"
 
     /** Called with the widget's JSON each time it changes. Fails quietly when there's no watch or no Play services. */
     @JvmStatic
@@ -66,10 +69,11 @@ object WearBridge {
     var listener: ((String) -> Unit)? = null
 }
 
-/** Receives the watch's messages: "log" {"medId": "...", "at": 1730000000000} and "set done" {"setId": "...", "at": ...}. */
+/** Receives the watch's messages: "log" {"medId": "...", "at": 1730000000000}, "set done" {"setId": "...", "at": ...} and
+ *  "check-in" {"focus"?, "chip"?, "rtMs"?, "rtLapses"?, "rtEarly"?, "at"}. */
 class MedTapWearListener : WearableListenerService() {
     override fun onMessageReceived(event: MessageEvent) {
-        val queue = when (event.path) { WearBridge.LOG_PATH -> WearBridge.LOGS; WearBridge.SET_PATH -> WearBridge.SETS; else -> return }
+        val queue = when (event.path) { WearBridge.LOG_PATH -> WearBridge.LOGS; WearBridge.SET_PATH -> WearBridge.SETS; WearBridge.CHECKIN_PATH -> WearBridge.CHECKINS; else -> return }
         try {
             val o = JSONObject(String(event.data, Charsets.UTF_8))
             if (!o.has("at")) o.put("at", System.currentTimeMillis())

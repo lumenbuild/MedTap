@@ -276,7 +276,7 @@ const CONTENT: Record<string, ReactNode> = {
       <p>Meds → <strong>Count</strong> (also on a medication's page, and on the Today card when stock is low): type the count, or for tablets and capsules take a photo of them in one layer on a plain surface (touching is fine; not stacked) (counted on the phone; the photo isn't kept). It compares with what your logs say should be left, and can log doses you took but didn't log.</p>
       <H>In the app</H>
       <ul className="list-disc pl-5 space-y-1">
-        <li><strong>Health Connect / Apple Health</strong> (Settings): read only; steps, sleep and heart rate{HAS_BODY ? ', weigh-ins' : ''} and blood pressure. Imports again when you open the app.</li>
+        <li><strong>Health Connect / Apple Health</strong> (Settings): read only; steps, sleep (with deep sleep and time awake) and heart rate{HAS_BODY ? ', weigh-ins' : ''} and blood pressure. Imports again when you open the app, at most once an hour. A watch's heart rate in 5-minute blocks shows how a stimulant dose rises and settles (on the medicine's page), sharpens the wear-off forecast and second-dose reminder, and shows resting heart rate through the week after a shot (Protocol).</li>
         <li><strong>Widget</strong> (Android): add {APP_NAME} from your home screen's widgets: the next dose with a countdown, and buttons for as-needed medicines.</li>
         <li><strong>Shortcuts</strong>: on Android, long-press the app icon for “Log …” (drag one to your home screen). On iPhone, ask Siri “Log Vyvanse in {APP_NAME}”, or use the Shortcuts app.</li>
         <li><strong>Reminder check</strong> (Settings → Reminders): what could stop or delay reminders on your phone, with a fix for each, and a test reminder.</li>
@@ -323,6 +323,16 @@ const CONTENT: Record<string, ReactNode> = {
         <li><strong>Last 7 days</strong> on Today and in the protocol report: shots on time, level range, weight rate, side effects and stock.</li>
       </ul>
       <p>Each says what it's based on. They're estimates from your own records, not advice: they show links, not causes, and never suggest a dose.</p>
+      <H>Biohacking tools</H>
+      <p>Settings → <strong>Biohacking tools</strong> turns these on (and off again) together:</p>
+      <ul className="list-disc pl-5 space-y-1">
+        <li><strong>Brain test</strong> (Settings → Tools): 2 minutes (reaction time, then a working-memory round) or 30 seconds of reaction time, also on the watch. Shows your scores, your sharpest hours, and whether there's a real evening dip as a stimulant wears off.</li>
+        <li><strong>Readiness</strong> on Today: sleep, heart rate, HRV, last night's late dose or drink and this morning's test, with a plan for the day, a warning when heart rate and HRV look like you're getting sick, and how long you usually take to recover.</li>
+        <li><strong>Tolerance and breaks</strong> on a stimulant's page: whether the effect is shrinking, dose creep, planned breaks (no reminders on those days) and how strong the first doses back are.</li>
+        <li><strong>Muscle protection</strong> on Body, and <strong>water, gut and appetite</strong> around a weekly shot on Protocol.</li>
+        <li><strong>Journal</strong> and <strong>Year in review</strong> (Settings → Tools), and <strong>Doctor mode</strong> on the report.</li>
+        <li><strong>Watch</strong>: the tile and a ring complication show how far through today's stimulant you are; log focus or a symptom, or take the reaction test, from the wrist; a buzz before bed when it may still be working.</li>
+      </ul>
       <H>Peptide guide</H>
       <p>Protocol → <strong>Guide</strong>: retatrutide, glutathione, GHK-Cu, DSIP, BPC-157, NAD+, Semax and epitalon. What each one is, what the research shows and what people notice, a mixing table, how it’s taken and stored, the doses used, side effects, and when to get help. <strong>Set it up</strong> fills in the injection form, once or twice a week for retatrutide; change the dose to yours.</p>
       <H>Calculator</H>

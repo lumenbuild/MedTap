@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
-import { Bell, Calculator, CalendarCheck, Check, ChevronRight, Clock, Coffee, Download, Dumbbell, EyeOff, HardDriveDownload, HeartPulse, HelpCircle, Info, Lock, Nfc, Package, Palette, Pill, Plane, RefreshCw, Smile, Syringe, Timer, Users, Utensils, Watch, X, type LucideIcon } from 'lucide-react';
+import { Bell, Brain, Calculator, CalendarCheck, CalendarRange, FlaskConical, NotebookPen, Tablet, Check, ChevronRight, Clock, Coffee, Download, Dumbbell, EyeOff, HardDriveDownload, HeartPulse, HelpCircle, Info, Lock, Nfc, Package, Palette, Pill, Plane, RefreshCw, Smile, Syringe, Timer, Users, Utensils, Watch, X, type LucideIcon } from 'lucide-react';
 import { IconRow } from '../components/ui/Visual';
 import { useSyncConfig } from '../app/sync';
 import { allowCheckInNotes, allowExactReminders, checkInNoteStatus, setCheckInNotify, setDigestNotify, setRemindersEnabled, setTrainingReminders, syncReminders, testCheckInNote, type CheckInNoteStatus } from '../app/native';
@@ -350,6 +350,7 @@ export function Settings({ section }: { section?: string }) {
       <section aria-label="Features" className="space-y-1">
         <h2 className="text-sm font-medium text-muted mb-1">Features</h2>
         {HAS_PEPTIDES && !priv && <Toggle Icon={Syringe} label="Peptides and injections" checked={settings.peptideTools} onChange={(v) => setSetting('peptideTools', v)} />}
+        {HAS_PEPTIDES && !priv && <Toggle Icon={FlaskConical} label="Biohacking tools" checked={settings.biohackTools} onChange={(v) => setSetting('biohackTools', v)} />}
         {HAS_TRAINING && FOCUS !== 'training' && <Toggle Icon={Dumbbell} label="Training" checked={settings.trainingTools} onChange={(v) => setSetting('trainingTools', v)} />}
         {HAS_FOOD && FOCUS !== 'weight' && <Toggle Icon={Utensils} label="Food" checked={settings.foodTracking} onChange={(v) => setSetting('foodTracking', v)} />}
         {isNative && <Toggle Icon={Bell} label="Dose reminders" checked={settings.remindersEnabled} onChange={async (v) => { const on = await setRemindersEnabled(v); if (v && !on) notifyOff(); }} />}
@@ -374,6 +375,10 @@ export function Settings({ section }: { section?: string }) {
         {HAS_VISITS && <Row href="#/travel" Icon={Plane} title="Plan a trip" />}
         {HAS_PEPTIDES && settings.peptideTools && <Row href="#/calc" Icon={Calculator} title="Peptide calculator" />}
         {HAS_PEPTIDES && settings.peptideTools && <Row href="#/supplies" Icon={Package} title="Supplies" />}
+        {HAS_PEPTIDES && settings.biohackTools && <Row href="#/brain" Icon={Brain} title="Brain test" />}
+        {HAS_PEPTIDES && settings.biohackTools && <Row href="#/journal" Icon={NotebookPen} title="Journal" />}
+        {HAS_PEPTIDES && settings.biohackTools && <Row href="#/year" Icon={CalendarRange} title="Year in review" />}
+        <Row href="#/sync" Icon={Tablet} title="Sync with your own tablet or second phone" />
         <Row href="#/help" Icon={HelpCircle} title="Help" />
         <Row href="#/settings/about" Icon={Info} title={`About ${APP_NAME}`} value={BUILD ? `Build ${BUILD}` : undefined} />
       </section>

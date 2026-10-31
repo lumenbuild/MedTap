@@ -77,7 +77,7 @@ extension MedTapNativePlugin {
         }
         func samples(_ type: HKSampleType, _ handle: @escaping ([HKSample]) -> Void) {
             group.enter()
-            let q = HKSampleQuery(sampleType: type, predicate: range, limit: 50_000, sortDescriptors: nil) { _, s, _ in
+            let q = HKSampleQuery(sampleType: type, predicate: range, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, s, _ in
                 handle(s ?? [])
                 group.leave()
             }
@@ -87,10 +87,52 @@ extension MedTapNativePlugin {
         dailySum(.appleExerciseTime, .minute(), "exerciseMin")
         if let sleep = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) {
             samples(sleep) { list in
-                for case let s as HKCategorySample in list where s.value != HKCategoryValueSleepAnalysis.inBed.rawValue && s.value != HKCategoryValueSleepAnalysis.awake.rawValue {
-                    setDay(s.endDate, "sleepMin", Int(s.endDate.timeIntervalSince(s.startDate) / 60), add: true)
+                // Stages (iOS 16+: deep, REM, core; awake) by the night they end, plus when the night began and ended.
+                var span: [String: (Date, Date)] = [:]
+                for case let s as HKCategorySample in list {
+                    let m = Int(s.endDate.timeIntervalSince(s.startDate) / 60)
+                    if s.value == HKCategoryValueSleepAnalysis.inBed.rawValue { continue }
+                    let k = fmt.string(from: s.endDate)
+                    if s.value == HKCategoryValueSleepAnalysis.awake.rawValue {
+                        setDay(s.endDate, "sleepAwakeMin", m, add: true); setDay(s.endDate, "sleepWakes", 1, add: true); continue
+                    }
+                    setDay(s.endDate, "sleepMin", m, add: true)
+                    if #available(iOS 16.0, *) {
+                        if s.value == HKCategoryValueSleepAnalysis.asleepDeep.rawValue { setDay(s.endDate, "sleepDeepMin", m, add: true) }
+                        if s.value == HKCategoryValueSleepAnalysis.asleepREM.rawValue { setDay(s.endDate, "sleepRemMin", m, add: true) }
+                    }
+                    let old = span[k]
+                    span[k] = (min(old?.0 ?? s.startDate, s.startDate), max(old?.1 ?? s.endDate, s.endDate))
+                }
+                for (k, v) in span {
+                    lock.lock()
+                    var row = days[k] ?? ["date": k]
+                    row["sleepStart"] = Int(v.0.timeIntervalSince1970 * 1000); row["sleepEnd"] = Int(v.1.timeIntervalSince1970 * 1000)
+                    days[k] = row
+                    lock.unlock()
                 }
             }
+        }
+        // Steps in 5-minute blocks (288 a day), to tell resting from moving.
+        if let stepType = HKObjectType.quantityType(forIdentifier: .stepCount) {
+            group.enter()
+            let q = HKStatisticsCollectionQuery(quantityType: stepType, quantitySamplePredicate: range, options: .cumulativeSum,
+                                                anchorDate: cal.startOfDay(for: from), intervalComponents: DateComponents(minute: 5))
+            q.initialResultsHandler = { _, results, _ in
+                var blocks: [String: [Int]] = [:]
+                results?.enumerateStatistics(from: from, to: to) { st, _ in
+                    guard let v = st.sumQuantity()?.doubleValue(for: .count()), v > 0 else { return }
+                    let k = fmt.string(from: st.startDate)
+                    let i = cal.component(.hour, from: st.startDate) * 12 + cal.component(.minute, from: st.startDate) / 5
+                    if blocks[k] == nil { blocks[k] = Array(repeating: 0, count: 288) }
+                    blocks[k]![i] += Int(v.rounded())
+                }
+                lock.lock()
+                for (k, a) in blocks { var row = days[k] ?? ["date": k]; row["steps5"] = a; days[k] = row }
+                lock.unlock()
+                group.leave()
+            }
+            store.execute(q)
         }
         if let rhr = HKObjectType.quantityType(forIdentifier: .restingHeartRate) {
             samples(rhr) { list in
@@ -100,17 +142,27 @@ extension MedTapNativePlugin {
         if let hr = HKObjectType.quantityType(forIdentifier: .heartRate) {
             samples(hr) { list in
                 var sums: [String: [Double]] = [:], counts: [String: [Int]] = [:]
+                var sums5: [String: [Double]] = [:], counts5: [String: [Int]] = [:]
                 for case let s as HKQuantitySample in list {
                     let k = fmt.string(from: s.startDate), h = cal.component(.hour, from: s.startDate)
+                    let bpm = s.quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
                     if sums[k] == nil { sums[k] = Array(repeating: 0, count: 24); counts[k] = Array(repeating: 0, count: 24) }
-                    sums[k]![h] += s.quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+                    sums[k]![h] += bpm
                     counts[k]![h] += 1
+                    // And in 5-minute blocks (288 a day), for how a dose shows in the heart rate.
+                    let i = h * 12 + cal.component(.minute, from: s.startDate) / 5
+                    if sums5[k] == nil { sums5[k] = Array(repeating: 0, count: 288); counts5[k] = Array(repeating: 0, count: 288) }
+                    sums5[k]![i] += bpm
+                    counts5[k]![i] += 1
                 }
                 lock.lock()
                 for (k, sum) in sums {
                     let c = counts[k]!
                     var row = days[k] ?? ["date": k]
                     row["hrByHour"] = (0..<24).map { h -> Any in c[h] > 0 ? Int((sum[h] / Double(c[h])).rounded()) as Any : NSNull() as Any }
+                    if let s5 = sums5[k], let c5 = counts5[k] {
+                        row["hr5"] = (0..<288).map { i -> Any in c5[i] > 0 ? Int((s5[i] / Double(c5[i])).rounded()) as Any : NSNull() as Any }
+                    }
                     days[k] = row
                 }
                 lock.unlock()

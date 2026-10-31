@@ -16,6 +16,8 @@ object WatchState {
     const val LOG_PATH = "/medtap/log"
     const val WORKOUT_PATH = "/medtap/workout"
     const val SET_PATH = "/medtap/set"
+    /** A focus rating, a noted symptom or a reaction test result (biohacking tools). */
+    const val CHECKIN_PATH = "/medtap/checkin"
     /** A workout the phone never closed stops showing after this long. */
     private const val WORKOUT_STALE_MS = 3 * 60 * 60 * 1000L
 
@@ -64,6 +66,9 @@ object WatchState {
     /** Send "this set is done" to the phone, which ticks it and starts the rest. */
     suspend fun setDone(context: Context, setId: String): Boolean =
         send(context, SET_PATH, JSONObject().put("setId", setId).put("at", System.currentTimeMillis()))
+
+    /** Send a check-in to the phone: {"focus": 4} or {"chip": "Headache"} or a reaction test {"rtMs", "rtLapses", "rtEarly"}. */
+    suspend fun checkIn(context: Context, o: JSONObject): Boolean = send(context, CHECKIN_PATH, o.put("at", System.currentTimeMillis()))
 
     private suspend fun send(context: Context, path: String, o: JSONObject): Boolean {
         val body = o.toString().toByteArray(Charsets.UTF_8)

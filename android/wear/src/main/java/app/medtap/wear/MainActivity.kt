@@ -103,6 +103,52 @@ class MainActivity : Activity() {
         list.addView(View(this).apply { minimumHeight = 32 })
     }
 
+    /** Biohacking tools: the effect ring (how far through today's stimulant), readiness, a focus rating, symptoms, and the
+     *  reaction test. */
+    private fun renderBio(b: JSONObject) {
+        val now = System.currentTimeMillis()
+        val fmt = android.text.format.DateFormat.getTimeFormat(this)
+        b.optJSONObject("ring")?.let { r ->
+            val from = r.optLong("from"); val to = r.optLong("to")
+            if (to > now) {
+                list.addView(text("${r.optString("name")} working until ${fmt.format(java.util.Date(to))}", 13f))
+                list.addView(android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+                    max = 100; progress = (((now - from).toDouble() / (to - from)) * 100).toInt().coerceIn(0, 100)
+                    contentDescription = "$progress% of the way through"
+                })
+            }
+        }
+        if (b.has("readiness")) list.addView(text("Readiness ${b.optInt("readiness")}", 13f, Color.LTGRAY))
+        list.addView(text("Focus now?", 13f, Color.LTGRAY))
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        for (v in 1..5) row.addView(Button(this).apply {
+            text = "$v"; minWidth = 0; minimumWidth = 0; setPadding(0, 0, 0, 0)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            contentDescription = "Focus $v of 5"
+            setOnClickListener { send(this, JSONObject().put("focus", v), "Focus $v ✓") }
+        })
+        list.addView(row)
+        val chips = b.optJSONArray("chips")
+        if (chips != null) for (k in 0 until chips.length()) {
+            val c = chips.optString(k)
+            list.addView(Button(this).apply { text = c; isAllCaps = false; setOnClickListener { send(this, JSONObject().put("chip", c), "$c ✓") } })
+        }
+        list.addView(Button(this).apply {
+            text = "Reaction test (30 s)"; isAllCaps = false
+            setOnClickListener { startActivity(android.content.Intent(this@MainActivity, ReactionActivity::class.java)) }
+        })
+    }
+
+    private fun send(b: Button, o: JSONObject, done: String) {
+        b.isEnabled = false
+        scope.launch {
+            val ok = WatchState.checkIn(this@MainActivity, o)
+            b.text = if (ok) done else "Phone not connected"
+            b.announceForAccessibility(b.text)
+            b.isEnabled = true
+        }
+    }
+
     private fun render(d: JSONObject) {
         list.removeAllViews()
         WatchState.workout(this)?.let { renderWorkout(it) }
@@ -117,6 +163,7 @@ class MainActivity : Activity() {
             d.optString("detail", "").takeIf { it.isNotEmpty() }?.let { list.addView(text(it, 12f, Color.LTGRAY)) }
             d.optString("logId", "").takeIf { it.isNotEmpty() }?.let { list.addView(button("Log it", it)) }
         }
+        d.optJSONObject("bio")?.let { renderBio(it) }
         val prn = d.optJSONArray("prn")
         if (prn != null) for (k in 0 until prn.length()) {
             val b = prn.optJSONObject(k) ?: continue

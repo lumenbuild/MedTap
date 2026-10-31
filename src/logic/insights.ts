@@ -26,13 +26,16 @@ import { doseResponse, eveningCrash, isStimulant, secondDose, stimulantLoad, typ
 import { heartWatch, underEating } from './crossSmart';
 import { missedShot } from './peptideSmart';
 import { sleepImpact } from './habits';
+import { doseCreep, illnessWarning, rebound, tolerance } from './biohack';
+import { appetiteAhead, fluids } from './bodyhack';
+import { inGroup } from './interactions';
 
 const DAY = 86_400_000;
 const WEEK = 7 * DAY;
 const day = (t: number) => format(t, 'EEE d MMM');
 const hourText = (h: number) => (h === 12 ? '12 pm' : h > 12 ? `${h - 12} pm` : `${h} am`);
 
-export type InsightKind = 'script' | 'reading' | 'stall' | 'wearoff' | 'change' | 'odd' | 'cutoff' | 'calories' | 'protein' | 'lean' | 'appointment' | 'followup' | 'steps' | 'sleep' | 'gut' | 'eating' | 'regain' | 'maintain' | 'second' | 'dosecut' | 'bestdose' | 'crash' | 'load' | 'heart' | 'undereat' | 'missed';
+export type InsightKind = 'script' | 'reading' | 'stall' | 'wearoff' | 'change' | 'odd' | 'cutoff' | 'calories' | 'protein' | 'lean' | 'appointment' | 'followup' | 'steps' | 'sleep' | 'gut' | 'eating' | 'regain' | 'maintain' | 'second' | 'dosecut' | 'bestdose' | 'crash' | 'load' | 'heart' | 'undereat' | 'missed' | 'illness' | 'tolerance' | 'creep' | 'fluids' | 'appetite' | 'rebound';
 
 export type InsightAction =
   | { kind: 'go'; label: string; href: string }
@@ -64,9 +67,9 @@ export interface InsightInput {
   meds: Medication[]; doses: Dose[]; checkIns: CheckIn[]; daily: DailyHealth[]; body: BodyEntry[]; vitals: Vital[];
   workouts: Workout[]; events: MedEvent[]; foodLogs: FoodLog[]; appointments: Appointment[]; goals: BodyGoal[];
   settings: Pick<AppSettings, 'bedtime' | 'caffeineHalfLifeH' | 'fibreTargetG' | 'caffeineCutoff' | 'proteinTargetG' | 'energyTargetKcal' | 'energyAuto' | 'lossRateKgWeek'
-    | 'mentionsDismissed' | 'oddDismissed' | 'insightsHidden' | 'followUps'>;
+    | 'mentionsDismissed' | 'oddDismissed' | 'insightsHidden' | 'followUps'> & { waterTargetMl?: number | null };
   units: Units;
-  has: { body: boolean; food: boolean; training: boolean; meds: boolean };
+  has: { body: boolean; food: boolean; training: boolean; meds: boolean; biohack?: boolean };
 }
 
 /** Every insight there is now, most important first, without the ones put away. */
@@ -117,13 +120,13 @@ export function insights(d: InsightInput, now: number, s: ScheduleSettings): Ins
   if (d.has.meds) {
     const stims = d.meds.filter((m) => !m.archived && isStimulant(m));
     for (const m of stims) {
-      const cut = sleepImpact([m], d.doses, d.checkIns, now, s);
+      const cut = sleepImpact([m], d.doses, d.checkIns, now, s, d.daily);
       if (cut) {
-        const q = (x: { quality?: number; hours?: number }) => (x.quality !== undefined ? `sleep ${x.quality} of 5` : `${x.hours} h sleep`);
+        const q = (x: { quality?: number; hours?: number; deepMin?: number }) => [x.hours !== undefined ? `${x.hours} h asleep` : null, x.deepMin !== undefined ? `${x.deepMin} min deep` : null, x.quality !== undefined ? `sleep ${x.quality} of 5` : null].filter(Boolean).join(', ');
         const lateToday = d.doses.some((x) => !x.deletedAt && !x.skipped && x.medicationId === m.id && dayKey(Date.parse(x.takenAt), s) === dayKey(now, s) && new Date(x.takenAt).getHours() >= cut.cutoffHour);
         out.push({ id: `dosecut:${m.id}:${cut.cutoffHour}${lateToday ? `:${dayKey(now, s)}` : ''}`, kind: 'dosecut', importance: lateToday ? 55 : 40, confidence: cut.before.nights + cut.after.nights >= 20 ? 'high' : 'medium', tone: lateToday ? 'watch' : 'plain',
           headline: lateToday ? `Tonight: ${shownName(m)} today was after ${hourText(cut.cutoffHour)}` : `${shownName(m)} after ${hourText(cut.cutoffHour)} costs you sleep`,
-          evidence: `${q(cut.before)} when the last dose is earlier, ${q(cut.after)} when it’s later (${cut.before.nights + cut.after.nights} nights)`, snoozeDays: lateToday ? 1 : 30 });
+          evidence: `${q(cut.before)} when the last dose is earlier, ${q(cut.after)} when it’s later (${cut.before.nights + cut.after.nights} nights${cut.watch ? ', from your watch' : ''})`, snoozeDays: lateToday ? 1 : 30 });
       }
       const br = doseResponse(m, d.doses, d.checkIns, now, s);
       if (br) out.push({ id: `bestdose:${m.id}:${br.by}:${br.better}`, kind: 'bestdose', importance: 42, confidence: br.n >= 16 ? 'high' : 'medium', tone: 'good',
@@ -169,6 +172,35 @@ export function insights(d: InsightInput, now: number, s: ScheduleSettings): Ins
       if (ms) out.push({ id: `missed:${m.id}:${Math.floor(ms.dueAt / DAY)}`, kind: 'missed', importance: 78, confidence: 'high', tone: 'watch',
         headline: `${shownName(m)}: ${ms.take ? 'take the missed shot now' : 'skip the missed shot'}`, evidence: ms.text,
         action: { kind: 'go', label: 'Protocol', href: '#/protocol' }, snoozeDays: 1 });
+    }
+  }
+
+  // Biohacking tools: an illness warning, tolerance and dose creep, water behind on a shot day, appetite coming back,
+  // and an evening dip.
+  if (d.has.biohack) {
+    const ill = illnessWarning(d.daily, now, s);
+    if (ill) out.push({ id: `illness:${dayKey(now, s)}`, kind: 'illness', importance: 82, confidence: ill.hrv !== undefined ? 'high' : 'medium', tone: 'watch',
+      headline: 'Your body may be fighting something',
+      evidence: `Resting heart rate ${ill.rhr} bpm (usually ${ill.baseRhr})${ill.hrv !== undefined ? `, HRV ${ill.hrv} ms (usually ${ill.baseHrv})` : ''}, two days running. Rest, fluids, and hold any planned dose step-up`, snoozeDays: 2 });
+    for (const m of d.meds.filter((x) => !x.archived && isStimulant(x) && !x.peptide)) {
+      const t = tolerance(m, d.doses, d.checkIns, d.daily, now, s);
+      if (t?.drops.length) out.push({ id: `tolerance:${m.id}:${Math.floor(now / (2 * WEEK))}`, kind: 'tolerance', importance: 57, confidence: 'medium', tone: 'watch',
+        headline: `${shownName(m)}: the effect is shrinking`, evidence: `${t.drops.map((x) => `${x.what.toLowerCase()} ${x.from} → ${x.to}`).join('; ')}. A planned break often brings it back`,
+        action: { kind: 'go', label: 'Plan a break', href: `#/meds/${m.id}` }, snoozeDays: 14 });
+      const c = doseCreep(m, d.doses, now, s);
+      if (c) out.push({ id: `creep:${m.id}:${Math.floor(now / (2 * WEEK))}`, kind: 'creep', importance: 47, confidence: 'medium', tone: 'plain',
+        headline: `${shownName(m)}: more each day than 2 months ago`, evidence: c.lines.join('; '), action: { kind: 'go', label: 'See', href: `#/meds/${m.id}` }, snoozeDays: 21 });
+    }
+    const rb = rebound(d.meds, d.doses, d.checkIns, now, s);
+    if (rb && rb.dipPct >= 8) out.push({ id: `rebound:${Math.floor(now / (2 * WEEK))}`, kind: 'rebound', importance: 40, confidence: rb.tests >= 15 ? 'high' : 'medium', tone: 'plain',
+      headline: `A real evening dip: ${rb.dipPct}% slower`, evidence: `Reaction ${rb.evening} ms in the evening against ${rb.day} ms 1–4 hours after a dose`, action: { kind: 'go', label: 'Brain test', href: '#/brain' }, snoozeDays: 21 });
+    const f = fluids(d.meds, d.doses, d.workouts, d.checkIns, d.daily, st.waterTargetMl ?? null, now, s);
+    if (f.low && f.reasons.length) out.push({ id: `fluids:${dayKey(now, s)}`, kind: 'fluids', importance: 52, confidence: 'medium', tone: 'watch',
+      headline: `${Math.round((f.drunk ?? 0) / 100) / 10} of ${Math.round(f.ml / 100) / 10} L water so far`, evidence: `More today for ${f.reasons.join(', ')}${f.electrolytes ? '. Add electrolytes or a pinch of salt' : ''}`, snoozeDays: 1 });
+    for (const m of d.meds.filter((x) => !x.archived && x.peptide && inGroup(x, 'glp1'))) {
+      const a = appetiteAhead(m, d.doses, d.checkIns, now);
+      if (a && a.at - now < 2 * DAY && a.at > now) out.push({ id: `appetite:${m.id}:${Math.floor(a.at / DAY)}`, kind: 'appetite', importance: 36, confidence: 'medium', tone: 'plain',
+        headline: `Appetite likely back ${format(a.at, 'EEEE')}`, evidence: `Day ${a.day} after a shot, from your check-ins. Plan protein-rich meals for it`, snoozeDays: 0 });
     }
   }
 

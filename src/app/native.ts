@@ -5,7 +5,7 @@ import { liveQuery } from 'dexie';
 import { db } from '../db/db';
 import { getSettings, scheduleSettings, setSetting } from '../db/repos/settings';
 import { dosesForPerson, listPeople, medIsFor, personOf, storedPerson } from '../db/repos/people';
-import { CAFFEINE, intakesOf, usualDrinks, usualHabits, usualKey, usualToAsk } from '../logic/caffeine';
+import { bedtimeOf, CAFFEINE, intakesOf, usualDrinks, usualHabits, usualKey, usualToAsk } from '../logic/caffeine';
 import { shortcutItems } from '../logic/widgets';
 import { widgetsPayload } from '../logic/widgets';
 import { HAS_BODY, HAS_PEPTIDES } from '../edition';
@@ -22,7 +22,8 @@ import { trainingVsPeptide } from '../logic/training';
 import { nextSession } from '../logic/coach';
 import { allExercises } from '../logic/exercises';
 import { wearOffToday } from '../logic/wearOff';
-import { secondDose } from '../logic/stimulant';
+import { isStimulant, secondDose, stimulantHours } from '../logic/stimulant';
+import { mindReadiness } from '../logic/biohack';
 import { planCheckInNotes } from '../logic/reminders';
 import { fmtAmount, fmtTime } from '../logic/format';
 import { shownName } from '../logic/privacy';
@@ -74,12 +75,13 @@ export async function initNative() {
   await MedTapNative.addListener('tag', (e) => openUrl(e.url));
   if (isNativeAndroid) MedTapNative.nfcListen().catch(() => { /* no NFC on this phone */ });
   await CapApp.addListener('appUrlOpen', (e) => openUrl(e.url));
-  await CapApp.addListener('resume', () => { void syncReminders(); void syncExtras(); void autoImportHealth(); if (isNativeAndroid) { void logWatchTaps(); void logWidgetTaps(); } });
+  await CapApp.addListener('resume', () => { void syncReminders(); void syncExtras(); void autoImportHealth(); if (isNativeAndroid) { void logWatchTaps(); void logWatchCheckIns(); void logWidgetTaps(); } });
   // Shortcuts, Siri and the widget ask to log a medicine; Health Connect can open the privacy page.
   await MedTapNative.addListener('logRequest', (e) => { go('/today'); requestLog(e.medId); });
   await MedTapNative.addListener('route', (e) => { if (e.path === '/checkin') { go('/today'); requestCheckIn(); } else go(e.path); });
   if (isNativeAndroid) {
     await MedTapNative.addListener('watchLog', () => { void logWatchTaps(); }); void logWatchTaps();
+    await MedTapNative.addListener('watchCheckIn', () => { void logWatchCheckIns(); }); void logWatchCheckIns();
     await MedTapNative.addListener('widgetAction', () => { void logWidgetTaps(); }); void logWidgetTaps();
   }
   void autoImportHealth();
@@ -118,6 +120,26 @@ async function logWatchTaps() {
     const { items } = await MedTapNative.takeWatchLogs();
     for (const it of items) await logTap(it.medId, it.at, 'watch');
   } catch (e) { console.error('watch', e); }
+}
+
+/** From the watch (biohacking tools): a focus rating, a noted symptom, or a reaction test, saved as a check-in for the
+ *  person the watch shows, tied to the last stimulant dose within 8 hours. */
+async function logWatchCheckIns() {
+  try {
+    const { items } = await MedTapNative.takeWatchCheckIns();
+    if (!items.length) return;
+    const settings = await getSettings();
+    const who = storedPerson(settings.activePersonId);
+    const [meds, doses] = await Promise.all([db.medications.toArray(), db.doses.toArray()]);
+    const stim = new Set(meds.filter((m) => isStimulant(m)).map((m) => m.id));
+    for (const it of items) {
+      const at = Number(it.at) || Date.now();
+      const last = doses.filter((d) => !d.deletedAt && !d.skipped && stim.has(d.medicationId) && Date.parse(d.takenAt) <= at && Date.parse(d.takenAt) > at - 8 * 3_600_000)
+        .sort((a, b) => b.takenAt.localeCompare(a.takenAt))[0];
+      const test = typeof it.rtMs === 'number' ? { rtMs: it.rtMs, rtLapses: it.rtLapses ?? 0, rtEarly: it.rtEarly ?? 0, test: 'watch' as const } : {};
+      await addCheckIn({ at: new Date(at).toISOString(), chips: it.chip ? [it.chip] : [], ...(typeof it.focus === 'number' ? { focus: it.focus } : {}), ...test, relatedDoseId: last?.id, personId: who });
+    }
+  } catch (e) { console.error('watch check-ins', e); }
 }
 
 async function logTap(medId: string, atMs: number, source: 'watch' | 'widget') {
@@ -172,7 +194,19 @@ async function syncExtras() {
       proteinTarget: settings.proteinTargetG, waterTarget: settings.waterTargetMl, amounts: settings.intakeAmounts, body_: HAS_BODY, training: settings.trainingTools,
       peptides: HAS_PEPTIDES && settings.peptideTools && !(settings.privacyPinHash && settings.privacyHidePeptides),
     }, Date.now(), scheduleSettings(settings));
-    await MedTapNative.setWidget({ json: JSON.stringify(payload) });
+    // Biohacking tools: the watch's effect ring (the stimulant working now, from the dose to when it usually wears off),
+    // today's readiness, and the symptoms to note from the wrist.
+    const bio = HAS_PEPTIDES && settings.biohackTools ? (() => {
+      const s = scheduleSettings(settings), now = Date.now();
+      const cis = theirs(checkIns), dy = theirs(daily);
+      const ring = mine.filter((m) => isStimulant(m) && !m.peptide).map((m) => {
+        const w = wearOffToday(m, live, cis, dy, now, s);
+        return w && w.at > now ? { name: shownName(m), from: w.dosedAt, to: w.at } : null;
+      }).filter((x): x is NonNullable<typeof x> => !!x).sort((a, b) => b.to - a.to)[0];
+      const r = mindReadiness({ daily: dy, checkIns: cis, doses: live, meds: mine }, now, s);
+      return { ring, readiness: r?.score, chips: ['Nausea', 'Headache', 'Anxious', 'Wearing off', 'Heart racing', 'Tired'] };
+    })() : undefined;
+    await MedTapNative.setWidget({ json: JSON.stringify(bio ? { ...payload, bio } : payload) });
     await MedTapNative.setShortcuts({ items: shortcutItems(mine) });
   } catch (e) { console.error('widget/shortcuts', e); }
 }
@@ -284,6 +318,7 @@ async function doSync() {
   if (settings.trainingTools && settings.trainingReminders) await safe('training', () => scheduleTraining(settings));
   if (settings.digestNotify) await safe('digest', scheduleDigest);
   if (settings.wearOffNotify) await safe('wear-off', () => scheduleWearOff(settings));
+  if (HAS_PEPTIDES && settings.biohackTools) await safe('bedtime', () => scheduleBedtime(settings));
   if (!settings.remindersEnabled) return;
   const [meds, doses, people] = await Promise.all([db.medications.toArray(), db.doses.toArray(), listPeople()]);
   const live = doses.filter((d) => !d.deletedAt);
@@ -369,6 +404,28 @@ async function scheduleWearOff(settings: Awaited<ReturnType<typeof getSettings>>
       body: settings.discreetReminders ? `About ${fmtTime(n.at)}` : n.body,
       schedule: { at: new Date(n.at), allowWhileIdle: true }, channelId: CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/today' } })),
   });
+}
+
+/** Biohacking tools: a gentle heads-up 45 minutes before bed when a stimulant taken today usually still works then (it
+ *  buzzes the watch too). From dose times and how long the medicine usually lasts, not a live heart rate. */
+async function scheduleBedtime(settings: Awaited<ReturnType<typeof getSettings>>) {
+  const me = settings.activePersonId;
+  const [meds, doses] = await Promise.all([db.medications.toArray(), db.doses.toArray()]);
+  const now = Date.now();
+  const s = scheduleSettings(settings);
+  const bed = bedtimeOf(now, settings.bedtime, s);
+  const at = bed - 45 * 60_000;
+  if (at <= now) return;
+  const start = getDayBounds(now, s.dayStartsAt, s.tz).start;
+  const stim = meds.filter((m) => !m.archived && medIsFor(m, me) && isStimulant(m));
+  const late = doses.filter((d) => !d.deletedAt && !d.skipped && Date.parse(d.takenAt) >= start).map((d) => {
+    const m = stim.find((x) => x.id === d.medicationId);
+    return m ? { m, t: Date.parse(d.takenAt), end: Date.parse(d.takenAt) + stimulantHours(m)! * 3_600_000 } : null;
+  }).filter((x): x is NonNullable<typeof x> => !!x && x.end > bed - 30 * 60_000).sort((a, b) => b.end - a.end)[0];
+  if (!late) return;
+  const name = settings.discreetReminders ? 'Your medicine' : settings.privacyPinHash ? discreetName(late.m, settings.privacyHidePeptides, shownName) ?? 'Your medicine' : shownName(late.m);
+  await LocalNotifications.schedule({ notifications: [{ id: 900_600_000, title: `${name} may still be working at bedtime`, body: `Taken at ${fmtTime(late.t)}; it usually lasts until about ${fmtTime(late.end)}. A wind-down helps.`,
+    schedule: { at: new Date(at), allowWhileIdle: true }, channelId: CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/today' } }] });
 }
 
 const CHECKIN_IDS = Array.from({ length: 80 }, (_, i) => ({ id: 900_500_000 + i }));

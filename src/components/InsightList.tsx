@@ -2,7 +2,7 @@
 // Today shows the top couple (TopInsights); Progress shows every one (InsightFeed). Acting on one that changes a
 // setting also notes it, so the app can check back a few weeks later on what happened.
 import { useMemo, useState } from 'react';
-import { Activity, ArrowDownRight, BatteryLow, CalendarDays, CalendarX, Clock, Footprints, Moon, Scale, Coffee, Droplet, Dumbbell, FileText, HeartPulse, Layers, Lightbulb, SearchCheck, Sparkles, Target, Utensils, X, Zap, type LucideIcon } from 'lucide-react';
+import { Activity, ArrowDownRight, Brain, Thermometer, TrendingDown, TrendingUp, BatteryLow, CalendarDays, CalendarX, Clock, Footprints, Moon, Scale, Coffee, Droplet, Dumbbell, FileText, HeartPulse, Layers, Lightbulb, SearchCheck, Sparkles, Target, Utensils, X, Zap, type LucideIcon } from 'lucide-react';
 import { insights, type Insight, type InsightKind } from '../logic/insights';
 import { fmtTime } from '../logic/format';
 import { oddRecords } from '../logic/records';
@@ -13,7 +13,7 @@ import { useLive } from '../db/live';
 import { useAppointments, useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings, useVitals, useWorkouts } from '../app/data';
 import { useNow } from '../app/useNow';
 import { useToast } from '../app/toast';
-import { HAS_BODY, HAS_FOOD, HAS_MEDS, HAS_TRAINING } from '../edition';
+import { HAS_BODY, HAS_FOOD, HAS_MEDS, HAS_PEPTIDES, HAS_TRAINING } from '../edition';
 import { OddSheet } from './Smart';
 import { Button } from './ui/Button';
 
@@ -21,6 +21,7 @@ const ICON: Record<InsightKind, LucideIcon> = {
   script: FileText, reading: HeartPulse, stall: Droplet, wearoff: Zap, change: ArrowDownRight, odd: SearchCheck, cutoff: Coffee,
   calories: Utensils, protein: Dumbbell, lean: Dumbbell, appointment: CalendarDays, followup: Sparkles, steps: Footprints, sleep: Moon, gut: Utensils, eating: Utensils, regain: Scale, maintain: Scale,
   second: Clock, dosecut: Moon, bestdose: Target, crash: BatteryLow, load: Layers, heart: Activity, undereat: Utensils, missed: CalendarX,
+  illness: Thermometer, tolerance: TrendingDown, creep: TrendingUp, fluids: Droplet, appetite: Utensils, rebound: Brain,
 };
 const TONE = { watch: { bg: 'var(--caution-soft)', fg: 'var(--caution)' }, good: { bg: 'var(--success-soft)', fg: 'var(--success)' }, plain: { bg: 'var(--surface-2)', fg: 'var(--primary)' } };
 
@@ -42,7 +43,7 @@ export function useInsights(): { list: Insight[]; settings: AppSettings } | null
       meds: pm, doses: dosesForPerson(doses.filter((d) => ids.has(d.medicationId)), pm, who), checkIns: checkIns.filter(me), daily: daily.filter(me),
       body: HAS_BODY ? body.filter(me) : [], vitals: vitals.filter(me), workouts: workouts.filter(me), events, foodLogs: foodLogs.filter(me),
       appointments: appointments.filter(me), goals: fam.people.find((p) => p.id === who)?.goals ?? [], settings, units: settings.units,
-      has: { body: HAS_BODY, food: HAS_FOOD && settings.foodTracking, training: HAS_TRAINING && settings.trainingTools, meds: HAS_MEDS },
+      has: { body: HAS_BODY, food: HAS_FOOD && settings.foodTracking, training: HAS_TRAINING && settings.trainingTools, meds: HAS_MEDS, biohack: HAS_PEPTIDES && settings.biohackTools },
     }, minute * 60_000, s);
     return { list, settings };
   }, [minute, meds, doses, checkIns, daily, body, vitals, workouts, events, appointments, foodLogs, ss, fam]);
