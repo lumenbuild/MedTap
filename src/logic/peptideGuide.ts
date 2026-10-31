@@ -499,3 +499,15 @@ export function lowestPlan(g: GuideEntry, perWeek: number): { plan: StepPlan; cr
   if (!g.lowest) return null;
   return { plan: { by: g.lowest.by / Math.max(1, perWeek), max: g.lowest.max, maxPer: 'week', lowest: true }, criteria: LOWEST_STEP_UP };
 }
+
+/** How often, in a few words, from the entry's usual schedule: "Weekly", "Twice a week", "Daily for 20 days". */
+export function howOften(g: GuideEntry): string {
+  const sc = g.setup.schedule('2026-01-05', 1);
+  if (sc.type === 'prn') return 'As needed';
+  const n = sc.days?.length;
+  const base = !n || n === 7 ? 'Daily' : n === 1 ? 'Weekly' : n === 2 ? 'Twice a week' : `${n} times a week`;
+  return sc.course ? `${base} for ${sc.course.days >= 14 && sc.course.days % 7 === 0 ? `${sc.course.days / 7} weeks` : `${sc.course.days} days`}` : base;
+}
+
+/** "6 days", "2 h": the half-life, for the at-a-glance card. */
+export const halfLifeText = (h?: number) => (h === undefined ? undefined : h >= 36 ? `${Math.round(h / 24)} days` : `${Math.round(h)} h`);

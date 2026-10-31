@@ -128,3 +128,17 @@ describe('peptide guide', () => {
     expect(lines).toContain('Down 6.5 kg since starting (−6.5%).');
   });
 });
+
+describe('at a glance', () => {
+  it('how often, in a few words', async () => {
+    const { howOften, halfLifeText } = await import('../src/logic/peptideGuide');
+    expect(howOften(guideById('retatrutide')!)).toBe('Weekly');
+    expect(howOften(guideById('epitalon')!)).toBe('Daily for 20 days');
+    expect(howOften(guideById('bpc-157')!)).toBe('Daily for 4 weeks');
+    expect(howOften(guideById('tb-500')!)).toBe('Twice a week for 6 weeks');
+    expect(howOften(guideById('nad')!)).toBe('3 times a week');
+    expect(howOften(guideById('pt-141')!)).toBe('As needed');
+    expect(halfLifeText(144)).toBe('6 days');
+    expect(halfLifeText(2)).toBe('2 h');
+  });
+});

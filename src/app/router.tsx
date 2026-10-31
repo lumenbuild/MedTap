@@ -46,8 +46,8 @@ export const replace = (path: string) => {
 export type Route =
   | { name: 'today' } | { name: 'trends' } | { name: 'body' } | { name: 'settings'; section?: string }
   | { name: 'backup' } | { name: 'report' } | { name: 'help'; topic?: string }
-  | { name: 'meds' } | { name: 'medNew'; tagId?: string; guideId?: string } | { name: 'med'; id: string; section?: MedSection } | { name: 'sleep' } | { name: 'guide'; id?: string } | { name: 'brain' } | { name: 'journal' } | { name: 'year' } | { name: 'experiments'; guideId?: string }
-  | { name: 'tag'; id: string } | { name: 'sync' } | { name: 'join'; code: string } | { name: 'calc' } | { name: 'supplies' }
+  | { name: 'meds' } | { name: 'medNew'; tagId?: string; guideId?: string } | { name: 'med'; id: string; section?: MedSection } | { name: 'sleep' } | { name: 'guide'; id?: string; section?: 'overview' | 'dosing' | 'safety' | 'research' } | { name: 'brain' } | { name: 'journal' } | { name: 'year' } | { name: 'experiments'; guideId?: string }
+  | { name: 'tag'; id: string } | { name: 'sync' } | { name: 'join'; code: string } | { name: 'calc'; guideId?: string } | { name: 'supplies' }
   | { name: 'protocol' } | { name: 'protocolReport' } | { name: 'progress'; view?: 'trends' | 'body' }
   | { name: 'appointments' } | { name: 'appointmentSummary' } | { name: 'labs' } | { name: 'travel' }
   | { name: 'training'; start?: boolean } | { name: 'workout'; id: string } | { name: 'exercise'; id: string } | { name: 'routines' } | { name: 'tags' } | { name: 'welcome' } | { name: 'food' } | { name: 'caffeine' };
@@ -66,8 +66,8 @@ export function parseRoute(path: string): Route {
     case 'help': return { name: 'help', topic: b || undefined };
     case 'tag': return { name: 'tag', id: b ?? '' };
     case 'sync': return { name: 'sync' };
-    case 'calc': return { name: 'calc' };
-    case 'guide': return { name: 'guide', id: b || undefined };
+    case 'calc': return { name: 'calc', guideId: b || undefined };
+    case 'guide': return { name: 'guide', id: b || undefined, section: c === 'dosing' || c === 'safety' || c === 'research' ? c : undefined };
     case 'brain': return { name: 'brain' };
     case 'journal': return { name: 'journal' };
     case 'year': return { name: 'year' };

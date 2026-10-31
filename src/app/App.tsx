@@ -111,7 +111,8 @@ function backTo(r: Route, protocol: boolean): string | undefined {
     case 'med': return '#/meds';
     case 'guide': return r.id ? '#/guide' : '#/meds';
     case 'brain': case 'journal': case 'year': case 'experiments': return protocol ? '#/progress' : '#/trends';
-    case 'calc': case 'supplies': return '#/meds';
+    case 'calc': return r.guideId ? `#/guide/${r.guideId}/dosing` : '#/meds';
+    case 'supplies': return '#/meds';
     case 'backup': case 'sync': case 'join': return '#/settings';
     case 'report': return protocol ? '#/progress' : '#/trends';
     case 'help': return r.topic ? '#/help' : '#/settings';
@@ -140,8 +141,8 @@ function Screen({ r }: { r: Route }) {
     case 'help': return <Help topic={r.topic} />;
     case 'sync': return <Sync />;
     case 'join': return <JoinSync code={r.code} />;
-    case 'calc': return peptides ? <PeptideCalc /> : <Today />;
-    case 'guide': return peptides ? <PeptideGuide key={r.id ?? 'list'} id={r.id} /> : <Today />;
+    case 'calc': return peptides ? <PeptideCalc key={r.guideId ?? 'calc'} guideId={r.guideId} /> : <Today />;
+    case 'guide': return peptides ? <PeptideGuide key={r.id ?? 'list'} id={r.id} section={r.section} /> : <Today />;
     case 'brain': return bio ? <Brain /> : <Today />;
     case 'journal': return bio ? <Journal /> : <Today />;
     case 'year': return bio ? <YearReview /> : <Today />;
