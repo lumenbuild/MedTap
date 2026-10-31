@@ -49,6 +49,7 @@ import { TrainingHero, WeightHero } from './FocusHero';
 import { AutoBackupPermission, BackupReminder, CheckInAutoOpen, CheckInPrompt, FocusQuick, InstallCard, NeedsAttention, UpdateCard } from './PromptCards';
 import { focusAsk } from '../../logic/stimulant';
 import { TopInsights } from '../../components/InsightList';
+import { ReadinessCard } from '../../components/Biohack';
 import { HAS_MEDS, HAS_BODY, HAS_TRAINING, HAS_FOOD, FOCUS, HAS_PEPTIDES } from '../../edition';
 import { IntakeCard } from '../../components/Fitness';
 import { WeekTeaser } from '../../components/WeekReview';
@@ -279,6 +280,7 @@ export function Today() {
         const p = restartPrompt(m, r.checkIns, now, s);
         return [v?.ready ? <StepPrompt key={`step-${m.id}`} med={m} v={v} /> : null, p ? <RestartCard key={`course-${m.id}`} med={m} prompt={p} /> : null];
       })}
+      {!fam.everyone && <ReadinessCard />}
       {!fam.everyone && <TopInsights />}
 
       {prn.length > 0 && (

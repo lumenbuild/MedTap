@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useLabs, useMedEvents, useMeds, useScheduleSettings, useVitals, useWorkouts } from '../../app/data';
 import { MarkersCard } from '../../components/MarkersCard';
+import { MuscleCard } from '../../components/Biohack';
 import { medIsFor, personOf } from '../../db/repos/people';
 import { MuscleWatchCard } from '../../components/Fitness';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
@@ -129,6 +130,7 @@ export function Body() {
       <VitalsCard personId={fam.personId} {...common} />
       {labs && vitals && <MarkersCard personId={fam.personId} heightCm={fam.people.find((p) => p.id === fam.personId)?.heightCm} labs={labs.filter((l) => personOf(l) === fam.personId)}
         vitals={vitals.filter((v) => personOf(v) === fam.personId)} body={HAS_BODY ? entries : []} daily={daily.filter((x) => personOf(x) === fam.personId)} units={settings.units} now={now} />}
+      <MuscleCard />
 
       <ProgressPhotos personId={fam.personId} />
 

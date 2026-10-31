@@ -32,7 +32,7 @@ export interface MedTapNativePlugin {
   /** Android opened the app on a page (e.g. Health Connect asking why the app reads health data). */
   addListener(event: 'route', fn: (e: { path: string }) => void): Promise<PluginListenerHandle>;
   /** Android: the watch sent a "log" tap (read them with takeWatchLogs), or a "set done" (takeWatchSets). */
-  addListener(event: 'watchLog' | 'watchSet', fn: () => void): Promise<PluginListenerHandle>;
+  addListener(event: 'watchLog' | 'watchSet' | 'watchCheckIn', fn: () => void): Promise<PluginListenerHandle>;
 
   // Health Connect (Android) / Apple Health (iPhone), read only. `granted` names the record types allowed (iPhone: ['unknown']).
   healthStatus(): Promise<{ status: 'available' | 'needs-update' | 'unsupported'; granted: string[] }>;
@@ -53,6 +53,8 @@ export interface MedTapNativePlugin {
   addListener(event: 'widgetAction', fn: () => void): Promise<PluginListenerHandle>;
   /** Android: "log" taps from a paired Wear OS watch, waiting to be logged (cleared when read). */
   takeWatchLogs(): Promise<{ items: { medId: string; at: number }[] }>;
+  /** From the watch: focus ratings, symptoms and reaction tests (biohacking tools), cleared. */
+  takeWatchCheckIns(): Promise<{ items: { at: number; focus?: number; chip?: string; rtMs?: number; rtLapses?: number; rtEarly?: number }[] }>;
   /** Android: download a newer build of this app from its GitHub release and open the installer. Rejects with `code`
    *  'permission' (the "install unknown apps" setting was opened), 'mismatch' or 'io'. */
   installUpdate(options: { url: string }): Promise<void>;

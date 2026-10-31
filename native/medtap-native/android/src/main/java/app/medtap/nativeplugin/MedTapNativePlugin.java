@@ -78,7 +78,7 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
         // A tap on the watch while the app is open: tell the app to log it now.
         WidgetStore.listener = () -> main.post(() -> notifyListeners("widgetAction", new JSObject(), true));
         WearBridge.setListener((queue) -> {
-            String event = WearBridge.SETS.equals(queue) ? "watchSet" : "watchLog";
+            String event = WearBridge.SETS.equals(queue) ? "watchSet" : WearBridge.CHECKINS.equals(queue) ? "watchCheckIn" : "watchLog";
             main.post(() -> notifyListeners(event, new JSObject(), true));
             return kotlin.Unit.INSTANCE;
         });
@@ -698,6 +698,16 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
         try {
             JSObject o = new JSObject();
             o.put("items", new org.json.JSONArray(WearBridge.take(getContext(), WearBridge.LOGS)));
+            call.resolve(o);
+        } catch (Exception e) { call.reject(e.getMessage(), "io"); }
+    }
+
+    /** Focus ratings, symptoms and reaction tests from the watch, waiting to be saved: {items: [...]}, cleared. */
+    @PluginMethod
+    public void takeWatchCheckIns(PluginCall call) {
+        try {
+            JSObject o = new JSObject();
+            o.put("items", new org.json.JSONArray(WearBridge.take(getContext(), WearBridge.CHECKINS)));
             call.resolve(o);
         } catch (Exception e) { call.reject(e.getMessage(), "io"); }
     }

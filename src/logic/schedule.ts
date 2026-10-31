@@ -85,6 +85,11 @@ export function isScheduledDay(med: Medication, t: number, s: ScheduleSettings):
   const sc = med.schedule;
   if (sc.type === 'prn') return true;
   const start = getDayBounds(t, s.dayStartsAt, s.tz).start;
+  if (sc.breaks?.length) {
+    const { y, m, d } = dayDate(start, s);
+    const key = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    if (sc.breaks.some((b) => key >= b.from && key <= b.to)) return false;
+  }
   if (sc.cycle && cycleInfo(sc.cycle, start, s)?.phase === 'off') return false;
   if (sc.course && courseInfo(sc.course, start, s).phase !== 'on') return false;
   if (sc.everyNDays && sc.everyNDays > 1 && sc.startDate) {

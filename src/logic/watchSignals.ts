@@ -66,6 +66,14 @@ function doseCurve(t: number, daily: DailyHealth[], s: ScheduleSettings): { base
   return { baseline, delta: after.map((v) => (v === null ? null : v - baseline)) };
 }
 
+/** One dose's peak rise over its own baseline (15-minute smoothed, within 5 hours), or null without enough readings. */
+export function dosePeak(t: number, daily: DailyHealth[], s: ScheduleSettings): number | null {
+  const c = doseCurve(t, daily, s);
+  if (!c) return null;
+  const sm = smooth(c.delta.slice(0, 60)).filter((v): v is number => typeof v === 'number');
+  return sm.length >= 12 ? r1(Math.max(...sm)) : null;
+}
+
 /** Learned from the first stimulant dose of each day (a second dose starts with the first still working), leaving out
  *  doses with caffeine from an hour before to two hours after when there are enough others. Needs 4+ doses. */
 export function heartResponse(med: Medication, doses: Dose[], checkIns: CheckIn[], daily: DailyHealth[], now: number, s: ScheduleSettings): HeartResponse | null {

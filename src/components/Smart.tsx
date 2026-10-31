@@ -2,6 +2,7 @@
 // planning (medication page), the sheet for odd records (an insight on Today), and the coming days' check-in forecast
 // (Trends). Each one shows what it rests on.
 import { DoseHeartSection } from './DoseHeart';
+import { ToleranceSection } from './Biohack';
 import { format } from 'date-fns';
 import type { CheckIn, Dose, Medication } from '../db/schema';
 import type { ScheduleSettings } from '../logic/schedule';
@@ -120,6 +121,7 @@ export function MedPatterns({ med }: { med: Medication }) {
   return <>
     <HabitsSection med={med} doses={med.shared ? doses.filter((d) => (d.personId ?? person) === person) : doses} checkIns={checkIns.filter((c) => personOf(c) === person)} s={ss[1]} now={now} />
     <DoseHeartSection med={med} />
+    <ToleranceSection med={med} />
   </>;
 }
 

@@ -18,6 +18,9 @@ import { Onboarding } from '../screens/Onboarding/Onboarding';
 import { JoinSync, Sync } from '../screens/Sync';
 import { PeptideCalc } from '../screens/PeptideCalc';
 import { PeptideGuide } from '../screens/PeptideGuide';
+import { Brain } from '../screens/Brain';
+import { Journal } from '../screens/Journal';
+import { YearReview } from '../screens/YearReview';
 import { guideById } from '../logic/peptideGuide';
 import { Supplies } from '../screens/Supplies';
 import { Appointments, AppointmentSummary, Labs } from '../screens/Visits';
@@ -63,6 +66,9 @@ function title(r: Route, peptides = HAS_PEPTIDES): string {
     case 'join': return 'Join family sync';
     case 'calc': return peptides ? 'Peptide calculator' : 'Today';
     case 'guide': return peptides ? (r.id && guideById(r.id)?.name) || 'Peptide guide' : 'Today';
+    case 'brain': return 'Brain test';
+    case 'journal': return 'Journal';
+    case 'year': return 'Year in review';
     case 'supplies': return peptides ? 'Supplies' : 'Today';
     case 'protocol': return peptides ? 'Protocol' : 'Today';
     case 'protocolReport': return peptides ? 'Protocol report' : 'Today';
@@ -95,6 +101,7 @@ function backTo(r: Route, protocol: boolean): string | undefined {
     case 'medNew': return r.guideId ? `#/guide/${r.guideId}` : '#/meds';
     case 'med': return '#/meds';
     case 'guide': return r.id ? '#/guide' : '#/protocol';
+    case 'brain': case 'journal': case 'year': return '#/settings';
     case 'backup': case 'sync': case 'join': case 'calc': case 'supplies': return '#/settings';
     case 'report': return protocol ? '#/progress' : '#/trends';
     case 'help': return r.topic ? '#/help' : '#/settings';
@@ -104,7 +111,9 @@ function backTo(r: Route, protocol: boolean): string | undefined {
 
 function Screen({ r }: { r: Route }) {
   // Peptide screens only while the peptide tools are on (they're off in the private view too).
-  const peptides = HAS_PEPTIDES && !!useSettings()?.peptideTools;
+  const st = useSettings();
+  const peptides = HAS_PEPTIDES && !!st?.peptideTools;
+  const bio = HAS_PEPTIDES && !!st?.biohackTools;
   switch (r.name) {
     case 'settings': return <Settings section={r.section} />;
     case 'trends': return <Suspense fallback={<ChartsLoading />}><Trends /></Suspense>;
@@ -121,6 +130,9 @@ function Screen({ r }: { r: Route }) {
     case 'join': return <JoinSync code={r.code} />;
     case 'calc': return peptides ? <PeptideCalc /> : <Today />;
     case 'guide': return peptides ? <PeptideGuide key={r.id ?? 'list'} id={r.id} /> : <Today />;
+    case 'brain': return bio ? <Brain /> : <Today />;
+    case 'journal': return bio ? <Journal /> : <Today />;
+    case 'year': return bio ? <YearReview /> : <Today />;
     case 'supplies': return peptides ? <Supplies /> : <Today />;
     case 'protocol': return peptides ? <Protocol /> : <Today />;
     case 'protocolReport': return peptides ? <Suspense fallback={<ChartsLoading />}><ProtocolReport /></Suspense> : <Today />;

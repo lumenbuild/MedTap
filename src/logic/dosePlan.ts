@@ -137,6 +137,9 @@ export function planLine(med: Medication, now: number, s: ScheduleSettings): str
 export function planShort(med: Medication, now: number, s: ScheduleSettings): string | undefined {
   const sc = med.schedule;
   const start = getDayBounds(now, s.dayStartsAt, s.tz).start;
+  const today = dayKey(now, s);
+  const br = sc.breaks?.find((b) => today >= b.from && today <= b.to);
+  if (br) return `Break until ${fmtYmdDay(br.to)}`;
   if (sc.course) {
     const i = courseInfo(sc.course, start, s);
     if (i.phase === 'break') return 'On a break';

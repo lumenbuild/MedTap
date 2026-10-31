@@ -1,5 +1,6 @@
 import { printPage } from '../../app/print';
 import { useState } from 'react';
+import { brainScore } from '../../logic/biohack';
 import { format } from 'date-fns';
 import { Printer } from 'lucide-react';
 import { useBodyEntries, useCheckIns, useDaily, useDoses, useExercises, useFamily, useLabs, useMedEvents, useMeds, useScheduleSettings, useVitals, useWorkouts } from '../../app/data';
@@ -39,11 +40,13 @@ export function Report() {
   const [from, setFrom] = useState(ymd(Date.now() - 29 * 86_400_000));
   const [to, setTo] = useState(ymd(Date.now()));
   const [useNicknames, setUseNicknames] = useState(false);
+  // Doctor mode: a clean summary, leaving out peptides and the biohacking extras (brain tests). Remembered on this device.
+  const [doctor, setDoctor] = useState(() => { try { return localStorage.getItem('reportDoctor') === '1'; } catch { return false; } });
 
   if (!allMeds || !allDoses || !allCheckIns || !allBody || !allEvents || !allVitals || !allLabs || !ss || !fam || !allWorkouts || !own || !allDaily) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
   // Only the chosen family member's records.
   // Their medications plus shared ones, counting only their own doses of shared medications.
-  const meds = allMeds.filter((m) => medIsFor(m, fam.personId));
+  const meds = allMeds.filter((m) => medIsFor(m, fam.personId) && !(doctor && m.peptide));
   const medIds = new Set(meds.map((m) => m.id));
   const doses = dosesForPerson(allDoses.filter((d) => medIds.has(d.medicationId)), meds, fam.personId);
   const checkIns = allCheckIns.filter((c) => personOf(c) === fam.personId);
@@ -82,6 +85,12 @@ export function Report() {
           <label className="flex items-center gap-3 min-h-[48px]">
             <input type="checkbox" checked={useNicknames} onChange={(e) => setUseNicknames(e.target.checked)} className="w-5 h-5 accent-[var(--primary)]" />
             <span>Use nicknames instead of real names</span>
+          </label>
+        )}
+        {(allMeds.some((m) => m.peptide) || settings.biohackTools) && (
+          <label className="flex items-center gap-3 min-h-[48px]">
+            <input type="checkbox" checked={doctor} onChange={(e) => { setDoctor(e.target.checked); try { localStorage.setItem('reportDoctor', e.target.checked ? '1' : '0'); } catch { /* fine */ } }} className="w-5 h-5 accent-[var(--primary)]" />
+            <span>Doctor mode: leave out peptides and biohacking extras</span>
           </label>
         )}
         {!valid && <p className="text-sm text-danger" role="alert">The start date is after the end date.</p>}
@@ -158,6 +167,12 @@ export function Report() {
               <div><dt className="text-muted">Average focus</dt><dd className="font-semibold">{avg('focus')}</dd></div>
               <div><dt className="text-muted">Average appetite</dt><dd className="font-semibold">{avg('appetite')}</dd></div>
               {HAS_BODY && <div><dt className="text-muted">Weight</dt><dd className="font-semibold">{weights.length ? `${fmtWeight(weights[0].weightKg!, settings.units)} → ${fmtWeight(weights[weights.length - 1].weightKg!, settings.units)}` : '–'}</dd></div>}
+              {!doctor && settings.biohackTools && (() => {
+                const t = checkIns.filter((c) => !c.deletedAt && typeof c.rtMs === 'number' && inRange(c.at));
+                if (!t.length) return null;
+                const sc = t.map((c) => brainScore(c)!);
+                return <div><dt className="text-muted">Brain tests</dt><dd className="font-semibold">{t.length} · average {Math.round(sc.reduce((x, y) => x + y, 0) / sc.length)}</dd></div>;
+              })()}
             </dl>
           </section>
 

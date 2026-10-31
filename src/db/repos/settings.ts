@@ -70,6 +70,9 @@ export interface AppSettings {
   remindersEnabled: boolean;
   /** Peptides and injections: mixed vials, syringe units, titration plans, injection sites. */
   peptideTools: boolean;
+  /** Biohacking tools: brain tests, readiness and day plan, tolerance, illness warning, recovery, fluids on a GLP-1,
+   *  muscle protection, journal, year in review, and the watch's effect ring and tests. */
+  biohackTools: boolean;
   /** Days of the week the person marked busy (0 = Sunday), for the best shot day. */
   busyDays: number[];
   /** A second "still to take" reminder when a set-time dose isn't logged a while after its usual time. */
@@ -201,6 +204,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   timeMode: 'device',
   remindersEnabled: false,
   peptideTools: false,
+  biohackTools: false,
   busyDays: [],
   lateNudges: true,
   oddDismissed: [],
@@ -258,7 +262,7 @@ export async function getSettings(): Promise<AppSettings> {
   const rows = await db.settings.toArray();
   const out = { ...DEFAULT_SETTINGS } as Record<string, unknown>;
   for (const r of rows) if (r.key in DEFAULT_SETTINGS) out[r.key] = r.value;
-  if (!HAS_PEPTIDES) out.peptideTools = false; // e.g. after restoring a MedTap backup into TapDose
+  if (!HAS_PEPTIDES) { out.peptideTools = false; out.biohackTools = false; } // e.g. after restoring a MedTap backup into TapDose
   if (!HAS_TRAINING) out.trainingTools = false;
   if (!HAS_FOOD) out.foodTracking = false;
   // The app's own main thing can't be switched off.

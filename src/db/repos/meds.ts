@@ -284,6 +284,13 @@ export async function setLeadTime(medId: string, days: number | undefined) {
   await db.medications.update(medId, { peptide: { ...med.peptide, leadTimeDays: days }, updatedAt: nowIso() });
 }
 
+/** Planned breaks (not due on those days). */
+export async function setBreaks(medId: string, breaks: { from: string; to: string }[]) {
+  const med = await db.medications.get(medId);
+  if (!med) return;
+  await db.medications.update(medId, { schedule: { ...med.schedule, breaks: breaks.length ? breaks : undefined }, updatedAt: nowIso() });
+}
+
 export async function setHalfLife(medId: string, hours: number | undefined) {
   const med = await db.medications.get(medId);
   if (!med?.peptide) return;

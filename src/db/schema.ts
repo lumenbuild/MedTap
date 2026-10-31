@@ -29,6 +29,8 @@ export interface Schedule {
   cycle?: { on: number; off: number; start: string };
   /** A course: `days` days from `start` ('YYYY-MM-DD'), then a break until the person starts another. */
   course?: Course;
+  /** Planned breaks ('YYYY-MM-DD', both days included): not due on these days, so no reminders. */
+  breaks?: { from: string; to: string }[];
 }
 
 export interface Course {
@@ -268,6 +270,11 @@ export interface CheckIn extends Stamped {
   relatedDoseId?: string; deletedAt?: string; personId?: string;
   /** A caffeine drink (with the Caffeine chip): its mg; the note is the drink's name. */
   caffeineMg?: number;
+  /** A brain test (biohacking tools): median reaction time (ms), lapses (over 500 ms), early taps, and the share right
+   *  on the working-memory part (0–100); 'full' (2 minutes), 'quick' (reaction only) or 'watch'. */
+  rtMs?: number; rtLapses?: number; rtEarly?: number; nbackPct?: number; test?: 'full' | 'quick' | 'watch';
+  /** A journal line for the day (the note is the line). */
+  journal?: boolean;
 }
 export interface BodyEntry extends Stamped {
   date: string; // local YYYY-MM-DD
