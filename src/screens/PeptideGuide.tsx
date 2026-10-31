@@ -4,12 +4,15 @@
 // The list filters by goal and searches; a page shows "Yours" (the person's own dose, progress and record) once it's set
 // up, and what it's commonly combined with or kept apart from, checked against what they take now.
 import { useState } from 'react';
-import { AlertTriangle, BookOpen, Calculator, ChevronDown, ChevronRight, FlaskConical, Layers, Plus, Snowflake, Sparkles, Syringe } from 'lucide-react';
+import { AlertTriangle, BookOpen, Calculator, ChevronDown, ChevronRight, FlaskConical, Layers, Plus, Snowflake, Sparkles, Syringe, TestTube } from 'lucide-react';
 import { BASICS, canSplit, fmtDose, GOALS, guideById, guideFor, mixTable, searchGuide, splitView, stackChecks, type Goal, type GuideEntry } from '../logic/peptideGuide';
 import { guideYours } from '../logic/guideYours';
+import { guideCourse } from '../logic/courseShop';
+import { labsFor } from '../logic/peptideLabs';
+import { experimentFor } from '../logic/experiments';
 import { SwingBars } from '../components/SwingBars';
 import { fmtMl } from '../logic/peptide';
-import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useMeds, useScheduleSettings } from '../app/data';
+import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useLabs, useMeds, useScheduleSettings, useSettings } from '../app/data';
 import { useNow } from '../app/useNow';
 import { medIsFor, personOf } from '../db/repos/people';
 import { go } from '../app/router';
@@ -159,6 +162,7 @@ function GuidePage({ g }: { g: GuideEntry }) {
 
       <Section title="Doses">
         <Points items={g.doses} />
+        <CourseLine g={g} />
         {g.steps && (
           <ol className="mt-1 rounded-card bg-surface-2 p-3 space-y-1.5 tnum" aria-label="Step-up, weekly amount">
             <li className="text-sm text-muted">Step-up (weekly amount)</li>
@@ -194,6 +198,8 @@ function GuidePage({ g }: { g: GuideEntry }) {
       </Section>
 
       <Section title="Side effects"><Points items={g.sideEffects} /></Section>
+      <Labs g={g} />
+      <TestThis g={g} />
       <Section title="Get help now if" Icon={AlertTriangle}><Points items={g.getHelp} tone="watch" /></Section>
       <Section title="Worth knowing"><Points items={g.worthKnowing} /></Section>
       <Section title="Tips"><Points items={g.tips} /></Section>
@@ -206,6 +212,52 @@ function GuidePage({ g }: { g: GuideEntry }) {
 }
 
 const v = (n: number) => String(Math.round(n * 10) / 10);
+
+/** At the starting dose: the shots, total and vials a course (or 4 weeks) takes. */
+function CourseLine({ g }: { g: GuideEntry }) {
+  const c = guideCourse(g);
+  if (!c.shots) return null;
+  return (
+    <p className="rounded-card bg-surface-2 p-3 leading-snug tnum">
+      <span className="font-medium">{c.course ? `A ${c.days}-day course` : '4 weeks'} at {fmtDose(g.setup.defaultAmount, g.unit)}:</span> {c.shots} shot{c.shots === 1 ? '' : 's'}, {fmtDose(c.total, g.unit)} in all, about {c.vials} vial{c.vials === 1 ? '' : 's'} of {fmtDose(g.vials[0].amount, g.unit)}.
+    </p>
+  );
+}
+
+/** Blood tests worth checking, why, and the person's latest result for each. */
+function Labs({ g }: { g: GuideEntry }) {
+  const labs = useLabs(); const fam = useFamily();
+  const mine = (labs ?? []).filter((l) => fam && personOf(l) === fam.personId);
+  const l = labsFor(g, mine);
+  if (!l) return null;
+  return (
+    <Section title="Blood tests worth checking" Icon={TestTube}>
+      <p className="leading-snug mb-2">{l.why}</p>
+      <ul className="space-y-1.5">
+        {l.tests.map((t) => (
+          <li key={t.label} className="flex justify-between gap-3 tnum">
+            <span>{t.label}</span>
+            <span className={t.latest ? 'text-right' : 'text-muted'}>{t.latest ? `${t.latest.value}${t.latest.unit ? ` ${t.latest.unit}` : ''} · ${new Date(`${t.latest.date}T12:00`).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}` : 'None yet'}</span>
+          </li>
+        ))}
+      </ul>
+      <a href="#/labs" className="min-h-[44px] inline-flex items-center text-sm font-medium underline underline-offset-4">Add results</a>
+    </Section>
+  );
+}
+
+/** Biohacking tools: an on/off experiment for this one, in one tap. */
+function TestThis({ g }: { g: GuideEntry }) {
+  const st = useSettings();
+  const e = experimentFor(g);
+  if (!st?.biohackTools || !e) return null;
+  return (
+    <Section title="Test it on yourself" Icon={FlaskConical}>
+      <p className="leading-snug">Days on and off in a random order, measured by {e.metric === 'deepMin' ? 'deep sleep from the watch' : e.metric === 'focus' ? 'your focus rating' : 'your energy rating'}. It shows whether it does something for you, not just on average.</p>
+      <Button variant="secondary" className="mt-2 w-full min-h-[48px]" onClick={() => go(`/experiments/new/${g.id}`)}>Set up the experiment</Button>
+    </Section>
+  );
+}
 
 /** The person's own: dose and draw, progress, record. */
 function Yours({ g, med }: { g: GuideEntry; med: Medication }) {

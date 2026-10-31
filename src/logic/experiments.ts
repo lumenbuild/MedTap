@@ -31,6 +31,16 @@ export const TEMPLATES: Omit<Experiment, 'id' | 'createdAt' | 'updatedAt' | 'blo
 ];
 
 /** `n` blocks, half A and half B, in a random order (no more than 2 the same in a row). */
+/** An on/off experiment for a guide entry, when one can show something in days: short-acting, with a goal that a
+ *  rating or the watch measures. Long-acting ones (a GLP-1) stay in the body for weeks, so blocks of days can't tell. */
+export function experimentFor(g: { name: string; goals?: string[]; halfLifeHours?: number }): (typeof TEMPLATES)[number] | null {
+  if ((g.halfLifeHours ?? 0) >= 24) return null;
+  const goal = g.goals ?? [];
+  const pick = goal.includes('sleep') ? { metric: 'deepMin' as const, blockDays: 3 } : goal.includes('focus') ? { metric: 'focus' as const, blockDays: 7 }
+    : goal.includes('longevity') ? { metric: 'energy' as const, blockDays: 7 } : null;
+  return pick ? { title: `${g.name}: on or off`, a: g.name, b: `No ${g.name}`, ...pick } : null;
+}
+
 export function randomBlocks(n: number, rand: () => number = Math.random): ('a' | 'b')[] {
   for (let tries = 0; tries < 200; tries++) {
     const xs: ('a' | 'b')[] = [...Array(Math.ceil(n / 2)).fill('a'), ...Array(Math.floor(n / 2)).fill('b')];

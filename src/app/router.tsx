@@ -46,7 +46,7 @@ export const replace = (path: string) => {
 export type Route =
   | { name: 'today' } | { name: 'trends' } | { name: 'body' } | { name: 'settings'; section?: string }
   | { name: 'backup' } | { name: 'report' } | { name: 'help'; topic?: string }
-  | { name: 'meds' } | { name: 'medNew'; tagId?: string; guideId?: string } | { name: 'med'; id: string } | { name: 'guide'; id?: string } | { name: 'brain' } | { name: 'journal' } | { name: 'year' } | { name: 'experiments' }
+  | { name: 'meds' } | { name: 'medNew'; tagId?: string; guideId?: string } | { name: 'med'; id: string } | { name: 'guide'; id?: string } | { name: 'brain' } | { name: 'journal' } | { name: 'year' } | { name: 'experiments'; guideId?: string }
   | { name: 'tag'; id: string } | { name: 'sync' } | { name: 'join'; code: string } | { name: 'calc' } | { name: 'supplies' }
   | { name: 'protocol' } | { name: 'protocolReport' } | { name: 'progress'; view?: 'trends' | 'body' }
   | { name: 'appointments' } | { name: 'appointmentSummary' } | { name: 'labs' } | { name: 'travel' }
@@ -68,7 +68,7 @@ export function parseRoute(path: string): Route {
     case 'brain': return { name: 'brain' };
     case 'journal': return { name: 'journal' };
     case 'year': return { name: 'year' };
-    case 'experiments': return { name: 'experiments' };
+    case 'experiments': return { name: 'experiments', guideId: b === 'new' ? c : undefined };
     case 'supplies': return { name: 'supplies' };
     case 'protocol': return b === 'report' ? { name: 'protocolReport' } : { name: 'protocol' };
     case 'progress': return { name: 'progress', view: b === 'trends' || b === 'body' ? b : undefined };

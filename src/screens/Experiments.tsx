@@ -9,7 +9,8 @@ import { personOf, storedPerson } from '../db/repos/people';
 import { useBodyEntries, useCheckIns, useDaily, useExperiments, useFamily } from '../app/data';
 import { useNow } from '../app/useNow';
 import { useToast } from '../app/toast';
-import { analyse, conditionOn, lastDay, METRICS, randomBlocks, TEMPLATES, type ExperimentResult } from '../logic/experiments';
+import { analyse, conditionOn, experimentFor, lastDay, METRICS, randomBlocks, TEMPLATES, type ExperimentResult } from '../logic/experiments';
+import { guideById } from '../logic/peptideGuide';
 import { Button } from '../components/ui/Button';
 import { Select, TextInput } from '../components/ui/Field';
 import { Sheet, SheetActions } from '../components/ui/Sheet';
@@ -23,11 +24,13 @@ const VERDICT: Record<ExperimentResult['verdict'], (e: Experiment) => string> = 
   'no-difference': () => 'No clear difference',
 };
 
-export function Experiments() {
+export function Experiments({ guideId }: { guideId?: string } = {}) {
   const list = useExperiments(); const checkIns = useCheckIns(); const daily = useDaily(); const body = useBodyEntries(); const fam = useFamily();
   const now = useNow(600_000);
   const toast = useToast();
-  const [sheet, setSheet] = useState(false);
+  const fromGuide = guideId ? guideById(guideId) : undefined;
+  const preset = fromGuide ? experimentFor(fromGuide) ?? undefined : undefined;
+  const [sheet, setSheet] = useState(!!preset);
   if (!list || !checkIns || !daily || !body || !fam) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
   const me = <T extends { personId?: string }>(x: T) => personOf(x) === fam.personId;
   const mine = list.filter((e) => me(e) && !e.deletedAt).sort((a, b) => b.start.localeCompare(a.start));
@@ -63,24 +66,25 @@ export function Experiments() {
         );
       })}
       {!mine.length && <p className="text-muted">No experiments yet.</p>}
-      {sheet && <NewExperiment personId={fam.personId} onClose={() => setSheet(false)} />}
+      {sheet && <NewExperiment personId={fam.personId} preset={preset} onClose={() => setSheet(false)} />}
     </div>
   );
 }
 
-function NewExperiment({ personId, onClose }: { personId: string; onClose: () => void }) {
+function NewExperiment({ personId, preset, onClose }: { personId: string; preset?: (typeof TEMPLATES)[number]; onClose: () => void }) {
   const toast = useToast();
+  const options = preset ? [preset, ...TEMPLATES] : TEMPLATES;
   const [t, setT] = useState(0);
-  const tpl = TEMPLATES[t];
+  const tpl = options[t];
   const [title, setTitle] = useState(tpl.title), [a, setA] = useState(tpl.a), [b, setB] = useState(tpl.b);
   const [metric, setMetric] = useState<Experiment['metric']>(tpl.metric);
   const [blockDays, setBlockDays] = useState(String(tpl.blockDays)), [blocks, setBlocks] = useState('8');
-  const pick = (i: number) => { const x = TEMPLATES[i]; setT(i); setTitle(x.title); setA(x.a); setB(x.b); setMetric(x.metric); setBlockDays(String(x.blockDays)); };
+  const pick = (i: number) => { const x = options[i]; setT(i); setTitle(x.title); setA(x.a); setB(x.b); setMetric(x.metric); setBlockDays(String(x.blockDays)); };
   const days = Number(blockDays) * Number(blocks);
   return (
     <Sheet open onClose={onClose} title="New experiment">
       <div className="space-y-3">
-        <Select label="Start from" value={String(t)} onChange={(e) => pick(Number(e.target.value))}>{TEMPLATES.map((x, i) => <option key={x.title} value={i}>{x.title}</option>)}</Select>
+        <Select label="Start from" value={String(t)} onChange={(e) => pick(Number(e.target.value))}>{options.map((x, i) => <option key={x.title} value={i}>{x.title}</option>)}</Select>
         <TextInput label="Name" value={title} onChange={(e) => setTitle(e.target.value)} />
         <div className="grid grid-cols-2 gap-3">
           <TextInput label="A" value={a} onChange={(e) => setA(e.target.value)} />

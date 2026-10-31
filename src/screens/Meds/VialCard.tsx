@@ -10,7 +10,8 @@ import { addVialPhoto, removePhoto, restorePhoto } from '../../db/repos/photos';
 import { personOf } from '../../db/repos/people';
 import { db } from '../../db/db';
 import { useLive } from '../../db/live';
-import { useDoses } from '../../app/data';
+import { useDoses, useScheduleSettings } from '../../app/data';
+import { courseShop } from '../../logic/courseShop';
 import { useNow } from '../../app/useNow';
 import { useToast } from '../../app/toast';
 import { fmtAmount } from '../../logic/format';
@@ -119,6 +120,7 @@ export function VialCard({ med }: { med: Medication }) {
           )}
         </div>
       )}
+      <ShopList med={med} doses={doses} now={now} />
       <a href="#/supplies" className="block text-center min-h-[44px] leading-[44px] text-primary font-semibold">Supplies</a>
       {!pen && <a href="#/calc" className="block text-center min-h-[44px] leading-[44px] text-primary font-semibold">Peptide calculator</a>}
 
@@ -128,6 +130,33 @@ export function VialCard({ med }: { med: Medication }) {
       {adding && <AddSheet med={med} onClose={() => setAdding(false)} />}
       {details && <DetailsSheet med={med} vial={vialsOf(med).find((x) => x.id === details.id) ?? details} doses={doses} onClose={() => setDetails(null)} />}
     </Card>
+  );
+}
+
+/** What to buy for the rest of the course (or the next course, or 4 weeks): vials, water, syringes and swabs. */
+function ShopList({ med, doses, now }: { med: Medication; doses: Dose[]; now: number }) {
+  const ss = useScheduleSettings();
+  if (!ss) return null;
+  const c = courseShop(med, doses, now, ss[1]);
+  if (!c) return null;
+  const pen = isPen(med), word = pen ? 'pen' : 'vial';
+  const title = c.span === 'rest' ? 'For the rest of this course' : c.span === 'next' ? 'For the next course' : 'For the next 4 weeks';
+  const buy = [
+    c.vials > 0 && `${c.vials} ${word}${c.vials === 1 ? '' : 's'} of ${fmtAmount(c.vialSize, med.unit)}`,
+    c.waterMl && `${c.waterMl} mL bacteriostatic water`,
+    c.syringes > 0 && `${c.syringes} syringe${c.syringes === 1 ? '' : 's'}`,
+    `${c.swabs} alcohol swabs`,
+  ].filter(Boolean) as string[];
+  return (
+    <section aria-labelledby={`shop-${med.id}`} className="rounded-btn bg-surface-2 p-3 space-y-1.5 tnum">
+      <h3 id={`shop-${med.id}`} className="font-semibold">{title}</h3>
+      <p>{c.shots} shot{c.shots === 1 ? '' : 's'} · {fmtAmount(c.total, med.unit)} over {c.days} days</p>
+      <p className="text-sm text-muted">In hand: {c.inVial > 0 ? `about ${fmtAmount(c.inVial, med.unit)} in the ${word} in use` : `no ${word} in use`}{c.unopened ? `, ${c.unopened} unopened (${fmtAmount(c.unopenedAmount, med.unit)})` : ''}.</p>
+      {c.vials > 0
+        ? <p><span className="font-medium">To buy:</span> {buy.join(', ')}.{c.runsOutAt !== undefined && <span className="block text-sm text-muted">What you have runs out about {format(c.runsOutAt, 'd MMM')}.</span>}</p>
+        : <p className="font-medium" style={{ color: 'var(--success)' }}>You have enough {word}s. Syringes and swabs: {buy.join(', ')}.</p>}
+      {med.peptide?.useWithinDays ? <p className="text-[12px] text-muted">Counts a new {word} when one is empty or past its {med.peptide.useWithinDays} days once mixed.</p> : null}
+    </section>
   );
 }
 
