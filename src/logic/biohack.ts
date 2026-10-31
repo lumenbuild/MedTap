@@ -5,6 +5,7 @@ import type { CheckIn, DailyHealth, Dose, Medication, Workout } from '../db/sche
 import { usualHours } from './durations';
 import { ALCOHOL } from './lifestyle';
 import { isStimulant } from './stimulant';
+import { brainScore } from './focusReading';
 import { dosePeak } from './watchSignals';
 import { getDayBounds, type ScheduleSettings } from './schedule';
 import { dayKey } from './stats';
@@ -21,14 +22,7 @@ const clock = (h: number) => { const hh = Math.floor(h) % 24; return `${hh % 12 
 
 // ── Brain tests ─────────────────────────────────────────────────────────────────────────────────────
 
-/** 0–100: reaction time (250 ms or quicker is full marks, 450 ms or slower none), less 4 a lapse, and for the full test
- *  the working-memory share counting for 40%. */
-export function brainScore(c: Pick<CheckIn, 'rtMs' | 'rtLapses' | 'nbackPct'>): number | undefined {
-  if (typeof c.rtMs !== 'number') return undefined;
-  const rt = Math.max(0, Math.min(100, ((450 - c.rtMs) / 200) * 100)) - 4 * (c.rtLapses ?? 0);
-  const v = typeof c.nbackPct === 'number' ? 0.6 * rt + 0.4 * c.nbackPct : rt;
-  return Math.round(Math.max(0, Math.min(100, v)));
-}
+export { brainScore };
 export const brainTests = (checkIns: CheckIn[]) => checkIns.filter((c) => live(c) && typeof c.rtMs === 'number').sort((a, b) => a.at.localeCompare(b.at));
 
 /** Scoring one run of the reaction part: the median of the taps that came after the signal, lapses (over 500 ms) and

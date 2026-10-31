@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { BodyEntry, CheckIn, DailyHealth, Dose, FoodLog, Medication } from '../src/db/schema';
 import type { ScheduleSettings } from '../src/logic/schedule';
 import { doseResponse, eveningCrash, focusAsk, secondDose, stimulantLoad } from '../src/logic/stimulant';
+import { focusReader } from '../src/logic/focusReading';
 import { heartWatch, underEating } from '../src/logic/crossSmart';
 import { costPerKg, missedShot } from '../src/logic/peptideSmart';
 import { stepStatus } from '../src/logic/dosePlan';
@@ -131,5 +132,31 @@ describe('peptides', () => {
     const flat: BodyEntry[] = losing.map((b) => ({ ...b, weightKg: 98 }));
     const cis = [1, 4, 7, 10].map((d) => ci(at(d, 20), { mood: 4 }));
     expect(stepStatus(m, doses, cis, flat, NOW, S)!.ready).toBe(true);
+  });
+});
+
+describe('brain and reaction tests count as focus', () => {
+  it('a test since the dose answers "how’s your focus?"', () => {
+    const d = dose('r', NOW - 90 * 60_000, 10);
+    expect(focusAsk([ritalin], [d], [ci(NOW - 10 * 60_000, { rtMs: 290, rtLapses: 0, test: 'watch' })], NOW)).toBeNull();
+  });
+  it('tests on your own scale: a usual score reads as your usual focus, a good one higher', () => {
+    const tests = [300, 310, 320, 330, 340].map((rt, i) => ci(at(i + 1), { rtMs: rt, rtLapses: 0 }));
+    const ratings = [3, 3, 4, 3, 4].map((f, i) => ci(at(i + 1, 9), { focus: f }));
+    const read = focusReader([...tests, ...ratings]);
+    expect(read(ci(NOW, { rtMs: 320, rtLapses: 0 }))).toBeCloseTo(3.4, 1); // the usual score → the usual rating
+    expect(read(ci(NOW, { rtMs: 280, rtLapses: 0 }))!).toBeGreaterThan(4);
+    expect(read(ci(NOW, { rtMs: 360, rtLapses: 0 }))!).toBeLessThan(3);
+    expect(read(ci(NOW, { focus: 2, rtMs: 250 }))).toBe(2); // the rating wins when both
+    expect(focusReader(tests.slice(0, 4))(ci(NOW, { rtMs: 300 }))).toBeUndefined(); // fewer than 5 tests: not yet
+  });
+  it('finds the best dose from tests alone', () => {
+    const doses: Dose[] = [], cis: CheckIn[] = [];
+    for (let k = 1; k <= 12; k++) {
+      const amt = k % 2 ? 10 : 20, t = at(k, 7);
+      doses.push(dose('r', t, amt));
+      cis.push(ci(t + 2 * HOUR, { rtMs: amt === 20 ? 280 : 340, rtLapses: 0, test: 'quick' }));
+    }
+    expect(doseResponse(ritalin, doses, cis, NOW, S)).toMatchObject({ by: 'amount', better: '20 mg', worse: '10 mg' });
   });
 });

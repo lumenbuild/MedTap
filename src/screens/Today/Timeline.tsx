@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Coffee, HeartPulse, Nfc, Ruler, Scale, Smile } from 'lucide-react';
+import { Brain, ChevronLeft, ChevronRight, Coffee, HeartPulse, Nfc, Ruler, Scale, Smile } from 'lucide-react';
+import { brainScore } from '../../logic/biohack';
 import { isDrink } from '../../logic/caffeine';
 import { fmtVital } from '../../components/VitalsSheet';
 import { shownColour, shownName } from '../../logic/privacy';
@@ -79,6 +80,14 @@ export function Timeline({ doses, checkIns, body, vitals, meds, s, units, now, o
               title = <><span className="font-medium">{c.note ?? 'Caffeine'}</span>{c.caffeineMg !== undefined && <span className="tnum"> {c.caffeineMg} mg</span>}</>;
               onClick = () => onCheckIn(c);
               if (personLabel) sub = personLabel(c);
+            } else if (it.kind === 'checkin' && typeof it.checkIn.rtMs === 'number') {
+              // A brain or reaction test: its own name and result, not a bare "Check-in".
+              const c = it.checkIn;
+              icon = <Brain size={20} className="text-primary shrink-0" aria-hidden="true" />;
+              title = <><span className="font-medium">{c.test === 'full' ? 'Brain test' : c.test === 'watch' ? 'Reaction test (watch)' : 'Reaction test'}</span><span className="tnum"> {brainScore(c)}</span></>;
+              sub = [`${c.rtMs} ms`, `${c.rtLapses ?? 0} slow`, typeof c.nbackPct === 'number' ? `${c.nbackPct}% working memory` : null].filter(Boolean).join(' · ');
+              onClick = () => onCheckIn(c);
+              if (personLabel) sub = [personLabel(c), sub].filter(Boolean).join(' · ');
             } else if (it.kind === 'checkin') {
               const c = it.checkIn;
               icon = <Smile size={20} className="text-primary shrink-0" aria-hidden="true" />;
