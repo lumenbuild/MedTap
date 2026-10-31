@@ -135,7 +135,7 @@ function Screen({ r }: { r: Route }) {
     case 'brain': return bio ? <Brain /> : <Today />;
     case 'journal': return bio ? <Journal /> : <Today />;
     case 'year': return bio ? <YearReview /> : <Today />;
-    case 'experiments': return bio ? <Experiments /> : <Today />;
+    case 'experiments': return bio ? <Experiments key={r.guideId ?? 'list'} guideId={r.guideId} /> : <Today />;
     case 'supplies': return peptides ? <Supplies /> : <Today />;
     case 'protocol': return peptides ? <Protocol /> : <Today />;
     case 'protocolReport': return peptides ? <Suspense fallback={<ChartsLoading />}><ProtocolReport /></Suspense> : <Today />;

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Clock, Info } from 'lucide-react';
+import { AlertTriangle, Clock, Info } from 'lucide-react';
 import type { Dose, Medication, Person } from '../db/schema';
 import { doseOwner, personOf, storedPerson } from '../db/repos/people';
 import { useMeds } from '../app/data';
@@ -8,6 +8,7 @@ import { PersonBadge } from './PersonSwitcher';
 import { logDose } from '../db/repos/doses';
 import { FIXED_MATCH_MS, getContextNotes, getExpectedAmount, getFixedSlots, getLastDose, getRecentDose, type ContextNote, type ScheduleSettings } from '../logic/schedule';
 import { stockUnitsFor } from '../logic/stock';
+import { doseCheck } from '../logic/doseCheck';
 import { currentVial, doseForUnits, drawFor, vialForTag } from '../logic/peptide';
 import { DrawGuide } from './Syringe';
 import { MedInstructions } from './MedInstructions';
@@ -229,6 +230,14 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, vialId, onLog
           : !med.peptide && units !== null && <p className="text-sm text-muted tnum">{units} {med.form === 'other' ? 'units' : `${med.form}${units === 1 ? '' : 's'}`} of {fmtAmount(med.strength, med.unit)}</p>}
         {med.peptide && amount > 0 && <DrawGuide med={med} amount={amount} />}
         {amountError && <p className="text-sm text-danger" role="alert">{amountError}</p>}
+        {amount > 0 && doseCheck(med, amount, doses, now).map((f) => (
+          <div key={f.kind} role="alert" className="rounded-btn px-4 py-3 flex gap-3 text-sm" style={{ background: 'var(--caution-soft)' }}>
+            <AlertTriangle size={18} className="shrink-0 mt-0.5" style={{ color: 'var(--caution)' }} aria-hidden="true" />
+            <span className="flex-1">{f.text}{f.suggest !== undefined && (
+              <button type="button" className="block mt-1 min-h-[44px] font-semibold text-primary" onClick={() => { setInUnits(false); setAmountEdit(f.suggest!); }}>Use {fmtAmount(f.suggest, med.unit)}</button>
+            )}</span>
+          </div>
+        ))}
       </div>
 
 

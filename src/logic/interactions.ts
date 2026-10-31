@@ -7,7 +7,8 @@ import { ingredientsOf } from './ingredients';
 type Group =
   | 'serotonergic' | 'serotonin-other' | 'nsaid' | 'blood-thinner' | 'opioid' | 'sedative' | 'stimulant' | 'decongestant'
   | 'bp-raas' | 'diuretic' | 'potassium-keeping' | 'lithium' | 'pde5' | 'nitrate' | 'glp1' | 'low-sugar' | 'amylin'
-  | 'diabetes' | 'gh-releaser' | 'tirzepatide' | 'pill' | 'bremelanotide' | 'naltrexone' | 'maoi';
+  | 'diabetes' | 'gh-releaser' | 'tirzepatide' | 'pill' | 'bremelanotide' | 'naltrexone' | 'maoi'
+  | 'melanocortin' | 'sugar-peptide' | 'stim-peptide' | 'calm-peptide';
 
 const GROUPS: Record<Group, string[]> = {
   serotonergic: ['sertraline', 'escitalopram', 'citalopram', 'fluoxetine', 'paroxetine', 'fluvoxamine', 'venlafaxine', 'desvenlafaxine', 'duloxetine'],
@@ -34,6 +35,10 @@ const GROUPS: Record<Group, string[]> = {
   bremelanotide: ['bremelanotide'],
   naltrexone: ['naltrexone'],
   maoi: ['phenelzine', 'tranylcypromine', 'moclobemide', 'selegiline', 'rasagiline'],
+  melanocortin: ['bremelanotide', 'melanotan'],
+  'sugar-peptide': ['mots-c'],
+  'stim-peptide': ['semax'],
+  'calm-peptide': ['selank', 'dsip'],
 };
 
 /** Research peptides: no studies of how they mix with medicines, so no pair can be ruled in or out. */
@@ -64,6 +69,12 @@ const RULES: Rule[] = [
   { key: 'gh-sugar', a: 'gh-releaser', b: 'diabetes', why: 'Can raise blood sugar' },
   { key: 'pill', a: 'tirzepatide', b: 'pill', why: 'Pill less reliable for 4 weeks after each step up' },
   { key: 'naltrexone', a: 'bremelanotide', b: 'naltrexone', why: 'Less naltrexone absorbed: label says avoid' },
+  { key: 'glp1-glp1', a: 'glp1', b: 'glp1', why: 'Two GLP-1 medicines: not usually combined' },
+  { key: 'gh-glp1', a: 'gh-releaser', b: 'glp1', why: 'Growth hormone raises blood sugar: worth watching glucose' },
+  { key: 'melanocortin', a: 'melanocortin', b: 'melanocortin', why: 'Both act on the same receptors: more nausea and blood pressure rise' },
+  { key: 'sugar-peptide', a: 'sugar-peptide', b: 'low-sugar', why: 'Can lower blood sugar further' },
+  { key: 'stim-peptide', a: 'stim-peptide', b: 'stimulant', why: 'Both stimulating: more anxiety, faster heart, worse sleep' },
+  { key: 'calm-peptide', a: 'calm-peptide', b: 'sedative', why: 'Together: more drowsy' },
 ];
 
 const groupsOf = (m: Medication) => {
