@@ -231,6 +231,9 @@ export interface Medication extends Stamped {
   ingredients?: { name: string; mg?: number }[];
   /** Price paid per vial or pen (peptide tools) or per pack, for cost tracking. */
   costPerUnit?: number;
+  /** The first reminder of the day follows when the watch says you woke: this many minutes after (when the wake time
+   *  is known by then and within 3 hours of the set time). */
+  followWakeMin?: number;
 }
 /** For one set time ('HH:mm'): remind at these times instead, on weekdays and/or weekends. */
 export interface ReminderTime { slot: string; weekday?: string; weekend?: string }

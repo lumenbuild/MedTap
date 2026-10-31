@@ -23,6 +23,8 @@ export interface GuideEntry {
   tableDoses: number[];
   route: string;
   when: string;
+  /** The usual hours to take it (24 h clock, from–to; to < from runs past midnight), for checking actual doses. */
+  window?: [number, number];
   cycle?: string;
   doses: string[];
   /** A step-up, in `unit` per dose, each step lasting `weeks`. */
@@ -140,6 +142,7 @@ export const GUIDE: GuideEntry[] = [
     unit: 'mg', tableDoses: [0.5, 1, 2],
     route: 'Under the skin: belly or thigh. Rotate sites.',
     when: 'Once a day, usually in the evening.',
+    window: [16, 1],
     cycle: 'Usually 4–8 weeks, then a break of a few weeks.',
     doses: ['Commonly 1–2 mg a day under the skin, for 4–8 weeks.'],
     storage: { powder: 'Fridge, away from light.', mixed: 'Fridge, away from light. Commonly used within 4 weeks of mixing. A blue colour is normal.', useWithinDays: 28 },
@@ -163,6 +166,7 @@ export const GUIDE: GuideEntry[] = [
     unit: 'mg', tableDoses: [0.1, 0.2, 0.25, 0.3, 0.5],
     route: 'Under the skin: belly or thigh.',
     when: 'In the evening, 30 minutes to 3 hours before bed.',
+    window: [18, 2],
     cycle: 'Usually short runs (a week or two), or a few nights a week.',
     doses: ['Commonly 100–300 mcg (0.1–0.3 mg) before bed; some use up to 500 mcg.'],
     storage: { powder: 'Fridge or freezer.', mixed: 'Fridge. Commonly used within 4 weeks of mixing.', useWithinDays: 28 },
@@ -210,6 +214,7 @@ export const GUIDE: GuideEntry[] = [
     unit: 'mg', tableDoses: [25, 50, 100],
     route: 'Under the skin (belly or thigh) or into a muscle. Inject slowly.',
     when: 'In the morning: it can be stimulating and keep you up.',
+    window: [6, 13],
     doses: ['Commonly 50–100 mg under the skin, two to three times a week. Many start at 25–50 mg to see how they react.', 'Clinic drips are often 250–1,000 mg over a few hours.'],
     storage: { powder: 'Fridge, away from light.', mixed: 'Fridge, away from light. Commonly used within 2–4 weeks of mixing.', useWithinDays: 28 },
     sideEffects: ['Flushing, warmth or a racing feeling soon after: more with a fast push or higher doses.', 'Nausea, stomach cramps or tightness in the chest.', 'Stinging at the site.', 'Headache.'],
@@ -232,6 +237,7 @@ export const GUIDE: GuideEntry[] = [
     unit: 'mcg', tableDoses: [100, 200, 300, 500],
     route: 'Usually in the nose (drops or a spray). Some inject it under the skin (belly or thigh) from a mixed vial.',
     when: 'In the morning or early afternoon: it’s stimulating and can keep you up if taken late.',
+    window: [6, 14],
     cycle: 'Usually 1–2 weeks on, then a break of a week or more.',
     doses: [
       'The Russian 0.1% drops have 1 mg per mL: one drop is about 50 mcg. For focus, 2–3 drops in each nostril, 2–3 times a day (about 400–900 mcg a day).',
@@ -263,6 +269,7 @@ export const GUIDE: GuideEntry[] = [
     unit: 'mg', tableDoses: [1, 5, 10],
     route: 'Under the skin: belly or thigh.',
     when: 'Once a day, usually in the evening.',
+    window: [16, 1],
     cycle: 'A short course (10–20 days), repeated once or twice a year.',
     doses: ['Commonly 5–10 mg a day for 10–20 days, repeated every 4–6 months. Some use 1–2 mg a day over a longer course.'],
     storage: { powder: 'Fridge or freezer.', mixed: 'Fridge. Commonly used within 4 weeks of mixing.', useWithinDays: 28 },

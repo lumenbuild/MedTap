@@ -29,13 +29,14 @@ import { sleepImpact } from './habits';
 import { doseCreep, illnessWarning, rebound, tolerance } from './biohack';
 import { appetiteAhead, fluids } from './bodyhack';
 import { inGroup } from './interactions';
+import { bloodTestSoon, dailyTotals, supplementRules } from './supplements';
 
 const DAY = 86_400_000;
 const WEEK = 7 * DAY;
 const day = (t: number) => format(t, 'EEE d MMM');
 const hourText = (h: number) => (h === 12 ? '12 pm' : h > 12 ? `${h - 12} pm` : `${h} am`);
 
-export type InsightKind = 'script' | 'reading' | 'stall' | 'wearoff' | 'change' | 'odd' | 'cutoff' | 'calories' | 'protein' | 'lean' | 'appointment' | 'followup' | 'steps' | 'sleep' | 'gut' | 'eating' | 'regain' | 'maintain' | 'second' | 'dosecut' | 'bestdose' | 'crash' | 'load' | 'heart' | 'undereat' | 'missed' | 'illness' | 'tolerance' | 'creep' | 'fluids' | 'appetite' | 'rebound' | 'review';
+export type InsightKind = 'script' | 'reading' | 'stall' | 'wearoff' | 'change' | 'odd' | 'cutoff' | 'calories' | 'protein' | 'lean' | 'appointment' | 'followup' | 'steps' | 'sleep' | 'gut' | 'eating' | 'regain' | 'maintain' | 'second' | 'dosecut' | 'bestdose' | 'crash' | 'load' | 'heart' | 'undereat' | 'missed' | 'illness' | 'tolerance' | 'creep' | 'fluids' | 'appetite' | 'rebound' | 'review' | 'supplement';
 
 export type InsightAction =
   | { kind: 'go'; label: string; href: string }
@@ -195,6 +196,18 @@ export function insights(d: InsightInput, now: number, s: ScheduleSettings): Ins
         headline: `${shownName(m)}: ${ms.take ? 'take the missed shot now' : 'skip the missed shot'}`, evidence: ms.text,
         action: { kind: 'go', label: 'Protocol', href: '#/protocol' }, snoozeDays: 1 });
     }
+  }
+
+  // Supplements: anything to avoid together, a daily total over its upper limit, and biotin before a blood test.
+  if (d.has.meds) {
+    const live = d.meds.filter((m) => !m.archived);
+    const soon = bloodTestSoon(d.appointments, now);
+    for (const r of supplementRules(live, { bloodTestSoon: soon }).filter((x) => x.kind === 'avoid' || (x.kind === 'lab' && soon && /biotin/i.test(x.text))))
+      out.push({ id: `supplement:${r.id}`, kind: 'supplement', importance: r.kind === 'avoid' ? 66 : 62, confidence: 'high', tone: 'watch', headline: r.kind === 'avoid' ? 'Worth not taking together' : 'Before your blood test',
+        evidence: r.text, action: { kind: 'go', label: 'See', href: '#/meds' }, snoozeDays: 30 });
+    for (const t of dailyTotals(live, d.doses, now, s).filter((x) => x.over))
+      out.push({ id: `supplement:ul:${t.key}`, kind: 'supplement', importance: 58, confidence: 'high', tone: 'watch', headline: `${t.name}: ${t.perDay} ${t.per} a day, over the ${t.ul} ${t.per} upper limit`,
+        evidence: `From ${t.from.join(', ')}`, action: { kind: 'go', label: 'See', href: '#/meds' }, snoozeDays: 30 });
   }
 
   // Biohacking tools: an illness warning, tolerance and dose creep, water behind on a shot day, appetite coming back,

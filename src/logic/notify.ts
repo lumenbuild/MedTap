@@ -20,6 +20,8 @@ export interface PlannedReminder {
 export interface ReminderOptions {
   /** A second "still to take" reminder for every set time (the usual time plus the usual spread). */
   nudges?: boolean;
+  /** When the person woke today (from the watch), for medicines whose first reminder follows waking. */
+  wakeAt?: number;
 }
 
 /** iOS keeps at most 64 pending notifications per app. */
@@ -59,10 +61,17 @@ export function planReminders(meds: Medication[], doses: Dose[], now: number, s:
       };
       const todayStart = getDayBounds(now, s.dayStartsAt, s.tz).start;
       const today = getFixedSlots(med, doses, now, s);
-      for (const slot of today) {
+      today.forEach((slot, i) => {
         const time = getSlots(med).find((x) => timeInDay(todayStart, x.time, s) === slot.at)?.time;
-        if (!slot.dose && time) add(todayStart, time, slot.at, slot.amount);
-      }
+        if (slot.dose || !time) return;
+        // The day's first dose can follow when you actually woke (from the watch), if that's known and near the set time.
+        const w = i === 0 && med.followWakeMin !== undefined && opts.wakeAt !== undefined ? opts.wakeAt + med.followWakeMin * 60_000 : undefined;
+        if (w !== undefined && Math.abs(w - slot.at) <= 3 * 3_600_000 && w > now) {
+          out.push({ id: reminderId(med.id, slot.at), at: w, medId: med.id, amount: slot.amount, kind: 'due', dueAt: slot.at });
+          return;
+        }
+        add(todayStart, time, slot.at, slot.amount);
+      });
       let dayStart = getDayBounds(now, s.dayStartsAt, s.tz).end;
       while (dayStart < until) {
         if (isScheduledDay(med, dayStart, s)) {

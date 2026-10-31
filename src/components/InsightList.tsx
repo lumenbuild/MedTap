@@ -2,7 +2,7 @@
 // Today shows the top couple (TopInsights); Progress shows every one (InsightFeed). Acting on one that changes a
 // setting also notes it, so the app can check back a few weeks later on what happened.
 import { useMemo, useState } from 'react';
-import { Activity, ArrowDownRight, ClipboardList, Brain, Thermometer, TrendingDown, TrendingUp, BatteryLow, CalendarDays, CalendarX, Clock, Footprints, Moon, Scale, Coffee, Droplet, Dumbbell, FileText, HeartPulse, Layers, Lightbulb, SearchCheck, Sparkles, Target, Utensils, X, Zap, type LucideIcon } from 'lucide-react';
+import { Activity, ArrowDownRight, ClipboardList, Pill, Brain, Thermometer, TrendingDown, TrendingUp, BatteryLow, CalendarDays, CalendarX, Clock, Footprints, Moon, Scale, Coffee, Droplet, Dumbbell, FileText, HeartPulse, Layers, Lightbulb, SearchCheck, Sparkles, Target, Utensils, X, Zap, type LucideIcon } from 'lucide-react';
 import { certainty, insights, type Insight, type InsightKind } from '../logic/insights';
 import { fmtTime } from '../logic/format';
 import { oddRecords } from '../logic/records';
@@ -21,7 +21,7 @@ const ICON: Record<InsightKind, LucideIcon> = {
   script: FileText, reading: HeartPulse, stall: Droplet, wearoff: Zap, change: ArrowDownRight, odd: SearchCheck, cutoff: Coffee,
   calories: Utensils, protein: Dumbbell, lean: Dumbbell, appointment: CalendarDays, followup: Sparkles, steps: Footprints, sleep: Moon, gut: Utensils, eating: Utensils, regain: Scale, maintain: Scale,
   second: Clock, dosecut: Moon, bestdose: Target, crash: BatteryLow, load: Layers, heart: Activity, undereat: Utensils, missed: CalendarX,
-  illness: Thermometer, tolerance: TrendingDown, creep: TrendingUp, fluids: Droplet, appetite: Utensils, rebound: Brain, review: ClipboardList,
+  illness: Thermometer, tolerance: TrendingDown, creep: TrendingUp, fluids: Droplet, appetite: Utensils, rebound: Brain, review: ClipboardList, supplement: Pill,
 };
 const TONE = { watch: { bg: 'var(--caution-soft)', fg: 'var(--caution)' }, good: { bg: 'var(--success-soft)', fg: 'var(--success)' }, plain: { bg: 'var(--surface-2)', fg: 'var(--primary)' } };
 

@@ -325,7 +325,7 @@ async function doSync() {
   const snoozes = liveSnoozes(settings.snoozes, live, Date.now());
   if (snoozes.length !== settings.snoozes.length) await setSetting('snoozes', snoozes);
   const plan = [
-    ...withoutSnoozed(planReminders(meds, live, Date.now(), scheduleSettings(settings), undefined, undefined, { nudges: settings.lateNudges }), snoozes),
+    ...withoutSnoozed(planReminders(meds, live, Date.now(), scheduleSettings(settings), undefined, undefined, { nudges: settings.lateNudges, wakeAt: await wakeToday(scheduleSettings(settings), settings.healthPersonId) }), snoozes),
     ...snoozes.filter((z) => meds.some((m) => m.id === z.medId && !m.archived)).map((z) => ({ id: z.id, at: z.at, medId: z.medId, amount: z.amount, kind: 'snooze' as const, dueAt: z.dueAt })),
   ];
   const byId = new Map(meds.map((m) => [m.id, m]));
@@ -408,6 +408,14 @@ async function scheduleWearOff(settings: Awaited<ReturnType<typeof getSettings>>
 
 /** Biohacking tools: a gentle heads-up 45 minutes before bed when a stimulant taken today usually still works then (it
  *  buzzes the watch too). From dose times and how long the medicine usually lasts, not a live heart rate. */
+/** When the person woke today, from the watch's main sleep (it ends after the day begins and before now). */
+async function wakeToday(s: ReturnType<typeof scheduleSettings>, personId: string): Promise<number | undefined> {
+  const rows = (await db.daily.toArray()).filter((d) => !d.deletedAt && personOf(d) === personId && d.sleepEnd);
+  const start = getDayBounds(Date.now(), s.dayStartsAt, s.tz).start;
+  const end = rows.map((d) => d.sleepEnd!).filter((t) => t >= start && t <= Date.now()).sort((a, b) => b - a)[0];
+  return end;
+}
+
 async function scheduleBedtime(settings: Awaited<ReturnType<typeof getSettings>>) {
   const me = settings.activePersonId;
   const [meds, doses] = await Promise.all([db.medications.toArray(), db.doses.toArray()]);
