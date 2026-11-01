@@ -87,7 +87,7 @@ class DoseTileService : BaseTile() {
         val nextSet = workout?.optJSONObject("next")
         if (workout != null && nextSet != null) {
             val rest = workout.optLong("restUntil")
-            return tile(PrimaryLayout.Builder(d)
+            return tile(PrimaryLayout.Builder(d).setResponsiveContentInsetEnabled(true)
                 .setPrimaryLabelTextContent(text(workout.optString("title", "Workout"), Typography.TYPOGRAPHY_CAPTION1, Palette.ACT))
                 .setContent(column(
                     text(nextSet.optString("exercise"), Typography.TYPOGRAPHY_TITLE3, Palette.TEXT, 2),
@@ -101,7 +101,7 @@ class DoseTileService : BaseTile() {
         if (next == null) {
             val title = fallback.optString("title", "")
             val label = when { total > 0 && done >= total -> "All done today"; title.isEmpty() -> getString(R.string.app_name); else -> fallback.optString("label", "Next") }
-            return tile(PrimaryLayout.Builder(d)
+            return tile(PrimaryLayout.Builder(d).setResponsiveContentInsetEnabled(true)
                 .setPrimaryLabelTextContent(text(label, Typography.TYPOGRAPHY_CAPTION1, Palette.GOOD))
                 .setContent(column(
                     text(logged ?: if (title.isEmpty()) "Open the app on your phone to set up" else title, Typography.TYPOGRAPHY_TITLE3, Palette.TEXT, 2),
@@ -110,7 +110,7 @@ class DoseTileService : BaseTile() {
                 .build(), 15 * 60_000L, open(null))
         }
         val due = next.state == "due"
-        return tile(PrimaryLayout.Builder(d)
+        return tile(PrimaryLayout.Builder(d).setResponsiveContentInsetEnabled(true)
             .setPrimaryLabelTextContent(text(if (due) "Due now" else "Next · ${time(next.at ?: now)}", Typography.TYPOGRAPHY_CAPTION1, if (due) Palette.MEDS else Palette.MUTED))
             .setContent(column(
                 text(next.name, Typography.TYPOGRAPHY_TITLE2, Palette.TEXT, 2),
@@ -129,7 +129,7 @@ class FocusTileService : BaseTile() {
         val now = System.currentTimeMillis()
         if (w == null) {
             val readiness = WatchState.load(this).optJSONObject("bio")?.optInt("readiness", -1)?.takeIf { it >= 0 }
-            return Futures.immediateFuture(tile(PrimaryLayout.Builder(d)
+            return Futures.immediateFuture(tile(PrimaryLayout.Builder(d).setResponsiveContentInsetEnabled(true)
                 .setPrimaryLabelTextContent(text("Focus", Typography.TYPOGRAPHY_CAPTION1, Palette.MIND))
                 .setContent(column(text("No focus window now", Typography.TYPOGRAPHY_TITLE3, Palette.TEXT, 2),
                     readiness?.let { text("Readiness $it", Typography.TYPOGRAPHY_BODY2, Palette.MUTED) }))
@@ -138,7 +138,7 @@ class FocusTileService : BaseTile() {
         val left = ((w.to - now) / 60_000L).toInt()
         val leftText = if (left >= 60) "${left / 60}h ${left % 60}m left" else "$left min left"
         val range = if (w.late - w.early > 10 * 60_000L) "Wears off ${fmtRange(this, w.early, w.late)}" else "Until ${time(w.to)}"
-        return Futures.immediateFuture(tile(EdgeContentLayout.Builder(d)
+        return Futures.immediateFuture(tile(EdgeContentLayout.Builder(d).setResponsiveContentInsetEnabled(true)
             .setEdgeContent(ring(WearOff.progress(w, now), Palette.MIND))
             .setPrimaryLabelTextContent(text("Focus", Typography.TYPOGRAPHY_CAPTION1, Palette.MIND))
             .setContent(column(text(leftText, Typography.TYPOGRAPHY_TITLE2, Palette.TEXT), text(range, Typography.TYPOGRAPHY_CAPTION2, Palette.MUTED, 2)))
@@ -151,7 +151,7 @@ class SleepTileService : BaseTile() {
     override fun onTileRequest(requestParams: RequestBuilders.TileRequest): ListenableFuture<TileBuilders.Tile> {
         val d = requestParams.deviceConfiguration
         val s = WatchState.watch(this).optJSONObject("sleep")
-        if (s == null) return Futures.immediateFuture(tile(PrimaryLayout.Builder(d)
+        if (s == null) return Futures.immediateFuture(tile(PrimaryLayout.Builder(d).setResponsiveContentInsetEnabled(true)
             .setPrimaryLabelTextContent(text("Sleep", Typography.TYPOGRAPHY_CAPTION1, Palette.SLEEP))
             .setContent(column(text("Turn on Sleep in the phone app", Typography.TYPOGRAPHY_BODY1, Palette.TEXT, 3))).build(), 60 * 60_000L, open(null)))
         val bed = s.optLong("bedtime")
@@ -164,7 +164,7 @@ class SleepTileService : BaseTile() {
             text(score?.let { "$it" } ?: "—", Typography.TYPOGRAPHY_DISPLAY3, Palette.TEXT),
             text(s.optString("word").ifEmpty { "No night yet" }, Typography.TYPOGRAPHY_CAPTION1, Palette.SLEEP),
             *lines.map { text(it, Typography.TYPOGRAPHY_CAPTION2, Palette.MUTED) }.toTypedArray())
-        return Futures.immediateFuture(tile(EdgeContentLayout.Builder(d)
+        return Futures.immediateFuture(tile(EdgeContentLayout.Builder(d).setResponsiveContentInsetEnabled(true)
             .setEdgeContent(ring((score ?: 0) / 100f, Palette.SLEEP))
             .setContent(content).build(), 60 * 60_000L, open("home/sleep")))
     }

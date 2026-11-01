@@ -159,7 +159,7 @@ export function Trends() {
           <div className="grid grid-cols-2 gap-2">
             {bio && <Tile Icon={NotebookPen} label="Journal" href="#/journal" />}
             {bio && <Tile Icon={Brain} label="Brain test" href="#/brain" />}
-            {bio && <Tile Icon={FlaskConical} label="Experiments" href="#/experiments" />}
+            {(HAS_MEDS || bio) && <Tile Icon={FlaskConical} label="Experiments" href="#/experiments" />}
             {bio && <Tile Icon={CalendarRange} label="Year in review" href="#/year" />}
             {HAS_MEDS && <Tile Icon={FileText} label="Doctor report" href="#/report" />}
             {HAS_MEDS && <Tile Icon={TestTube} label={HAS_VISITS ? 'Appointments' : 'Lab results'} href={HAS_VISITS ? '#/appointments' : '#/labs'} />}

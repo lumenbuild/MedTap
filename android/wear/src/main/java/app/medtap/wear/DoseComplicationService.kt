@@ -34,6 +34,7 @@ class DoseComplicationService : ComplicationDataSourceService() {
     private fun build(type: ComplicationType): ComplicationData? {
         val tap = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_IMMUTABLE)
         val now = System.currentTimeMillis()
+        val img = Complications.icon(this, R.drawable.ic_dose)
         val workout = WatchState.workout(this)
         val restUntil = workout?.optLong("restUntil") ?: 0L
         val d = WatchState.load(this)
@@ -53,17 +54,17 @@ class DoseComplicationService : ComplicationDataSourceService() {
         val ring = d.optJSONObject("bio")?.optJSONObject("ring")?.takeIf { it.optLong("to") > now }
         return when (type) {
             ComplicationType.RANGED_VALUE -> {
-                if (ring == null) RangedValueComplicationData.Builder(0f, 0f, 1f, describe).setText(short).setTapAction(tap).build()
+                if (ring == null) RangedValueComplicationData.Builder(0f, 0f, 1f, describe).setText(short).setTapAction(tap).setMonochromaticImage(img).build()
                 else {
                     val from = ring.optLong("from"); val to = ring.optLong("to")
                     val p = ((now - from).toFloat() / (to - from).toFloat()).coerceIn(0f, 1f)
                     val until = android.text.format.DateFormat.getTimeFormat(this).format(java.util.Date(to)).replace(" ", "").lowercase()
                     RangedValueComplicationData.Builder(p, 0f, 1f, PlainComplicationText.Builder("Focus until $until").build())
-                        .setText(PlainComplicationText.Builder(until).build()).setTitle(PlainComplicationText.Builder("Focus").build()).setTapAction(tap).build()
+                        .setText(PlainComplicationText.Builder(until).build()).setTitle(PlainComplicationText.Builder("Focus").build()).setTapAction(tap).setMonochromaticImage(img).build()
                 }
             }
             ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(short, describe)
-                .setTitle(PlainComplicationText.Builder(label).build()).setTapAction(tap).build()
+                .setTitle(PlainComplicationText.Builder(label).build()).setTapAction(tap).setMonochromaticImage(img).build()
             ComplicationType.LONG_TEXT -> {
                 val words = when {
                     restUntil > now -> "Rest, then ${workout?.optJSONObject("next")?.optString("exercise") ?: "next set"}"
@@ -72,7 +73,7 @@ class DoseComplicationService : ComplicationDataSourceService() {
                     else -> "Open the app on your phone to set up"
                 }
                 LongTextComplicationData.Builder(PlainComplicationText.Builder(words).build(), describe)
-                    .setTitle(short).setTapAction(tap).build()
+                    .setTitle(short).setTapAction(tap).setMonochromaticImage(img).build()
             }
             else -> null
         }

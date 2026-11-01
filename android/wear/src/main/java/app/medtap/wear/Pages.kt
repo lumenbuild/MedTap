@@ -61,9 +61,10 @@ fun NowPage(version: Int, tick: Int, nav: NavHostController, goTo: (Tab) -> Unit
     val fallback = remember(version) { WatchState.load(ctx) }
     val wear = remember(version, tick) { WearOff.now(ctx) }
     val waiting = remember(version) { WatchState.waiting(ctx) }
-    Page {
+    val d = dims()
+    Page(top = (d.w * 0.1f).dp) {
         item {
-            Ring(if (total > 0) done.toFloat() / total else 0f, C.meds, size = 132.dp) {
+            Ring(if (total > 0) done.toFloat() / total else 0f, C.meds, share = 0.56f) {
                 when {
                     next != null -> {
                         Label(if (next.state == "due") "Due now" else "Next · ${Alarms.fmtTime(ctx, next.at ?: now)}", if (next.state == "due") C.meds else C.muted)
@@ -77,7 +78,7 @@ fun NowPage(version: Int, tick: Int, nav: NavHostController, goTo: (Tab) -> Unit
             }
         }
         if (next != null) item {
-            Button(onClick = { scope.launch { confirm(ctx, WatchState.log(ctx, next.medId), "Logged") } }, modifier = Modifier.fillMaxWidth(0.7f).height(44.dp),
+            Button(onClick = { scope.launch { confirm(ctx, WatchState.log(ctx, next.medId), "Logged") } }, modifier = Modifier.fillMaxWidth(if (d.small) 0.62f else 0.7f).height(if (d.small) 42.dp else 48.dp),
                 colors = ButtonDefaults.buttonColors(backgroundColor = if (next.state == "due") C.meds else C.primary, contentColor = if (next.state == "due") C.text else C.onPrimary)) {
                 Text("Log ${next.amount}", fontWeight = FontWeight.Bold)
             }
@@ -148,9 +149,9 @@ fun FocusPage(version: Int, tick: Int, nav: NavHostController) {
     val readiness = remember(version) { WatchState.load(ctx).optJSONObject("bio")?.optInt("readiness", -1)?.takeIf { it >= 0 } }
     var rated by remember { mutableStateOf<Int?>(null) }
     val now = System.currentTimeMillis()
-    Page {
+    Page(top = (dims().w * 0.1f).dp) {
         item {
-            if (w != null) Ring(WearOff.progress(w, now), C.mind, size = 124.dp) {
+            if (w != null) Ring(WearOff.progress(w, now), C.mind, share = 0.6f) {
                 Label(w.name, C.mind); Big(fmtLeft(w.to - now), 22); Small("until ${Alarms.fmtTime(ctx, w.to)}")
             } else Column(horizontalAlignment = Alignment.CenterHorizontally) { Label("Focus", C.mind); Small("No focus window now") }
         }
@@ -250,9 +251,9 @@ fun SleepPage(version: Int, nav: NavHostController) {
     val ctx = LocalContext.current
     val s = remember(version) { WatchState.watch(ctx).optJSONObject("sleep") ?: JSONObject() }
     val now = System.currentTimeMillis()
-    Page {
+    Page(top = (dims().w * 0.1f).dp) {
         item {
-            Ring(if (s.has("score")) s.optInt("score") / 100f else 0f, C.sleep, size = 124.dp) {
+            Ring(if (s.has("score")) s.optInt("score") / 100f else 0f, C.sleep, share = 0.6f) {
                 Label("Last night", C.sleep)
                 Big(if (s.has("score")) "${s.optInt("score")}" else "—", 30)
                 Small(s.optString("word").ifEmpty { "No night yet" })
@@ -302,7 +303,7 @@ fun WorkoutPage(version: Int) {
         item { Label(w.optString("title", "Workout"), C.act) }
         if (until > now) item {
             val left = ((until - now) / 1000L).toInt()
-            Ring(((until - now).toFloat() / restFor), C.act, size = 116.dp) { Label("Rest"); Big("%d:%02d".format(left / 60, left % 60), 28) }
+            Ring(((until - now).toFloat() / restFor), C.act, share = if (dims().small) 0.46f else 0.56f) { Label("Rest"); Big("%d:%02d".format(left / 60, left % 60), 28) }
         }
         if (next != null) {
             item { Big(next.optString("exercise"), 18) }
