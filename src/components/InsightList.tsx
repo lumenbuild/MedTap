@@ -21,7 +21,7 @@ const ICON: Record<InsightKind, LucideIcon> = {
   script: FileText, reading: HeartPulse, stall: Droplet, wearoff: Zap, change: ArrowDownRight, odd: SearchCheck, cutoff: Coffee,
   calories: Utensils, protein: Dumbbell, lean: Dumbbell, appointment: CalendarDays, followup: Sparkles, steps: Footprints, sleep: Moon, gut: Utensils, eating: Utensils, regain: Scale, maintain: Scale,
   second: Clock, dosecut: Moon, bestdose: Target, crash: BatteryLow, load: Layers, heart: Activity, undereat: Utensils, missed: CalendarX,
-  illness: Thermometer, tolerance: TrendingDown, creep: TrendingUp, fluids: Droplet, appetite: Utensils, rebound: Brain, review: ClipboardList, supplement: Pill,
+  illness: Thermometer, tolerance: TrendingDown, creep: TrendingUp, fluids: Droplet, appetite: Utensils, rebound: Brain, review: ClipboardList, supplement: Pill, target: Target,
 };
 const TONE = { watch: { bg: 'var(--caution-soft)', fg: 'var(--caution)' }, good: { bg: 'var(--success-soft)', fg: 'var(--success)' }, plain: { bg: 'var(--fill)', fg: 'var(--primary)' } };
 /** Each kind in the colour of its part of the app (sleep, heart, activity, body, peptides, focus, medicines). */

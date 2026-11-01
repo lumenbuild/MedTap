@@ -7,6 +7,7 @@ import { runAutoBackup } from './autoBackup';
 import { db } from '../db/db';
 import { personOf } from '../db/repos/people';
 import { calorieTarget, expenditure } from '../logic/energy';
+import { updateAutoTargets } from './targets';
 
 /** Housekeeping that must happen even if the app is only opened occasionally:
  *  switch to planned schedules whose day has come, and write the daily automatic backup. */
@@ -16,6 +17,7 @@ export async function runMaintenance() {
   await applyDuePlannedChanges(dayKey(Date.now(), scheduleSettings(st)), st.dayStartsAt);
   await runAutoBackup();
   await updateCalorieTarget();
+  await updateAutoTargets(); // after calories: fibre follows them
 }
 
 /** With the calorie target worked out by the app: once a week, again from the last four weeks of food and weight. */

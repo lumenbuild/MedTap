@@ -40,7 +40,7 @@ describe('what you burn', () => {
 const base = (o: Partial<InsightInput> = {}): InsightInput => ({
   meds: [], doses: [], checkIns: [], daily: [], body, vitals: [], workouts: [], events: [], foodLogs: food, appointments: [], goals: [],
   settings: { bedtime: '22:30', caffeineHalfLifeH: 5, fibreTargetG: 25, caffeineCutoff: null, proteinTargetG: null, energyTargetKcal: null, energyAuto: false, lossRateKgWeek: 0.5,
-    mentionsDismissed: [], oddDismissed: [], insightsHidden: {}, followUps: [] },
+    mentionsDismissed: [], oddDismissed: [], insightsHidden: {}, followUps: [], targetChanges: [], targetAuto: {}, sleepTools: false, waterTargetMl: null, stepsTargetOwn: null, sleepTargetH: 8, caffeineLimitMg: 400 },
   units: 'metric', has: { body: true, food: true, training: true, meds: true }, ...o,
 });
 

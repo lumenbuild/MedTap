@@ -1,5 +1,8 @@
+import { setOwnTarget } from '../app/targets';
+import { Targets } from './Targets';
+import { isAuto, TARGET_KEYS } from '../logic/targets';
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
-import { Bell, Moon, Brain, Calculator, CalendarCheck, CalendarRange, FlaskConical, NotebookPen, Tablet, Check, ChevronRight, Clock, Coffee, Download, Dumbbell, EyeOff, HardDriveDownload, HeartPulse, HelpCircle, Info, Lock, Nfc, Package, Palette, Pill, Plane, RefreshCw, Smile, Syringe, Timer, Users, Utensils, Watch, X, type LucideIcon } from 'lucide-react';
+import { Bell, Moon, Brain, Calculator, CalendarCheck, CalendarRange, FlaskConical, NotebookPen, Tablet, Check, ChevronRight, Clock, Coffee, Download, Dumbbell, EyeOff, HardDriveDownload, HeartPulse, HelpCircle, Info, Lock, Nfc, Package, Palette, Pill, Plane, RefreshCw, Smile, Syringe, Target, Timer, Users, Utensils, Watch, X, type LucideIcon } from 'lucide-react';
 import { IconRow } from '../components/ui/Visual';
 import { useSyncConfig } from '../app/sync';
 import { allowCheckInNotes, allowExactReminders, checkInNoteStatus, setCheckInNotify, setDigestNotify, setRemindersEnabled, setTrainingReminders, syncReminders, testCheckInNote, type CheckInNoteStatus } from '../app/native';
@@ -36,9 +39,9 @@ const HealthCard = lazy(() => import('./HealthCard'));
 
 const selectCls = 'w-full min-h-[48px] rounded-btn bg-surface-2 border border-border px-3';
 
-export type SettingsSection = 'reminders' | 'doses' | 'training' | 'checkins' | 'caffeine' | 'people' | 'health' | 'privacy' | 'display' | 'watch' | 'about';
+export type SettingsSection = 'targets' | 'reminders' | 'doses' | 'training' | 'checkins' | 'caffeine' | 'people' | 'health' | 'privacy' | 'display' | 'watch' | 'about';
 export const SECTION_TITLE: Record<SettingsSection, string> = {
-  reminders: 'Reminders', doses: 'Doses', training: 'Training', checkins: 'Check-ins', caffeine: 'Caffeine', people: 'People and sync', health: 'Health data',
+  targets: 'Targets', reminders: 'Reminders', doses: 'Doses', training: 'Training', checkins: 'Check-ins', caffeine: 'Caffeine', people: 'People and sync', health: 'Health data',
   privacy: 'Privacy', display: 'Display', watch: 'Watch', about: `About ${APP_NAME}`,
 };
 
@@ -140,16 +143,17 @@ export function Settings({ section }: { section?: string }) {
         <Switch label="Smart rest" checked={settings.smartRest} onChange={(v) => setSetting('smartRest', v)}>Longer after heavy sets</Switch>
         <Switch label="Adjust as I go" checked={settings.autoAdjust} onChange={(v) => setSetting('autoAdjust', v)}>Next sets up after easy ones, down after hard ones</Switch>
         <div className="grid grid-cols-2 gap-3">
-          <TargetInput id="protein" label="Protein a day (g)" value={settings.proteinTargetG} onChange={(v) => setSetting('proteinTargetG', v)} />
-          <TargetInput id="water" label="Water a day (mL)" value={settings.waterTargetMl} onChange={(v) => setSetting('waterTargetMl', v)} />
+          <TargetInput id="protein" label="Protein a day (g)" value={settings.proteinTargetG} onChange={(v) => setOwnTarget('protein', v)} />
+          <TargetInput id="water" label="Water a day (mL)" value={settings.waterTargetMl} onChange={(v) => setOwnTarget('water', v)} />
         </div>
-        <TargetInput id="steps" label="Steps a day (empty: a little above your usual, worked out for you)" value={settings.stepsTargetOwn} onChange={(v) => setSetting('stepsTargetOwn', v)} />
+        <TargetInput id="steps" label="Steps a day (empty: a little above your usual, worked out for you)" value={settings.stepsTargetOwn} onChange={(v) => setOwnTarget('steps', v)} />
       </Card>
     ),
+    targets: () => <Targets />,
     caffeine: () => (
       <Card className="space-y-5">
         <div className="grid grid-cols-2 gap-3">
-          <TargetInput id="caf-limit" label="Your daily limit (mg)" value={settings.caffeineLimitMg} onChange={(v) => setSetting('caffeineLimitMg', v)} />
+          <TargetInput id="caf-limit" label="Your daily limit (mg)" value={settings.caffeineLimitMg} onChange={(v) => setOwnTarget('caffeine', v)} />
           <Pick id="bedtime" label="Usual bedtime">
             <input id="bedtime" type="time" value={settings.bedtime} className={`${selectCls} tnum`}
               onChange={(e) => { if (/^\d{2}:\d{2}$/.test(e.target.value)) void setSetting('bedtime', e.target.value); }} />
@@ -353,6 +357,7 @@ export function Settings({ section }: { section?: string }) {
   // the main list instead.
   const absent: SettingsSection[] = [...(HAS_MEDS ? [] : ['doses', 'reminders'] as const), ...(HAS_TRAINING ? [] : ['training'] as const)];
   const sec = section && !absent.includes(section as SettingsSection) ? section as SettingsSection : undefined;
+  const targetsValue = `${TARGET_KEYS.filter((k) => isAuto(settings, k)).length} automatic`;
   const body = sec && pages[sec] ? <div className="space-y-4">{pages[sec]()}</div> : (
     <div className="space-y-6">
       <section aria-labelledby="set-features">
@@ -369,6 +374,7 @@ export function Settings({ section }: { section?: string }) {
       <section aria-labelledby="set-settings">
         <h2 id="set-settings" className="text-sm font-medium text-muted mb-2 px-1">Settings</h2>
         <div className="box divide-y divide-border" style={{ paddingTop: 4, paddingBottom: 4 }}>
+        <Row href="#/settings/targets" Icon={Target} title="Targets" value={targetsValue} />
         {isNative && <Row href="#/settings/reminders" Icon={Bell} title="Reminders" value={settings.remindersEnabled ? 'On' : 'Off'} />}
         {HAS_MEDS && <Row href="#/settings/doses" Icon={Pill} title="Doses" value={`Day starts ${fmtHHmm(settings.dayStartsAt)}`} />}
         {HAS_TRAINING && settings.trainingTools && <Row href="#/settings/training" Icon={Dumbbell} title="Training" value={`Rest ${restLabel(settings.restSeconds)}`} />}
@@ -527,11 +533,13 @@ function CheckInNoteHealth({ times }: { times: string }) {
 
 function TargetInput({ id, label, value, onChange }: { id: string; label: string; value: number | null; onChange: (v: number | null) => void }) {
   const [text, setText] = useState(value === null ? '' : String(value));
+  // Follow the value when it changes elsewhere (an automatic target updated).
+  useEffect(() => { setText(value === null ? '' : String(value)); }, [value]);
   return (
     <div className="space-y-1.5">
       <label htmlFor={id} className="block text-sm font-medium">{label}</label>
       <input id={id} type="number" inputMode="numeric" min="0" step="1" value={text} placeholder="None"
-        onChange={(e) => setText(e.target.value)} onBlur={() => { const n = Number(text); onChange(text.trim() && n > 0 ? Math.round(n) : null); }}
+        onChange={(e) => setText(e.target.value)} onBlur={() => { const n = Number(text); const v = text.trim() && n > 0 ? Math.round(n) : null; if (v !== value) onChange(v); }}
         className={`${selectCls} tnum`} />
     </div>
   );

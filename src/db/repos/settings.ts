@@ -162,6 +162,13 @@ export interface AppSettings {
   stepsTargetOwn: number | null;
   /** Fibre a day (g). */
   fibreTargetG: number;
+  /** Daily targets the app works out and keeps up to date (logic/targets): true while automatic, false once the person
+   *  sets their own. Missing: automatic unless they'd changed the number. */
+  targetAuto: Partial<Record<'water' | 'protein' | 'fibre' | 'sleep' | 'caffeine', boolean>>;
+  /** Changes the app made to an automatic target, newest first (for "Water target now 2.9 L"). */
+  targetChanges: { key: string; from: number | null; to: number; at: number; why: string }[];
+  /** When the automatic targets were last worked out (ms). */
+  targetsAt: number;
   /** Insights put away: id → until when (ms); a far-future time for good. */
   insightsHidden: Record<string, number>;
   /** Things done from an insight, to check back on a few weeks later ("since your 2 pm cut-off, sleep …"). */
@@ -264,6 +271,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   lossRateKgWeek: 0.5,
   stepsTargetOwn: null,
   fibreTargetG: 25,
+  targetAuto: {},
+  targetChanges: [],
+  targetsAt: 0,
   insightsHidden: {},
   followUps: [],
 };

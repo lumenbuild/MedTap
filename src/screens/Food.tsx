@@ -1,5 +1,6 @@
 // Food: a day's totals (macros and every micro the labels gave), what was logged, saved foods, meals and batch
 // recipes, and the energy unit and target.
+import { setOwnTarget } from '../app/targets';
 import { useMemo, useRef, useState } from 'react';
 import { addDays, format } from 'date-fns';
 import { Barcode, ChevronLeft, ChevronRight, CookingPot, Plus, Star, Trash2 } from 'lucide-react';
@@ -130,7 +131,7 @@ export function FoodScreen() {
         <h2 className="text-sm font-medium text-muted">Energy</h2>
         <Segmented<EnergyUnit> label="Show energy in" value={energy} onChange={(v) => setSetting('energyUnit', v)} options={[{ value: 'kcal', label: 'Calories' }, { value: 'kJ', label: 'Kilojoules' }]} />
         <TextInput key={`fibre-${settings.fibreTargetG}`} label="Fibre a day (g)" type="number" inputMode="numeric" min="5" max="80" step="1" defaultValue={String(settings.fibreTargetG)}
-          onBlur={(e) => { const v = Math.round(Number(e.target.value)); if (v >= 5 && v <= 80) void setSetting('fibreTargetG', v); }} help="25 to 30 g is the usual aim. More vegetables, fruit, oats, beans and wholegrains." />
+          onBlur={(e) => { const v = Math.round(Number(e.target.value)); if (v >= 5 && v <= 80 && v !== settings.fibreTargetG) void setOwnTarget('fibre', v); }} help="25 to 30 g is the usual aim. More vegetables, fruit, oats, beans and wholegrains." />
         {HAS_BODY && <Segmented label="Daily target" value={settings.energyAuto ? 'auto' : 'own'} options={[{ value: 'own', label: 'My own number' }, { value: 'auto', label: 'Worked out for me' }]}
           onChange={async (v) => { await setSetting('energyAuto', v === 'auto'); if (v === 'auto') { await setSetting('energyAutoAt', 0); await updateCalorieTarget(); } }} />}
         {HAS_BODY && settings.energyAuto
