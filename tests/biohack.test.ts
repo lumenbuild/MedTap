@@ -113,9 +113,14 @@ describe('body', () => {
   it('fluids after a shot, training and a stimulant', () => {
     const w: Workout[] = [{ id: 'w', startedAt: iso(at(0, 7)), sets: [], source: 'manual', ...st }];
     const f = fluids([reta, ritalin], [dose('g', at(1, 8), 1), dose('r', at(0, 8), 10)], w, [], [{ id: 'x', date: ymd(at(0)), waterMl: 800, ...st }], 2500, NOW, S);
-    expect(f.ml).toBe(3750);
+    // The target already allows for the stack: only today's training (+500) and the shot days (+250) on top, at most
+    // 750 mL over it. (It was 2,500 + 500 + 500 + 250 = 3,750, counting the stack twice.)
+    expect(f.ml).toBe(3250);
+    expect(f.reasons).not.toContain('a stimulant today');
     expect(f.electrolytes).toBe(true);
     expect(f.low).toBe(true);
+    // No target: 2 L and the stack's own extras.
+    expect(fluids([reta, ritalin], [dose('g', at(1, 8), 1), dose('r', at(0, 8), 10)], w, [], [], null, NOW, S).ml).toBe(3250);
   });
   it('muscle protection', () => {
     const body: BodyEntry[] = [{ id: 'a', date: ymd(at(21)), weightKg: 100, ...st }, { id: 'b', date: ymd(at(0)), weightKg: 97, ...st }];

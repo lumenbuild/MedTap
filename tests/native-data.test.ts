@@ -37,8 +37,29 @@ describe('health import', () => {
     }, { daily, body, vitals }, undefined, TZ, '2026-08-03T00:00:00Z');
     expect(plan.daily[0]).toMatchObject({ id: 'x', steps: 8000, sleepMin: 420 });
     expect(plan.daily[1]).toMatchObject({ steps: 5000, restingHr: 61 });
-    expect(plan.body).toEqual([{ date: '2026-08-02', kg: 90.1 }]);
+    // The day's first reading (the morning weigh-in), not the evening one; a weight typed in (Aug 1) is left alone.
+    expect(plan.body).toEqual([{ date: '2026-08-02', kg: 89.4 }]);
     expect(plan.vitals.map((v) => v.systolic)).toEqual([118]);
+  });
+
+  it("weights come from the person's scale, and an imported day is corrected", () => {
+    const body: BodyEntry[] = [
+      { id: 'a', date: '2026-08-01', weightKg: 116.8, note: 'From Health', createdAt: '', updatedAt: '' }, // imported earlier from the other app: corrected
+      { id: 'b', date: '2026-08-02', weightKg: 117.5, createdAt: '', updatedAt: '' }, // typed in: never touched
+    ];
+    const renpho = 'com.qingniu.renpho';
+    const plan = planHealthImport({
+      days: [], bp: [],
+      weights: [
+        ...['2026-07-28', '2026-07-29', '2026-07-30', '2026-08-01', '2026-08-02', '2026-08-03'].map((d, i) => ({ t: syd(d, '06:30'), kg: 118 - i * 0.3, src: renpho })),
+        { t: syd('2026-08-01', '05:00'), kg: 116.8, src: 'com.fitbit.FitbitMobile' }, // a second app's copy: ignored
+        { t: syd('2026-08-03', '20:00'), kg: 117.9, src: renpho }, // evening: not the day's weight
+      ],
+    }, { daily: [], body, vitals: [] }, undefined, TZ, 'now');
+    const by = Object.fromEntries(plan.body.map((b) => [b.date, b.kg]));
+    expect(by['2026-08-01']).toBe(117.1); // the scale's reading replaces the other app's
+    expect(by['2026-08-02']).toBeUndefined(); // typed in
+    expect(by['2026-08-03']).toBe(116.5); // the morning reading
   });
 
   it('imports workouts once, body fat and lean mass where missing, and heart rate variability', () => {
