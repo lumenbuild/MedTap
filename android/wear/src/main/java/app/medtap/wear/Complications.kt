@@ -7,7 +7,9 @@ import android.content.Intent
 import androidx.wear.watchface.complications.data.ComplicationData
 import androidx.wear.watchface.complications.data.ComplicationType
 import androidx.wear.watchface.complications.data.CountDownTimeReference
+import androidx.wear.watchface.complications.data.GoalProgressComplicationData
 import androidx.wear.watchface.complications.data.LongTextComplicationData
+import androidx.wear.watchface.complications.data.MonochromaticImage
 import androidx.wear.watchface.complications.data.NoDataComplicationData
 import androidx.wear.watchface.complications.data.PlainComplicationText
 import androidx.wear.watchface.complications.data.RangedValueComplicationData
@@ -29,6 +31,8 @@ object Complications {
     }
 
     fun text(s: String) = PlainComplicationText.Builder(s).build()
+    /** A one-colour icon: watch faces tint it to match, and most slots (Pixel faces included) show it beside the text. */
+    fun icon(c: Context, res: Int) = MonochromaticImage.Builder(android.graphics.drawable.Icon.createWithResource(c, res)).build()
     fun open(c: Context, route: String?) = PendingIntent.getActivity(c, route.hashCode(), Intent(c, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         .apply { if (route != null) putExtra("route", route) }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     fun countdown(at: Long) = TimeDifferenceComplicationText.Builder(TimeDifferenceStyle.SHORT_DUAL_UNIT, CountDownTimeReference(Instant.ofEpochMilli(at)))
@@ -50,9 +54,12 @@ class DoneComplicationService : SimpleComplication() {
     private fun make(type: ComplicationType, done: Int, total: Int): ComplicationData? {
         val desc = Complications.text("$done of $total doses today")
         val tap = Complications.open(this, "home/today")
+        val img = Complications.icon(this, R.drawable.ic_c_done)
         return when (type) {
-            ComplicationType.RANGED_VALUE -> RangedValueComplicationData.Builder(done.toFloat(), 0f, total.toFloat(), desc).setText(Complications.text("$done/$total")).setTapAction(tap).build()
-            ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(Complications.text("$done/$total"), desc).setTitle(Complications.text("Doses")).setTapAction(tap).build()
+            ComplicationType.RANGED_VALUE -> RangedValueComplicationData.Builder(done.toFloat(), 0f, total.toFloat(), desc).setText(Complications.text("$done/$total")).setTapAction(tap).setMonochromaticImage(img).build()
+            ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(Complications.text("$done/$total"), desc).setTitle(Complications.text("Doses")).setTapAction(tap).setMonochromaticImage(img).build()
+            ComplicationType.GOAL_PROGRESS -> if (android.os.Build.VERSION.SDK_INT >= 33) GoalProgressComplicationData.Builder(done.toFloat(), total.toFloat(), desc)
+                .setText(Complications.text("$done/$total")).setTitle(Complications.text("Doses")).setTapAction(tap).setMonochromaticImage(img).build() else null
             else -> null
         }
     }
@@ -69,9 +76,10 @@ class SleepComplicationService : SimpleComplication() {
     private fun make(type: ComplicationType, score: Int, word: String): ComplicationData? {
         val desc = Complications.text("Sleep score $score, $word")
         val tap = Complications.open(this, "home/sleep")
+        val img = Complications.icon(this, R.drawable.ic_c_sleep)
         return when (type) {
-            ComplicationType.RANGED_VALUE -> RangedValueComplicationData.Builder(score.toFloat(), 0f, 100f, desc).setText(Complications.text("$score")).setTitle(Complications.text("Sleep")).setTapAction(tap).build()
-            ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(Complications.text("$score"), desc).setTitle(Complications.text("Sleep")).setTapAction(tap).build()
+            ComplicationType.RANGED_VALUE -> RangedValueComplicationData.Builder(score.toFloat(), 0f, 100f, desc).setText(Complications.text("$score")).setTitle(Complications.text("Sleep")).setTapAction(tap).setMonochromaticImage(img).build()
+            ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(Complications.text("$score"), desc).setTitle(Complications.text("Sleep")).setTapAction(tap).setMonochromaticImage(img).build()
             else -> null
         }
     }
@@ -89,10 +97,11 @@ class FocusComplicationService : SimpleComplication() {
         val w = WearOff.now(this) ?: return null
         val desc = Complications.text("Focus usually until ${Alarms.fmtTime(this, w.to)}")
         val tap = Complications.open(this, "home/focus")
+        val img = Complications.icon(this, R.drawable.ic_c_focus)
         return when (type) {
-            ComplicationType.RANGED_VALUE -> RangedValueComplicationData.Builder(WearOff.progress(w), 0f, 1f, desc).setText(Complications.countdown(w.to)).setTitle(Complications.text("Focus")).setTapAction(tap).build()
-            ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(Complications.countdown(w.to), desc).setTitle(Complications.text("Focus")).setTapAction(tap).build()
-            ComplicationType.LONG_TEXT -> LongTextComplicationData.Builder(Complications.text("Focus until ${Alarms.fmtTime(this, w.to)}"), desc).setTitle(Complications.countdown(w.to)).setTapAction(tap).build()
+            ComplicationType.RANGED_VALUE -> RangedValueComplicationData.Builder(WearOff.progress(w), 0f, 1f, desc).setText(Complications.countdown(w.to)).setTitle(Complications.text("Focus")).setTapAction(tap).setMonochromaticImage(img).build()
+            ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(Complications.countdown(w.to), desc).setTitle(Complications.text("Focus")).setTapAction(tap).setMonochromaticImage(img).build()
+            ComplicationType.LONG_TEXT -> LongTextComplicationData.Builder(Complications.text("Focus until ${Alarms.fmtTime(this, w.to)}"), desc).setTitle(Complications.countdown(w.to)).setTapAction(tap).setMonochromaticImage(img).build()
             else -> null
         }
     }
@@ -113,9 +122,10 @@ class ShotComplicationService : SimpleComplication() {
     }
     private fun make(type: ComplicationType, short: String, words: String): ComplicationData? {
         val tap = Complications.open(this, "home/today")
+        val img = Complications.icon(this, R.drawable.ic_c_shot)
         return when (type) {
-            ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(Complications.text(short), Complications.text(words)).setTitle(Complications.text("Shot")).setTapAction(tap).build()
-            ComplicationType.LONG_TEXT -> LongTextComplicationData.Builder(Complications.text(words), Complications.text(words)).setTapAction(tap).build()
+            ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(Complications.text(short), Complications.text(words)).setTitle(Complications.text("Shot")).setTapAction(tap).setMonochromaticImage(img).build()
+            ComplicationType.LONG_TEXT -> LongTextComplicationData.Builder(Complications.text(words), Complications.text(words)).setTapAction(tap).setMonochromaticImage(img).build()
             else -> null
         }
     }

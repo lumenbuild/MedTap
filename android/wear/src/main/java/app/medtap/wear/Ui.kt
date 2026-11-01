@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -55,13 +56,31 @@ fun MedTapTheme(content: @Composable () -> Unit) = MaterialTheme(
     content = content,
 )
 
-/** A scrolling page of the app, with the scroll position on the edge. */
+/** Sizes that follow the screen, so a Pixel Watch 4's 41 mm (about 192 dp across) and 45 mm (about 228 dp) both use
+ *  the round display fully: margins from Wear OS's percentages, rings and buttons as a share of the width. */
+class Dims(val w: Float) {
+    val side: Dp get() = (w * 0.052f).dp
+    val top: Dp get() = (w * 0.14f).dp
+    val bottom: Dp get() = (w * 0.24f).dp
+    /** A ring that's this share of the screen across. */
+    fun ring(share: Float): Dp = (w * share).dp
+    /** One of five buttons in a row, fitting inside the curve at mid-height. */
+    val pick: Dp get() = ((w * 0.84f - 4 * 3f) / 5f).coerceIn(28f, 42f).dp
+    val small: Boolean get() = w < 210f
+}
+
 @Composable
-fun Page(content: ScalingLazyListScope.() -> Unit) {
+fun dims() = Dims(LocalConfiguration.current.screenWidthDp.toFloat())
+
+/** A scrolling page of the app, with the scroll position on the edge. `top` overrides the top margin (a page that opens
+ *  with a ring sits it just under the time). */
+@Composable
+fun Page(top: Dp? = null, content: ScalingLazyListScope.() -> Unit) {
+    val d = dims()
     val state = rememberScalingLazyListState(initialCenterItemIndex = 0)
     Scaffold(positionIndicator = { PositionIndicator(scalingLazyListState = state) }) {
         ScalingLazyColumn(state = state, autoCentering = null, modifier = Modifier.fillMaxSize().background(C.bg),
-            contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 28.dp, bottom = 40.dp),
+            contentPadding = PaddingValues(start = d.side, end = d.side, top = top ?: d.top, bottom = d.bottom),
             verticalArrangement = Arrangement.spacedBy(6.dp), horizontalAlignment = Alignment.CenterHorizontally, content = content)
     }
 }
@@ -89,17 +108,18 @@ fun Action(label: String, color: Color = C.primary, sub: String? = null, filled:
 @Composable
 fun Scale(label: String, value: Int?, color: Color, onPick: (Int) -> Unit) = Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
     Small(label)
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 2.dp)) {
-        for (v in 1..5) Button(onClick = { onPick(v) }, modifier = Modifier.size(32.dp).semantics { contentDescription = "$label $v of 5" },
+    val size = dims().pick
+    Row(horizontalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.padding(top = 2.dp)) {
+        for (v in 1..5) Button(onClick = { onPick(v) }, modifier = Modifier.size(size).semantics { contentDescription = "$label $v of 5" },
             colors = ButtonDefaults.buttonColors(backgroundColor = if (value == v) color else C.fill, contentColor = if (value == v) C.bg else C.text)) {
             Text("$v", fontWeight = FontWeight.Bold, fontSize = 14.sp)
         }
     }
 }
 
-/** A ring with something in the middle (progress 0–1). */
+/** A ring with something in the middle (progress 0–1), `share` of the screen across. */
 @Composable
-fun Ring(progress: Float, color: Color, size: Dp = 120.dp, stroke: Dp = 8.dp, content: @Composable () -> Unit) = Box(Modifier.size(size), contentAlignment = Alignment.Center) {
+fun Ring(progress: Float, color: Color, share: Float = 0.6f, stroke: Dp = 8.dp, content: @Composable () -> Unit) = Box(Modifier.size(dims().ring(share)), contentAlignment = Alignment.Center) {
     CircularProgressIndicator(progress = progress.coerceIn(0f, 1f), modifier = Modifier.fillMaxSize(), indicatorColor = color, trackColor = C.fill, strokeWidth = stroke)
     Column(horizontalAlignment = Alignment.CenterHorizontally) { content() }
 }

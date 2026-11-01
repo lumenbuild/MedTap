@@ -6,7 +6,7 @@
 import type { FoodLog, Medication, Workout } from '../db/schema';
 import { dayKey } from './stats';
 import type { ScheduleSettings } from './schedule';
-import { isStimulant, doseResponse, secondDose } from './stimulant';
+import { isStimulant, doseResponse, secondDose, secondDetail, secondTitle } from './stimulant';
 import { isGlpLike } from './peptideGuide';
 import { robustFit } from './forecast';
 import { readiness } from './training';
@@ -14,7 +14,7 @@ import { illnessWatch } from './vitals';
 import { daySuggestion, trainingLoad } from './trainingLoad';
 import { energyBalance, expenditure, calorieTarget } from './energy';
 import { medEffects } from './medEffects';
-import { costsOf, lower, MEANINGFUL, OUTCOMES, shortActing, type Outcome, type ProposedExperiment, type VerdictData } from './verdict';
+import { costsOf, lower, MEANINGFUL, OUTCOMES, selfTestable, shortActing, type Outcome, type ProposedExperiment, type VerdictData } from './verdict';
 import { bedtimeOf, caffeineDays, findCutoff, intakesOf } from './caffeine';
 import { fmtTime } from './format';
 
@@ -49,15 +49,15 @@ export function doseDecision(med: Medication, d: AllData, now: number, s: Schedu
     const costs = costsOf(med, d, now);
     const kg = pts[pts.length - 1].v;
     const why = [`${perWeek <= 0 ? 'Losing' : 'Gaining'} ${Math.abs(perWeek)} kg a week over the last 4 weeks at ${amount}`, ...(costs.length ? costs : ['Few side effects and steady heart rate and sleep'])];
-    if (perWeek < -(kg * 0.012)) return { call: 'ease-off-option', title: `Fast: staying at ${amount} or easing off are both options`, why: [...why, 'More than about 1% of body weight a week makes holding on to muscle harder.'] };
-    if (perWeek <= -0.3) return { call: 'stay', title: `Stay at ${amount}: it's still working`, why };
+    if (perWeek < -(kg * 0.012)) return { call: 'ease-off-option', title: `Fast loss at ${amount}: worth a word with your prescriber`, why: [...why, 'More than about 1% of body weight a week makes holding on to muscle harder.'] };
+    if (perWeek <= -0.3) return { call: 'stay', title: `Still working at ${amount}`, why };
     if (costs.length >= 2) return { call: 'ease-off-option', title: `Slowing, with costs: worth a word with your prescriber`, why };
-    return { call: 'step-up-option', title: `Slowing at ${amount}: the next step is an option`, why: [...why, 'Check sleep, protein and food logging first: they often explain a slow patch.'] };
+    return { call: 'step-up-option', title: `Slowing at ${amount}`, why: [...why, 'Sleep, protein and food logging often explain a slow patch. Any dose change is one for your prescriber.'] };
   }
   if (isStimulant(med)) {
     const r = doseResponse(med, mine, d.checkIns, now, s);
     if (!r) return null;
-    return { call: 'best-dose', title: r.by === 'amount' ? `Best focus at ${r.better}` : `Best focus when taken ${r.better}`,
+    return { call: 'best-dose', title: r.by === 'amount' ? `Focus rated higher at ${r.better}` : `Focus rated higher when taken ${r.better}`,
       why: [`Focus ${r.focusBetter.toFixed(1)} at ${r.better} against ${r.focusWorse.toFixed(1)} at ${r.worse} (${r.n} ratings)`] };
   }
   return null;
@@ -81,7 +81,7 @@ export function whatsWorking(d: AllData, now: number, s: ScheduleSettings): What
     const inWindow = days.filter((k) => on.has(k)).length;
     // A long-acting one (a weekly shot) is in the body every day: its days are shot days, not on and off.
     const short = shortActing(m);
-    if (inWindow >= 6 && days.length - inWindow >= 6) factors.push({ key: `med-${m.id}`, label: short ? `Taking ${m.nickname?.trim() || m.name}` : `${m.nickname?.trim() || m.name} shot day`, on, controllable: short, med: m });
+    if (inWindow >= 6 && days.length - inWindow >= 6) factors.push({ key: `med-${m.id}`, label: short ? `Taking ${m.nickname?.trim() || m.name}` : `${m.nickname?.trim() || m.name} shot day`, on, controllable: short && selfTestable(m), med: m });
   }
   const chipDays = (re: RegExp, after?: number) => new Set(d.checkIns.filter((c) => live(c) && c.chips.some((x) => re.test(x)) && (after === undefined || new Date(c.at).getHours() >= after)).map((c) => dayKey(Date.parse(c.at), s)));
   factors.push({ key: 'late-caffeine', label: 'Caffeine after 2 pm', on: chipDays(/caffeine|coffee/i, 14), controllable: true });
@@ -152,14 +152,11 @@ export function todaysCalls(d: AllData, now: number, s: ScheduleSettings, st: Ca
   const cut = own !== undefined ? new Date(new Date(now).setHours(Math.floor(own), Math.round((own % 1) * 60), 0, 0)).getTime() : bed - 8 * 3_600_000;
   if (cut > now - 3 * 3_600_000) out.push({ key: 'caffeine', title: `Last caffeine by ${fmtTime(cut)}`, detail: own !== undefined ? (st.caffeineCutoff ? 'Your cut-off.' : 'Your nights sleep worse with caffeine after this.') : `8 hours before your ${fmtTime(bed)} bedtime.`, tone: 'info' });
 
-  // A second stimulant dose: when, or whether to skip it today.
+  // A second stimulant dose: always the schedule's time (or the usual gap, with no schedule). Never moved, never skipped.
   for (const m of d.meds.filter((x) => !x.archived && isStimulant(x))) {
     const sd = secondDose(m, d.doses, d.checkIns, d.daily, now, s);
     if (!sd) continue;
-    const name = m.nickname?.trim() || m.name;
-    if (ill || (r && r.score < 50)) out.push({ key: 'second-dose', title: `Maybe skip the second ${name}`, detail: ill ? 'Several overnight readings are off.' : `Readiness ${r!.score}: a lighter day may suit.`, tone: 'easy' });
-    else if (sd.afterCutoff !== undefined) out.push({ key: 'second-dose', title: `Second ${name} would be late for sleep`, detail: `Due about ${fmtTime(sd.at)}, after your cut-off.`, tone: 'easy' });
-    else out.push({ key: 'second-dose', title: `Second ${name} at ${fmtTime(sd.at)}`, detail: `Before the first wears off at about ${fmtTime(sd.wearAt)}.`, tone: 'go' });
+    out.push({ key: 'second-dose', title: secondTitle(m.nickname?.trim() || m.name, sd, now), detail: secondDetail(sd), tone: 'info' });
     break;
   }
 
@@ -213,7 +210,7 @@ export function earlyWarnings(d: AllData, now: number, s: ScheduleSettings): War
     const lately = at.filter((c) => Date.parse(c.at) > now - 21 * DAY).map((c) => c.focus!);
     const before = at.filter((c) => Date.parse(c.at) <= now - 21 * DAY && Date.parse(c.at) > now - 63 * DAY).map((c) => c.focus!);
     if (lately.length >= 5 && before.length >= 5 && mean(before) - mean(lately) >= 0.5)
-      out.push({ key: `tolerance-${m.id}`, title: `${m.nickname?.trim() || m.name} may be doing less`, detail: `Focus at ${common} ${m.unit}: ${r1(mean(lately))} lately against ${r1(mean(before))} before.`, action: 'Sleep, timing and caffeine change it too; a break day or a word with your prescriber are options.' });
+      out.push({ key: `tolerance-${m.id}`, title: `${m.nickname?.trim() || m.name} may be doing less`, detail: `Focus at ${common} ${m.unit}: ${r1(mean(lately))} lately against ${r1(mean(before))} before.`, action: 'Sleep and caffeine change it too. Any change to the dose is one for your prescriber.' });
   }
 
   // Resting heart rate creeping up since starting a medicine.

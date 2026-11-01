@@ -97,6 +97,13 @@ export function shortActing(med: Medication): boolean {
   return supplementsOf(med).length > 0;
 }
 
+/** An on/off test is only ever offered for a supplement or something taken as needed: never a stimulant, a weekly
+ *  shot, or any other scheduled medicine, since that would mean going without a prescribed dose. */
+export function selfTestable(med: Medication): boolean {
+  if (isStimulant(med) || isGlpLike(med)) return false;
+  return supplementsOf(med).length > 0 || med.schedule.type === 'prn';
+}
+
 export interface ProposedExperiment { title: string; a: string; b: string; metric: Experiment['metric']; blockDays: number; blocks: number; weeks: number }
 export type VerdictStatus = 'working' | 'worse' | 'not-working' | 'unclear' | 'too-early' | 'cant-measure';
 export interface Verdict {
@@ -126,7 +133,7 @@ export function verdictFor(med: Medication, d: VerdictData, now: number, s: Sche
   const daysOn = Math.floor((now - since) / DAY);
   const series = outcomeByDay(outcome, d, s);
   const proposal = (): ProposedExperiment | undefined => {
-    if (!shortActing(med) || !O.experiment || outcome === 'weight') return undefined;
+    if (!shortActing(med) || !selfTestable(med) || !O.experiment || outcome === 'weight') return undefined;
     const blockDays = O.night ? 3 : isStimulant(med) ? 2 : 7;
     const blocks = blockDays >= 7 ? 4 : 6;
     if (d.experiments.some((e) => !e.deletedAt && !e.ended && e.a.toLowerCase().includes(med.name.toLowerCase()))) return undefined;

@@ -1,16 +1,16 @@
 // Stimulants (Ritalin, Vyvanse, dexamfetamine, modafinil, and Semax among the peptides): a one-tap focus check after
-// a dose, when to take the second dose so it's working before the first wears off, which dose and time works best,
+// a dose, when the second dose is due (always the schedule's time), which dose and time works best,
 // evening crashes, and what's stacking up today (other stimulants and caffeine). From the person's own records. Pure.
 import type { CheckIn, DailyHealth, Dose, Medication } from '../db/schema';
 import { usualHours } from './durations';
-import { effectWindow, sleepImpact } from './habits';
+import { sleepImpact } from './habits';
 import { wearOffToday } from './wearOff';
-import { getDayBounds, type ScheduleSettings } from './schedule';
+import { getDayBounds, getNextDue, type ScheduleSettings } from './schedule';
 import { dayKey } from './stats';
 import { zonedParts } from './tz';
 import { level, type Intake } from './caffeine';
-import { heartResponse } from './watchSignals';
 import { focusReader, hasFocus } from './focusReading';
+import { fmtTime } from './format';
 
 const HOUR = 3_600_000;
 const DAY = 86_400_000;
@@ -45,36 +45,58 @@ export function focusAsk(meds: Medication[], doses: Dose[], checkIns: CheckIn[],
 
 // ── The second dose ─────────────────────────────────────────────────────────────────────────────────
 
-export interface SecondDose { med: Medication; firstAt: number; wearAt: number; at: number; leadMin: number; afterCutoff?: number }
+export interface SecondDose {
+  med: Medication; firstAt: number; wearAt: number;
+  /** When the second dose is due: the schedule's time (or, with no schedule, the person's own usual gap). Never earlier. */
+  at: number;
+  source: 'schedule' | 'usual';
+  /** The first dose is forecast to wear off 30+ minutes before the second is due. Information only: never moves the dose. */
+  gapBefore: boolean;
+  afterCutoff?: number;
+}
 
-/** For a stimulant usually taken more than once a day: with today's first dose in and no second yet, when to take the
- *  second so it's working (its own onset, or 30 minutes) before the first wears off. */
+/** For a stimulant taken more than once a day: with today's first dose in and no second yet, when the second is due.
+ *  The time always comes from the schedule (or, with none, the person's own usual gap between doses). A forecast
+ *  wear-off never moves it earlier or later; it's only noted when the first often wears off well before then. */
 export function secondDose(med: Medication, doses: Dose[], checkIns: CheckIn[], daily: DailyHealth[], now: number, s: ScheduleSettings): SecondDose | null {
   if (med.archived || !usualHours(med)) return null;
   const mine = doses.filter((d) => live(d) && d.medicationId === med.id);
-  // More than once a day: by the schedule, or on most days it was taken in the last 3 weeks.
   const sc = med.schedule;
-  let twice = (sc.type === 'fixed' && (sc.slots?.length ?? sc.times?.length ?? 0) >= 2) || sc.type === 'interval';
-  if (!twice) {
-    const per = new Map<string, number>();
-    for (const d of mine.filter((x) => Date.parse(x.takenAt) > now - 21 * DAY)) { const k = dayKey(Date.parse(d.takenAt), s); per.set(k, (per.get(k) ?? 0) + 1); }
-    const days = [...per.values()];
-    twice = days.length >= 5 && days.filter((n) => n >= 2).length / days.length >= 0.5;
-  }
-  if (!twice) return null;
+  const scheduled = (sc.type === 'fixed' && (sc.slots?.length ?? sc.times?.length ?? 0) >= 2) || (sc.type === 'interval' && !!sc.intervalHours);
   const start = getDayBounds(now, s.dayStartsAt, s.tz).start;
   const today = mine.filter((d) => Date.parse(d.takenAt) >= start && Date.parse(d.takenAt) <= now);
   if (today.length !== 1) return null;
+  const firstAt = Date.parse(today[0].takenAt);
+  let at: number | null = null;
+  let source: SecondDose['source'] = 'schedule';
+  if (scheduled) {
+    at = getNextDue(med, doses, now, s);
+  } else {
+    // No twice-a-day schedule: the person's own usual gap between the first and second dose (5+ days in 3 weeks).
+    const byDay = new Map<string, number[]>();
+    for (const d of mine.filter((x) => Date.parse(x.takenAt) > now - 21 * DAY && Date.parse(x.takenAt) < start)) {
+      const k = dayKey(Date.parse(d.takenAt), s); byDay.set(k, [...(byDay.get(k) ?? []), Date.parse(d.takenAt)]);
+    }
+    const gaps = [...byDay.values()].filter((ts) => ts.length >= 2).map((ts) => { const o = [...ts].sort((a, b) => a - b); return o[1] - o[0]; }).sort((a, b) => a - b);
+    if (gaps.length < 5 || gaps.length / Math.max(1, byDay.size) < 0.5) return null;
+    at = firstAt + gaps[Math.floor(gaps.length / 2)];
+    source = 'usual';
+  }
+  if (at === null || at < firstAt || at >= start + DAY || at < now - HOUR) return null;
   const w = wearOffToday(med, doses, checkIns, daily, now, s);
-  if (!w) return null;
-  // How long it takes to kick in: from focus check-ins, else from when the heart rate rise usually starts.
-  const hrOnset = heartResponse(med, doses, checkIns, daily, now, s)?.onsetMin;
-  const onset = effectWindow(med, doses, checkIns, now)?.onsetH ?? (hrOnset !== undefined ? hrOnset / 60 : undefined);
-  const leadMin = Math.round(Math.min(60, Math.max(20, onset !== undefined ? onset * 60 : 30)));
-  const at = Math.max(w.dosedAt + 2 * HOUR, w.at - leadMin * 60_000);
-  if (at < now - HOUR) return null;
+  const wearAt = w?.at ?? firstAt + (stimulantHours(med) ?? 4) * HOUR;
   const cut = sleepImpact([med], doses, checkIns, now, s, daily)?.cutoffHour;
-  return { med, firstAt: w.dosedAt, wearAt: w.at, at, leadMin, afterCutoff: cut !== undefined && hourOf(at, s) >= cut ? cut : undefined };
+  return { med, firstAt, wearAt, at, source, gapBefore: wearAt < at - 30 * 60_000, afterCutoff: cut !== undefined && hourOf(at, s) >= cut ? cut : undefined };
+}
+
+/** "Second Ritalin at 11:36 am", or "due now" once the time has come. */
+export const secondTitle = (name: string, sd: SecondDose, now: number) => `Second ${name} ${sd.at <= now ? 'due now' : `at ${fmtTime(sd.at)}`}`;
+/** Where the time comes from, and plain facts about it. Never a suggestion to take it at another time. */
+export function secondDetail(sd: SecondDose): string {
+  const parts = [sd.source === 'schedule' ? 'Your scheduled time.' : 'Your usual gap between doses.'];
+  if (sd.afterCutoff !== undefined) parts.push('Later than your usual sleep cut-off.');
+  if (sd.gapBefore) parts.push(`The first is forecast to wear off about ${fmtTime(sd.wearAt)}: if that's a problem, raise it with your prescriber.`);
+  return parts.join(' ');
 }
 
 // ── Which dose and time works best ──────────────────────────────────────────────────────────────────

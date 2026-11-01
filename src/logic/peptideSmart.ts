@@ -30,9 +30,11 @@ export function missedShot(med: Medication, doses: Dose[], now: number, s: Sched
   if (dueAt === undefined || nextAt === undefined) return null;
   const mine = doses.filter((d) => live(d) && d.medicationId === med.id);
   if (!mine.length) return null;
-  // Taken (or skipped on purpose) from a day before it was due until now: not missed.
-  if (mine.some((d) => Date.parse(d.takenAt) >= dueAt! - DAY && Date.parse(d.takenAt) <= now)) return null;
   const gapDays = sc.days.length === 1 ? 7 : 7 / sc.days.length;
+  // Any shot (or a skip on purpose) in the second half of the gap before it was due, or since: not missed. A shot taken
+  // a few days early counts, so this never says "take it now" on top of one already taken.
+  const since = dueAt - (gapDays / 2) * DAY;
+  if (doses.some((d) => !d.deletedAt && d.medicationId === med.id && Date.parse(d.takenAt) >= since && Date.parse(d.takenAt) <= now)) return null;
   const needH = gapDays >= 6 ? 72 : 48;
   const take = nextAt - now >= needH * HOUR;
   const nextDay = new Date(nextAt).toLocaleDateString('en-AU', { weekday: 'long' });

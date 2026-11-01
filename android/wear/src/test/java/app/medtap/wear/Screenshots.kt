@@ -26,11 +26,19 @@ import org.robolectric.annotation.GraphicsMode
 import java.io.File
 import java.io.FileOutputStream
 
-/** Renders each watch screen with sample data to PNGs (for a look before installing): ./gradlew :wear:testMedtapDebugUnitTest */
+/** Renders each watch screen with sample data to PNGs (for a look before installing): ./gradlew :wear:testMedtapDebugUnitTest
+ *  Two sizes: the Pixel Watch 4's 41 mm (about 192 dp across) and 45 mm (about 228 dp). */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [34], qualifiers = "w227dp-h227dp-round-watch-xhdpi")
-class Screenshots {
+@Config(sdk = [34], qualifiers = "w192dp-h192dp-round-watch-xhdpi")
+class Screenshots41 : Screenshots("41")
+
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [34], qualifiers = "w228dp-h228dp-round-watch-xhdpi")
+class Screenshots45 : Screenshots("45")
+
+abstract class Screenshots(private val size: String) {
     @get:Rule val rule = createAndroidComposeRule<ComponentActivity>()
 
     private fun seed(c: Context) {
@@ -59,7 +67,7 @@ class Screenshots {
     private fun shot(name: String, content: @Composable () -> Unit) {
         seed(ApplicationProvider.getApplicationContext())
         rule.mainClock.autoAdvance = false
-        rule.setContent { MedTapTheme { Box(Modifier.size(227.dp).clip(CircleShape).background(C.bg)) { content() } } }
+        rule.setContent { MedTapTheme { Box(Modifier.size(androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp).clip(CircleShape).background(C.bg)) { content() } } }
         repeat(6) { rule.mainClock.advanceTimeByFrame() }
         rule.mainClock.advanceTimeBy(1_000)
         repeat(6) { rule.mainClock.advanceTimeByFrame() }
@@ -68,7 +76,7 @@ class Screenshots {
         val v = rule.activity.window.decorView
         val bmp = Bitmap.createBitmap(v.width, v.height, Bitmap.Config.ARGB_8888)
         rule.runOnUiThread { v.draw(Canvas(bmp)) }
-        FileOutputStream(File(dir, "$name.png")).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        FileOutputStream(File(dir, "$size-$name.png")).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
     @Test fun now() = shot("1-now") { NowPage(0, 0, rememberSwipeDismissableNavController()) {} }
@@ -80,4 +88,6 @@ class Screenshots {
     @Test fun checkIn() = shot("7-checkin") { CheckInScreen {} }
     @Test fun caffeine() = shot("8-caffeine") { DrinksScreen(0) {} }
     @Test fun settings() = shot("9-settings") { SettingsPage(0) }
+    @Test fun dose() = shot("10-dose") { DoseScreen("r", 0) {} }
+    @Test fun heart() = shot("11-heart") { HeartRateScreen("Watch") {} }
 }

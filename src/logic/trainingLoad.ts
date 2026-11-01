@@ -88,9 +88,13 @@ export function trainingLoad(workouts: Workout[], now: number): TrainingLoad | n
   const week = days.slice(-7).reduce((a, d) => a + d.load, 0);
   const before = days.slice(0, 28);
   const usualWeek = Math.round(before.reduce((a, d) => a + d.load, 0) / 4);
-  // The ratio needs a usual to compare with: at least two weeks of the four with training.
+  // The ratio needs a usual to compare with: at least two weeks of the four with training, recorded the same way. When
+  // watch workouts have only just started coming in, this week would be compared with weeks the watch never saw.
   const weeksWithAny = [0, 1, 2, 3].filter((k) => before.slice(k * 7, k * 7 + 7).some((d) => d.load > 0)).length;
-  const ratio = usualWeek > 0 && weeksWithAny >= 2 ? Math.round((week / usualWeek) * 100) / 100 : undefined;
+  const fromWatch = (w: Workout) => w.source === 'health';
+  const weekStart = days[days.length - 7].t;
+  const newSource = ws.some((w) => fromWatch(w) && Date.parse(w.startedAt) >= weekStart) && !ws.some((w) => fromWatch(w) && Date.parse(w.startedAt) < weekStart);
+  const ratio = usualWeek > 0 && weeksWithAny >= 2 && !newSource ? Math.round((week / usualWeek) * 100) / 100 : undefined;
   const status: LoadStatus | undefined = ratio === undefined ? undefined : ratio > 1.5 ? 'Spiking' : ratio > 1.25 ? 'Building up' : ratio < 0.75 ? 'Easing off' : 'Steady';
   return { week, usualWeek, ratio, status, days: days.slice(-28), zoneWeek, maxHr };
 }
@@ -112,7 +116,7 @@ export function daySuggestion(r: Readiness | null, load: TrainingLoad | null, il
   if (ill) return { kind: 'rest', title: 'Rest or something gentle', why: 'Several overnight readings are off together.' };
   if (!r && !load?.status) return null;
   if ((r && r.score < 55) || load?.status === 'Spiking') {
-    return { kind: 'easy', title: 'An easy day', why: [r && r.score < 55 ? `Readiness ${r.score}` : null, load?.status === 'Spiking' ? `this week's load is ${Math.round((load.ratio ?? 0) * 100)}% of your usual` : null].filter(Boolean).join(' and ') + '.' };
+    return { kind: 'easy', title: 'An easy day', why: [r && r.score < 55 ? `Readiness ${r.score}` : null, load?.status === 'Spiking' ? `this week's load is ${Math.round((load.ratio ?? 0) * 100)}% of your usual` : null].filter(Boolean).join(' and ').replace(/^t/, 'T') + '.' };
   }
   if (r && r.score >= 75 && (!load?.ratio || load.ratio < 1.2)) return { kind: 'push', title: 'A good day to push', why: `Readiness ${r.score}${load?.status ? `, load ${load.status.toLowerCase()}` : ''}.` };
   return { kind: 'normal', title: 'A normal training day', why: [r ? `Readiness ${r.score}` : null, load?.status ? `load ${load.status.toLowerCase()}` : null].filter(Boolean).join(', ') + '.' };

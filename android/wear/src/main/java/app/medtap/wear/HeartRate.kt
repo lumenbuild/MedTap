@@ -89,7 +89,7 @@ fun HeartRateScreen(note: String, back: () -> Unit) {
     Page {
         item { Label("Heart rate", C.heart) }
         item {
-            Ring(if (result != null) 1f else (seconds / 20f), C.heart, size = 120.dp) {
+            Ring(if (result != null) 1f else (seconds / 20f), C.heart, share = 0.58f) {
                 Big(result?.let { "$it" } ?: readings.lastOrNull()?.let { "${Math.round(it)}" } ?: "—", 30)
                 Small(if (result != null) "bpm" else status)
             }
