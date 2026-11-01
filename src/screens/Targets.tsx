@@ -1,7 +1,7 @@
 // Your targets: water, protein, calories, fibre, steps, sleep and caffeine, each worked out from your own data and
 // kept up to date, or your own number. Tap one to switch.
 import { useEffect, useState } from 'react';
-import { Coffee, Droplet, Footprints, Moon, Flame, Wheat, Beef, Sparkles, type LucideIcon } from 'lucide-react';
+import { Coffee, Droplet, Footprints, Moon, Flame, Wheat, Beef, Layers, Sparkles, type LucideIcon } from 'lucide-react';
 import { useSettings } from '../app/data';
 import { setAutoTarget, setOwnTarget, targetSuggestions } from '../app/targets';
 import { updateCalorieTarget } from '../app/maintenance';
@@ -52,7 +52,12 @@ export function Targets() {
                 <span aria-hidden="true" className="w-[22px] h-[22px] rounded-[7px] flex items-center justify-center text-white" style={{ background: `var(--c-${L.tone})` }}><L.Icon size={13} /></span>{LABEL[k]}
               </span>
               <span className="text-[24px] leading-7 font-bold tnum">{fmtTarget(k, cur)}</span>
-              <span className="text-[12px] leading-4 text-muted line-clamp-2">{auto ? s?.why ?? (k === 'calories' ? 'Needs about 2 weeks of food and weigh-ins' : 'Needs a little more data') : better ? `Suggested ${fmtTarget(k, s!.value)}` : 'Your own number'}</span>
+              <span className="text-[12px] leading-4 text-muted line-clamp-2">{auto ? s?.parts[0] ?? (k === 'calories' ? 'Needs about 2 weeks of food and weigh-ins' : 'Needs a little more data') : better ? `Suggested ${fmtTarget(k, s!.value)}` : 'Your own number'}</span>
+              {s && s.stack.length > 0 && (
+                <span className="text-[12px] leading-4 font-medium flex items-start gap-1">
+                  <Layers size={12} aria-hidden="true" className="shrink-0 mt-0.5" style={{ color: 'var(--c-pep)' }} /><span className="line-clamp-2">For {s.stack.join(', ')}</span>
+                </span>
+              )}
               <span className={`mt-auto self-start text-[11px] font-semibold rounded-full px-2 py-0.5 ${auto ? 'bg-success-soft text-success' : better ? 'bg-caution-soft' : 'bg-surface-2 text-muted'}`}>
                 {auto ? 'Auto' : better ? 'Update?' : 'Own'}
               </span>
@@ -92,7 +97,16 @@ function TargetSheet({ k, sug, onClose }: { k: TargetKey; sug?: Suggestion; onCl
       <div className="space-y-4">
         <div>
           <p className="text-[34px] leading-10 font-bold tnum">{fmtTarget(k, cur)}</p>
-          {sug && <p className="text-muted text-[15px]">{auto ? sug.why : `Suggested ${fmtTarget(k, sug.value)}: ${sug.why.charAt(0).toLowerCase()}${sug.why.slice(1)}`}</p>}
+          {sug && !auto && <p className="text-[15px] font-semibold">Suggested {fmtTarget(k, sug.value)}</p>}
+          {sug && (
+            <ul className="mt-1.5 space-y-1 text-[15px]">
+              {sug.parts.map((x, i) => (
+                <li key={x} className={`flex gap-2 ${i === 0 ? 'text-muted' : ''}`}>
+                  {i > 0 && sug.stack.some((n) => x.includes(n)) ? <Layers size={15} aria-hidden="true" className="shrink-0 mt-[3px]" style={{ color: 'var(--c-pep)' }} /> : <span aria-hidden="true" className="w-[15px] shrink-0" />}<span>{x}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
         <Switch label="Set automatically" checked={auto} onChange={async (v) => { if (v) await toAuto(); else await setOwnTarget(k, cur); }}>
           {auto ? 'Updates as your data changes' : 'Off: your own number stays as it is'}

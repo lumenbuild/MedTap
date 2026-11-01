@@ -167,8 +167,9 @@ export interface AppSettings {
   targetAuto: Partial<Record<'water' | 'protein' | 'fibre' | 'sleep' | 'caffeine', boolean>>;
   /** Changes the app made to an automatic target, newest first (for "Water target now 2.9 L"). */
   targetChanges: { key: string; from: number | null; to: number; at: number; why: string }[];
-  /** When the automatic targets were last worked out (ms). */
+  /** When the automatic targets were last worked out (ms), and the stack they were worked out for. */
   targetsAt: number;
+  targetsStack: string;
   /** Insights put away: id → until when (ms); a far-future time for good. */
   insightsHidden: Record<string, number>;
   /** Things done from an insight, to check back on a few weeks later ("since your 2 pm cut-off, sleep …"). */
@@ -274,6 +275,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   targetAuto: {},
   targetChanges: [],
   targetsAt: 0,
+  targetsStack: '',
   insightsHidden: {},
   followUps: [],
 };

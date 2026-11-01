@@ -47,7 +47,7 @@ describe('targets', () => {
     expect(isAuto({ ...s, waterTargetMl: 3000, targetAuto: { water: true } }, 'water')).toBe(true);
     expect(isAuto({ ...s, fibreTargetG: 25 }, 'fibre')).toBe(true);
     expect(isAuto({ ...s, stepsTargetOwn: 9000 }, 'steps')).toBe(false);
-    expect(currentTarget({ ...s, stepsTargetOwn: null }, 'steps', { steps: { key: 'steps', value: 8500, why: '' } })).toBe(8500);
+    expect(currentTarget({ ...s, stepsTargetOwn: null }, 'steps', { steps: { key: 'steps', value: 8500, why: '', parts: [], stack: [] } })).toBe(8500);
   });
   it('only changes when it matters, and reads well', () => {
     expect(differs('water', 2500, 2600)).toBe(false);
@@ -55,5 +55,26 @@ describe('targets', () => {
     expect(fmtTarget('water', 2900)).toBe('2.9 L');
     expect(fmtTarget('water', 3000)).toBe('3 L');
     expect(fmtTarget('sleep', 7.5)).toBe('7 h 30 min');
+  });
+  it('the stack changes targets, and says what changed them', () => {
+    const reta = { ...med('Retatrutide'), schedule: { type: 'fixed' as const, slots: [{ time: '08:00' }], days: [1] } };
+    const w = suggestTargets({ ...base, body: weigh(90), meds: [reta] }).water!;
+    expect(w.value).toBe(3650); // 3,150 + 500
+    expect(w.stack).toEqual(['Retatrutide']);
+    expect(w.parts.join(' ')).toMatch(/\+500 mL for Retatrutide/);
+    // Reta and Ritalin and creatine together.
+    const all = suggestTargets({ ...base, body: weigh(90), meds: [reta, med('Ritalin'), med('Creatine monohydrate')] }).water!;
+    expect(all.value).toBe(4400);
+    // A diuretic: the prescriber's fluid advice comes first; no extra pushed.
+    const diu = suggestTargets({ ...base, body: weigh(90), meds: [reta, med('Furosemide')] }).water!;
+    expect(diu.value).toBe(3150);
+    expect(diu.why).toMatch(/prescriber/);
+    // Fibre up for a GLP-1; protein never under 1.2 g per kg of today's weight.
+    expect(suggestTargets({ ...base, body: weigh(90), meds: [reta], calorieKcal: 2000 }).fibre?.value).toBe(33);
+    expect(suggestTargets({ ...base, body: weigh(120), goalKg: 70, meds: [reta] }).protein?.value).toBe(145);
+    // Caffeine: 200 mg with a medicine that slows clearing it.
+    expect(suggestTargets({ ...base, body: [], meds: [med('Fluvoxamine')] }).caffeine?.value).toBe(200);
+    // Archived items don't count.
+    expect(suggestTargets({ ...base, body: weigh(90), meds: [{ ...reta, archived: true }] }).water?.value).toBe(3150);
   });
 });
