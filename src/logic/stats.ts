@@ -124,12 +124,17 @@ export function averageSummary(label: string, cur: number | null, prev: number |
   return `${base}, ${d > 0 ? 'up' : 'down'} from ${prev.toFixed(1)} in the ${periodDays} days before`;
 }
 
+/** Chips that aren't something noticed: drinks have their own charts (Caffeine, Alcohol), and period tracking
+ *  was removed, so old 'Period started' chips are left out. */
+const NOT_NOTICED = new Set(['Caffeine', 'Alcohol', 'Period started']);
+
+/** How often each noticed chip came up (drinks left out). */
 export function chipCounts(checkIns: CheckIn[], start: number, end: number): { chip: string; count: number }[] {
   const m = new Map<string, number>();
   for (const c of checkIns) {
     const t = Date.parse(c.at);
     if (c.deletedAt || t < start || t > end) continue;
-    for (const chip of c.chips) m.set(chip, (m.get(chip) ?? 0) + 1);
+    for (const chip of c.chips) if (!NOT_NOTICED.has(chip)) m.set(chip, (m.get(chip) ?? 0) + 1);
   }
   return [...m.entries()].map(([chip, count]) => ({ chip, count })).sort((a, b) => b.count - a.count || a.chip.localeCompare(b.chip));
 }

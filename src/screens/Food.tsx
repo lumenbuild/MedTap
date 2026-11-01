@@ -1,7 +1,8 @@
 // Food: a day's totals (macros and every micro the labels gave), what was logged, saved foods, meals and batch
 // recipes, and the energy unit and target.
 import { setOwnTarget } from '../app/targets';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { clearRecipeRequest, onRecipeRequest } from '../app/shareInbox';
 import { addDays, format } from 'date-fns';
 import { Barcode, ChevronLeft, ChevronRight, CookingPot, Plus, Star, Trash2 } from 'lucide-react';
 import type { BodyEntry, Food, FoodLog, Nutrients } from '../db/schema';
@@ -45,6 +46,9 @@ export function FoodScreen() {
   const daily = useDaily();
   const [back, setBack] = useState(0);
   const [logging, setLogging] = useState(false);
+  // A recipe link shared to the app opens straight into its import.
+  const [shared, setShared] = useState<string | undefined>(undefined);
+  useEffect(() => onRecipeRequest((url) => { setShared(url); setLogging(true); clearRecipeRequest(); }), []);
   const [editing, setEditing] = useState<FoodLog | null>(null);
   const [recipe, setRecipe] = useState<Food | 'new' | null>(null);
   if (!settings || !fam || !logs || !foods || !body) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
@@ -161,7 +165,7 @@ export function FoodScreen() {
         );
       })()}
 
-      {logging && <LogFoodSheet personId={fam.personId} energy={energy} onClose={() => setLogging(false)} />}
+      {logging && <LogFoodSheet personId={fam.personId} energy={energy} recipeUrl={shared} onClose={() => { setLogging(false); setShared(undefined); }} />}
       {editing && <EditLogSheet log={editing} energy={energy} onClose={() => setEditing(null)} />}
       {recipe && <RecipeSheet recipe={recipe === 'new' ? undefined : recipe} foods={saved.filter((f) => f.kind !== 'recipe')} energy={energy} onClose={() => setRecipe(null)} />}
     </div>
