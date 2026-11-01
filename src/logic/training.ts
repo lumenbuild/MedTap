@@ -202,7 +202,11 @@ export function weeklyBalance(workouts: Workout[], defs: ExerciseDef[], now: num
   return { byMuscle: MUSCLES.map((m) => ({ id: m.id, name: m.name, sets: r(by.get(m.id) ?? 0) })), push, pull, upper, lower, sessions: ws.length };
 }
 
-export interface Calendar { weeks: { start: number; sessions: number }[]; streak: number; thisWeek: number }
+export interface Calendar { weeks: { start: number; sessions: number }[]; streak: number; thisWeek: number; /** Walks the watch picked up this week (not sessions). */ walksThisWeek: number }
+
+/** A training session for the weekly goal: lifting, or cardio done on purpose. Everyday walks the watch picks up
+ *  count towards load and steps, not the sessions goal. */
+export const countsAsSession = (w: Workout) => w.sets.some((x) => x.done) || (!!w.cardio && !(w.source === 'health' && w.cardio.activity === 'walk'));
 
 /** Sessions each week (Monday start) for `weeks` weeks, and how many weeks in a row met the target. */
 export function trainingCalendar(workouts: Workout[], now: number, s: ScheduleSettings, perWeek: number, weeks = 12): Calendar {
@@ -211,13 +215,15 @@ export function trainingCalendar(workouts: Workout[], now: number, s: ScheduleSe
   const out: Calendar['weeks'] = [];
   for (let w = weeks - 1; w >= 0; w--) {
     const start = dayStartOffset(now, -back - 7 * w, s), end = dayStartOffset(now, -back - 7 * (w - 1), s);
-    out.push({ start, sessions: workouts.filter((x) => live(x) && t0(x) >= start && t0(x) < end).length });
+    out.push({ start, sessions: workouts.filter((x) => live(x) && countsAsSession(x) && t0(x) >= start && t0(x) < end).length });
   }
   let streak = 0;
   for (let i = out.length - 2; i >= 0 && perWeek > 0 && out[i].sessions >= perWeek; i--) streak++;
   const thisWeek = out[out.length - 1].sessions;
   if (perWeek > 0 && thisWeek >= perWeek) streak++;
-  return { weeks: out, streak, thisWeek };
+  const wk = out[out.length - 1].start;
+  const walksThisWeek = workouts.filter((x) => live(x) && !countsAsSession(x) && t0(x) >= wk).length;
+  return { weeks: out, streak, thisWeek, walksThisWeek };
 }
 
 // ── Readiness ───────────────────────────────────────────────────────────────────────────────────────

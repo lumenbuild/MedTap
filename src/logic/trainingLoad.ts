@@ -88,13 +88,15 @@ export function trainingLoad(workouts: Workout[], now: number): TrainingLoad | n
   const week = days.slice(-7).reduce((a, d) => a + d.load, 0);
   const before = days.slice(0, 28);
   const usualWeek = Math.round(before.reduce((a, d) => a + d.load, 0) / 4);
-  // The ratio needs a usual to compare with: at least two weeks of the four with training, recorded the same way. When
+  // The ratio needs a usual to compare with, recorded the same way. When
   // watch workouts have only just started coming in, this week would be compared with weeks the watch never saw.
   const weeksWithAny = [0, 1, 2, 3].filter((k) => before.slice(k * 7, k * 7 + 7).some((d) => d.load > 0)).length;
   const fromWatch = (w: Workout) => w.source === 'health';
   const weekStart = days[days.length - 7].t;
   const newSource = ws.some((w) => fromWatch(w) && Date.parse(w.startedAt) >= weekStart) && !ws.some((w) => fromWatch(w) && Date.parse(w.startedAt) < weekStart);
-  const ratio = usualWeek > 0 && weeksWithAny >= 2 && !newSource ? Math.round((week / usualWeek) * 100) / 100 : undefined;
+  // Not compared until training shows up in at least 3 of the 4 weeks before: with less, "your usual" is a few odd
+  // sessions and any normal week looks like a spike (starting out, or the watch only just recording workouts).
+  const ratio = usualWeek > 0 && weeksWithAny >= 3 && !newSource ? Math.round((week / usualWeek) * 100) / 100 : undefined;
   const status: LoadStatus | undefined = ratio === undefined ? undefined : ratio > 1.5 ? 'Spiking' : ratio > 1.25 ? 'Building up' : ratio < 0.75 ? 'Easing off' : 'Steady';
   return { week, usualWeek, ratio, status, days: days.slice(-28), zoneWeek, maxHr };
 }

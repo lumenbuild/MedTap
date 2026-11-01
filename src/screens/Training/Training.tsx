@@ -93,7 +93,7 @@ export function Training({ start = false }: { start?: boolean }) {
             : <>{cal.thisWeek}{sessionsGoal?.perWeek ? <span className="text-[20px] font-semibold ml-1">of {sessionsGoal.perWeek} sessions</span> : <span className="text-[20px] font-semibold ml-1">session{cal.thisWeek === 1 ? '' : 's'}</span>}</>}
         </p>
         {suggestion && !open && <p className="mt-2 text-[17px] font-semibold">{suggestion.title}</p>}
-        <p className="mt-1 text-muted text-[15px]">{[ready ? `Ready to train: ${ready.score}, ${ready.label.toLowerCase()}` : null, load?.status ? `load ${load.status.toLowerCase()}` : null, cal.streak ? `${cal.streak}-week streak` : null].filter(Boolean).join(' · ') || 'Log a session to start your week'}</p>
+        <p className="mt-1 text-muted text-[15px]">{[ready ? `Ready to train: ${ready.score}, ${ready.label.toLowerCase()}` : null, load?.status ? `load ${load.status.toLowerCase()}` : null, cal.walksThisWeek ? `${cal.walksThisWeek} walk${cal.walksThisWeek === 1 ? '' : 's'} from the watch` : null, cal.streak ? `${cal.streak}-week streak` : null].filter(Boolean).join(' · ') || 'Log a session to start your week'}</p>
         <button type="button" className="hero-btn mt-4 w-full min-h-[52px] rounded-btn font-semibold text-[17px]"
           onClick={() => (open ? go(`/training/workout/${open.id}`) : setSheet('start'))}>{open ? 'Continue workout' : 'Start a workout'}</button>
         {ws.filter((w) => w.cardio && !w.endedAt && now - Date.parse(w.startedAt) < 6 * 3_600_000).map((w) => (

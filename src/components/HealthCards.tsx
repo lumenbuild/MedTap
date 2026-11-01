@@ -66,7 +66,8 @@ export function LoadCard({ load, vo2 }: { load: TrainingLoad | null; vo2: Return
               <p className="text-[28px] font-bold tnum leading-none">{n0(load.week)}</p>
               <p className="text-sm text-muted">this week{load.usualWeek ? ` · usual ${n0(load.usualWeek)}` : ''}</p>
             </div>
-            {load.status && <span className={`rounded-full px-3 py-1 text-sm font-semibold ${load.status === 'Spiking' ? 'bg-caution-soft text-caution' : 'bg-surface-2'}`}>{load.status}{load.ratio ? ` · ${Math.round(load.ratio * 100)}%` : ''}</span>}
+            {load.status ? <span className={`rounded-full px-3 py-1 text-sm font-semibold ${load.status === 'Spiking' ? 'bg-caution-soft text-caution' : 'bg-surface-2'}`}>{load.status}{load.ratio ? ` · ${Math.round(load.ratio * 100)}%` : ''}</span>
+              : <span className="rounded-full px-3 py-1 text-sm font-semibold bg-surface-2">Building your usual</span>}
           </div>
           <div role="img" aria-label={`Load each day, last 4 weeks: ${load.days.map((d) => d.load).join(', ')}`}>
             <div className="flex items-end gap-[2px] h-14" aria-hidden="true">
@@ -81,7 +82,7 @@ export function LoadCard({ load, vo2 }: { load: TrainingLoad | null; vo2: Return
                 {load.zoneWeek.map((m, i) => m > 0 && <div key={i} style={{ width: `${(m / zoneTotal) * 100}%`, background: zoneColour(i) }} />)}
               </div>
               <ul className="grid grid-cols-5 gap-1 mt-1.5 text-[12px] tnum">
-                {ZONES.map((z, i) => <li key={z.n}><span className="flex items-center gap-1 text-muted"><span aria-hidden="true" className="w-2 h-2 rounded-full" style={{ background: zoneColour(i) }} />{z.label}</span><span className="font-semibold">{Math.round(load.zoneWeek[i])} min</span></li>)}
+                {ZONES.map((z, i) => <li key={z.n} className="flex flex-col items-center text-center min-w-0"><span aria-hidden="true" className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: zoneColour(i) }} /><span className="text-muted text-[11px] leading-4 mt-0.5 max-w-full truncate">{z.label}</span><span className="font-semibold">{Math.round(load.zoneWeek[i])} min</span></li>)}
               </ul>
             </div>
           )}
