@@ -2,6 +2,7 @@
 // it matters and how sure it is, a headline, what it rests on, and one thing to do about it. Today shows the top
 // couple; Progress shows them all. Anything put away stays away for a while; anything done from one (a cut-off set,
 // a target raised) is checked back on a few weeks later against what actually happened. Pure.
+import { currentTarget, fmtTarget, isAuto, LABEL, suggestTargets, type TargetKey } from './targets';
 import { format } from 'date-fns';
 import type { Appointment, BodyEntry, BodyGoal, CheckIn, DailyHealth, Dose, FoodLog, MedEvent, Medication, Vital, Workout } from '../db/schema';
 import type { AppSettings, FollowUp, Units } from '../db/repos/settings';
@@ -36,7 +37,7 @@ const WEEK = 7 * DAY;
 const day = (t: number) => format(t, 'EEE d MMM');
 const hourText = (h: number) => (h === 12 ? '12 pm' : h > 12 ? `${h - 12} pm` : `${h} am`);
 
-export type InsightKind = 'script' | 'reading' | 'stall' | 'wearoff' | 'change' | 'odd' | 'cutoff' | 'calories' | 'protein' | 'lean' | 'appointment' | 'followup' | 'steps' | 'sleep' | 'gut' | 'eating' | 'regain' | 'maintain' | 'second' | 'dosecut' | 'bestdose' | 'crash' | 'load' | 'heart' | 'undereat' | 'missed' | 'illness' | 'tolerance' | 'creep' | 'fluids' | 'appetite' | 'rebound' | 'review' | 'supplement';
+export type InsightKind = 'script' | 'reading' | 'stall' | 'wearoff' | 'change' | 'odd' | 'cutoff' | 'calories' | 'protein' | 'lean' | 'appointment' | 'followup' | 'steps' | 'sleep' | 'gut' | 'eating' | 'regain' | 'maintain' | 'second' | 'dosecut' | 'bestdose' | 'crash' | 'load' | 'heart' | 'undereat' | 'missed' | 'illness' | 'tolerance' | 'creep' | 'fluids' | 'appetite' | 'rebound' | 'review' | 'supplement' | 'target';
 
 export type InsightAction =
   | { kind: 'go'; label: string; href: string }
@@ -89,7 +90,7 @@ function consolidate(out: Insight[]): Insight[] {
 export interface InsightInput {
   meds: Medication[]; doses: Dose[]; checkIns: CheckIn[]; daily: DailyHealth[]; body: BodyEntry[]; vitals: Vital[];
   workouts: Workout[]; events: MedEvent[]; foodLogs: FoodLog[]; appointments: Appointment[]; goals: BodyGoal[];
-  settings: Pick<AppSettings, 'bedtime' | 'caffeineHalfLifeH' | 'fibreTargetG' | 'caffeineCutoff' | 'proteinTargetG' | 'energyTargetKcal' | 'energyAuto' | 'lossRateKgWeek'
+  settings: Pick<AppSettings, 'targetChanges' | 'targetAuto' | 'sleepTools' | 'waterTargetMl' | 'stepsTargetOwn' | 'sleepTargetH' | 'caffeineLimitMg' | 'bedtime' | 'caffeineHalfLifeH' | 'fibreTargetG' | 'caffeineCutoff' | 'proteinTargetG' | 'energyTargetKcal' | 'energyAuto' | 'lossRateKgWeek'
     | 'mentionsDismissed' | 'oddDismissed' | 'insightsHidden' | 'followUps'> & { waterTargetMl?: number | null };
   units: Units;
   has: { body: boolean; food: boolean; training: boolean; meds: boolean; biohack?: boolean };
@@ -320,6 +321,27 @@ export function insights(d: InsightInput, now: number, s: ScheduleSettings): Ins
       out.push({ id: `protein:${want}`, kind: 'protein', importance: 45, confidence: 'medium', tone: 'plain',
         headline: `About ${want} g of protein a day keeps muscle while losing`, evidence: `1.6 g for each kg of ${goal && goal.target < (latestWeight(d.body) ?? 0) ? 'your goal weight' : 'your weight'}${st.proteinTargetG ? `; your target is ${st.proteinTargetG} g` : ''}`,
         action: { kind: 'setting', label: `Aim for ${want} g`, key: 'proteinTargetG', value: want, followUp: { kind: 'protein', value: want }, done: `Protein target: ${want} g a day` }, snoozeDays: 30 });
+    }
+  }
+
+  // Targets: what the app updated lately, and an own number well off what the data suggests.
+  for (const c of st.targetChanges.filter((x) => now - x.at < 3 * DAY).slice(0, 2)) {
+    const k = c.key as TargetKey;
+    out.push({ id: `target:${k}:${c.to}`, kind: 'target', importance: 30, confidence: 'high', tone: 'good',
+      headline: `${LABEL[k]} target now ${fmtTarget(k, c.to)}`, evidence: `${c.why}; it was ${fmtTarget(k, c.from)}`,
+      action: { kind: 'go', label: 'Targets', href: '#/settings/targets' }, snoozeDays: 0 });
+  }
+  {
+    const sug = suggestTargets({ body: d.body, goalKg: d.goals.find((g) => g.metric === 'weightKg')?.target, daily: d.daily, workouts: d.workouts, meds: d.meds,
+      doses: d.doses, checkIns: d.checkIns, calorieKcal: st.energyTargetKcal, now });
+    for (const k of ['water', 'fibre', 'sleep'] as const) {
+      const s = sug[k]; const cur = currentTarget(st, k, sug);
+      if (!s || isAuto(st, k) || cur === null || Math.abs(cur - s.value) / s.value < 0.15) continue;
+      if (k === 'fibre' && !d.has.food) continue;
+      if (k === 'sleep' && !st.sleepTools) continue;
+      out.push({ id: `target-own:${k}:${s.value}`, kind: 'target', importance: 34, confidence: 'medium', tone: 'plain',
+        headline: `Your ${LABEL[k].toLowerCase()} target could be ${fmtTarget(k, s.value)}`, evidence: `${s.why}; yours is ${fmtTarget(k, cur)}`,
+        action: { kind: 'go', label: 'Targets', href: '#/settings/targets' }, snoozeDays: 30 });
     }
   }
 

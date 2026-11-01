@@ -1,6 +1,7 @@
 // The Sleep tab (Settings → Sleep): last night with its score and stages, tonight's bedtime, sleep debt and how steady
 // your times are, the last 30 nights, and what goes with better or worse sleep in your own records. Built from the
 // watch's nights (Health Connect), with doses, caffeine, alcohol and workouts from the app.
+import { setOwnTarget } from '../app/targets';
 import { useState } from 'react';
 import { BedDouble, ChevronDown, Moon, Sunrise, TrendingDown, TrendingUp } from 'lucide-react';
 import { nightVitals } from '../logic/vitals';
@@ -297,7 +298,7 @@ function FactorRow({ f }: { f: SleepFactor }) {
 
 function TargetPick({ value }: { value: number }) {
   return (
-    <Select label="Sleep target" value={String(value)} onChange={(e) => setSetting('sleepTargetH', Number(e.target.value))}>
+    <Select label="Sleep target" value={String(value)} onChange={(e) => setOwnTarget('sleep', Number(e.target.value))}>
       {[6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5].map((h) => <option key={h} value={h}>{fmtHM(h * 60)} a night</option>)}
     </Select>
   );
