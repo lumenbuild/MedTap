@@ -46,11 +46,19 @@ export function planHealthImport(data: HealthData, existing: { daily: DailyHealt
     for (const k of EXTRA) if (d[k] !== undefined || old?.[k] !== undefined) (row as unknown as Record<string, unknown>)[k] = d[k] ?? old?.[k];
     daily.push(row);
   }
-  // One weigh-in per day (the latest), only where nothing's been logged for that day.
+  // One weigh-in per day: from the person's scale (the app that sends most of their weights, so a second app's copies
+  // don't win), the day's first reading (the morning weigh-in, before food and drink). A day already imported is
+  // corrected when that changes; a weight typed in by hand is never touched.
+  const count = new Map<string, number>();
+  for (const w of data.weights) count.set(w.src ?? '', (count.get(w.src ?? '') ?? 0) + 1);
+  const main = [...count].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const fromScale = data.weights.filter((w) => (w.src ?? '') === main);
   const byDay = new Map<string, { t: number; kg: number }>();
-  for (const w of data.weights) { const k = ymdIn(w.t, tz); if (!byDay.has(k) || byDay.get(k)!.t < w.t) byDay.set(k, w); }
-  const body = [...byDay].filter(([date]) => !existing.body.some((b) => mine(b) && b.date === date && typeof b.weightKg === 'number'))
-    .map(([date, w]) => ({ date, kg: Math.round(w.kg * 10) / 10 }));
+  for (const w of fromScale) { const k = ymdIn(w.t, tz); if (!byDay.has(k) || byDay.get(k)!.t > w.t) byDay.set(k, w); }
+  const body = [...byDay].map(([date, w]) => ({ date, kg: Math.round(w.kg * 10) / 10 })).filter(({ date, kg }) => {
+    const had = existing.body.find((b) => mine(b) && b.date === date && !b.deletedAt && typeof b.weightKg === 'number');
+    return !had || (had.note === 'From Health' && had.weightKg !== kg);
+  });
   const vitals = data.bp.filter((r) => !existing.vitals.some((v) => mine(v) && Math.abs(Date.parse(v.at) - r.t) < 5 * 60_000))
     .map((r) => ({ at: new Date(r.t).toISOString(), systolic: r.sys, diastolic: r.dia }));
   // Body fat and lean mass: the latest of each day, only where that day's entry doesn't have one.

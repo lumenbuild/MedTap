@@ -170,6 +170,8 @@ export interface AppSettings {
   /** When the automatic targets were last worked out (ms), and the stack they were worked out for. */
   targetsAt: number;
   targetsStack: string;
+  /** The way of working targets out they were last worked out with (logic/targets TARGETS_VERSION). */
+  targetsVersion: number;
   /** Insights put away: id → until when (ms); a far-future time for good. */
   insightsHidden: Record<string, number>;
   /** Things done from an insight, to check back on a few weeks later ("since your 2 pm cut-off, sleep …"). */
@@ -276,6 +278,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   targetChanges: [],
   targetsAt: 0,
   targetsStack: '',
+  targetsVersion: 0,
   insightsHidden: {},
   followUps: [],
 };

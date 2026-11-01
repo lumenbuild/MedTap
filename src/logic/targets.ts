@@ -11,6 +11,9 @@ import { ingredientsOf } from './ingredients';
 import { supplementsOf } from './supplements';
 import { findLimit, type CaffeineDay } from './caffeine';
 
+/** Bumped when the way targets are worked out changes, so automatic ones are worked out again on the next open. */
+export const TARGETS_VERSION = 2;
+
 export type TargetKey = 'water' | 'protein' | 'fibre' | 'steps' | 'sleep' | 'caffeine' | 'calories';
 export const TARGET_KEYS: TargetKey[] = ['water', 'protein', 'calories', 'fibre', 'steps', 'sleep', 'caffeine'];
 

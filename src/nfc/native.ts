@@ -79,7 +79,7 @@ export interface HealthDay {
   mindfulMin?: number; glucoseAvg?: number; glucoseMin?: number; glucoseMax?: number; glucoseInRange?: number; glucoseByHour?: (number | null)[];
 }
 export interface HealthData {
-  days: HealthDay[]; weights: { t: number; kg: number }[]; bp: { t: number; sys: number; dia: number }[];
+  days: HealthDay[]; weights: { t: number; kg: number; /** The app that wrote it. */ src?: string }[]; bp: { t: number; sys: number; dia: number }[];
   /** Exercise sessions from a watch or app: type is run, walk, ride, swim, row, strength or other. Older app versions leave these out. */
   workouts?: { t: number; end: number; type: string; km?: number; title?: string; avgHr?: number; maxHr?: number; kcal?: number; hrMin?: (number | null)[]; kmh?: number; watts?: number; climbM?: number }[];
   bodyFat?: { t: number; pct: number }[]; lean?: { t: number; kg: number }[];

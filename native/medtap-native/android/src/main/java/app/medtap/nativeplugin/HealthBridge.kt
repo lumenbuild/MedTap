@@ -416,7 +416,7 @@ object HealthBridge {
                     }
                 }
                 val weights = JSONArray()
-                if (has(WeightRecord::class)) for (r in readAll(client, WeightRecord::class, range)) weights.put(JSONObject().put("t", r.time.toEpochMilli()).put("kg", r.weight.inKilograms))
+                if (has(WeightRecord::class)) for (r in readAll(client, WeightRecord::class, range)) weights.put(JSONObject().put("t", r.time.toEpochMilli()).put("kg", r.weight.inKilograms).put("src", r.metadata.dataOrigin.packageName))
                 val bp = JSONArray()
                 if (has(BloodPressureRecord::class)) for (r in readAll(client, BloodPressureRecord::class, range)) bp.put(JSONObject().put("t", r.time.toEpochMilli()).put("sys", r.systolic.inMillimetersOfMercury.roundToInt()).put("dia", r.diastolic.inMillimetersOfMercury.roundToInt()))
                 val bodyFat = JSONArray()

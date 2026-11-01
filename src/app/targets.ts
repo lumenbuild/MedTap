@@ -3,7 +3,7 @@ import { db } from '../db/db';
 import { getSettings, scheduleSettings, setSetting, type AppSettings } from '../db/repos/settings';
 import { medIsFor, personOf } from '../db/repos/people';
 import { caffeineDays, intakesOf } from '../logic/caffeine';
-import { currentTarget, differs, FIELD, isAuto, LABEL, suggestTargets, TARGET_KEYS, type Suggestion, type TargetKey } from '../logic/targets';
+import { currentTarget, differs, FIELD, isAuto, LABEL, suggestTargets, TARGET_KEYS, TARGETS_VERSION, type Suggestion, type TargetKey } from '../logic/targets';
 
 const DAY = 86_400_000;
 
@@ -29,8 +29,9 @@ export async function updateAutoTargets(now = Date.now(), force = false) {
   const st = await getSettings();
   // Right away when the stack changes (something started, stopped or archived), else once a day.
   const stack = (await db.medications.toArray()).filter((m) => !m.archived && medIsFor(m, st.activePersonId)).map((m) => m.id).sort().join(',');
-  if (!force && stack === st.targetsStack && now - st.targetsAt < DAY) return;
+  if (!force && stack === st.targetsStack && st.targetsVersion === TARGETS_VERSION && now - st.targetsAt < DAY) return;
   await setSetting('targetsStack', stack);
+  await setSetting('targetsVersion', TARGETS_VERSION);
   // Calories never set by the person: worked out for them too (from the next weekly update, once there's enough).
   if (!st.energyAuto && st.energyTargetKcal === null) { await setSetting('energyAuto', true); await setSetting('energyAutoAt', 0); }
   const sug = await targetSuggestions(st, now);

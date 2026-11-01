@@ -22,20 +22,23 @@ const LOOSE = ['Nausea', 'Diarrhoea', 'Vomiting'];
 
 export interface Fluids { ml: number; reasons: string[]; electrolytes: boolean; drunk?: number; low: boolean }
 
-/** Today's water: the person's target (or 2.5 L), plus 500 mL in the 2 days after a GLP-1 shot, 500 mL on a training
- *  day and 250 mL with a stimulant. Electrolytes after a shot, with nausea or diarrhoea, or training. Low: under 40% of
- *  it by 3 pm. */
+/** Today's water: the person's target, which already allows for what's in their stack (a GLP-1, a stimulant), plus
+ *  what's only about today: 500 mL on a training day and 250 mL in the 2 days after a GLP-1 shot (never more than
+ *  750 mL over the target). With no target, 2 L and the stack's own extras. Electrolytes after a shot, with nausea or
+ *  diarrhoea, or training. Low: under 40% of it by 3 pm. */
 export function fluids(meds: Medication[], doses: Dose[], workouts: Workout[], checkIns: CheckIn[], daily: DailyHealth[], base: number | null, now: number, s: ScheduleSettings): Fluids {
   const start = getDayBounds(now, s.dayStartsAt, s.tz).start;
   const g = new Set(meds.filter((m) => !m.archived && glp1(m)).map((m) => m.id));
   const st = new Set(meds.filter((m) => !m.archived && isStimulant(m)).map((m) => m.id));
   const reasons: string[] = [];
-  let ml = base ?? 2500;
+  let ml = base ?? 2000;
   const shot = doses.filter((d) => taken(d) && g.has(d.medicationId) && Date.parse(d.takenAt) <= now && Date.parse(d.takenAt) > start - 2 * DAY).length > 0;
-  if (shot) { ml += 500; reasons.push('the days after a shot'); }
-  const trained = workouts.some((w) => live(w) && Date.parse(w.startedAt) >= start && Date.parse(w.startedAt) <= now);
+  if (shot) { ml += base === null ? 500 : 250; reasons.push('the days after a shot'); }
+  const trained = workouts.some((w) => live(w) && !(w.source === 'health' && w.cardio?.activity === 'walk') && Date.parse(w.startedAt) >= start && Date.parse(w.startedAt) <= now);
   if (trained) { ml += 500; reasons.push('training today'); }
-  if (doses.some((d) => taken(d) && st.has(d.medicationId) && Date.parse(d.takenAt) >= start)) { ml += 250; reasons.push('a stimulant today'); }
+  // A stimulant's extra is already in a worked-out target.
+  if (base === null && doses.some((d) => taken(d) && st.has(d.medicationId) && Date.parse(d.takenAt) >= start)) { ml += 250; reasons.push('a stimulant today'); }
+  if (base !== null) ml = Math.min(ml, base + 750);
   const gutToday = checkIns.some((c) => live(c) && Date.parse(c.at) >= start && c.chips.some((x) => LOOSE.includes(x)));
   if (gutToday) reasons.push('nausea or an upset stomach');
   const drunk = daily.find((x) => live(x) && x.date === dayKey(now, s))?.waterMl;
