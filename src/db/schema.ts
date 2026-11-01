@@ -462,7 +462,7 @@ export interface Food extends Stamped {
   /** A batch recipe: what went in (whole batch) and how many serves it makes. */
   recipe?: { items: { name: string; amount: string; nutrients: Nutrients }[]; serves: number };
   /** Where the numbers came from. */
-  source?: 'openfoodfacts' | 'label' | 'typed' | 'portions' | 'recipe';
+  source?: 'openfoodfacts' | 'label' | 'typed' | 'portions' | 'recipe' | 'common';
   favourite?: boolean; lastUsedAt?: string;
   personId?: string; deletedAt?: string;
 }

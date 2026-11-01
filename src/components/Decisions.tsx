@@ -14,7 +14,7 @@ export function TodayCalls() {
   if (!dd || dd.everyone) return null;
   const { data, s, settings } = dd;
   const calls = todaysCalls(data, now, s, settings);
-  const warnings = earlyWarnings(data, now, s);
+  const warnings = earlyWarnings(data, now, s, settings.waterTargetMl);
   return <CallsCard calls={calls} warnings={warnings} />;
 }
 

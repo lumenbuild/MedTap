@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useLabs, useMedEvents, useMeds, useScheduleSettings, useVitals, useWorkouts } from '../../app/data';
 import { MarkersCard } from '../../components/MarkersCard';
 import { MuscleCard } from '../../components/Biohack';
+import { BodyModelCards } from '../../components/BodyModel';
 import { medIsFor, personOf } from '../../db/repos/people';
 import { MuscleWatchCard } from '../../components/Fitness';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
@@ -107,6 +108,7 @@ export function Body() {
           <p className="text-xs text-muted mt-2">Weigh at the same time of day, ideally in the morning before eating, for the most useful trend.</p>
         </>} />
       <WeeklyChangeChart entries={entries} units={units} goalKg={wGoal?.target} now={now} />
+      <BodyModelCards units={units} />
 
       <GoalsSection personId={fam.personId} goals={[...goals].sort((a, b) => Number(b.metric === 'weightKg') - Number(a.metric === 'weightKg'))} entries={entries} units={units} now={now}
         chartFor={(g) => g.metric === 'weightKg' ? null : <GoalForecastCharts goals={[g]} entries={entries} units={units} now={now} />} />

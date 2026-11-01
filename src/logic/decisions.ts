@@ -3,7 +3,9 @@
 // (train, caffeine, a second dose, food) and early warnings (overtraining, under-recovering on a big deficit,
 // stimulant tolerance, resting heart rate creeping up on a medicine). From the person's own data, each with its basis.
 // Options to weigh (with the prescriber for medicines), not instructions. Pure.
-import type { FoodLog, Medication, Workout } from '../db/schema';
+import type { Food, FoodLog, Medication, Workout } from '../db/schema';
+import { leanForecast, weightTrend } from './bodyModel';
+import { fmtSleep, hydrationWatch, levers, proteinGap, sleepForecast } from './dailySmarts';
 import { dayKey } from './stats';
 import type { ScheduleSettings } from './schedule';
 import { isStimulant, doseResponse, secondDose, secondDetail, secondTitle } from './stimulant';
@@ -26,7 +28,7 @@ const live = <T extends { deletedAt?: string }>(x: T) => !x.deletedAt;
 const ymdMs = (k: string) => new Date(`${k}T12:00`).getTime();
 const r1 = (v: number) => Math.round(v * 10) / 10;
 
-export interface AllData extends VerdictData { workouts: Workout[]; foodLogs: FoodLog[] }
+export interface AllData extends VerdictData { workouts: Workout[]; foodLogs: FoodLog[]; /** Saved foods (for closing the protein gap). */ foods?: Food[] }
 
 // ── Dose decisions ───────────────────────────────────────────────────────────────────────────────────
 
@@ -133,9 +135,10 @@ function phi(z: number) { const t = 1 / (1 + 0.2316419 * z); const d = 0.3989423
 
 // ── Today's calls ───────────────────────────────────────────────────────────────────────────────────
 
-export interface Call { key: 'train' | 'caffeine' | 'second-dose' | 'food'; title: string; detail: string; tone: 'go' | 'easy' | 'stop' | 'info' }
+export interface Call { key: 'train' | 'caffeine' | 'second-dose' | 'food' | 'protein' | 'sleep' | 'lever' | 'weight'; title: string; detail: string; tone: 'go' | 'easy' | 'stop' | 'info' }
 
-export interface CallSettings { bedtime: string; caffeineCutoff: string | null; caffeineHalfLifeH: number; energyTargetKcal: number | null; proteinTargetG: number | null; lossRateKgWeek: number }
+export interface CallSettings { bedtime: string; caffeineCutoff: string | null; caffeineHalfLifeH: number; energyTargetKcal: number | null; proteinTargetG: number | null; lossRateKgWeek: number;
+  sleepTargetH?: number; waterTargetMl?: number | null }
 
 export function todaysCalls(d: AllData, now: number, s: ScheduleSettings, st: CallSettings): Call[] {
   const out: Call[] = [];
@@ -171,6 +174,51 @@ export function todaysCalls(d: AllData, now: number, s: ScheduleSettings, st: Ca
     out.push({ key: 'food', title: `Eat about ${Math.round((target + extra) / 50) * 50} kcal${st.proteinTargetG ? ` and ${st.proteinTargetG} g protein` : ''}`,
       detail: extra ? 'A hard session today: a little more helps recovery.' : st.energyTargetKcal ? 'Your target.' : `From what you burn (${burn} a day) and losing ${st.lossRateKgWeek} kg a week.`, tone: 'info' });
   }
+  // Today's weigh-in, when it's well off the true weight: why, so one reading doesn't derail the week.
+  {
+    const tr = weightTrend({ body: d.body, foodLogs: d.foodLogs, workouts: d.workouts, checkIns: d.checkIns, daily: d.daily, doses: d.doses, meds: d.meds }, now);
+    if (tr && tr.latestDate === dayKey(now, s) && Math.abs(tr.off) >= 0.5) {
+      const kg = Math.round(Math.abs(tr.off) * 10) / 10;
+      out.push({ key: 'weight', tone: 'info', title: `${tr.off > 0 ? 'Up' : 'Down'} ${kg} kg on the trend today: likely ${tr.off > 0 ? 'water' : 'less water'}`,
+        detail: `${tr.causes.length ? `${tr.causes.join(', ').replace(/^./, (c) => c.toUpperCase())}. ` : ''}Your true weight is ${tr.trend} kg, ${tr.perWeek < -0.05 ? `down ${Math.abs(tr.perWeek)} kg a week` : tr.perWeek > 0.05 ? `up ${tr.perWeek} kg a week` : 'steady'}.` });
+    }
+  }
+  // Protein: from midday, what closes the gap in the calories left.
+  {
+    const today = dayKey(now, s);
+    const prot = d.daily.find((x) => x.date === today && !x.deletedAt)?.proteinG ?? 0;
+    const start = new Date(`${today}T00:00`).getTime();
+    const kcal = d.foodLogs.filter((l) => !l.deletedAt && Date.parse(l.at) >= start && Date.parse(l.at) < start + 86_400_000).reduce((a, l) => a + (l.nutrients.kcal ?? 0), 0);
+    const g = proteinGap(prot, st.proteinTargetG, kcal, st.energyTargetKcal, d.foods ?? [], now, s);
+    if (g && g.picks.length) {
+      const p = g.picks.reduce((a, x) => a + x.protein, 0), k = g.picks.reduce((a, x) => a + x.kcal, 0);
+      out.push({ key: 'protein', title: `${g.gap} g protein to go`, tone: 'info',
+        detail: `${g.picks.map((x, i) => (i ? lower(x.name) : x.name)).join(' and ')}: about ${p} g for ${k} Cal${g.over ? `, a little over today's calories: protein matters more on a cut` : g.kcalLeft !== undefined ? ` (${Math.round(g.kcalLeft)} Cal left today)` : ''}.` });
+    }
+  }
+  // Tonight's sleep, from midday, when today holds something that has gone with shorter nights.
+  {
+    const start = new Date(`${dayKey(now, s)}T00:00`).getTime();
+    const f = now - start >= 12 * 3_600_000 ? sleepForecast({ daily: d.daily, checkIns: d.checkIns, foodLogs: d.foodLogs, doses: d.doses, meds: d.meds, bedtime: st.bedtime, halfLifeH: st.caffeineHalfLifeH }, now, s) : null;
+    if (f && f.reasons.length) out.push({ key: 'sleep', title: `Tonight: about ${fmtSleep(f.minutes)} of sleep`, tone: f.lowTomorrow ? 'easy' : 'info',
+      detail: `Usually ${fmtSleep(f.usual)}; ${f.reasons.map((r) => `${r.text} (${fmtSleep(-r.min)} less for you)`).join(', ')}.${f.tip ? ` ${f.tip}` : ''}${f.lowTomorrow ? " Tomorrow's readiness is likely lower: a lighter session suits." : ''}` });
+  }
+  // The biggest lever this week.
+  {
+    const tr = weightTrend({ body: d.body, foodLogs: d.foodLogs, workouts: d.workouts, checkIns: d.checkIns, daily: d.daily, doses: d.doses, meds: d.meds }, now);
+    const lean = leanForecast(d.body, d.workouts, d.daily, tr?.perWeek ?? 0, st.proteinTargetG, now);
+    let late: number | undefined, cost: number | undefined, cutoffText: string | undefined;
+    if (found.status === 'found' && found.value !== undefined) {
+      const intakes = intakesOf(d.checkIns, d.foodLogs);
+      const days = new Set(intakes.filter((x) => x.t > now - 7 * 86_400_000 && new Date(x.t).getHours() + new Date(x.t).getMinutes() / 60 >= found.value!).map((x) => dayKey(x.t, s)));
+      late = days.size;
+      const base = found.bands[0]?.hours, worse = found.bands.find((b) => b.worse)?.hours;
+      cost = base !== undefined && worse !== undefined ? Math.round((base - worse) * 60) : undefined;
+      cutoffText = fmtTime(new Date(new Date(now).setHours(Math.floor(found.value), Math.round((found.value % 1) * 60), 0, 0)).getTime());
+    }
+    const top = levers({ trend: tr, lean, daily: d.daily, sleepTargetH: st.sleepTargetH ?? 8, lateCaffeineDays: late, caffeineCostMin: cost, cutoff: cutoffText }, now)[0];
+    if (top) out.push({ key: 'lever', title: top.title, detail: `Your biggest lever this week. ${top.detail}`, tone: 'go' });
+  }
   return out;
 }
 
@@ -178,8 +226,12 @@ export function todaysCalls(d: AllData, now: number, s: ScheduleSettings, st: Ca
 
 export interface Warning { key: string; title: string; detail: string; action: string }
 
-export function earlyWarnings(d: AllData, now: number, s: ScheduleSettings): Warning[] {
+export function earlyWarnings(d: AllData, now: number, s: ScheduleSettings, waterTarget: number | null = null): Warning[] {
   const out: Warning[] = [];
+  // Running dry: body signs with what raises the risk (a GLP-1 shot, little water so far).
+  const h = hydrationWatch({ daily: d.daily, body: d.body, checkIns: d.checkIns, doses: d.doses, meds: d.meds }, waterTarget, now, s);
+  if (h) out.push({ key: 'hydration', title: 'Signs of running dry', detail: `${h.signs.join(', ').replace(/^./, (c) => c.toUpperCase())}.`,
+    action: h.urgent ? "Sip water with electrolytes now. If you can't keep fluids down, or feel dizzy or faint, contact your doctor." : 'Drink water with electrolytes over the next hour or two.' });
   const rows = d.daily.filter(live).sort((a, b) => a.date.localeCompare(b.date));
   const recent = (k: 'hrvMs' | 'restingHr') => rows.filter((x) => ymdMs(x.date) > now - 7 * DAY && typeof x[k] === 'number').map((x) => x[k]!);
   const usual = (k: 'hrvMs' | 'restingHr') => rows.filter((x) => ymdMs(x.date) <= now - 7 * DAY && ymdMs(x.date) > now - 37 * DAY && typeof x[k] === 'number').map((x) => x[k]!);
