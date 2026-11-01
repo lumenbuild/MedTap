@@ -1,7 +1,8 @@
 // Food: a day's totals (macros and every micro the labels gave), what was logged, saved foods, meals and batch
 // recipes, and the energy unit and target.
 import { setOwnTarget } from '../app/targets';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { clearRecipeRequest, onRecipeRequest } from '../app/shareInbox';
 import { addDays, format } from 'date-fns';
 import { Barcode, ChevronLeft, ChevronRight, CookingPot, Plus, Star, Trash2 } from 'lucide-react';
 import type { BodyEntry, Food, FoodLog, Nutrients } from '../db/schema';
@@ -45,6 +46,9 @@ export function FoodScreen() {
   const daily = useDaily();
   const [back, setBack] = useState(0);
   const [logging, setLogging] = useState(false);
+  // A recipe link shared to the app opens straight into its import.
+  const [shared, setShared] = useState<string | undefined>(undefined);
+  useEffect(() => onRecipeRequest((url) => { setShared(url); setLogging(true); clearRecipeRequest(); }), []);
   const [editing, setEditing] = useState<FoodLog | null>(null);
   const [recipe, setRecipe] = useState<Food | 'new' | null>(null);
   if (!settings || !fam || !logs || !foods || !body) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
@@ -161,7 +165,7 @@ export function FoodScreen() {
         );
       })()}
 
-      {logging && <LogFoodSheet personId={fam.personId} energy={energy} onClose={() => setLogging(false)} />}
+      {logging && <LogFoodSheet personId={fam.personId} energy={energy} recipeUrl={shared} onClose={() => { setLogging(false); setShared(undefined); }} />}
       {editing && <EditLogSheet log={editing} energy={energy} onClose={() => setEditing(null)} />}
       {recipe && <RecipeSheet recipe={recipe === 'new' ? undefined : recipe} foods={saved.filter((f) => f.kind !== 'recipe')} energy={energy} onClose={() => setRecipe(null)} />}
     </div>
@@ -278,7 +282,7 @@ function RecipeSheet({ recipe, foods, energy, onClose }: { recipe?: Food; foods:
     setAdding(null); setAmount('1');
   };
   const save = async () => {
-    const data = { kind: 'recipe' as const, name: name.trim(), nutrients: per, serving: `1 of ${serves} serves`, recipe: { items, serves: Number(serves) }, source: 'recipe' as const };
+    const data = { kind: 'recipe' as const, name: name.trim(), nutrients: per, serving: `1 of ${serves} serves`, recipe: { items, serves: Number(serves), ingredients: recipe?.recipe?.ingredients }, source: recipe?.source ?? ('recipe' as const) };
     if (recipe) await updateFood(recipe.id, data); else await saveFood(data);
     toast(`Saved ${name.trim()}. Log a serve from Log food.`);
     onClose();
@@ -288,7 +292,7 @@ function RecipeSheet({ recipe, foods, energy, onClose }: { recipe?: Food; foods:
   return (
     <Sheet open onClose={onClose} title={recipe ? 'Edit recipe' : 'New batch recipe'}>
       <div className="space-y-4">
-        <p className="text-sm text-muted">Enter what goes in the pot once. Each time you eat it, log a serve.</p>
+        <p className="text-sm text-muted">{recipe?.sourceUrl ? `Saved from ${recipe.sourceUrl.split('/')[0]}. Sharing that recipe again logs this one.` : 'Enter what goes in the pot once. Each time you eat it, log a serve.'}</p>
         <TextInput label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Beef chilli" />
         <TextInput label="Serves" type="number" inputMode="numeric" min="1" step="1" value={serves} onChange={(e) => setServes(e.target.value)} />
         <div>

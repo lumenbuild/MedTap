@@ -110,6 +110,17 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
 
     /** A tag tapped while the app was closed or in the background, or a shortcut/widget log request. */
     private void handleLaunchIntent(Intent intent) {
+        // A link shared to the app (Share > MedTap from a recipe page): hand the text to the app.
+        if (intent != null && Intent.ACTION_SEND.equals(intent.getAction()) && "text/plain".equals(intent.getType())) {
+            String text = intent.getStringExtra(Intent.EXTRA_TEXT);
+            intent.setAction(Intent.ACTION_MAIN); // handled; don't repeat if the activity is recreated
+            if (text != null) {
+                JSObject o = new JSObject();
+                o.put("text", text);
+                notifyListeners("shared", o, true);
+            }
+            return;
+        }
         if (intent != null && intent.hasExtra(LOG_EXTRA)) {
             JSObject o = new JSObject();
             o.put("medId", intent.getStringExtra(LOG_EXTRA));

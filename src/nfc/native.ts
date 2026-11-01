@@ -31,6 +31,7 @@ export interface MedTapNativePlugin {
   addListener(event: 'logRequest', fn: (e: { medId: string }) => void): Promise<PluginListenerHandle>;
   /** Android opened the app on a page (e.g. Health Connect asking why the app reads health data). */
   addListener(event: 'route', fn: (e: { path: string }) => void): Promise<PluginListenerHandle>;
+  addListener(event: 'shared', fn: (e: { text: string }) => void): Promise<PluginListenerHandle>;
   /** Android: the watch sent a "log" tap (read them with takeWatchLogs), or a "set done" (takeWatchSets). */
   addListener(event: 'watchLog' | 'watchSet' | 'watchCheckIn', fn: () => void): Promise<PluginListenerHandle>;
 

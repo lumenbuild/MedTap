@@ -2,7 +2,9 @@
 // something saved (packs, meals you make, batch recipes) and say how much.
 import { useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
-import { Barcode, Camera, Hand, Keyboard, Minus, Plus, Search, Star } from 'lucide-react';
+import { Barcode, Camera, ChefHat, Hand, Keyboard, Link2, Minus, Plus, Search, Star } from 'lucide-react';
+import { RecipeStep } from './RecipeImport';
+import type { Draft } from './draft';
 import type { EatWhy, Food, Nutrients, Portions } from '../../db/schema';
 import { Rating } from '../ui/Rating';
 import { useLive } from '../../db/live';
@@ -17,6 +19,8 @@ import {
   type EnergyUnit, type ProductData,
 } from '../../logic/nutrition';
 import { Sheet, SheetActions } from '../ui/Sheet';
+import { ChipPicker } from '../ui/Field';
+import { COMMON_FOODS, COMMON_GROUPS, searchCommon, type CommonFood, type CommonGroup } from '../../logic/commonFoods';
 import { LiveScanner } from './LiveScanner';
 import { Button } from '../ui/Button';
 import { TextInput } from '../ui/Field';
@@ -27,10 +31,10 @@ type Step =
   | { s: 'review'; draft: Draft; note?: string }
   | { s: 'amount'; food: Food }
   | { s: 'portions' }
+  | { s: 'common' }
+  | { s: 'recipe'; url?: string }
   | { s: 'typed' };
 
-/** A product being checked before it's saved. */
-interface Draft { name: string; brand?: string; barcode?: string; serving: string; servingQty?: number; servingUnit?: 'g' | 'mL'; nutrients: Nutrients; per100?: Nutrients; source: Food['source'] }
 
 const MAIN = ['kcal', 'protein', 'carbs', 'sugars', 'fat', 'satFat', 'fibre', 'sodium', 'caffeine'];
 
@@ -40,9 +44,9 @@ export function macroLine(n: Nutrients, energy: EnergyUnit): string {
     n.carbs !== undefined ? `C ${fmtNutrient('carbs', n.carbs)}` : null, n.fat !== undefined ? `F ${fmtNutrient('fat', n.fat)}` : null].filter(Boolean).join(' · ') || 'No numbers';
 }
 
-export function LogFoodSheet({ personId, energy, onClose }: { personId: string; energy: EnergyUnit; onClose: () => void }) {
+export function LogFoodSheet({ personId, energy, onClose, recipeUrl }: { personId: string; energy: EnergyUnit; onClose: () => void; /** A recipe link shared to the app. */ recipeUrl?: string }) {
   const toast = useToast();
-  const [step, setStep] = useState<Step>({ s: 'home' });
+  const [step, setStep] = useState<Step>(recipeUrl ? { s: 'recipe', url: recipeUrl } : { s: 'home' });
   const [q, setQ] = useState('');
   const [typedCode, setTypedCode] = useState('');
   const barcodeInput = useRef<HTMLInputElement>(null);
@@ -97,6 +101,9 @@ export function LogFoodSheet({ personId, energy, onClose }: { personId: string; 
     onSaved={(food) => { pendingBarcode.current = undefined; setStep({ s: 'amount', food }); }} onClose={onClose} />;
   if (step.s === 'amount') return <Amount food={step.food} personId={personId} energy={energy} onBack={() => setStep({ s: 'home' })} onClose={onClose} />;
   if (step.s === 'portions') return <PortionsStep personId={personId} energy={energy} onBack={() => setStep({ s: 'home' })} onClose={onClose} />;
+  if (step.s === 'recipe') return <RecipeStep url={step.url} energy={energy} onBack={() => setStep({ s: 'home' })} onClose={onClose}
+    onFound={(draft, note) => setStep({ s: 'review', draft, note })} onSaved={(food) => setStep({ s: 'amount', food })} />;
+  if (step.s === 'common') return <CommonStep energy={energy} onPick={(c) => setStep({ s: 'amount', food: commonToFood(c) })} onBack={() => setStep({ s: 'home' })} onClose={onClose} />;
   if (step.s === 'typed') return <TypedStep personId={personId} energy={energy} onBack={() => setStep({ s: 'home' })} onClose={onClose} />;
 
   return (
@@ -108,11 +115,16 @@ export function LogFoodSheet({ personId, energy, onClose }: { personId: string; 
           <>
             {pendingBarcode.current && <p className="text-sm rounded-btn bg-surface-2 p-3">Barcode {pendingBarcode.current}: take a photo of its nutrition panel and it'll be saved with the barcode, so it's found next time.</p>}
             <div className="grid grid-cols-2 gap-2">
+              <Choice Icon={ChefHat} label="Home-cooked or takeaway" hint="Pick the dish and its size" onClick={() => setStep({ s: 'common' })} />
+              <Choice Icon={Hand} label="Build a plate" hint="By hand portions" onClick={() => setStep({ s: 'portions' })} />
               <Choice Icon={Barcode} label="Scan a barcode" onClick={() => setLive(true)} />
               <Choice Icon={Camera} label="Photo of the label" onClick={() => labelInput.current?.click()} />
-              <Choice Icon={Hand} label="Meal I made" hint="By hand portions" onClick={() => setStep({ s: 'portions' })} />
-              <Choice Icon={Keyboard} label="Type it in" onClick={() => setStep({ s: 'typed' })} />
             </div>
+            <button type="button" onClick={() => setStep({ s: 'recipe' })} className="w-full min-h-[56px] rounded-card bg-surface-2 flex items-center gap-3 px-4 text-left">
+              <Link2 size={20} className="text-primary shrink-0" aria-hidden="true" />
+              <span><span className="block text-[14px] font-medium">A recipe: link, screenshot or ingredients</span><span className="block text-[12px] text-muted">Any recipe site, or your own. Nutrition worked out if it isn't given</span></span>
+            </button>
+            <p className="text-sm text-muted">Rough is fine: your calorie target corrects itself from your weigh-ins, so logging most meals roughly beats logging a few exactly. <button type="button" className="underline underline-offset-4 font-medium text-text" onClick={() => setStep({ s: 'typed' })}>Type numbers in</button></p>
             <form className="flex gap-2 items-end" onSubmit={(e) => { e.preventDefault(); const c = typedCode.replace(/\D/g, ''); if (validBarcode(c)) void byBarcode(c); else toast('Check the barcode numbers.'); }}>
               <div className="flex-1"><TextInput name="barcode-numbers" label="Or type the barcode numbers" inputMode="numeric" value={typedCode} onChange={(e) => setTypedCode(e.target.value)} /></div>
               <Button type="submit" variant="secondary" disabled={typedCode.replace(/\D/g, '').length < 8}>Find</Button>
@@ -122,7 +134,16 @@ export function LogFoodSheet({ personId, energy, onClose }: { personId: string; 
                 <Search size={18} className="text-muted" aria-hidden="true" />
                 <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Your saved foods and meals" aria-label="Search your saved foods and meals" className="flex-1 bg-transparent outline-none min-h-[44px]" />
               </label>
-              {saved.length === 0 ? <p className="text-sm text-muted mt-2">{q ? 'Nothing saved by that name.' : 'Anything you log is saved here, to log again in one tap.'}</p> : (
+              {q.trim().length >= 2 && searchCommon(q).length > 0 && (
+                <div className="mt-2">
+                  <p className="text-[13px] font-medium text-muted">Common foods and dishes</p>
+                  <ul className="divide-y divide-border">
+                    {searchCommon(q).map((c) => <li key={c.id}><CommonRow c={c} energy={energy} onPick={() => setStep({ s: 'amount', food: commonToFood(c) })} /></li>)}
+                  </ul>
+                  {saved.length > 0 && <p className="text-[13px] font-medium text-muted mt-2">Yours</p>}
+                </div>
+              )}
+              {saved.length === 0 ? (q.trim().length >= 2 && searchCommon(q).length ? null : <p className="text-sm text-muted mt-2">{q ? 'Nothing by that name. Try a simpler word, or build a plate.' : 'Anything you log is saved here, to log again in one tap.'}</p>) : (
                 <ul className="mt-1 divide-y divide-border">
                   {saved.slice(0, 30).map((f) => (
                     <li key={f.id}>
@@ -142,6 +163,45 @@ export function LogFoodSheet({ personId, energy, onClose }: { personId: string; 
       </div>
       {live && <LiveScanner onClose={() => setLive(false)} onCode={(code) => { setLive(false); void byBarcode(code); }}
         onPhoto={() => { setLive(false); barcodeInput.current?.click(); }} onType={() => { setLive(false); setTimeout(() => document.querySelector<HTMLInputElement>('input[name="barcode-numbers"]')?.focus(), 50); }} />}
+    </Sheet>
+  );
+}
+
+/** A common food or dish as a food to log (saved on first log, so it's in "Yours" next time). */
+function commonToFood(c: CommonFood): Food {
+  return { id: '', name: c.name, kind: c.plate ? 'meal' : 'product', nutrients: c.n, serving: c.serving, source: 'common', createdAt: '', updatedAt: '' };
+}
+
+function CommonRow({ c, energy, onPick }: { c: CommonFood; energy: EnergyUnit; onPick: () => void }) {
+  return (
+    <button type="button" className="w-full min-h-[56px] py-2 flex items-center gap-3 text-left" onClick={onPick}>
+      <span className="flex-1 min-w-0">
+        <span className="block font-medium truncate">{c.name}</span>
+        <span className="block text-sm text-muted tnum truncate">{c.serving} · {macroLine(c.n, energy)}</span>
+      </span>
+    </button>
+  );
+}
+
+/** Home-cooked and takeaway: search, or browse by group, then say how big. */
+function CommonStep({ energy, onPick, onBack, onClose }: { energy: EnergyUnit; onPick: (c: CommonFood) => void; onBack: () => void; onClose: () => void }) {
+  const [q, setQ] = useState('');
+  const [group, setGroup] = useState<CommonGroup>('Meals');
+  const list = q.trim() ? searchCommon(q, 30) : COMMON_FOODS.filter((c) => c.group === group);
+  return (
+    <Sheet open onClose={onClose} title="Home-cooked or takeaway">
+      <div className="space-y-3">
+        <p className="text-sm text-muted">Pick what you had, then how big. Typical numbers for a usual serving: no weighing, no knowing what's in it.</p>
+        <label className="flex items-center gap-2 rounded-btn bg-surface-2 px-3 min-h-[48px]">
+          <Search size={18} className="text-muted" aria-hidden="true" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Spag bol, curry, eggs on toast…" aria-label="Search common foods and dishes" className="flex-1 bg-transparent outline-none min-h-[44px]" />
+        </label>
+        {!q.trim() && <ChipPicker label="Group" value={group} onChange={setGroup} options={COMMON_GROUPS.map((g) => ({ value: g, label: g }))} />}
+        {list.length === 0 ? <p className="text-sm text-muted">Nothing by that name. Try one word, or build a plate by hand portions.</p> : (
+          <ul className="divide-y divide-border">{list.map((c) => <li key={c.id}><CommonRow c={c} energy={energy} onPick={() => onPick(c)} /></li>)}</ul>
+        )}
+        <SheetActions><Button variant="secondary" className="w-full" onClick={onBack}>Back</Button></SheetActions>
+      </div>
     </Sheet>
   );
 }
@@ -173,8 +233,10 @@ function ReviewProduct({ draft, note, energy, onBack, onSaved, onClose }: { draf
       const v = toNum(vals[k] ?? '');
       if (v !== undefined && v >= 0) nutrients[k] = k === 'kcal' && energy === 'kJ' ? Math.round(v / 4.184) : v;
     }
-    const food = await saveFood({ kind: 'product', name: name.trim() || 'Unnamed product', brand: brand.trim() || undefined, barcode: draft.barcode, serving: serving.trim() || undefined,
-      servingQty: draft.servingQty, servingUnit: draft.servingUnit, per100: draft.per100, nutrients, source: draft.source });
+    // A recipe keeps its page's per-serve numbers as one whole-batch item, so editing it later (serves, extras) adds up.
+    const recipe = draft.recipe ? { ...draft.recipe, items: [{ name: 'The recipe, per its page', amount: `${draft.recipe.serves} serves`, nutrients: scaleNutrients(nutrients, draft.recipe.serves) }] } : undefined;
+    const food = await saveFood({ kind: draft.kind ?? 'product', name: name.trim() || (draft.kind === 'recipe' ? 'Recipe' : 'Unnamed product'), brand: brand.trim() || undefined, barcode: draft.barcode, serving: serving.trim() || undefined,
+      servingQty: draft.servingQty, servingUnit: draft.servingUnit, per100: draft.per100, nutrients, source: draft.source, recipe, sourceUrl: draft.sourceUrl });
     onSaved(food);
   };
   return (
@@ -182,7 +244,7 @@ function ReviewProduct({ draft, note, energy, onBack, onSaved, onClose }: { draf
       <div className="space-y-4">
         {note && <p className="text-sm text-muted">{note}</p>}
         <TextInput label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Monster Ultra" />
-        <TextInput label="Brand (optional)" value={brand} onChange={(e) => setBrand(e.target.value)} />
+        {draft.kind !== 'recipe' && <TextInput label="Brand (optional)" value={brand} onChange={(e) => setBrand(e.target.value)} />}
         <TextInput label="These numbers are for" value={serving} onChange={(e) => setServing(e.target.value)} help="e.g. 500 mL can, 1 scoop (30 g), 100 g" />
         <div className="grid grid-cols-2 gap-3">
           {shown.map((k) => (
@@ -266,14 +328,16 @@ function Amount({ food, personId, energy, onBack, onClose }: { food: Food; perso
   const servings = byWeight && food.servingQty ? Math.round((toNum(qty)! / food.servingQty) * 100) / 100 : f;
   const log = async () => {
     const when = atIso(at);
-    const l = await logFood({ ...eat, name: food.name, foodId: food.id, servings, nutrients, at: when, date: format(new Date(when), 'yyyy-MM-dd'), personId });
+    // A common food is saved on its first log, so it's one tap next time.
+    const saved = food.id ? food : await saveFood({ kind: food.kind, name: food.name, nutrients: food.nutrients, serving: food.serving, source: 'common' });
+    const l = await logFood({ ...eat, name: food.name, foodId: saved.id, servings, nutrients, at: when, date: format(new Date(when), 'yyyy-MM-dd'), personId });
     toast(`Logged ${food.name}${(nutrients.caffeine ?? 0) >= 1 ? ' (and its caffeine)' : ''}`, { onAction: async () => { await removeFoodLog(l, format(new Date(when), 'yyyy-MM-dd')); } });
     onClose();
   };
   return (
     <Sheet open onClose={onClose} title={food.name}>
       <div className="space-y-4">
-        <p className="text-sm text-muted">{meal && food.portions ? `Your usual: ${fmtPortions(food.portions)}` : food.serving ? `1 = ${food.serving}` : ''}</p>
+        <p className="text-sm text-muted">{meal && food.portions ? `Your usual: ${fmtPortions(food.portions)}` : meal && food.serving ? `Usual = ${food.serving}` : food.serving ? `1 = ${food.serving}` : ''}</p>
         <div role="radiogroup" aria-label={meal ? 'Size' : 'How many'} className="grid grid-cols-4 gap-2">
           {options.map((o) => (
             <button key={o.f} type="button" role="radio" aria-checked={!byWeight && !own && pick === o.f} onClick={() => { setF(o.f); setQty(''); setCount(''); }}

@@ -91,8 +91,10 @@ describe('decisions', () => {
     for (let k = 1; k < 30; k++) d.daily.push({ id: `d${k}`, date: ymd(at(k)), hrvMs: 50, restingHr: 58, sleepMin: 450, createdAt: '', updatedAt: '' } as DailyHealth);
     d.daily.push({ id: 'd0', date: ymd(at(0)), hrvMs: 52, restingHr: 57, sleepMin: 460, createdAt: '', updatedAt: '' } as DailyHealth);
     const calls = todaysCalls(d, NOW, S, { bedtime: '22:30', caffeineCutoff: '13:00', caffeineHalfLifeH: 5, energyTargetKcal: 2000, proteinTargetG: 150, lossRateKgWeek: 0.5 });
-    expect(calls.map((c) => c.key)).toEqual(['train', 'caffeine', 'food']);
+    // No protein logged by mid-afternoon: what closes the gap.
+    expect(calls.map((c) => c.key)).toEqual(['train', 'caffeine', 'food', 'protein']);
     expect(calls[1].title).toMatch(/Last caffeine by 1:00/);
     expect(calls[2].title).toBe('Eat about 2000 kcal and 150 g protein');
+    expect(calls[3].title).toBe('150 g protein to go');
   });
 });

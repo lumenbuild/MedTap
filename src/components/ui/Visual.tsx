@@ -140,7 +140,7 @@ export function HeatTable({ columns, rows, highlight }: {
   return (
     <div className="overflow-x-auto" tabIndex={0}>
       <table className="w-full table-fixed text-[13px] tnum border-separate" style={{ borderSpacing: 3 }}>
-        <thead><tr><th className="text-left font-normal text-muted w-[84px]"><span className="sr-only">Measure</span></th>{columns.map((c, i) => <th key={i} className={`font-${i === highlight ? 'semibold' : 'normal'} text-muted text-center pb-1`}>{c}</th>)}</tr></thead>
+        <thead><tr><th className="text-left font-normal text-muted w-[84px]"><span className="sr-only">Measure</span></th>{columns.map((c, i) => <th key={i} className={`font-${i === highlight ? 'semibold' : 'normal'} text-muted text-center pb-1 text-[13px] px-0 whitespace-nowrap`}>{c}</th>)}</tr></thead>
         <tbody>
           {rows.map((r) => {
             const vs = r.values.filter((v): v is number => v !== null);

@@ -1,5 +1,6 @@
 // Decisions on screen: a verdict for each medicine, peptide and supplement (with its evidence, costs, how sure, and a
 // test that would settle it), dose decisions, today's calls, early warnings, and what's working this week.
+import { useState } from 'react';
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, CheckCircle2, CircleDashed, CircleHelp, FlaskConical, MinusCircle, XCircle } from 'lucide-react';
 import type { Medication } from '../db/schema';
 import { db } from '../db/db';
@@ -93,8 +94,14 @@ export async function setJudgeBy(med: Medication, o: Outcome | '') {
 }
 
 /** Today's calls: train, caffeine, a second dose, food. */
-export function CallsCard({ calls, warnings }: { calls: Call[]; warnings: Warning[] }) {
-  if (!calls.length && !warnings.length) return null;
+const ORDER: Call['key'][] = ['second-dose', 'weight', 'train', 'protein', 'lever', 'sleep', 'food', 'caffeine'];
+
+export function CallsCard({ calls: all, warnings }: { calls: Call[]; warnings: Warning[] }) {
+  const [more, setMore] = useState(false);
+  if (!all.length && !warnings.length) return null;
+  // The four that matter most first; the rest a tap away.
+  const sorted = [...all].sort((a, b) => ORDER.indexOf(a.key) - ORDER.indexOf(b.key));
+  const calls = more ? sorted : sorted.slice(0, 4);
   const dot: Record<Call['tone'], string> = { go: 'var(--success)', easy: 'var(--caution)', stop: 'var(--danger)', info: 'var(--primary)' };
   return (
     <section className="box space-y-3" aria-labelledby="calls-h">
@@ -110,6 +117,7 @@ export function CallsCard({ calls, warnings }: { calls: Call[]; warnings: Warnin
           ))}
         </ul>
       )}
+      {sorted.length > 4 && <button type="button" onClick={() => setMore(!more)} className="min-h-[44px] text-sm font-medium underline underline-offset-4">{more ? 'Show fewer' : `Show ${sorted.length - 4} more`}</button>}
     </section>
   );
 }

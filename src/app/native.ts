@@ -1,4 +1,6 @@
 // Native app (iOS/Android) only: tag taps that open the app, links, and dose reminder notifications.
+import { extractUrl } from '../logic/recipeImport';
+import { requestRecipe } from './shareInbox';
 import { App as CapApp } from '@capacitor/app';
 import { LocalNotifications, type ActionPerformed } from '@capacitor/local-notifications';
 import { liveQuery } from 'dexie';
@@ -81,6 +83,8 @@ export async function initNative() {
   // Shortcuts, Siri and the widget ask to log a medicine; Health Connect can open the privacy page.
   await MedTapNative.addListener('logRequest', (e) => { go('/today'); requestLog(e.medId); });
   await MedTapNative.addListener('route', (e) => { if (e.path === '/checkin') { go('/today'); requestCheckIn(); } else go(e.path); });
+  // A recipe link shared to the app: open Food and import it.
+  await MedTapNative.addListener('shared', (e) => { const url = extractUrl(e.text); if (url) { go('/food'); requestRecipe(url); } });
   if (isNativeAndroid) {
     await MedTapNative.addListener('watchLog', () => { void logWatchTaps(); }); void logWatchTaps();
     await MedTapNative.addListener('watchCheckIn', () => { void logWatchCheckIns(); }); void logWatchCheckIns();

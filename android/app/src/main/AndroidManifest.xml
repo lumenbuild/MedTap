@@ -35,6 +35,13 @@
                 <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
             </intent-filter>
 
+            <!-- Share > MedTap: a recipe link from a browser or a shopping app, to import as a meal. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+
             <!-- QR stickers and links can open the app too (Android asks which app to use). -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
