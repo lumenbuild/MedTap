@@ -139,6 +139,7 @@ const CONTENT: Record<string, ReactNode> = {
       <p>Use your hand as the measure. A <strong>palm</strong> of protein (its size and thickness), a <strong>cupped hand</strong> of carbs, a <strong>fist</strong> of veg, a <strong>thumb</strong> of fats. Tap how many of each and you get an estimate that's close enough to see the pattern over a week, which is what matters.</p>
       <p>Name a meal you make often and next time pick it and choose <strong>Smaller</strong>, <strong>Usual</strong> or <strong>Bigger</strong>. It's never the same twice, and it doesn't need to be.</p>
       <p>Cooking a batch? Food → <strong>New batch recipe</strong>: scan the packs or pick what you've saved, say how many serves, then log a serve each time. You enter it once.</p>
+      <p>A recipe from a site or app? Share it to MedTap, or Log food → <strong>A recipe: link, screenshot or ingredients</strong>. It uses the page's nutrition, or works it out from the ingredients (you can paste or type your own). It's saved with its link, so sharing it again goes straight to logging a serve.</p>
       <p>If you only get one number right, make it protein: it's the one that protects muscle while you lose weight. The rest can be rough.</p>
       {FOCUS === 'weight' && <p>Something you have often (a protein shake, a drink)? Put a tag on it: Settings → Tags → A food or drink, and one tap logs a serving.</p>}
       <H>Where it shows</H>

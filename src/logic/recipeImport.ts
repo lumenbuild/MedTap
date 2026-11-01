@@ -12,6 +12,18 @@ export function extractUrl(text: string): string | null {
   return m ? m[0].replace(/[).,;]+$/, '') : null;
 }
 
+/** One form of a recipe's address, so the same recipe shared twice is recognised ("www.", tracking and the
+ *  page anchor dropped). */
+export function normUrl(url: string): string {
+  try {
+    const u = new URL(url.trim());
+    u.hash = '';
+    for (const k of [...u.searchParams.keys()]) if (/^(utm_|fbclid|gclid|cid|ref|share|s$|igshid|mc_)/i.test(k)) u.searchParams.delete(k);
+    const host = u.hostname.toLowerCase().replace(/^(www|m|amp)\./, '');
+    return `${host}${u.pathname.replace(/\/(amp\/?)?$/, '').replace(/\/+$/, '')}${u.search}`;
+  } catch { return url.trim(); }
+}
+
 const num = (v: unknown): number | undefined => {
   if (typeof v === 'number' && isFinite(v)) return v;
   if (typeof v !== 'string') return undefined;
@@ -92,12 +104,23 @@ function appData(html: string): { name?: string; serves?: number; perServe?: Nut
   return found;
 }
 
+/** Text of every element with this itemprop (or its content attribute). */
+function microdata(html: string, prop: string): string[] {
+  const out: string[] = [];
+  const re = new RegExp(`<([a-z0-9]+)[^>]*itemprop=["']${prop}["'][^>]*?(?:content=["']([^"']*)["'][^>]*)?>([\\s\\S]*?)<\\/\\1>`, 'gi');
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html))) { const t = strip(m[2] ?? m[3]); if (t) out.push(t); }
+  return out;
+}
+
 export function parseRecipePage(html: string): ImportedRecipe {
   const r = jsonLd(html).find(isRecipe);
   const title = strip(html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)/i)?.[1] ?? html.match(/<title>([^<]+)/i)?.[1] ?? '');
   const name = strip(r?.name) || title.replace(/\s*[|–-]\s*[^|–-]+$/, '') || 'Recipe';
-  const serves = r ? yieldOf(r.recipeYield) : undefined;
-  const ingredients = Array.isArray(r?.recipeIngredient) ? (r!.recipeIngredient as unknown[]).map(strip).filter(Boolean) : [];
+  const serves = r ? yieldOf(r.recipeYield) : yieldOf(microdata(html, 'recipeYield')[0]);
+  const ldIngredients = Array.isArray(r?.recipeIngredient) ? (r!.recipeIngredient as unknown[]).map(strip).filter(Boolean) : [];
+  // Older sites mark recipes up in the page itself (microdata) rather than JSON-LD.
+  const ingredients = ldIngredients.length ? ldIngredients : microdata(html, 'recipeIngredient').concat(microdata(html, 'ingredients'));
   const fromLd = nutritionOf(r?.nutrition as Record<string, unknown> | undefined);
   if (fromLd) return { name, serves, ingredients, perServe: fromLd, from: 'recipe-data' };
   // A nutrition table in the page's text ("Nutrition per serve: Energy 1850 kJ, Protein 38 g…").

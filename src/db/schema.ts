@@ -460,7 +460,11 @@ export interface Food extends Stamped {
   /** A meal estimated by hand portions. */
   portions?: Portions;
   /** A batch recipe: what went in (whole batch) and how many serves it makes. */
-  recipe?: { items: { name: string; amount: string; nutrients: Nutrients }[]; serves: number };
+  recipe?: { items: { name: string; amount: string; nutrients: Nutrients }[]; serves: number;
+    /** The recipe's ingredient lines as written, when imported or typed in. */
+    ingredients?: string[] };
+  /** The web page a recipe came from (normalised), so sharing it again logs the saved one. */
+  sourceUrl?: string;
   /** Where the numbers came from. */
   source?: 'openfoodfacts' | 'label' | 'typed' | 'portions' | 'recipe' | 'common' | 'web';
   favourite?: boolean; lastUsedAt?: string;

@@ -1,10 +1,10 @@
 // Log food: scan a barcode, photograph a nutrition panel, estimate a meal by hand portions, type it in, or pick
 // something saved (packs, meals you make, batch recipes) and say how much.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
-import { Barcode, Camera, ChefHat, Hand, Image as ImageIcon, Keyboard, Link2, Minus, Plus, Search, Star } from 'lucide-react';
-import { fetchRecipe } from '../../app/recipeFetch';
-import { extractUrl, type ImportedRecipe } from '../../logic/recipeImport';
+import { Barcode, Camera, ChefHat, Hand, Keyboard, Link2, Minus, Plus, Search, Star } from 'lucide-react';
+import { RecipeStep } from './RecipeImport';
+import type { Draft } from './draft';
 import type { EatWhy, Food, Nutrients, Portions } from '../../db/schema';
 import { Rating } from '../ui/Rating';
 import { useLive } from '../../db/live';
@@ -35,8 +35,6 @@ type Step =
   | { s: 'recipe'; url?: string }
   | { s: 'typed' };
 
-/** A product being checked before it's saved. */
-interface Draft { name: string; brand?: string; barcode?: string; serving: string; servingQty?: number; servingUnit?: 'g' | 'mL'; nutrients: Nutrients; per100?: Nutrients; source: Food['source'] }
 
 const MAIN = ['kcal', 'protein', 'carbs', 'sugars', 'fat', 'satFat', 'fibre', 'sodium', 'caffeine'];
 
@@ -104,7 +102,7 @@ export function LogFoodSheet({ personId, energy, onClose, recipeUrl }: { personI
   if (step.s === 'amount') return <Amount food={step.food} personId={personId} energy={energy} onBack={() => setStep({ s: 'home' })} onClose={onClose} />;
   if (step.s === 'portions') return <PortionsStep personId={personId} energy={energy} onBack={() => setStep({ s: 'home' })} onClose={onClose} />;
   if (step.s === 'recipe') return <RecipeStep url={step.url} energy={energy} onBack={() => setStep({ s: 'home' })} onClose={onClose}
-    onFound={(draft, note) => setStep({ s: 'review', draft, note })} />;
+    onFound={(draft, note) => setStep({ s: 'review', draft, note })} onSaved={(food) => setStep({ s: 'amount', food })} />;
   if (step.s === 'common') return <CommonStep energy={energy} onPick={(c) => setStep({ s: 'amount', food: commonToFood(c) })} onBack={() => setStep({ s: 'home' })} onClose={onClose} />;
   if (step.s === 'typed') return <TypedStep personId={personId} energy={energy} onBack={() => setStep({ s: 'home' })} onClose={onClose} />;
 
@@ -124,7 +122,7 @@ export function LogFoodSheet({ personId, energy, onClose, recipeUrl }: { personI
             </div>
             <button type="button" onClick={() => setStep({ s: 'recipe' })} className="w-full min-h-[56px] rounded-card bg-surface-2 flex items-center gap-3 px-4 text-left">
               <Link2 size={20} className="text-primary shrink-0" aria-hidden="true" />
-              <span><span className="block text-[14px] font-medium">Recipe from a link or screenshot</span><span className="block text-[12px] text-muted">Woolworths, Coles, taste.com.au and more</span></span>
+              <span><span className="block text-[14px] font-medium">A recipe: link, screenshot or ingredients</span><span className="block text-[12px] text-muted">Any recipe site, or your own. Nutrition worked out if it isn't given</span></span>
             </button>
             <p className="text-sm text-muted">Rough is fine: your calorie target corrects itself from your weigh-ins, so logging most meals roughly beats logging a few exactly. <button type="button" className="underline underline-offset-4 font-medium text-text" onClick={() => setStep({ s: 'typed' })}>Type numbers in</button></p>
             <form className="flex gap-2 items-end" onSubmit={(e) => { e.preventDefault(); const c = typedCode.replace(/\D/g, ''); if (validBarcode(c)) void byBarcode(c); else toast('Check the barcode numbers.'); }}>
@@ -165,65 +163,6 @@ export function LogFoodSheet({ personId, energy, onClose, recipeUrl }: { personI
       </div>
       {live && <LiveScanner onClose={() => setLive(false)} onCode={(code) => { setLive(false); void byBarcode(code); }}
         onPhoto={() => { setLive(false); barcodeInput.current?.click(); }} onType={() => { setLive(false); setTimeout(() => document.querySelector<HTMLInputElement>('input[name="barcode-numbers"]')?.focus(), 50); }} />}
-    </Sheet>
-  );
-}
-
-/** A recipe from a web page (shared to the app or pasted), or a screenshot of its nutrition: per serve, checked
- *  before it's saved. */
-function RecipeStep({ url: given, energy, onBack, onClose, onFound }: { url?: string; energy: EnergyUnit; onBack: () => void; onClose: () => void; onFound: (d: Draft, note: string) => void }) {
-  const [url, setUrl] = useState(given ?? '');
-  const [busy, setBusy] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
-  const [got, setGot] = useState<ImportedRecipe | null>(null);
-  const shot = useRef<HTMLInputElement>(null);
-  const draftOf = (name: string, serves: number | undefined, n: Nutrients): Draft => ({ name, serving: serves ? `1 serve (the recipe makes ${serves})` : '1 serve', nutrients: n, source: 'web' });
-  const get = async (u: string) => {
-    const link = extractUrl(u);
-    if (!link) { setMsg('That doesn’t look like a web address.'); return; }
-    setBusy('Getting the recipe…'); setMsg(null);
-    const r = await fetchRecipe(link);
-    setBusy(null);
-    if (!r.ok) {
-      setMsg(r.reason === 'web' ? 'Links work in the Android app. Here, use a screenshot of the recipe’s nutrition.'
-        : r.reason === 'blocked' ? 'That site didn’t let the app read the page. Take a screenshot of the recipe’s nutrition instead.'
-        : r.reason === 'offline' ? 'Couldn’t reach the page. Check the connection, or use a screenshot.' : 'That page wasn’t found.');
-      return;
-    }
-    setGot(r.recipe);
-    if (r.recipe.perServe) onFound(draftOf(r.recipe.name, r.recipe.serves, r.recipe.perServe), `From the recipe page${r.recipe.serves ? ` (serves ${r.recipe.serves})` : ''}, per serve. Check the numbers.`);
-    else setMsg(`Found “${r.recipe.name}”${r.recipe.ingredients.length ? ` and its ${r.recipe.ingredients.length} ingredients` : ''}, but the page doesn’t share its nutrition. Take a screenshot of the nutrition panel, or log it as a dish.`);
-  };
-  useEffect(() => { if (given) void get(given); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const fromShot = async (file?: File) => {
-    if (!file) return;
-    setBusy('Reading the screenshot on your phone…'); setMsg(null);
-    try {
-      const p = parsePanel(await readText(file, () => undefined));
-      const per = Object.keys(p.perServing).length ? p.perServing : p.per100;
-      setBusy(null);
-      if (!Object.keys(per).length) { setMsg('Couldn’t find the nutrition numbers in that. Crop to the nutrition table and try again.'); return; }
-      onFound(draftOf(got?.name ?? '', got?.serves, per), Object.keys(p.perServing).length ? 'Read from your screenshot, per serve. Check each number.' : 'Read from your screenshot (per 100 g). Check the numbers and the serve.');
-    } catch { setBusy(null); setMsg('Couldn’t read the screenshot. Try again with the nutrition table clearly in view.'); }
-  };
-  return (
-    <Sheet open onClose={onClose} title="Recipe">
-      <div className="space-y-4">
-        <input ref={shot} type="file" accept="image/*" className="hidden" onChange={(e) => { void fromShot(e.target.files?.[0]); e.target.value = ''; }} />
-        <p className="text-sm text-muted">Share a recipe to MedTap from Woolworths, a browser or another app, or paste its link. It's saved as a meal, per serve, to log in one tap.</p>
-        <form className="flex gap-2 items-end" onSubmit={(e) => { e.preventDefault(); void get(url); }}>
-          <div className="flex-1"><TextInput label="Recipe link" inputMode="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" /></div>
-          <Button type="submit" disabled={!url.trim() || !!busy}>Get it</Button>
-        </form>
-        {busy && <p className="text-[15px] text-center" aria-live="polite">{busy}</p>}
-        {msg && <p className="text-[15px] rounded-btn bg-surface-2 p-3" role="status">{msg}</p>}
-        <button type="button" onClick={() => shot.current?.click()} className="w-full min-h-[56px] rounded-card bg-surface-2 flex items-center gap-3 px-4 text-left">
-          <ImageIcon size={20} className="text-primary shrink-0" aria-hidden="true" />
-          <span><span className="block text-[14px] font-medium">Screenshot of the nutrition</span><span className="block text-[12px] text-muted">Always works: screenshot the recipe’s nutrition table, then pick it here</span></span>
-        </button>
-        {got && got.ingredients.length > 0 && !got.perServe && <p className="text-[13px] text-muted">Ingredients found: {got.ingredients.slice(0, 6).join('; ')}{got.ingredients.length > 6 ? '…' : ''}</p>}
-        <SheetActions><Button variant="secondary" className="w-full" onClick={onBack}>Back</Button></SheetActions>
-      </div>
     </Sheet>
   );
 }
@@ -294,8 +233,10 @@ function ReviewProduct({ draft, note, energy, onBack, onSaved, onClose }: { draf
       const v = toNum(vals[k] ?? '');
       if (v !== undefined && v >= 0) nutrients[k] = k === 'kcal' && energy === 'kJ' ? Math.round(v / 4.184) : v;
     }
-    const food = await saveFood({ kind: 'product', name: name.trim() || 'Unnamed product', brand: brand.trim() || undefined, barcode: draft.barcode, serving: serving.trim() || undefined,
-      servingQty: draft.servingQty, servingUnit: draft.servingUnit, per100: draft.per100, nutrients, source: draft.source });
+    // A recipe keeps its page's per-serve numbers as one whole-batch item, so editing it later (serves, extras) adds up.
+    const recipe = draft.recipe ? { ...draft.recipe, items: [{ name: 'The recipe, per its page', amount: `${draft.recipe.serves} serves`, nutrients: scaleNutrients(nutrients, draft.recipe.serves) }] } : undefined;
+    const food = await saveFood({ kind: draft.kind ?? 'product', name: name.trim() || (draft.kind === 'recipe' ? 'Recipe' : 'Unnamed product'), brand: brand.trim() || undefined, barcode: draft.barcode, serving: serving.trim() || undefined,
+      servingQty: draft.servingQty, servingUnit: draft.servingUnit, per100: draft.per100, nutrients, source: draft.source, recipe, sourceUrl: draft.sourceUrl });
     onSaved(food);
   };
   return (
@@ -303,7 +244,7 @@ function ReviewProduct({ draft, note, energy, onBack, onSaved, onClose }: { draf
       <div className="space-y-4">
         {note && <p className="text-sm text-muted">{note}</p>}
         <TextInput label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Monster Ultra" />
-        <TextInput label="Brand (optional)" value={brand} onChange={(e) => setBrand(e.target.value)} />
+        {draft.kind !== 'recipe' && <TextInput label="Brand (optional)" value={brand} onChange={(e) => setBrand(e.target.value)} />}
         <TextInput label="These numbers are for" value={serving} onChange={(e) => setServing(e.target.value)} help="e.g. 500 mL can, 1 scoop (30 g), 100 g" />
         <div className="grid grid-cols-2 gap-3">
           {shown.map((k) => (

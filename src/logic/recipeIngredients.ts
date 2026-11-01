@@ -1,0 +1,242 @@
+// Typical nutrition of everyday recipe ingredients, per 100 g as bought (raw, dry or drained, as recipes list
+// them), with what a cup, one item, a can or a bunch weighs. Rounded values in line with AUSNUT and USDA:
+// good for estimating a recipe, not for a label. Pure data.
+import type { Nutrients } from '../db/schema';
+
+export interface RecipeIngredient {
+  id: string;
+  /** Words that name it in an ingredient line ("chicken thigh", "thigh fillet"). The longest match wins. */
+  words: string[];
+  per100: Nutrients;
+  /** Grams in a 250 mL cup (sets tablespoons and teaspoons too). Water-like when missing. */
+  cup?: number;
+  /** Grams in one ("1 onion", "2 cloves", "3 rashers", "1 sheet"). */
+  each?: number;
+  /** Net grams in a can, jar or packet when the line doesn't say. */
+  can?: number;
+  /** Share left after draining a can (beans, chickpeas, corn). */
+  drain?: number;
+  /** Grams in a bunch. */
+  bunch?: number;
+  /** Too little to matter when no amount is given (salt, pepper, herbs, spray oil, water). */
+  minor?: boolean;
+  /** The cooked version, used when the line says "cooked". */
+  cooked?: string;
+}
+
+type Opts = Omit<RecipeIngredient, 'id' | 'words' | 'per100'>;
+// [words, kcal, protein, fat, sat fat, carbs, sugars, fibre, sodium mg, options]
+type Row = [string, number, number, number, number, number, number, number, number, Opts?];
+
+const ROWS: Row[] = [
+  // Chicken, meat and fish
+  ['chicken breast|breast fillet', 120, 22.5, 2.6, 0.6, 0, 0, 0, 45, { each: 250 }],
+  ['chicken thigh|thigh fillet|chicken thighs', 145, 19.5, 7.5, 2, 0, 0, 0, 85, { each: 125 }],
+  ['chicken mince', 150, 18, 8.5, 2.5, 0, 0, 0, 60],
+  ['chicken drumstick|drumstick|chicken leg|maryland', 160, 18, 9.5, 2.7, 0, 0, 0, 90, { each: 90 }],
+  ['chicken wing|wings', 200, 18, 14, 4, 0, 0, 0, 80, { each: 35 }],
+  ['chicken tenderloin|tenderloins|chicken tenders', 115, 23, 2, 0.5, 0, 0, 0, 50, { each: 40 }],
+  ['chicken', 170, 18.6, 10.5, 3, 0, 0, 0, 70, { each: 1000 }],
+  ['cooked chicken|barbecue chicken|bbq chicken|roast chicken|rotisserie chicken|shredded chicken', 190, 27, 9, 2.5, 0, 0, 0, 330, { cup: 140, each: 900 }],
+  ['beef mince|minced beef|ground beef|mince', 230, 18.5, 17, 7, 0, 0, 0, 65],
+  ['lean beef mince|lean mince|extra lean mince|heart smart mince|5 star mince|lean ground beef', 140, 21, 6, 2.6, 0, 0, 0, 65],
+  ['steak|rump|sirloin|porterhouse|scotch fillet|eye fillet|beef fillet|beef strips|stir-fry beef|stir fry beef|flank|skirt steak', 150, 22, 6.5, 2.7, 0, 0, 0, 55, { each: 250 }],
+  ['chuck|gravy beef|stewing beef|diced beef|beef brisket|brisket|beef cheeks|osso bucco|beef', 165, 20, 9.5, 4, 0, 0, 0, 60],
+  ['lamb|lamb leg|lamb shoulder|lamb chops|lamb cutlets|lamb backstrap', 200, 18, 14, 6.5, 0, 0, 0, 65, { each: 80 }],
+  ['lamb mince', 250, 17, 20, 9, 0, 0, 0, 70],
+  ['pork mince', 210, 18, 15, 5.5, 0, 0, 0, 60],
+  ['pork|pork loin|pork fillet|pork chops|pork steaks|pork shoulder|pork scotch', 145, 21, 6.5, 2.2, 0, 0, 0, 55, { each: 200 }],
+  ['pork belly', 500, 9, 53, 19, 0, 0, 0, 32],
+  ['turkey mince|turkey', 150, 19, 8, 2.3, 0, 0, 0, 70],
+  ['bacon|rasher|rashers|bacon rashers|middle bacon|streaky bacon|pancetta', 240, 17, 19, 7, 0.5, 0, 0, 1400, { each: 35 }],
+  ['short cut bacon|shortcut bacon|bacon short cut', 160, 22, 7.5, 2.8, 1, 0, 0, 1500, { each: 25 }],
+  ['ham|leg ham|shaved ham', 110, 18, 3.5, 1.2, 1.5, 1, 0, 1200, { each: 15 }],
+  ['chorizo', 450, 24, 38, 14, 2, 1, 0, 1200, { each: 120 }],
+  ['salami|prosciutto|pepperoni', 400, 25, 33, 12, 1, 0.5, 0, 1800, { each: 10 }],
+  ['sausage|sausages|snags|chipolatas', 260, 13, 21, 8.5, 6, 1, 0.5, 750, { each: 70 }],
+  ['salmon|salmon fillet|ocean trout|trout', 200, 20, 13, 3, 0, 0, 0, 50, { each: 150 }],
+  ['smoked salmon', 165, 21, 8.7, 1.8, 0, 0, 0, 1800],
+  ['white fish|fish fillet|fish fillets|barramundi|basa|snapper|cod|flathead|ling|hake|dory|whiting|bream|fish', 95, 20, 1.5, 0.4, 0, 0, 0, 70, { each: 150 }],
+  ['prawns|prawn|shrimp|king prawns', 85, 19.5, 0.8, 0.2, 0, 0, 0, 200, { each: 15 }],
+  ['tuna|canned tuna|tuna in springwater', 120, 25, 2, 0.6, 0, 0, 0, 300, { can: 185 }],
+  ['calamari|squid', 90, 16, 1.4, 0.4, 3, 0, 0, 45],
+  ['tofu|firm tofu|silken tofu', 120, 13, 7, 1, 2, 0.5, 1, 10, { each: 300 }],
+  // Eggs and dairy
+  ['egg|eggs', 140, 12.6, 9.5, 3.1, 0.7, 0.4, 0, 140, { each: 52, cup: 245 }],
+  ['egg white|egg whites', 52, 11, 0.2, 0, 0.7, 0.7, 0, 165, { each: 33, cup: 245 }],
+  ['egg yolk|egg yolks', 320, 16, 27, 9.5, 3.6, 0.6, 0, 50, { each: 18 }],
+  ['milk|full cream milk|whole milk', 64, 3.3, 3.5, 2.3, 4.8, 4.8, 0, 45, { cup: 258 }],
+  ['skim milk|low fat milk|lite milk|light milk|reduced fat milk|evaporated milk', 42, 3.6, 0.8, 0.5, 5.3, 5.3, 0, 50, { cup: 258 }],
+  ['almond milk', 15, 0.5, 1.1, 0.1, 0.4, 0.2, 0.3, 60, { cup: 250 }],
+  ['oat milk', 50, 1, 1.5, 0.2, 7, 4, 0.8, 40, { cup: 250 }],
+  ['soy milk', 45, 3.3, 1.8, 0.3, 4, 2.5, 0.5, 50, { cup: 250 }],
+  ['cream|thickened cream|pure cream|heavy cream|whipping cream|double cream|cooking cream', 340, 2.2, 36, 23, 3, 3, 0, 35, { cup: 240 }],
+  ['light cream|light thickened cream|lite cream|light cooking cream', 190, 2.8, 18, 12, 4, 4, 0, 40, { cup: 240 }],
+  ['sour cream', 250, 2.8, 24, 16, 4, 4, 0, 45, { cup: 240 }],
+  ['light sour cream|lite sour cream', 180, 3.5, 16, 11, 5, 5, 0, 50, { cup: 240 }],
+  ['yoghurt|greek yoghurt|natural yoghurt|plain yoghurt', 100, 6, 5, 3.3, 6.5, 6, 0, 45, { cup: 260 }],
+  ['low fat yoghurt|fat free yoghurt|no fat yoghurt|skyr|high protein yoghurt', 60, 9, 0.3, 0.2, 5, 4, 0, 50, { cup: 260 }],
+  ['butter|unsalted butter|salted butter|margarine', 740, 0.8, 81, 52, 0.6, 0.6, 0, 580, { cup: 230 }],
+  ['ghee', 880, 0, 99.5, 62, 0, 0, 0, 2, { cup: 220 }],
+  ['cheese|cheddar|tasty cheese|grated cheese|shredded cheese|colby|swiss cheese|gruyere|tasty', 400, 25, 33, 21, 0.5, 0.5, 0, 650, { cup: 100, each: 20 }],
+  ['light cheese|reduced fat cheese|light tasty|lite cheese', 300, 30, 19, 12, 0.5, 0.5, 0, 700, { cup: 100, each: 20 }],
+  ['mozzarella|pizza cheese|bocconcini|burrata', 300, 22, 22, 14, 2, 1, 0, 500, { cup: 100, each: 30 }],
+  ['parmesan|parmigiano|pecorino|grana padano', 420, 36, 29, 18, 0, 0, 0, 1500, { cup: 90 }],
+  ['feta|fetta', 260, 15, 21, 14, 1, 1, 0, 1100, { cup: 150 }],
+  ['haloumi|halloumi', 320, 21, 25, 17, 2, 1, 0, 1100, { each: 180 }],
+  ['cream cheese|philadelphia|mascarpone', 340, 6, 33, 21, 4, 3, 0, 320, { cup: 230 }],
+  ['light cream cheese|lite cream cheese', 220, 8, 18, 12, 6, 5, 0, 400, { cup: 230 }],
+  ['ricotta', 150, 10, 11, 7, 3, 3, 0, 100, { cup: 245 }],
+  ['cottage cheese', 100, 11, 4.5, 2.8, 3, 3, 0, 380, { cup: 225 }],
+  ['coconut milk', 200, 2, 20, 18, 3, 2, 0, 15, { cup: 250, can: 400 }],
+  ['light coconut milk|lite coconut milk|reduced fat coconut milk|light & creamy coconut', 110, 1, 10.5, 9.5, 2.5, 1.5, 0, 20, { cup: 250, can: 400 }],
+  ['coconut cream', 280, 2.5, 28, 25, 4, 3, 0, 20, { cup: 250, can: 400 }],
+  // Grains, pasta, bread, starches
+  ['rice|white rice|basmati|jasmine rice|long grain rice|arborio|sushi rice|risotto rice|medium grain rice', 355, 7, 0.6, 0.2, 79, 0.1, 1.3, 2, { cup: 200, cooked: 'cooked rice' }],
+  ['brown rice|wild rice', 360, 7.5, 2.7, 0.5, 76, 0.9, 3.5, 5, { cup: 190, cooked: 'cooked rice' }],
+  ['cooked rice|steamed rice|microwave rice|rice pouch|leftover rice|cooked basmati|cooked jasmine', 140, 2.7, 0.4, 0.1, 30, 0.1, 0.4, 2, { cup: 185, each: 250 }],
+  ['pasta|spaghetti|penne|fettuccine|fettucine|linguine|macaroni|fusilli|rigatoni|spirals|shells|lasagne sheets|lasagna sheets|orzo|risoni|tagliatelle|pappardelle|farfalle|angel hair|spaghettini', 355, 12.5, 1.5, 0.3, 72, 3, 3, 5, { cup: 100, each: 20, cooked: 'cooked pasta' }],
+  ['cooked pasta', 155, 5.5, 0.9, 0.2, 31, 0.6, 1.8, 2, { cup: 140 }],
+  ['fresh pasta|ravioli|tortellini', 280, 11, 4, 1.5, 50, 2, 2.5, 300],
+  ['gnocchi', 150, 3.5, 0.5, 0.1, 32, 1, 2, 350],
+  ['noodles|hokkien noodles|udon|fresh noodles|singapore noodles|shelf fresh noodles|thick noodles', 170, 5, 1, 0.2, 35, 0.5, 1.5, 280, { each: 200 }],
+  ['egg noodles|dried egg noodles|ramen noodles|instant noodles|chow mein noodles', 380, 14, 4, 1, 71, 2, 3, 50, { each: 70 }],
+  ['rice noodles|vermicelli|rice stick noodles|pad thai noodles|rice vermicelli|glass noodles|bean thread', 360, 6, 0.6, 0.2, 81, 0.1, 1.6, 20, { each: 100 }],
+  ['couscous|pearl couscous|israeli couscous', 370, 13, 0.6, 0.1, 77, 0.5, 5, 10, { cup: 180, cooked: 'cooked couscous' }],
+  ['cooked couscous', 112, 3.8, 0.2, 0, 23, 0.1, 1.4, 5, { cup: 160 }],
+  ['quinoa', 370, 14, 6, 0.7, 64, 0, 7, 5, { cup: 170, cooked: 'cooked quinoa' }],
+  ['cooked quinoa', 120, 4.4, 1.9, 0.2, 21, 0.9, 2.8, 7, { cup: 185 }],
+  ['pearl barley|barley|freekeh|bulgur|burghul', 350, 10, 1.2, 0.3, 74, 0.8, 15, 9, { cup: 200 }],
+  ['oats|rolled oats|quick oats|porridge oats|oatmeal', 380, 13, 7, 1.2, 60, 1, 10, 5, { cup: 90 }],
+  ['flour|plain flour|self-raising flour|self raising flour|all-purpose flour|wholemeal flour|bread flour|sr flour', 350, 10.5, 1.2, 0.2, 73, 0.3, 3, 2, { cup: 150 }],
+  ['cornflour|cornstarch|corn flour|tapioca flour|arrowroot|potato starch', 360, 0.3, 0, 0, 88, 0, 0.9, 5, { cup: 130 }],
+  ['almond meal|ground almonds|almond flour', 620, 21, 54, 4.2, 9, 4, 10, 1, { cup: 100 }],
+  ['breadcrumbs|panko|bread crumbs|dried breadcrumbs', 390, 12, 5, 1, 72, 5, 4, 600, { cup: 110 }],
+  ['bread|slices of bread|sourdough|wholemeal bread|white bread|multigrain bread|toast|ciabatta|baguette|turkish bread', 245, 9, 3, 0.6, 44, 3, 4, 450, { each: 35 }],
+  ['bread roll|bread rolls|burger bun|burger buns|brioche bun|hot dog roll|slider bun|roll|rolls|buns', 270, 9, 4.5, 1.5, 47, 5, 2.5, 450, { each: 70 }],
+  ['tortilla|tortillas|wrap|wraps|mountain bread|burrito', 300, 8.5, 7, 2.5, 50, 2, 3, 600, { each: 60 }],
+  ['naan|pita|pitta|flatbread|lebanese bread|roti|paratha', 290, 9, 7, 1.8, 48, 3, 2.5, 450, { each: 90 }],
+  ['taco shell|taco shells', 470, 6, 22, 4, 62, 1, 6, 350, { each: 12 }],
+  ['pizza base|pizza bases', 270, 8, 4, 0.8, 50, 3, 2.5, 500, { each: 200 }],
+  ['puff pastry|shortcrust pastry|pastry|filo pastry|filo', 400, 6, 25, 12, 38, 2, 1.5, 400, { each: 170 }],
+  ['rice paper|rice paper rolls|rice paper wrappers', 340, 0.5, 0.1, 0, 83, 0, 0, 300, { each: 8 }],
+  ['wonton wrappers|gyoza wrappers|dumpling wrappers|spring roll wrappers', 290, 9, 1.5, 0.3, 58, 1, 2, 550, { each: 8 }],
+  ['potato|potatoes|washed potatoes|baby potatoes|chat potatoes|desiree|sebago|kipfler|white potatoes|red potatoes', 75, 2, 0.1, 0, 15, 0.8, 2, 6, { each: 200, cup: 150 }],
+  ['sweet potato|sweet potatoes|kumara', 85, 1.6, 0.1, 0, 19, 4.2, 3, 55, { each: 300, cup: 140 }],
+  ['frozen chips|oven chips|fries|potato chips|potato wedges', 165, 2.6, 6, 1, 25, 0.5, 2.5, 300],
+  ['pumpkin|butternut|butternut pumpkin|butternut squash|kent pumpkin|squash', 45, 1.2, 0.1, 0, 9, 2.5, 2, 4, { each: 1200, cup: 140 }],
+  ['polenta|cornmeal', 360, 8, 1.5, 0.2, 77, 0.6, 4, 5, { cup: 160 }],
+  // Beans, lentils, corn, tomatoes (canned weights are the can, drained)
+  ['lentils|red lentils|dried lentils|brown lentils|green lentils|puy lentils|split peas', 340, 24, 1, 0.1, 50, 2, 11, 6, { cup: 190, can: 400, drain: 0.6, cooked: 'cooked lentils' }],
+  ['cooked lentils|canned lentils|tinned lentils', 100, 7.5, 0.5, 0.1, 14, 0.5, 4.5, 220, { cup: 200, can: 400, drain: 0.6 }],
+  ['chickpeas|chick peas|garbanzo', 120, 7, 2.5, 0.3, 16, 0.5, 5, 250, { cup: 165, can: 400, drain: 0.6 }],
+  ['black beans|kidney beans|red kidney beans|cannellini beans|cannellini|butter beans|mixed beans|four bean mix|4 bean mix|borlotti beans|pinto beans|white beans|navy beans|beans', 115, 7, 0.5, 0.1, 15, 0.5, 6, 250, { cup: 175, can: 400, drain: 0.6 }],
+  ['edamame|soy beans|soybeans', 120, 11, 5, 0.6, 9, 2, 5, 6, { cup: 155 }],
+  ['baked beans', 85, 4.7, 0.4, 0.1, 12, 4.5, 5, 380, { cup: 260, can: 420 }],
+  ['refried beans', 90, 5, 1.5, 0.5, 13, 0.5, 5, 400, { cup: 250, can: 435 }],
+  ['corn|corn kernels|sweetcorn|sweet corn|corn cob|corn cobs|corn on the cob|creamed corn', 90, 3, 1.2, 0.2, 17, 4.5, 2.5, 150, { cup: 160, each: 150, can: 420, drain: 0.65 }],
+  ['diced tomatoes|crushed tomatoes|chopped tomatoes|canned tomatoes|tinned tomatoes|whole peeled tomatoes|tomatoes canned|cherry tomatoes canned', 22, 1, 0.2, 0, 3.5, 3.5, 1.2, 150, { cup: 250, can: 400 }],
+  ['tomato paste|tomato puree concentrate', 85, 4.3, 0.5, 0.1, 15, 12, 4, 100, { cup: 265, can: 140 }],
+  ['passata|tomato puree|tomato passata|sugo', 30, 1.4, 0.2, 0, 5, 4, 1.5, 250, { cup: 250, can: 700 }],
+  ['pasta sauce|bolognese sauce|tomato pasta sauce|napoletana sauce|marinara sauce', 50, 1.5, 1.5, 0.2, 7, 5, 1.5, 400, { cup: 250, can: 500 }],
+  // Vegetables and fruit
+  ['onion|onions|brown onion|red onion|white onion|yellow onion|spanish onion', 40, 1.1, 0.1, 0, 9, 4.2, 1.7, 4, { each: 150, cup: 160 }],
+  ['spring onion|spring onions|green onion|green onions|shallot|shallots|scallion|scallions|eschalot|eschalots|chives', 32, 1.8, 0.2, 0, 7, 2.3, 2.6, 16, { each: 15, cup: 100, bunch: 100, minor: true }],
+  ['leek|leeks', 61, 1.5, 0.3, 0, 14, 3.9, 1.8, 20, { each: 150, cup: 90 }],
+  ['garlic|garlic cloves|cloves garlic|clove garlic|crushed garlic|minced garlic|garlic paste', 150, 6.4, 0.5, 0.1, 33, 1, 2, 17, { each: 5, cup: 250, minor: true }],
+  ['ginger|grated ginger|ginger paste|minced ginger', 80, 1.8, 0.8, 0.2, 18, 1.7, 2, 13, { each: 15, cup: 250, minor: true }],
+  ['carrot|carrots', 41, 0.9, 0.2, 0, 9.6, 4.7, 2.8, 69, { each: 120, cup: 130 }],
+  ['celery|celery stalk|celery stalks|celery sticks', 16, 0.7, 0.2, 0, 3, 1.3, 1.6, 80, { each: 40, cup: 100 }],
+  ['capsicum|capsicums|red capsicum|green capsicum|yellow capsicum|bell pepper|bell peppers|red pepper|green pepper|yellow pepper|red peppers', 31, 1, 0.3, 0, 6, 4.2, 2.1, 4, { each: 170, cup: 150 }],
+  ['zucchini|zucchinis|courgette|courgettes', 17, 1.2, 0.3, 0.1, 3.1, 2.5, 1, 8, { each: 200, cup: 125 }],
+  ['broccoli', 34, 2.8, 0.4, 0, 6.6, 1.7, 2.6, 33, { each: 350, cup: 90, bunch: 350 }],
+  ['broccolini|asparagus', 30, 3, 0.3, 0, 5, 2, 2.5, 10, { each: 20, bunch: 175, cup: 90 }],
+  ['cauliflower|cauliflower rice|riced cauliflower', 25, 1.9, 0.3, 0.1, 5, 1.9, 2, 30, { each: 600, cup: 100 }],
+  ['spinach|baby spinach|rocket|arugula|kale|silverbeet|chard|salad leaves|mixed leaves|mixed salad leaves|salad mix|mesclun|watercress|english spinach', 23, 2.9, 0.4, 0, 3.6, 0.4, 2.2, 79, { cup: 30, bunch: 250, each: 30 }],
+  ['lettuce|iceberg lettuce|cos lettuce|baby cos|butter lettuce|romaine', 15, 1, 0.2, 0, 3, 1.2, 1.2, 10, { each: 500, cup: 50 }],
+  ['cabbage|red cabbage|savoy cabbage|wombok|chinese cabbage|coleslaw|coleslaw mix|slaw', 25, 1.3, 0.1, 0, 5.8, 3.2, 2.5, 18, { each: 1000, cup: 70 }],
+  ['bok choy|pak choy|baby bok choy|choy sum|gai lan|chinese broccoli', 13, 1.5, 0.2, 0, 2.2, 1.2, 1, 65, { each: 120, bunch: 300 }],
+  ['tomato|tomatoes|roma tomato|roma tomatoes|truss tomatoes|vine tomatoes|tomatoes fresh|ripe tomatoes', 18, 0.9, 0.2, 0, 3.9, 2.6, 1.2, 5, { each: 120, cup: 150 }],
+  ['cherry tomatoes|grape tomatoes|cherry tomato|baby roma tomatoes|mini roma', 18, 0.9, 0.2, 0, 3.9, 2.6, 1.2, 5, { each: 15, cup: 150, can: 250 }],
+  ['cucumber|cucumbers|lebanese cucumber|continental cucumber', 15, 0.7, 0.1, 0, 3.6, 1.7, 0.5, 2, { each: 200, cup: 120 }],
+  ['mushroom|mushrooms|button mushrooms|swiss brown mushrooms|cup mushrooms|portobello|field mushrooms|shiitake|enoki', 22, 3.1, 0.3, 0, 3.3, 2, 1, 5, { each: 18, cup: 70 }],
+  ['eggplant|eggplants|aubergine', 25, 1, 0.2, 0, 6, 3.5, 3, 2, { each: 350, cup: 80 }],
+  ['green beans|beans green|snow peas|sugar snap peas|snap peas|runner beans', 31, 1.8, 0.2, 0, 7, 3.3, 2.7, 6, { cup: 110, each: 5 }],
+  ['peas|frozen peas|baby peas|garden peas', 80, 5.4, 0.4, 0.1, 14, 5.7, 5.7, 5, { cup: 140 }],
+  ['frozen vegetables|mixed vegetables|stir fry vegetables|frozen veg|mixed veg|stir-fry vegetables', 50, 2.5, 0.4, 0.1, 9, 3.5, 3.5, 30, { cup: 135 }],
+  ['beetroot|beetroots|beet', 43, 1.6, 0.2, 0, 10, 7, 2.8, 78, { each: 150, can: 450, drain: 0.6 }],
+  ['avocado|avocados|guacamole', 160, 2, 15, 2.1, 8.5, 0.7, 6.7, 7, { each: 150, cup: 150 }],
+  ['chilli|chillies|chili|chilies|red chilli|green chilli|bird\'s eye chilli|birds eye chilli|jalapeno|jalapenos', 40, 1.9, 0.4, 0, 9, 5, 1.5, 9, { each: 10, minor: true }],
+  ['lemon|lemons|lemon juice|juice of lemon|lime|limes|lime juice|lemon zest|lime zest', 25, 0.4, 0.2, 0, 7, 2.5, 0.3, 1, { each: 40, cup: 250, minor: true }],
+  ['coriander|cilantro|parsley|flat-leaf parsley|basil|mint|dill|thyme|rosemary|oregano leaves|fresh oregano|sage|tarragon|fresh herbs|herbs|bay leaf|bay leaves|kaffir lime leaves|lemongrass|curry leaves|thai basil', 30, 3, 0.6, 0, 5, 0.8, 3.5, 40, { each: 1, cup: 25, bunch: 30, minor: true }],
+  ['banana|bananas', 90, 1.1, 0.3, 0.1, 20, 15, 2.6, 1, { each: 120, cup: 150 }],
+  ['apple|apples|pear|pears', 52, 0.3, 0.2, 0, 12, 10, 2.4, 1, { each: 150, cup: 125 }],
+  ['berries|blueberries|strawberries|raspberries|mixed berries|frozen berries|blackberries', 45, 0.8, 0.4, 0, 9, 7, 3, 1, { cup: 150, each: 12 }],
+  ['mango|mangoes|peach|peaches|nectarine|apricot|apricots|plum|plums|orange|oranges|mandarin', 55, 0.8, 0.3, 0, 12.5, 11, 1.8, 1, { each: 160, cup: 165 }],
+  ['pineapple|pineapple pieces|crushed pineapple', 50, 0.5, 0.1, 0, 12, 10, 1.4, 1, { cup: 165, can: 440, drain: 0.65 }],
+  ['dates|medjool dates', 280, 2.5, 0.4, 0, 75, 63, 7.5, 2, { each: 8, cup: 150 }],
+  ['raisins|sultanas|currants|dried cranberries|dried fruit|dried apricots', 300, 3, 0.5, 0.1, 79, 59, 3.7, 15, { cup: 150 }],
+  // Oils, fats, sauces, spreads, sugar
+  ['oil|olive oil|extra virgin olive oil|vegetable oil|canola oil|sunflower oil|rice bran oil|peanut oil|sesame oil|coconut oil|cooking oil|avocado oil|neutral oil|light olive oil', 884, 0, 100, 14, 0, 0, 0, 0, { cup: 230 }],
+  ['mayonnaise|mayo|whole egg mayonnaise|aioli|kewpie|sriracha mayo|spicy mayo|chipotle mayo|garlic aioli', 680, 1, 75, 6, 1.5, 1, 0, 600, { cup: 230 }],
+  ['light mayonnaise|light mayo|lite mayonnaise|97% fat free mayonnaise|fat free mayonnaise', 270, 0.6, 25, 2, 13, 6, 0, 800, { cup: 240 }],
+  ['peanut butter|almond butter|nut butter|tahini', 600, 25, 50, 9, 16, 6, 6, 400, { cup: 260 }],
+  ['honey', 305, 0.3, 0, 0, 82, 82, 0, 4, { cup: 340 }],
+  ['maple syrup|golden syrup|rice malt syrup|agave|syrup', 260, 0, 0.1, 0, 67, 60, 0, 10, { cup: 330 }],
+  ['sugar|white sugar|caster sugar|brown sugar|raw sugar|icing sugar|coconut sugar|palm sugar|demerara', 400, 0, 0, 0, 100, 100, 0, 1, { cup: 220 }],
+  ['jam|marmalade|apricot jam|chutney|relish', 250, 0.4, 0.1, 0, 63, 60, 1, 30, { cup: 320 }],
+  ['soy sauce|tamari|light soy sauce|dark soy sauce|soy', 55, 8, 0, 0, 5, 0.4, 0.8, 5600, { cup: 255 }],
+  ['salt reduced soy sauce|reduced salt soy sauce|low sodium soy sauce|salt-reduced soy sauce', 55, 8, 0, 0, 5, 0.4, 0.8, 3300, { cup: 255 }],
+  ['fish sauce', 35, 5, 0, 0, 3.6, 3.6, 0, 7800, { cup: 270 }],
+  ['oyster sauce', 100, 1.4, 0.3, 0, 22, 12, 0.3, 2700, { cup: 290 }],
+  ['hoisin|hoisin sauce|plum sauce|char siu sauce|teriyaki sauce|teriyaki', 220, 3.3, 3.4, 0.6, 44, 27, 2.8, 1600, { cup: 290 }],
+  ['sweet chilli sauce|sweet chili sauce', 220, 0.5, 0.5, 0, 53, 50, 1, 1100, { cup: 300 }],
+  ['tomato sauce|ketchup|tomato ketchup', 110, 1, 0.2, 0, 26, 23, 0.6, 900, { cup: 270 }],
+  ['bbq sauce|barbecue sauce|smoky bbq sauce', 170, 1, 0.5, 0, 40, 33, 0.8, 1000, { cup: 290 }],
+  ['worcestershire sauce|worcestershire', 80, 0, 0, 0, 20, 10, 0, 1000, { cup: 270 }],
+  ['sriracha|hot sauce|chilli sauce|tabasco|peri peri sauce|chipotle in adobo|sambal oelek|chilli paste|gochujang|harissa', 90, 2, 1, 0.1, 19, 15, 2, 2100, { cup: 270 }],
+  ['mustard|dijon mustard|dijon|wholegrain mustard|american mustard|hot english mustard', 70, 4, 4, 0.2, 6, 3, 3, 1100, { cup: 250 }],
+  ['vinegar|white vinegar|apple cider vinegar|rice vinegar|red wine vinegar|white wine vinegar|malt vinegar', 20, 0, 0, 0, 0.5, 0.4, 0, 2, { cup: 250, minor: true }],
+  ['balsamic|balsamic vinegar|balsamic glaze', 90, 0.5, 0, 0, 17, 15, 0, 25, { cup: 260 }],
+  ['curry paste|red curry paste|green curry paste|yellow curry paste|massaman curry paste|korma paste|tikka paste|tikka masala paste|butter chicken paste|rogan josh paste|laksa paste|vindaloo paste|madras paste|tom yum paste|panang curry paste', 200, 3, 15, 2, 12, 7, 3, 2500, { cup: 260, can: 200 }],
+  ['simmer sauce|curry sauce|butter chicken sauce|tikka masala sauce|korma sauce|stir fry sauce|stir-fry sauce|satay sauce|cooking sauce', 100, 1.5, 6, 2.5, 9, 6, 1, 700, { cup: 260, can: 485 }],
+  ['taco seasoning|fajita seasoning|burrito seasoning|seasoning mix|spice mix|taco spice mix|nacho seasoning|recipe base|meal base|gravy powder|gravy mix|french onion soup mix|soup mix', 300, 6, 4, 1, 55, 10, 8, 6000, { cup: 120, can: 35, each: 35 }],
+  ['salsa|tomato salsa|taco sauce|chunky salsa', 35, 1.5, 0.2, 0, 6, 4, 1.5, 600, { cup: 260, can: 300 }],
+  ['pesto|basil pesto', 450, 5, 45, 7, 6, 2, 2, 900, { cup: 260, can: 190 }],
+  ['hummus|houmous|hommus', 250, 7, 20, 2.5, 14, 0.5, 6, 400, { cup: 240 }],
+  ['tzatziki|raita', 110, 4.5, 8, 5, 5, 4, 0.5, 300, { cup: 245 }],
+  ['olives|kalamata olives|black olives|green olives', 145, 1, 15, 2, 4, 0, 3.3, 1500, { cup: 135, each: 4 }],
+  ['capers', 25, 2.4, 0.9, 0.2, 5, 0.4, 3.2, 2900, { cup: 140, minor: true }],
+  ['sun-dried tomatoes|sundried tomatoes|sun dried tomatoes|semi-dried tomatoes|semi dried tomatoes', 210, 5, 14, 2, 23, 15, 6, 500, { cup: 110 }],
+  ['pizza sauce', 60, 1.5, 2, 0.3, 9, 6, 2, 450, { cup: 250 }],
+  // Nuts, seeds, baking, extras
+  ['nuts|almonds|cashews|peanuts|walnuts|pine nuts|pistachios|pecans|macadamias|hazelnuts|mixed nuts|slivered almonds|flaked almonds', 600, 20, 52, 6, 15, 4, 8, 5, { cup: 140, each: 1 }],
+  ['sesame seeds|sesame|pumpkin seeds|pepitas|sunflower seeds|linseed|flaxseed|seeds', 570, 20, 48, 7, 18, 1, 12, 10, { cup: 145 }],
+  ['chia seeds|chia', 490, 17, 31, 3.3, 42, 0, 34, 16, { cup: 160 }],
+  ['desiccated coconut|shredded coconut|coconut flakes|flaked coconut', 650, 7, 62, 55, 24, 7, 16, 35, { cup: 90 }],
+  ['chocolate|dark chocolate|milk chocolate|choc chips|chocolate chips|white chocolate|cooking chocolate', 530, 6, 30, 18, 58, 50, 4, 60, { cup: 170 }],
+  ['cocoa|cocoa powder|cacao|cacao powder', 230, 19.6, 13.7, 8, 58, 1.8, 37, 20, { cup: 90 }],
+  ['protein powder|whey protein|whey|scoop protein', 380, 75, 6, 3, 8, 4, 1, 300, { each: 30, cup: 100 }],
+  ['tortilla chips|corn chips|nachos|chips', 500, 7, 25, 3, 62, 1, 5, 450, { cup: 30 }],
+  ['custard', 110, 3.5, 3, 2, 17, 13, 0, 60, { cup: 260 }],
+  ['ice cream|gelato', 200, 3.5, 11, 7, 23, 21, 0.5, 80, { cup: 140 }],
+  // Seasonings and liquids
+  ['salt|sea salt|table salt|salt flakes|kosher salt|rock salt|celery salt|garlic salt|onion salt', 0, 0, 0, 0, 0, 0, 0, 38758, { cup: 290, minor: true }],
+  ['salt and pepper|salt & pepper|season to taste|seasoning', 0, 0, 0, 0, 0, 0, 0, 0, { minor: true }],
+  ['pepper|black pepper|cracked black pepper|white pepper|ground pepper|freshly ground pepper|pepper flakes|chilli flakes|chili flakes|red pepper flakes|cayenne|cayenne pepper', 280, 10, 3, 1, 64, 0.6, 25, 20, { cup: 110, minor: true }],
+  ['cumin|ground cumin|cumin seeds|paprika|smoked paprika|sweet paprika|chilli powder|chili powder|turmeric|ground turmeric|cinnamon|ground cinnamon|ground coriander|coriander seeds|garam masala|curry powder|dried oregano|oregano|dried thyme|dried basil|italian herbs|mixed herbs|dried herbs|nutmeg|allspice|cloves ground|ground cloves|ground ginger|onion powder|garlic powder|five spice|chinese five spice|mixed spice|fennel seeds|mustard seeds|star anise|cardamom|cajun seasoning|italian seasoning|za\'atar|sumac|dukkah|spices|herbs and spices|saffron|vanilla|vanilla extract|vanilla essence|vanilla bean|vanilla bean paste|cinnamon stick|cinnamon sticks', 300, 12, 12, 2, 50, 3, 25, 60, { cup: 110, each: 2, minor: true }],
+  ['baking powder|bicarbonate of soda|bicarb soda|baking soda|bicarb|cream of tartar|yeast|dried yeast|instant yeast|gelatine|gelatin', 60, 3, 0.2, 0, 15, 0, 0, 10000, { cup: 220, minor: true }],
+  ['stock|chicken stock|beef stock|vegetable stock|veggie stock|fish stock|broth|bone broth|chicken broth|beef broth|vegetable broth|liquid stock|salt-reduced chicken stock|salt reduced stock|reduced salt stock', 5, 0.5, 0.1, 0, 0.4, 0.3, 0, 300, { cup: 250, can: 500 }],
+  ['stock cube|stock cubes|bouillon cube|bouillon cubes|stock pot|stockpot', 250, 10, 15, 7, 20, 2, 0, 22000, { each: 10 }],
+  ['stock powder|bouillon powder|chicken stock powder|beef stock powder|vegetable stock powder|chicken salt', 250, 10, 6, 2, 35, 5, 0, 20000, { cup: 120 }],
+  ['water|boiling water|cold water|warm water|hot water|ice|ice cubes|cooking spray|oil spray|olive oil spray|spray oil|canola spray', 0, 0, 0, 0, 0, 0, 0, 0, { cup: 250, minor: true }],
+  ['wine|white wine|red wine|dry white wine|cooking wine|shaoxing|shaoxing wine|mirin|sake|sherry|marsala', 85, 0.1, 0, 0, 2.6, 1, 0, 5, { cup: 250 }],
+  ['beer|stout|cider', 43, 0.5, 0, 0, 3.6, 0, 0, 4, { cup: 250, can: 375 }],
+];
+
+export const RECIPE_INGREDIENTS: RecipeIngredient[] = ROWS.map(([words, kcal, protein, fat, satFat, carbs, sugars, fibre, sodium, o]) => {
+  const w = words.split('|');
+  return { id: w[0], words: w, per100: { kcal, protein, fat, satFat, carbs, sugars, fibre, sodium }, ...o };
+});
+
+export const ingredientById = (id: string) => RECIPE_INGREDIENTS.find((x) => x.id === id);

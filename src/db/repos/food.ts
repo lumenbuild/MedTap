@@ -30,6 +30,11 @@ export async function removeFood(id: string) {
   await db.foods.update(id, { deletedAt: nowIso(), updatedAt: nowIso() });
 }
 
+/** A recipe saved from this web page before (the address normalised). */
+export async function foodBySourceUrl(url: string): Promise<Food | undefined> {
+  return (await db.foods.filter((f) => f.sourceUrl === url && !f.deletedAt).toArray())[0];
+}
+
 export async function foodByBarcode(code: string): Promise<Food | undefined> {
   return (await db.foods.where('barcode').equals(code).toArray()).find((f) => !f.deletedAt);
 }
