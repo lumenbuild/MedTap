@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { DailyHealth, Dose, FoodLog, Medication, Workout } from '../src/db/schema';
 import type { ScheduleSettings } from '../src/logic/schedule';
 import { illnessWatch, nightVitals } from '../src/logic/vitals';
-import { readiness } from '../src/logic/training';
+import { countsAsSession, readiness, trainingCalendar } from '../src/logic/training';
 import { daySuggestion, maxHeartRate, trainingLoad, vo2Trend, workoutLoad } from '../src/logic/trainingLoad';
 import { medEffects } from '../src/logic/medEffects';
 import { energyBalance } from '../src/logic/energy';
@@ -57,6 +57,20 @@ describe('training load', () => {
     expect(daySuggestion({ score: 80, label: 'Ready', parts: [] }, spike, null)?.kind).toBe('easy');
     expect(daySuggestion({ score: 80, label: 'Ready', parts: [] }, t, null)?.kind).toBe('push');
     expect(daySuggestion({ score: 80, label: 'Ready', parts: [] }, t, { level: 'watch', signals: [], date: '' })?.kind).toBe('rest');
+  });
+  it('no comparison when the weeks before had training in only two of four (a few odd sessions are not "usual")', () => {
+    const l = trainingLoad([run(19), run(18), run(10), run(9), run(8), ...[0, 1, 2, 3, 4, 5].map((k) => run(k, { durationMin: 60 }))], NOW);
+    expect(l?.ratio).toBeUndefined();
+    expect(l?.status).toBeUndefined();
+  });
+  it('walks the watch picks up are not training sessions', () => {
+    const walk = run(1, { activity: 'walk', durationMin: 40 });
+    const ride = run(2, { activity: 'ride', durationMin: 40 });
+    expect(countsAsSession(walk)).toBe(false);
+    expect(countsAsSession(ride)).toBe(true);
+    expect(countsAsSession({ ...walk, source: 'manual' })).toBe(true); // a walk logged on purpose
+    const cal = trainingCalendar([walk, { ...walk, id: 'w9', startedAt: new Date(NOW - 3_600_000).toISOString() }], NOW, S, 3, 2);
+    expect(cal.thisWeek).toBe(0);
   });
   it('no comparison when watch workouts have only just started coming in', () => {
     // A few sessions logged in the app before; this week the watch's workouts arrive for the first time.

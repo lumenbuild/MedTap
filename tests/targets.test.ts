@@ -12,11 +12,13 @@ const med = (name: string): Medication => ({ id: name, name, strength: 1, unit: 
 const base = { daily: [] as DailyHealth[], workouts: [], meds: [] as Medication[], doses: [], checkIns: [] as CheckIn[], now: NOW };
 
 describe('targets', () => {
-  it('water from weight, a little more for a very active month', () => {
-    expect(suggestTargets({ ...base, body: weigh(90) }).water?.value).toBe(3150);
+  it('water from drinks by weight, a little more for a very active month', () => {
+    expect(suggestTargets({ ...base, body: weigh(90) }).water?.value).toBe(2250);
     const active = Array.from({ length: 20 }, (_, k): DailyHealth => ({ id: `a${k}`, date: ymd(NOW - (k + 1) * DAY), kcalActive: 800, ...st }));
-    expect(suggestTargets({ ...base, body: weigh(90), daily: active }).water?.value).toBe(3400);
-    expect(suggestTargets({ ...base, body: [] }).water?.value).toBe(2500);
+    expect(suggestTargets({ ...base, body: weigh(90), daily: active }).water?.value).toBe(2500);
+    expect(suggestTargets({ ...base, body: [] }).water?.value).toBe(2000);
+    // Well above the goal: an adjusted weight (116.5 kg, goal 70 kg: 88.6 kg).
+    expect(suggestTargets({ ...base, body: weigh(116.5), goalKg: 70 }).water?.value).toBe(2200);
   });
   it('protein from the goal weight when it is lower', () => {
     expect(suggestTargets({ ...base, body: weigh(100), goalKg: 80 }).protein?.value).toBe(130);
@@ -59,15 +61,15 @@ describe('targets', () => {
   it('the stack changes targets, and says what changed them', () => {
     const reta = { ...med('Retatrutide'), schedule: { type: 'fixed' as const, slots: [{ time: '08:00' }], days: [1] } };
     const w = suggestTargets({ ...base, body: weigh(90), meds: [reta] }).water!;
-    expect(w.value).toBe(3650); // 3,150 + 500
+    expect(w.value).toBe(2750); // 2,250 + 500
     expect(w.stack).toEqual(['Retatrutide']);
     expect(w.parts.join(' ')).toMatch(/\+500 mL for Retatrutide/);
     // Reta and Ritalin and creatine together.
     const all = suggestTargets({ ...base, body: weigh(90), meds: [reta, med('Ritalin'), med('Creatine monohydrate')] }).water!;
-    expect(all.value).toBe(4400);
+    expect(all.value).toBe(3500);
     // A diuretic: the prescriber's fluid advice comes first; no extra pushed.
     const diu = suggestTargets({ ...base, body: weigh(90), meds: [reta, med('Furosemide')] }).water!;
-    expect(diu.value).toBe(3150);
+    expect(diu.value).toBe(2250);
     expect(diu.why).toMatch(/prescriber/);
     // Fibre up for a GLP-1; protein never under 1.2 g per kg of today's weight.
     expect(suggestTargets({ ...base, body: weigh(90), meds: [reta], calorieKcal: 2000 }).fibre?.value).toBe(33);
@@ -75,6 +77,6 @@ describe('targets', () => {
     // Caffeine: 200 mg with a medicine that slows clearing it.
     expect(suggestTargets({ ...base, body: [], meds: [med('Fluvoxamine')] }).caffeine?.value).toBe(200);
     // Archived items don't count.
-    expect(suggestTargets({ ...base, body: weigh(90), meds: [{ ...reta, archived: true }] }).water?.value).toBe(3150);
+    expect(suggestTargets({ ...base, body: weigh(90), meds: [{ ...reta, archived: true }] }).water?.value).toBe(2250);
   });
 });

@@ -57,11 +57,17 @@ export function suggestTargets(d: TargetData): Partial<Record<TargetKey, Suggest
   const make = (key: TargetKey, value: number, parts: string[], by: Medication[] = []): Suggestion =>
     ({ key, value, parts, why: parts.join(', '), stack: [...new Set(by.map((m) => m.nickname?.trim() || m.name))] });
 
-  // Water: about 35 mL for each kg, a little more for a very active month, and more for what's in the stack.
+  // Water from drinks: by weight, a little more for a very active month, and more for what's in the stack.
   {
     const parts: string[] = []; const by: Medication[] = [];
     let ml: number;
-    if (kg) { ml = kg * 35; parts.push(`35 mL per kg of your ${Math.round(kg)} kg`); } else { ml = 2500; parts.push('A usual 2.5 L (add your weight to tailor it)'); }
+    // From drinks: about 25 mL per kg (food brings the rest). Well above the goal weight, an adjusted weight (the goal
+    // plus 40% of the gap): fat needs little water, so the full weight overshoots.
+    if (kg) {
+      const ref = d.goalKg && d.goalKg < kg - 10 ? d.goalKg + 0.4 * (kg - d.goalKg) : kg;
+      ml = ref * 25;
+      parts.push(ref < kg ? `25 mL per kg of an adjusted ${Math.round(ref)} kg (your goal plus 40% of the gap)` : `25 mL per kg of your ${Math.round(kg)} kg`);
+    } else { ml = 2000; parts.push('About 2 L from drinks (add your weight to tailor it)'); }
     const active = recentDaily.filter((x) => typeof x.kcalActive === 'number').map((x) => x.kcalActive!);
     if (active.length >= 10 && mean(active) >= 600) { ml += 250; parts.push('+250 mL for how active you are'); }
     if (k.fluidCare.length) { parts.push(`${k.named(k.fluidCare)}: your prescriber's fluid advice comes first`); by.push(...k.fluidCare); }
@@ -72,7 +78,7 @@ export function suggestTargets(d: TargetData): Partial<Record<TargetKey, Suggest
       if (k.sglt2.length) { ml += 250; parts.push(`+250 mL for ${k.named(k.sglt2)}`); }
       if (k.stim.length) { ml += 250; parts.push(`+250 mL for ${k.named(k.stim)} (dry mouth)`); }
     }
-    out.water = make('water', Math.round(clamp(ml, 1800, 4500) / 50) * 50, parts, by);
+    out.water = make('water', Math.round(clamp(ml, 1500, 3800) / 50) * 50, parts, by);
   }
 
   // Protein: 1.6 g per kg of the goal weight (when lower than now), to keep muscle while losing.
