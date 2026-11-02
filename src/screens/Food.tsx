@@ -4,7 +4,7 @@ import { setOwnTarget } from '../app/targets';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { clearRecipeRequest, onRecipeRequest } from '../app/shareInbox';
 import { addDays, format } from 'date-fns';
-import { Barcode, ChevronLeft, ChevronRight, CookingPot, Plus, Star, Trash2 } from 'lucide-react';
+import { Barcode, Plus, Star, Trash2 } from 'lucide-react';
 import type { BodyEntry, Food, FoodLog, Nutrients } from '../db/schema';
 import { useLive } from '../db/live';
 import { db } from '../db/db';
@@ -32,6 +32,9 @@ import { Bar } from '../components/ui/Visual';
 import { LogFoodSheet, NutrientList, macroLine } from '../components/food/LogFoodSheet';
 import { LiveScanner } from '../components/food/LiveScanner';
 import { EnergyCard } from '../components/HealthCards';
+import { DayHero, ProteinGapCard, RecipesCard, UsualCard, WeekCard } from '../components/food/FoodHub';
+import { usualFoods } from '../logic/usualFoods';
+import { proteinGap } from '../logic/dailySmarts';
 import { energyBalance } from '../logic/energy';
 
 const frac = (f: number) => (f === 0.5 ? '½' : f === 1.5 ? '1½' : f === 0.75 ? '¾' : f === 1.25 ? '1¼' : String(f));
@@ -46,6 +49,8 @@ export function FoodScreen() {
   const daily = useDaily();
   const [back, setBack] = useState(0);
   const [logging, setLogging] = useState(false);
+  const [logStart, setLogStart] = useState<'recipe' | Food | undefined>(undefined);
+  const openLog = (start?: 'recipe' | Food) => { setLogStart(start); setLogging(true); };
   // A recipe link shared to the app opens straight into its import.
   const [shared, setShared] = useState<string | undefined>(undefined);
   useEffect(() => onRecipeRequest((url) => { setShared(url); setLogging(true); clearRecipeRequest(); }), []);
@@ -60,27 +65,23 @@ export function FoodScreen() {
   const today = mine.filter((l) => !l.deletedAt && Date.parse(l.at) >= start.getTime() && Date.parse(l.at) < end.getTime()).sort((a, b) => a.at.localeCompare(b.at));
   const tot = totalsFor(today, start.getTime(), end.getTime());
   const saved = foods.filter((f) => !f.deletedAt).sort((a, b) => Number(!!b.favourite) - Number(!!a.favourite) || a.name.localeCompare(b.name));
+  const recipes = saved.filter((f) => f.kind === 'recipe');
+  const others = saved.filter((f) => f.kind !== 'recipe');
+  const usual = usualFoods(mine, saved, now);
+  const gap = back === 0 ? proteinGap(tot.protein ?? 0, settings.proteinTargetG, tot.kcal ?? 0, settings.energyTargetKcal, saved, now, scheduleSettings(settings)) : null;
   const label = back === 0 ? 'Today' : back === 1 ? 'Yesterday' : fmtDay(day.getTime(), now);
   const target = settings.energyTargetKcal;
 
   return (
     <div className="space-y-4">
-      <Button className="w-full min-h-[56px] flex items-center justify-center gap-2" onClick={() => setLogging(true)}><Plus size={20} aria-hidden="true" /> Log food</Button>
+      <DayHero label={label} tot={tot} target={target} proteinTarget={settings.proteinTargetG} fibreTarget={settings.fibreTargetG} energy={energy}
+        onPrev={() => setBack(back + 1)} onNext={() => setBack(back - 1)} canNext={back > 0} />
+      <Button className="w-full min-h-[56px] flex items-center justify-center gap-2" onClick={() => openLog()}><Plus size={20} aria-hidden="true" /> Log food</Button>
+      {back === 0 && <UsualCard usual={usual} energy={energy} personId={fam.personId} />}
+      {gap && <ProteinGapCard g={gap} foods={saved} energy={energy} personId={fam.personId} />}
 
       <Card className="space-y-3">
-        <div className="flex items-center gap-1 -my-2">
-          <h2 className="flex-1 text-sm font-medium text-muted" aria-live="polite">{label}</h2>
-          <button type="button" aria-label="Day before" onClick={() => setBack(back + 1)} className="w-11 h-11 flex items-center justify-center text-muted"><ChevronLeft size={20} aria-hidden="true" /></button>
-          <button type="button" aria-label="Day after" disabled={back === 0} onClick={() => setBack(back - 1)} className="w-11 h-11 -mr-3 flex items-center justify-center text-muted disabled:opacity-30"><ChevronRight size={20} aria-hidden="true" /></button>
-        </div>
-        <p className="tnum"><span className="text-[28px] font-semibold">{fmtEnergy(tot.kcal ?? 0, energy).split(' ')[0]}</span> <span className="text-muted">{energy === 'kJ' ? 'kJ' : 'Cal'}{target ? ` of ${fmtEnergy(target, energy)}` : ''}</span></p>
-        {target ? <Bar value={tot.kcal ?? 0} max={Math.max(target, tot.kcal ?? 0)} tone={(tot.kcal ?? 0) > target * 1.1 ? 'watch' : 'plain'} label={`Energy ${fmtEnergy(tot.kcal ?? 0, energy)} of ${fmtEnergy(target, energy)}`} /> : null}
-        <MacroSplit n={tot} />
-        {/* Fibre: low on GLP-1s, and the usual first help for constipation. */}
-        <div className="space-y-1">
-          <p className="text-sm tnum flex justify-between"><span>Fibre</span><span className="text-muted">{Math.round(tot.fibre ?? 0)} of {settings.fibreTargetG} g</span></p>
-          <Bar value={tot.fibre ?? 0} max={settings.fibreTargetG} tone={(tot.fibre ?? 0) >= settings.fibreTargetG ? 'good' : 'plain'} label={`Fibre ${Math.round(tot.fibre ?? 0)} of ${settings.fibreTargetG} g`} />
-        </div>
+        <h2 className="text-sm font-medium text-muted">{back === 0 ? 'Eaten today' : `Eaten · ${label}`}</h2>
         {today.length === 0 ? <p className="text-muted">Nothing logged {back === 0 ? 'yet today' : 'this day'}.</p> : (
           <ol className="-mx-2">
             {today.map((l) => (
@@ -108,19 +109,19 @@ export function FoodScreen() {
         return e ? <EnergyCard e={e} /> : null;
       })()}
 
+      <WeekCard logs={mine} target={target} proteinTarget={settings.proteinTargetG} energy={energy} now={now} />
+      <RecipesCard recipes={recipes} energy={energy} onLog={(f) => openLog(f)} onEdit={(f) => setRecipe(f)} onAdd={() => openLog('recipe')} onNewBatch={() => setRecipe('new')} />
+
       <Card className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium text-muted">Saved</h2>
-          <button type="button" className="min-h-[44px] flex items-center gap-1.5 text-sm font-medium" onClick={() => setRecipe('new')}><CookingPot size={16} aria-hidden="true" /> New batch recipe</button>
-        </div>
-        {saved.length === 0 ? <p className="text-muted text-[15px]">Products you scan, meals you name and batch recipes show here.</p> : (
+        <h2 className="text-sm font-medium text-muted">Saved foods and meals</h2>
+        {others.length === 0 ? <p className="text-muted text-[15px]">Products you scan and meals you name show here, to log again in one tap.</p> : (
           <ul className="divide-y divide-border">
-            {saved.map((f) => (
+            {others.map((f) => (
               <li key={f.id} className="flex items-center gap-2 min-h-[56px] py-1">
                 <button type="button" aria-label={f.favourite ? `Unstar ${f.name}` : `Star ${f.name}`} aria-pressed={!!f.favourite} onClick={() => updateFood(f.id, { favourite: !f.favourite })} className="w-11 h-11 -ml-2 flex items-center justify-center">
                   <Star size={18} className={f.favourite ? 'text-caution fill-current' : 'text-muted'} aria-hidden="true" />
                 </button>
-                <button type="button" className="flex-1 min-w-0 text-left" onClick={() => f.kind === 'recipe' ? setRecipe(f) : undefined} disabled={f.kind !== 'recipe'}>
+                <button type="button" className="flex-1 min-w-0 text-left" onClick={() => openLog(f)} aria-label={`Log ${f.name}`}>
                   <span className="block font-medium truncate">{f.name}{f.brand ? <span className="text-muted font-normal"> · {f.brand}</span> : null}</span>
                   <span className="block text-sm text-muted tnum truncate">{f.kind === 'meal' ? 'Meal · ' : f.kind === 'recipe' ? `Recipe, ${f.recipe?.serves ?? 1} serves · ` : ''}{macroLine(f.nutrients, energy)}</span>
                 </button>
@@ -132,7 +133,9 @@ export function FoodScreen() {
       </Card>
 
       <Card className="space-y-3">
-        <h2 className="text-sm font-medium text-muted">Energy</h2>
+        <details>
+        <summary className="min-h-[44px] flex items-center text-sm font-medium text-muted cursor-pointer">Targets and units</summary>
+        <div className="space-y-3 pt-2">
         <Segmented<EnergyUnit> label="Show energy in" value={energy} onChange={(v) => setSetting('energyUnit', v)} options={[{ value: 'kcal', label: 'Calories' }, { value: 'kJ', label: 'Kilojoules' }]} />
         <TextInput key={`fibre-${settings.fibreTargetG}`} label="Fibre a day (g)" type="number" inputMode="numeric" min="5" max="80" step="1" defaultValue={String(settings.fibreTargetG)}
           onBlur={(e) => { const v = Math.round(Number(e.target.value)); if (v >= 5 && v <= 80 && v !== settings.fibreTargetG) void setOwnTarget('fibre', v); }} help="25 to 30 g is the usual aim. More vegetables, fruit, oats, beans and wholegrains." />
@@ -143,6 +146,8 @@ export function FoodScreen() {
           : <TextInput key={target ?? 'none'} label={`Daily target (${energy === 'kJ' ? 'kJ' : 'Cal'}, optional)`} type="number" inputMode="numeric" min="0" step="1"
               defaultValue={target ? String(energy === 'kJ' ? Math.round(target * 4.184) : target) : ''}
               onBlur={(e) => { const v = Number(e.target.value); setSetting('energyTargetKcal', v > 0 ? Math.round(energy === 'kJ' ? v / 4.184 : v) : null); }} help="Your own number, or your dietitian's." />}
+        </div>
+        </details>
       </Card>
 
       {(() => {
@@ -165,7 +170,7 @@ export function FoodScreen() {
         );
       })()}
 
-      {logging && <LogFoodSheet personId={fam.personId} energy={energy} recipeUrl={shared} onClose={() => { setLogging(false); setShared(undefined); }} />}
+      {logging && <LogFoodSheet personId={fam.personId} energy={energy} recipeUrl={shared} start={logStart} onClose={() => { setLogging(false); setShared(undefined); setLogStart(undefined); }} />}
       {editing && <EditLogSheet log={editing} energy={energy} onClose={() => setEditing(null)} />}
       {recipe && <RecipeSheet recipe={recipe === 'new' ? undefined : recipe} foods={saved.filter((f) => f.kind !== 'recipe')} energy={energy} onClose={() => setRecipe(null)} />}
     </div>

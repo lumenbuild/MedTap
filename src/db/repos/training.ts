@@ -64,6 +64,13 @@ export async function setCoach(personId: string, plan: CoachPlan | undefined): P
   await db.people.put({ ...base, coach: plan, updatedAt: now });
   return p?.coach;
 }
+/** Set the person's year of birth and sex (either may be cleared). */
+export async function setAbout(personId: string, about: { birthYear?: number; sex?: 'm' | 'f'; heightCm?: number }) {
+  const now = nowIso();
+  const p = await db.people.get(personId);
+  const base = p ?? { id: personId, name: 'Me', createdAt: now, updatedAt: now };
+  await db.people.put({ ...base, ...about, updatedAt: now });
+}
 /** Set the person's height (cm), or clear it. */
 export async function setHeight(personId: string, heightCm: number | undefined) {
   const now = nowIso();

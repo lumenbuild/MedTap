@@ -96,6 +96,8 @@ export interface Person extends Stamped {
   coach?: CoachPlan;
   /** Height (cm), for waist-to-height and BMI. */
   heightCm?: number;
+  /** Year of birth and sex at birth, for fitness age, metabolic age and the sleep apnoea check (both optional). */
+  birthYear?: number; sex?: 'm' | 'f';
 }
 
 /** Training plan set-up: what it's for, how often and with what, and the programme being run (from when). */
@@ -287,6 +289,11 @@ export interface BodyEntry extends Stamped {
   armCm?: number; thighCm?: number; calfCm?: number; note?: string; deletedAt?: string; personId?: string;
   /** Body composition, from a smart scale or a scan (DEXA, InBody). */
   bodyFatPct?: number; leanKg?: number; muscleKg?: number; compSource?: 'scale' | 'dexa' | 'inbody' | 'other';
+  /** The rest of a smart scale's reading: bone mass, body water (kg) and basal metabolic rate (Cal a day). */
+  boneKg?: number; waterKg?: number; bmrKcal?: number;
+  /** The rest of a full smart-scale reading (Renpho and similar, from its export or a screenshot): body water %,
+   *  subcutaneous fat %, visceral fat (a 1–59 rating), skeletal muscle %, protein % and metabolic age (years). */
+  waterPct?: number; subcutFatPct?: number; visceralFat?: number; skeletalMusclePct?: number; proteinPct?: number; metabolicAge?: number;
 }
 /** A blood pressure and/or heart rate reading. */
 export interface Vital extends Stamped {

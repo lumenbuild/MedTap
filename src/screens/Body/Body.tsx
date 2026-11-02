@@ -4,6 +4,7 @@ import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useLabs, us
 import { MarkersCard } from '../../components/MarkersCard';
 import { MuscleCard } from '../../components/Biohack';
 import { BodyModelCards } from '../../components/BodyModel';
+import { ScaleCard } from '../../components/ScaleCard';
 import { medIsFor, personOf } from '../../db/repos/people';
 import { MuscleWatchCard } from '../../components/Fitness';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
@@ -75,7 +76,6 @@ export function Body() {
   const goals = fam.people.find((p) => p.id === fam.personId)?.goals ?? [];
   const latestOf = (k: (typeof MEASUREMENTS)[number]['key']) => entries.find((e) => e[k] !== undefined);
   const measured = MEASUREMENTS.map((m) => ({ ...m, entry: latestOf(m.key) })).filter((m) => m.entry);
-  const latestComp = entries.find((e) => e.bodyFatPct !== undefined || e.leanKg !== undefined || e.muscleKg !== undefined);
   const myMeds = meds.filter((m) => medIsFor(m, fam.personId));
   const peptideMeds = settings.peptideTools ? myMeds.filter((m) => m.peptide) : [];
   const peptide = peptideMeds.find((m) => !m.archived);
@@ -109,6 +109,7 @@ export function Body() {
         </>} />
       <WeeklyChangeChart entries={entries} units={units} goalKg={wGoal?.target} now={now} />
       <BodyModelCards units={units} />
+      <ScaleCard entries={entries} units={units} personId={fam.personId} age={(() => { const y = fam.people.find((p) => p.id === fam.personId)?.birthYear; return y ? new Date(now).getFullYear() - y : undefined; })()} />
 
       <GoalsSection personId={fam.personId} goals={[...goals].sort((a, b) => Number(b.metric === 'weightKg') - Number(a.metric === 'weightKg'))} entries={entries} units={units} now={now}
         chartFor={(g) => g.metric === 'weightKg' ? null : <GoalForecastCharts goals={[g]} entries={entries} units={units} now={now} />} />
@@ -117,13 +118,6 @@ export function Body() {
         empty={measured.length ? `None in the last ${days ?? 'few'} days. Latest: ${measured.map((m) => `${m.label.toLowerCase()} ${fmtLength(m.entry![m.key]!, units)} (${fmtYmd(m.entry!.date)})`).join(', ')}.`
           : 'Log any of waist, hips, chest, neck, upper arm, thigh or calf, and body fat or lean mass if you have them. Only the ones you want.'}
         actions={<>
-          {latestComp && (
-            <p className="text-[15px] tnum mb-3">
-              {[latestComp.bodyFatPct !== undefined ? `Body fat ${latestComp.bodyFatPct}%` : null, latestComp.leanKg !== undefined ? `lean ${fmtWeight(latestComp.leanKg, units)}` : null,
-                latestComp.muscleKg !== undefined ? `muscle ${fmtWeight(latestComp.muscleKg, units)}` : null].filter(Boolean).join(' · ')}
-              <span className="text-xs text-muted"> {fmtYmd(latestComp.date)}</span>
-            </p>
-          )}
           <Button variant="secondary" className="w-full" onClick={() => setSheet({ kind: 'measure' })}>Add measurements or body fat</Button>
         </>} />
 
@@ -166,3 +160,4 @@ export function Body() {
     </div>
   );
 }
+

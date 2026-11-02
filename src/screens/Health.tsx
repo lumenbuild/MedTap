@@ -3,7 +3,9 @@
 // calories in against out, activity, glucose, and what changed after starting each medicine.
 import { Brain, Droplet, Flame, Footprints, Mountain } from 'lucide-react';
 import type { DailyHealth, FoodLog } from '../db/schema';
-import { useCheckIns, useDaily, useDoses, useFamily, useMeds, useScheduleSettings, useWorkouts } from '../app/data';
+import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useMeds, useScheduleSettings, useVitals, useWorkouts } from '../app/data';
+import { apnoeaCheck, bodyClock, bpWithWeight, fitnessAge, rhrExplained, usualBands } from '../logic/healthChecks';
+import { ApnoeaCard, BodyClockCard, BpWeightCard, FitnessAgeCard, RhrCard, UsualBandsCard } from '../components/HealthChecks';
 import { useLive } from '../db/live';
 import { db } from '../db/db';
 import { useNow } from '../app/useNow';
@@ -25,13 +27,16 @@ const n0 = (v: number) => Math.round(v).toLocaleString('en-AU');
 
 function useMine() {
   const daily = useDaily(); const workouts = useWorkouts(); const fam = useFamily(); const ss = useScheduleSettings(); const checkIns = useCheckIns();
-  const meds = useMeds(); const doses = useDoses();
+  const meds = useMeds(); const doses = useDoses(); const body = useBodyEntries(); const vitals = useVitals();
   const foodLogs = useLive(() => db.foodLogs.toArray(), []);
-  if (!daily || !workouts || !fam || !ss || !checkIns || !meds || !doses || !foodLogs) return null;
+  if (!daily || !workouts || !fam || !ss || !checkIns || !meds || !doses || !foodLogs || !body || !vitals) return null;
+  const person = fam.people.find((p) => p.id === fam.personId);
   const me = <T extends { personId?: string; deletedAt?: string }>(x: T) => personOf(x) === fam.personId && !x.deletedAt;
   const myMeds = meds.filter((m) => medIsFor(m, fam.personId) && !m.archived);
   return { daily: daily.filter(me), workouts: workouts.filter(me), checkIns: checkIns.filter(me), foodLogs: foodLogs.filter(me) as FoodLog[], meds: myMeds,
-    doses: doses.filter((d) => !d.deletedAt && myMeds.some((m) => m.id === d.medicationId)), settings: ss[0], s: ss[1] };
+    doses: doses.filter((d) => !d.deletedAt && myMeds.some((m) => m.id === d.medicationId)), settings: ss[0], s: ss[1],
+    body: body.filter(me), vitals: vitals.filter(me), personId: fam.personId,
+    about: { heightCm: person?.heightCm, birthYear: person?.birthYear, sex: person?.sex }, goalKg: person?.goals?.find((g) => g.metric === 'weightKg')?.target };
 }
 
 export function Health() {
@@ -47,6 +52,16 @@ export function Health() {
   const vo2 = vo2Trend(d.daily, now);
   const effects = d.meds.map((m) => ({ m, e: medEffects(m, d.doses, d.daily, now) })).filter((x) => x.e && x.e.effects.length);
   const nothing = !r && !vitals && !load && !energy && !vo2;
+  // Cross-checks with the scale, blood pressure, medicines and check-ins.
+  const bands = usualBands({ daily: d.daily, body: d.body, vitals: d.vitals }, now);
+  const osa = apnoeaCheck({ daily: d.daily, body: d.body, vitals: d.vitals, checkIns: d.checkIns, meds: d.meds, about: d.about }, now);
+  const bp = bpWithWeight({ vitals: d.vitals, body: d.body, checkIns: d.checkIns, meds: d.meds }, now);
+  const fit = fitnessAge(d.daily, d.body, d.about, d.goalKg, now);
+  const hours = (t: number) => d.workouts.filter((w) => { const s = Date.parse(w.startedAt); return s <= t && s > t - 7 * DAY; })
+    .reduce((a, w) => a + (w.cardio?.durationMin ?? (w.endedAt ? (Date.parse(w.endedAt) - Date.parse(w.startedAt)) / 60_000 : 45)), 0) / 60;
+  const rhr = rhrExplained({ daily: d.daily, body: d.body, doses: d.doses, meds: d.meds, workoutsPerWeek: d.workouts.length ? hours : undefined }, now);
+  const clock = bodyClock(d.daily, d.checkIns, now);
+  const need = (...k: ('height' | 'birthYear' | 'sex')[]) => k.filter((x) => (x === 'height' ? !d.about.heightCm : x === 'birthYear' ? !d.about.birthYear : !d.about.sex));
   return (
     <div className="space-y-3 pb-8">
       {nothing && (
@@ -74,7 +89,14 @@ export function Health() {
       )}
       {ill && <IllnessCard ill={ill} />}
       <WorkingLink />
-      {vitals && <NightVitalsCard stats={vitals.stats} />}
+      {/* Last night's vitals live in "Against your usual" once there's enough history for a range. */}
+      {vitals && !bands.some((b) => ['hrvMs', 'restingHr', 'spo2Avg', 'respRate', 'skinTempDelta'].includes(b.key)) && <NightVitalsCard stats={vitals.stats} />}
+      <UsualBandsCard bands={bands} />
+      {bp && <BpWeightCard b={bp} />}
+      {osa && <ApnoeaCard a={osa} personId={d.personId} need={need('height', 'birthYear', 'sex')} />}
+      {fit && <FitnessAgeCard f={fit} personId={d.personId} need={need('birthYear', 'sex')} />}
+      {rhr && rhr.parts.length > 0 && <RhrCard r={rhr} />}
+      {clock && <BodyClockCard c={clock} />}
       {(load || vo2) && <LoadCard load={load} vo2={vo2} />}
       {energy && <EnergyCard e={energy} />}
       <ActivityCard daily={d.daily} now={now} s={d.s} />

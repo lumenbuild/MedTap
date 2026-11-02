@@ -44,9 +44,12 @@ export function macroLine(n: Nutrients, energy: EnergyUnit): string {
     n.carbs !== undefined ? `C ${fmtNutrient('carbs', n.carbs)}` : null, n.fat !== undefined ? `F ${fmtNutrient('fat', n.fat)}` : null].filter(Boolean).join(' · ') || 'No numbers';
 }
 
-export function LogFoodSheet({ personId, energy, onClose, recipeUrl }: { personId: string; energy: EnergyUnit; onClose: () => void; /** A recipe link shared to the app. */ recipeUrl?: string }) {
+export function LogFoodSheet({ personId, energy, onClose, recipeUrl, start }: {
+  personId: string; energy: EnergyUnit; onClose: () => void; /** A recipe link shared to the app. */ recipeUrl?: string;
+  /** Open straight at adding a recipe, or at how much of a saved food. */ start?: 'recipe' | Food;
+}) {
   const toast = useToast();
-  const [step, setStep] = useState<Step>(recipeUrl ? { s: 'recipe', url: recipeUrl } : { s: 'home' });
+  const [step, setStep] = useState<Step>(recipeUrl ? { s: 'recipe', url: recipeUrl } : start === 'recipe' ? { s: 'recipe' } : start ? { s: 'amount', food: start } : { s: 'home' });
   const [q, setQ] = useState('');
   const [typedCode, setTypedCode] = useState('');
   const barcodeInput = useRef<HTMLInputElement>(null);

@@ -32,6 +32,8 @@ export interface MedTapNativePlugin {
   /** Android opened the app on a page (e.g. Health Connect asking why the app reads health data). */
   addListener(event: 'route', fn: (e: { path: string }) => void): Promise<PluginListenerHandle>;
   addListener(event: 'shared', fn: (e: { text: string }) => void): Promise<PluginListenerHandle>;
+  /** A file shared to the app or opened with it: text (a CSV export) or an image (base64). */
+  addListener(event: 'sharedFile', fn: (e: { text?: string; image?: string; mime?: string }) => void): Promise<PluginListenerHandle>;
   /** Android: the watch sent a "log" tap (read them with takeWatchLogs), or a "set done" (takeWatchSets). */
   addListener(event: 'watchLog' | 'watchSet' | 'watchCheckIn', fn: () => void): Promise<PluginListenerHandle>;
 
@@ -84,6 +86,8 @@ export interface HealthData {
   /** Exercise sessions from a watch or app: type is run, walk, ride, swim, row, strength or other. Older app versions leave these out. */
   workouts?: { t: number; end: number; type: string; km?: number; title?: string; avgHr?: number; maxHr?: number; kcal?: number; hrMin?: (number | null)[]; kmh?: number; watts?: number; climbM?: number }[];
   bodyFat?: { t: number; pct: number }[]; lean?: { t: number; kg: number }[];
+  /** The rest of a smart scale's reading: bone mass, body water (kg) and basal metabolic rate (Cal a day). */
+  bone?: { t: number; kg: number }[]; water?: { t: number; kg: number }[]; bmr?: { t: number; kcal: number }[];
 }
 
 export const isNative = Capacitor.isNativePlatform();

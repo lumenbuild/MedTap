@@ -1,7 +1,8 @@
 // Daily predictions: the one change that would move things most this week, tonight's sleep (and so tomorrow's
 // readiness) from today so far, foods that close the protein gap, and signs of running dry. From the person's own
 // records; population figures only where there isn't enough of theirs. Never about medicine timing or doses. Pure.
-import type { CheckIn, DailyHealth, Dose, Food, FoodLog, Medication } from '../db/schema';
+import type { BodyEntry, CheckIn, DailyHealth, Dose, Food, FoodLog, Medication } from '../db/schema';
+import { scaleWaterDrop } from './healthChecks';
 import type { ScheduleSettings } from './schedule';
 import { getDayBounds } from './schedule';
 import { dayKey } from './stats';
@@ -104,7 +105,7 @@ export interface Hydration { signs: string[]; urgent: boolean }
 
 /** Body signs (resting heart rate up 5+, weight down 1%+ overnight, vomiting or diarrhoea) with what raises the risk
  *  (a GLP-1 shot in the last 2 days, little water logged by the afternoon): at least one sign and two in all. */
-export function hydrationWatch(d: { daily: DailyHealth[]; body: { date: string; weightKg?: number; deletedAt?: string }[]; checkIns: CheckIn[]; doses: Dose[]; meds: Medication[] }, waterTarget: number | null, now: number, s: ScheduleSettings): Hydration | null {
+export function hydrationWatch(d: { daily: DailyHealth[]; body: { date: string; weightKg?: number; waterPct?: number; waterKg?: number; deletedAt?: string }[]; checkIns: CheckIn[]; doses: Dose[]; meds: Medication[] }, waterTarget: number | null, now: number, s: ScheduleSettings): Hydration | null {
   const today = dayKey(now, s), yest = ymdOf(ms(today) - DAY);
   const row = d.daily.find((x) => live(x) && x.date === today);
   const usualRhr = d.daily.filter((x) => live(x) && x.restingHr && x.date < today && ms(x.date) > now - 21 * DAY).map((x) => x.restingHr!);
@@ -113,6 +114,8 @@ export function hydrationWatch(d: { daily: DailyHealth[]; body: { date: string; 
   const w = (k: string) => d.body.find((b) => live(b) && b.date === k && typeof b.weightKg === 'number')?.weightKg;
   const wt = w(today), wy = w(yest);
   if (wt && wy && (wy - wt) / wy >= 0.01) body.push(`${Math.round((wy - wt) * 10) / 10} kg lighter than yesterday`);
+  const dry = scaleWaterDrop(d.body as BodyEntry[], today);
+  if (dry) body.push(dry);
   const gi = d.checkIns.some((c) => live(c) && Date.parse(c.at) > now - DAY && c.chips.some((x) => /vomit|diarrh/i.test(x)));
   if (gi) body.push('vomiting or diarrhoea');
   const glp = new Set(d.meds.filter((m) => !m.archived && inGroup(m, 'glp1')).map((m) => m.id));

@@ -1,6 +1,7 @@
 // Native app (iOS/Android) only: tag taps that open the app, links, and dose reminder notifications.
 import { extractUrl } from '../logic/recipeImport';
 import { requestRecipe } from './shareInbox';
+import { onSharedFile } from './scale';
 import { App as CapApp } from '@capacitor/app';
 import { LocalNotifications, type ActionPerformed } from '@capacitor/local-notifications';
 import { liveQuery } from 'dexie';
@@ -85,6 +86,11 @@ export async function initNative() {
   await MedTapNative.addListener('route', (e) => { if (e.path === '/checkin') { go('/today'); requestCheckIn(); } else go(e.path); });
   // A recipe link shared to the app: open Food and import it.
   await MedTapNative.addListener('shared', (e) => { const url = extractUrl(e.text); if (url) { go('/food'); requestRecipe(url); } });
+  // A scale app's export or a screenshot of a reading, shared to the app or opened with it.
+  if (HAS_BODY) await MedTapNative.addListener('sharedFile', (e) => { void (async () => {
+    const s = await getSettings();
+    await onSharedFile(e, s.activePersonId, HAS_PEPTIDES ? '/progress/body' : '/body', go);
+  })(); });
   if (isNativeAndroid) {
     await MedTapNative.addListener('watchLog', () => { void logWatchTaps(); }); void logWatchTaps();
     await MedTapNative.addListener('watchCheckIn', () => { void logWatchCheckIns(); }); void logWatchCheckIns();

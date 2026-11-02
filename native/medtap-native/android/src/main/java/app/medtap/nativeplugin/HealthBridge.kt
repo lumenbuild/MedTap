@@ -24,6 +24,9 @@ import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import androidx.health.connect.client.records.Vo2MaxRecord
 import androidx.health.connect.client.records.BloodPressureRecord
 import androidx.health.connect.client.records.BodyFatRecord
+import androidx.health.connect.client.records.BasalMetabolicRateRecord
+import androidx.health.connect.client.records.BodyWaterMassRecord
+import androidx.health.connect.client.records.BoneMassRecord
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
@@ -66,6 +69,10 @@ object HealthBridge {
         HealthPermission.getReadPermission(DistanceRecord::class),
         HealthPermission.getReadPermission(BodyFatRecord::class),
         HealthPermission.getReadPermission(LeanBodyMassRecord::class),
+        // The rest of a smart scale's reading (Renpho, Withings, Eufy… write these to Health Connect).
+        HealthPermission.getReadPermission(BoneMassRecord::class),
+        HealthPermission.getReadPermission(BodyWaterMassRecord::class),
+        HealthPermission.getReadPermission(BasalMetabolicRateRecord::class),
         HealthPermission.getReadPermission(HeartRateVariabilityRmssdRecord::class),
         HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
         // Overnight vitals, fitness and energy, and what other apps log (water, food, glucose).
@@ -423,8 +430,14 @@ object HealthBridge {
                 if (has(BodyFatRecord::class)) for (r in readAll(client, BodyFatRecord::class, range)) bodyFat.put(JSONObject().put("t", r.time.toEpochMilli()).put("pct", r.percentage.value))
                 val lean = JSONArray()
                 if (has(LeanBodyMassRecord::class)) for (r in readAll(client, LeanBodyMassRecord::class, range)) lean.put(JSONObject().put("t", r.time.toEpochMilli()).put("kg", r.mass.inKilograms))
+                val bone = JSONArray()
+                if (has(BoneMassRecord::class)) for (r in readAll(client, BoneMassRecord::class, range)) bone.put(JSONObject().put("t", r.time.toEpochMilli()).put("kg", r.mass.inKilograms))
+                val water = JSONArray()
+                if (has(BodyWaterMassRecord::class)) for (r in readAll(client, BodyWaterMassRecord::class, range)) water.put(JSONObject().put("t", r.time.toEpochMilli()).put("kg", r.mass.inKilograms))
+                val bmr = JSONArray()
+                if (has(BasalMetabolicRateRecord::class)) for (r in readAll(client, BasalMetabolicRateRecord::class, range)) bmr.put(JSONObject().put("t", r.time.toEpochMilli()).put("kcal", r.basalMetabolicRate.inKilocaloriesPerDay))
                 val out = JSONObject().put("days", JSONArray(days.values.toList())).put("weights", weights).put("bp", bp)
-                    .put("workouts", workouts).put("bodyFat", bodyFat).put("lean", lean)
+                    .put("workouts", workouts).put("bodyFat", bodyFat).put("lean", lean).put("bone", bone).put("water", water).put("bmr", bmr)
                 cb.done(out.toString(), null)
             } catch (e: Exception) { cb.done(null, e.message ?: "error") }
         }
