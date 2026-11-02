@@ -111,15 +111,37 @@ public class MedTapNativePlugin extends Plugin implements NfcAdapter.ReaderCallb
     /** A tag tapped while the app was closed or in the background, or a shortcut/widget log request. */
     private void handleLaunchIntent(Intent intent) {
         // A link shared to the app (Share > MedTap from a recipe page): hand the text to the app.
-        if (intent != null && Intent.ACTION_SEND.equals(intent.getAction()) && "text/plain".equals(intent.getType())) {
+        if (intent != null && Intent.ACTION_SEND.equals(intent.getAction()) && "text/plain".equals(intent.getType()) && intent.getStringExtra(Intent.EXTRA_TEXT) != null) {
             String text = intent.getStringExtra(Intent.EXTRA_TEXT);
             intent.setAction(Intent.ACTION_MAIN); // handled; don't repeat if the activity is recreated
-            if (text != null) {
-                JSObject o = new JSObject();
-                o.put("text", text);
-                notifyListeners("shared", o, true);
-            }
+            JSObject o = new JSObject();
+            o.put("text", text);
+            notifyListeners("shared", o, true);
             return;
+        }
+        // A file shared to the app or opened with it: a scale app's export (CSV) or a screenshot of a reading.
+        if (intent != null && intent.getType() != null && (Intent.ACTION_SEND.equals(intent.getAction()) || Intent.ACTION_VIEW.equals(intent.getAction()))) {
+            String type = intent.getType();
+            @SuppressWarnings("deprecation")
+            Uri uri = Intent.ACTION_SEND.equals(intent.getAction()) ? (Uri) intent.getParcelableExtra(Intent.EXTRA_STREAM) : intent.getData();
+            boolean image = type.startsWith("image/");
+            boolean text = type.startsWith("text/") || type.contains("csv") || "application/octet-stream".equals(type);
+            if (uri != null && (image || text)) {
+                intent.setAction(Intent.ACTION_MAIN);
+                try (java.io.InputStream in = getContext().getContentResolver().openInputStream(uri)) {
+                    if (in == null) return;
+                    java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream();
+                    byte[] chunk = new byte[65536]; int n; int total = 0;
+                    while ((n = in.read(chunk)) > 0 && total < 16 * 1024 * 1024) { buf.write(chunk, 0, n); total += n; }
+                    JSObject o = new JSObject();
+                    if (image) { o.put("image", android.util.Base64.encodeToString(buf.toByteArray(), android.util.Base64.NO_WRAP)); o.put("mime", type); }
+                    else o.put("text", new String(buf.toByteArray(), java.nio.charset.StandardCharsets.UTF_8));
+                    notifyListeners("sharedFile", o, true);
+                } catch (Exception e) {
+                    android.util.Log.w("MedTapNative", "shared file", e);
+                }
+                return;
+            }
         }
         if (intent != null && intent.hasExtra(LOG_EXTRA)) {
             JSObject o = new JSObject();
