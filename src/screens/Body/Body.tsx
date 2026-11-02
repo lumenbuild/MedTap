@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import type { BodyEntry } from '../../db/schema';
+import type { Units } from '../../db/repos/settings';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useLabs, useMedEvents, useMeds, useScheduleSettings, useVitals, useWorkouts } from '../../app/data';
 import { MarkersCard } from '../../components/MarkersCard';
@@ -75,7 +77,7 @@ export function Body() {
   const goals = fam.people.find((p) => p.id === fam.personId)?.goals ?? [];
   const latestOf = (k: (typeof MEASUREMENTS)[number]['key']) => entries.find((e) => e[k] !== undefined);
   const measured = MEASUREMENTS.map((m) => ({ ...m, entry: latestOf(m.key) })).filter((m) => m.entry);
-  const latestComp = entries.find((e) => e.bodyFatPct !== undefined || e.leanKg !== undefined || e.muscleKg !== undefined);
+  const latestComp = entries.find((e) => e.bodyFatPct !== undefined || e.leanKg !== undefined || e.muscleKg !== undefined || e.boneKg !== undefined || e.waterKg !== undefined || e.bmrKcal !== undefined);
   const myMeds = meds.filter((m) => medIsFor(m, fam.personId));
   const peptideMeds = settings.peptideTools ? myMeds.filter((m) => m.peptide) : [];
   const peptide = peptideMeds.find((m) => !m.archived);
@@ -117,13 +119,7 @@ export function Body() {
         empty={measured.length ? `None in the last ${days ?? 'few'} days. Latest: ${measured.map((m) => `${m.label.toLowerCase()} ${fmtLength(m.entry![m.key]!, units)} (${fmtYmd(m.entry!.date)})`).join(', ')}.`
           : 'Log any of waist, hips, chest, neck, upper arm, thigh or calf, and body fat or lean mass if you have them. Only the ones you want.'}
         actions={<>
-          {latestComp && (
-            <p className="text-[15px] tnum mb-3">
-              {[latestComp.bodyFatPct !== undefined ? `Body fat ${latestComp.bodyFatPct}%` : null, latestComp.leanKg !== undefined ? `lean ${fmtWeight(latestComp.leanKg, units)}` : null,
-                latestComp.muscleKg !== undefined ? `muscle ${fmtWeight(latestComp.muscleKg, units)}` : null].filter(Boolean).join(' · ')}
-              <span className="text-xs text-muted"> {fmtYmd(latestComp.date)}</span>
-            </p>
-          )}
+          {latestComp && <ScaleReading e={latestComp} units={units} />}
           <Button variant="secondary" className="w-full" onClick={() => setSheet({ kind: 'measure' })}>Add measurements or body fat</Button>
         </>} />
 
@@ -163,6 +159,27 @@ export function Body() {
       )}
 
       <BodySheet state={sheet} onClose={() => setSheet(null)} units={units} personId={fam.personId} />
+    </div>
+  );
+}
+
+/** The latest smart-scale (or scan) reading as tiles: body fat, lean, muscle, bone, water and BMR, whichever it gave. */
+function ScaleReading({ e, units }: { e: BodyEntry; units: Units }) {
+  const water = e.waterKg !== undefined && e.weightKg ? Math.round((e.waterKg / e.weightKg) * 1000) / 10 : undefined;
+  const tiles = [
+    e.bodyFatPct !== undefined && ['Body fat', `${e.bodyFatPct}%`],
+    e.leanKg !== undefined && ['Lean mass', fmtWeight(e.leanKg, units)],
+    e.muscleKg !== undefined && ['Muscle', fmtWeight(e.muscleKg, units)],
+    e.boneKg !== undefined && ['Bone', fmtWeight(e.boneKg, units)],
+    (water !== undefined || e.waterKg !== undefined) && ['Body water', water !== undefined ? `${water}%` : fmtWeight(e.waterKg!, units)],
+    e.bmrKcal !== undefined && ['BMR', `${e.bmrKcal.toLocaleString('en-AU')} Cal`],
+  ].filter(Boolean) as [string, string][];
+  return (
+    <div className="mb-3">
+      <p className="text-[13px] text-muted mb-1.5">Latest reading · {fmtYmd(e.date)}{e.compSource === 'scale' ? ' · from your scale' : ''}</p>
+      <ul className="grid grid-cols-3 gap-1.5">
+        {tiles.map(([l, v]) => <li key={l} className="rounded-btn bg-surface-2 px-2 py-2 text-center"><p className="text-[17px] font-semibold tnum leading-tight">{v}</p><p className="text-[12px] text-muted">{l}</p></li>)}
+      </ul>
     </div>
   );
 }

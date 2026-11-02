@@ -61,7 +61,7 @@ export default function HealthCard({ on, last, personId, personName, now }: { on
           {noAccess && <p className="text-[15px]">Nothing is allowed at the moment, so nothing comes in. Allow it in {name} settings.</p>}
           {!noAccess && status.asked !== undefined && status.granted.length < status.asked && (
             <div className="rounded-btn bg-primary-soft p-3 space-y-2">
-              <p className="text-[15px]">More from your watch can come in: blood oxygen, breathing rate, skin temperature, fitness, calories, water and food from other apps, glucose and your full history.</p>
+              <p className="text-[15px]">More from your watch can come in: blood oxygen, breathing rate, skin temperature, fitness, calories, water and food from other apps, glucose, your smart scale's bone, body water and BMR, and your full history.</p>
               <Button disabled={busy} onClick={() => run(async () => { const r = await connectHealth(personId); toast(said(r.imported)); await refresh(); })}>Allow more data</Button>
             </div>
           )}

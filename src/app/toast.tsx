@@ -18,6 +18,12 @@ export function ToastProvider({ children, raised }: { children: ReactNode; raise
     timer.current = setTimeout(() => setToast((cur) => (cur?.id === t.id ? null : cur)), opts.duration ?? (opts.onAction ? 10_000 : 4_000));
   }, []);
   useEffect(() => () => clearTimeout(timer.current), []);
+  // Notices from outside React (a weigh-in arriving from Health Connect).
+  useEffect(() => {
+    const on = (e: Event) => { const m = (e as CustomEvent<string>).detail; if (typeof m === 'string') show(m, { duration: 6000 }); };
+    window.addEventListener('medtap-toast', on);
+    return () => window.removeEventListener('medtap-toast', on);
+  }, [show]);
 
   return (
     <Ctx.Provider value={show}>

@@ -99,7 +99,7 @@ function title(r: Route, peptides = HAS_PEPTIDES): string {
   }
 }
 
-function backTo(r: Route, protocol: boolean): string | undefined {
+function backTo(r: Route, protocol: boolean, foodTab = false): string | undefined {
   switch (r.name) {
     case 'protocolReport': return '#/meds';
     case 'workout': case 'exercise': case 'routines': return '#/training';
@@ -107,7 +107,7 @@ function backTo(r: Route, protocol: boolean): string | undefined {
     case 'travel': return '#/meds';
     case 'tags': return HAS_MEDS ? '#/meds' : '#/settings';
     case 'appointmentSummary': return '#/appointments';
-    case 'food': return FOCUS === 'weight' ? undefined : '#/today'; // a tab in TapWeigh
+    case 'food': return FOCUS === 'weight' || foodTab ? undefined : '#/today'; // a tab in TapWeigh, and in MedTap when food is on
     case 'caffeine': return '#/today';
     case 'labs': return HAS_VISITS ? '#/appointments' : protocol ? '#/progress' : '#/trends';
     case 'settings': return r.section ? '#/settings' : '#/today';
@@ -180,7 +180,9 @@ export function App() {
   // Peptide tools on (MedTap): the tabs are Today, Protocol, Progress (Trends and Body together) and Meds.
   const protocol = STACK;
   const training = HAS_TRAINING && !!settings?.trainingTools;
-  const back = backTo(r, protocol);
+  // Food: its own tab in MedTap when food logging is on.
+  const foodTab = STACK && HAS_FOOD && !!settings?.foodTracking;
+  const back = backTo(r, protocol, foodTab);
   const now = useNow(60_000);
   const showTabs = !back && r.name !== 'tag';
   // A medicine's page is titled with its name.
@@ -229,7 +231,7 @@ export function App() {
                 </header>
               ))}
               <main><Screen r={r} /></main>
-              {showTabs && <TabBar route={'/' + r.name} stack={STACK} training={training} sleep={sleepTab} health={healthTab} />}
+              {showTabs && <TabBar route={'/' + r.name} stack={STACK} training={training} sleep={sleepTab} health={healthTab} food={foodTab} />}
             </>
           )}
           <UpdatePrompt />

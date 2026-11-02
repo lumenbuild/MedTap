@@ -287,6 +287,8 @@ export interface BodyEntry extends Stamped {
   armCm?: number; thighCm?: number; calfCm?: number; note?: string; deletedAt?: string; personId?: string;
   /** Body composition, from a smart scale or a scan (DEXA, InBody). */
   bodyFatPct?: number; leanKg?: number; muscleKg?: number; compSource?: 'scale' | 'dexa' | 'inbody' | 'other';
+  /** The rest of a smart scale's reading: bone mass, body water (kg) and basal metabolic rate (Cal a day). */
+  boneKg?: number; waterKg?: number; bmrKcal?: number;
 }
 /** A blood pressure and/or heart rate reading. */
 export interface Vital extends Stamped {

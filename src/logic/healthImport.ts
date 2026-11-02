@@ -9,7 +9,9 @@ import type { HealthData } from '../nfc/native';
 
 export interface HealthPlan {
   daily: DailyHealth[]; body: { date: string; kg: number }[]; vitals: { at: string; systolic: number; diastolic: number }[];
-  comp: { date: string; bodyFatPct?: number; leanKg?: number }[];
+  comp: { date: string; bodyFatPct?: number; leanKg?: number; boneKg?: number; waterKg?: number; bmrKcal?: number }[];
+  /** The newest weigh-in brought in this time, for a notice ("Weigh-in from your scale: 116.2 kg"). */
+  newest?: { date: string; kg: number; bodyFatPct?: number };
   cardio: { at: string; activity: CardioActivity; durationMin: number; distanceKm?: number; title?: string; avgHr?: number; maxHr?: number; kcal?: number }[];
   /** Workouts already here that the watch adds heart rate and calories to. */
   enrich: { id: string; cardio?: Partial<CardioEntry>; watch?: Workout['watch'] }[];
@@ -67,15 +69,21 @@ export function planHealthImport(data: HealthData, existing: { daily: DailyHealt
     for (const x of list ?? []) { const k = ymdIn(x.t, tz); if (!m.has(k) || m.get(k)!.t < x.t) m.set(k, x); }
     return m;
   };
-  const fat = latest(data.bodyFat), lean = latest(data.lean);
+  const fat = latest(data.bodyFat), lean = latest(data.lean), bone = latest(data.bone), water = latest(data.water), bmr = latest(data.bmr);
   const comp: HealthPlan['comp'] = [];
-  for (const date of new Set([...fat.keys(), ...lean.keys()])) {
+  const r1 = (v: number) => Math.round(v * 10) / 10;
+  for (const date of new Set([...fat.keys(), ...lean.keys(), ...bone.keys(), ...water.keys(), ...bmr.keys()])) {
     const e = existing.body.find((b) => mine(b) && b.date === date);
     const row: HealthPlan['comp'][number] = { date };
-    if (fat.has(date) && e?.bodyFatPct === undefined) row.bodyFatPct = Math.round(fat.get(date)!.pct * 10) / 10;
-    if (lean.has(date) && e?.leanKg === undefined) row.leanKg = Math.round(lean.get(date)!.kg * 10) / 10;
-    if (row.bodyFatPct !== undefined || row.leanKg !== undefined) comp.push(row);
+    if (fat.has(date) && e?.bodyFatPct === undefined) row.bodyFatPct = r1(fat.get(date)!.pct);
+    if (lean.has(date) && e?.leanKg === undefined) row.leanKg = r1(lean.get(date)!.kg);
+    if (bone.has(date) && e?.boneKg === undefined) row.boneKg = r1(bone.get(date)!.kg);
+    if (water.has(date) && e?.waterKg === undefined) row.waterKg = r1(water.get(date)!.kg);
+    if (bmr.has(date) && e?.bmrKcal === undefined) row.bmrKcal = Math.round(bmr.get(date)!.kcal);
+    if (Object.keys(row).length > 1) comp.push(row);
   }
+  const last = [...body].sort((a, b) => a.date.localeCompare(b.date)).at(-1);
+  const newest = last ? { ...last, bodyFatPct: comp.find((c) => c.date === last.date)?.bodyFatPct } : undefined;
   // Workouts. Skips any already there within 5 minutes, deleted ones included, so a deleted one stays deleted; one
   // imported before without heart rate gets it now.
   const sameOwner = (r: { personId?: string }) => (r.personId ?? undefined) === personId;
@@ -107,5 +115,5 @@ export function planHealthImport(data: HealthData, existing: { daily: DailyHealt
     const title = w.title?.trim() || (activity === 'other' ? LABEL[w.type] ?? 'Workout' : undefined);
     cardio.push({ at: new Date(w.t).toISOString(), activity, durationMin, ...(w.km && w.km > 0.05 ? { distanceKm: Math.round(w.km * 100) / 100 } : {}), ...(title ? { title } : {}), ...stats, ...extra });
   }
-  return { daily, body, vitals, comp, cardio, enrich };
+  return { newest, daily, body, vitals, comp, cardio, enrich };
 }

@@ -84,6 +84,8 @@ export interface HealthData {
   /** Exercise sessions from a watch or app: type is run, walk, ride, swim, row, strength or other. Older app versions leave these out. */
   workouts?: { t: number; end: number; type: string; km?: number; title?: string; avgHr?: number; maxHr?: number; kcal?: number; hrMin?: (number | null)[]; kmh?: number; watts?: number; climbM?: number }[];
   bodyFat?: { t: number; pct: number }[]; lean?: { t: number; kg: number }[];
+  /** The rest of a smart scale's reading: bone mass, body water (kg) and basal metabolic rate (Cal a day). */
+  bone?: { t: number; kg: number }[]; water?: { t: number; kg: number }[]; bmr?: { t: number; kcal: number }[];
 }
 
 export const isNative = Capacitor.isNativePlatform();
