@@ -8,7 +8,10 @@ import { Barcode, Plus, Star, Trash2 } from 'lucide-react';
 import type { BodyEntry, Food, FoodLog, Nutrients } from '../db/schema';
 import { useLive } from '../db/live';
 import { db } from '../db/db';
-import { useBodyEntries, useDaily, useFamily, useSettings } from '../app/data';
+import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useMeds, useSettings } from '../app/data';
+import { cravingForecast, hungerWeek, shortNightEating } from '../logic/aheadSmarts';
+import { CravingCard, HungerWeekCard, ShortNightBanner } from '../components/AheadCards';
+import { medIsFor } from '../db/repos/people';
 import { eatingPatterns, WHY_LABEL } from '../logic/eating';
 import { updateCalorieTarget } from '../app/maintenance';
 import { calorieTarget, expenditure } from '../logic/energy';
@@ -47,6 +50,7 @@ export function FoodScreen() {
   const foods = useLive(() => db.foods.toArray(), []);
   const body = useBodyEntries();
   const daily = useDaily();
+  const checkIns = useCheckIns(); const doses = useDoses(); const meds = useMeds();
   const [back, setBack] = useState(0);
   const [logging, setLogging] = useState(false);
   const [logStart, setLogStart] = useState<'recipe' | Food | undefined>(undefined);
@@ -68,6 +72,15 @@ export function FoodScreen() {
   const recipes = saved.filter((f) => f.kind === 'recipe');
   const others = saved.filter((f) => f.kind !== 'recipe');
   const usual = usualFoods(mine, saved, now);
+  const ss = scheduleSettings(settings);
+  const myDaily = (daily ?? []).filter((d) => personOf(d) === fam.personId);
+  const myCis = (checkIns ?? []).filter((c) => personOf(c) === fam.personId);
+  const myMeds = (meds ?? []).filter((m) => medIsFor(m, fam.personId));
+  const hunger = back === 0 ? hungerWeek({ checkIns: myCis, foodLogs: mine, doses: doses ?? [], meds: myMeds }, now, ss) : null;
+  const night = back === 0 ? shortNightEating({ daily: myDaily, foodLogs: mine }, now, ss) : null;
+  const craving = back === 0 ? cravingForecast({ checkIns: myCis, foodLogs: mine }, now) : null;
+  const proteinPicks = saved.filter((f) => (f.nutrients.protein ?? 0) >= 15 && (f.nutrients.kcal ?? 0) > 0)
+    .sort((a, b) => b.nutrients.protein! / b.nutrients.kcal! - a.nutrients.protein! / a.nutrients.kcal!).slice(0, 3).map((f) => f.name);
   const gap = back === 0 ? proteinGap(tot.protein ?? 0, settings.proteinTargetG, tot.kcal ?? 0, settings.energyTargetKcal, saved, now, scheduleSettings(settings)) : null;
   const label = back === 0 ? 'Today' : back === 1 ? 'Yesterday' : fmtDay(day.getTime(), now);
   const target = settings.energyTargetKcal;
@@ -77,6 +90,7 @@ export function FoodScreen() {
       <DayHero label={label} tot={tot} target={target} proteinTarget={settings.proteinTargetG} fibreTarget={settings.fibreTargetG} energy={energy}
         onPrev={() => setBack(back + 1)} onNext={() => setBack(back - 1)} canNext={back > 0} />
       <Button className="w-full min-h-[56px] flex items-center justify-center gap-2" onClick={() => openLog()}><Plus size={20} aria-hidden="true" /> Log food</Button>
+      {night?.lastNightShort && <ShortNightBanner n={night} />}
       {back === 0 && <UsualCard usual={usual} energy={energy} personId={fam.personId} />}
       {gap && <ProteinGapCard g={gap} foods={saved} energy={energy} personId={fam.personId} />}
 
@@ -109,6 +123,8 @@ export function FoodScreen() {
         return e ? <EnergyCard e={e} /> : null;
       })()}
 
+      {hunger && <HungerWeekCard h={hunger} proteinPicks={proteinPicks} />}
+      {craving && <CravingCard c={craving} />}
       <WeekCard logs={mine} target={target} proteinTarget={settings.proteinTargetG} energy={energy} now={now} />
       <RecipesCard recipes={recipes} energy={energy} onLog={(f) => openLog(f)} onEdit={(f) => setRecipe(f)} onAdd={() => openLog('recipe')} onNewBatch={() => setRecipe('new')} />
 

@@ -19,6 +19,7 @@ import { medEffects } from './medEffects';
 import { costsOf, lower, MEANINGFUL, OUTCOMES, selfTestable, shortActing, type Outcome, type ProposedExperiment, type VerdictData } from './verdict';
 import { bedtimeOf, caffeineDays, findCutoff, intakesOf } from './caffeine';
 import { fmtTime } from './format';
+import { cravingForecast, fmtHour, muscleWarning, plateauAhead, shortNightEating } from './aheadSmarts';
 
 const DAY = 86_400_000;
 const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
@@ -135,7 +136,7 @@ function phi(z: number) { const t = 1 / (1 + 0.2316419 * z); const d = 0.3989423
 
 // ── Today's calls ───────────────────────────────────────────────────────────────────────────────────
 
-export interface Call { key: 'train' | 'caffeine' | 'second-dose' | 'food' | 'protein' | 'sleep' | 'lever' | 'weight'; title: string; detail: string; tone: 'go' | 'easy' | 'stop' | 'info' }
+export interface Call { key: 'train' | 'caffeine' | 'second-dose' | 'food' | 'protein' | 'sleep' | 'lever' | 'weight' | 'ahead'; title: string; detail: string; tone: 'go' | 'easy' | 'stop' | 'info' }
 
 export interface CallSettings { bedtime: string; caffeineCutoff: string | null; caffeineHalfLifeH: number; energyTargetKcal: number | null; proteinTargetG: number | null; lossRateKgWeek: number;
   sleepTargetH?: number; waterTargetMl?: number | null }
@@ -202,6 +203,14 @@ export function todaysCalls(d: AllData, now: number, s: ScheduleSettings, st: Ca
     const f = now - start >= 12 * 3_600_000 ? sleepForecast({ daily: d.daily, checkIns: d.checkIns, foodLogs: d.foodLogs, doses: d.doses, meds: d.meds, bedtime: st.bedtime, halfLifeH: st.caffeineHalfLifeH }, now, s) : null;
     if (f && f.reasons.length) out.push({ key: 'sleep', title: `Tonight: about ${fmtSleep(f.minutes)} of sleep`, tone: f.lowTomorrow ? 'easy' : 'info',
       detail: `Usually ${fmtSleep(f.usual)}; ${f.reasons.map((r) => `${r.text} (${fmtSleep(-r.min)} less for you)`).join(', ')}.${f.tip ? ` ${f.tip}` : ''}${f.lowTomorrow ? " Tomorrow's readiness is likely lower: a lighter session suits." : ''}` });
+  }
+  // Looking ahead today: a short night's eating, and when cravings hit.
+  {
+    const night = shortNightEating({ daily: d.daily, foodLogs: d.foodLogs }, now, s);
+    if (night?.lastNightShort) out.push({ key: 'ahead', tone: 'easy', title: `Short night: you usually eat about ${night.extra} Cal more today`, detail: 'Protein and fibre early, snacks out of reach, and an early night resets it.' });
+    // (Appetite across the shot week is in "Your day" on Today already, and charted on Food.)
+    const cf = cravingForecast({ checkIns: d.checkIns, foodLogs: d.foodLogs }, now);
+    if (cf?.today && cf.today.hour + 2 > new Date(now).getHours()) out.push({ key: 'ahead', tone: 'info', title: `Cravings usually hit around ${fmtHour(cf.today.hour)}`, detail: 'A planned protein snack half an hour before takes the edge off.' });
   }
   // The biggest lever this week.
   {
@@ -270,6 +279,14 @@ export function earlyWarnings(d: AllData, now: number, s: ScheduleSettings, wate
     const fx = medEffects(m, d.doses, d.daily, now);
     const rhr = fx?.effects.find((e) => e.key === 'restingHr' && e.diff >= 5);
     if (rhr) out.push({ key: `rhr-${m.id}`, title: `Resting heart rate up since ${m.nickname?.trim() || m.name}`, detail: `${rhr.before} → ${rhr.after} bpm.`, action: 'Worth mentioning at your next appointment.' });
+  }
+  // A stall on its way, and muscle going faster than it should.
+  {
+    const tr = weightTrend({ body: d.body, foodLogs: d.foodLogs, workouts: d.workouts, checkIns: d.checkIns, daily: d.daily, doses: d.doses, meds: d.meds }, now);
+    const p = plateauAhead({ trend: tr, daily: d.daily, foodLogs: d.foodLogs }, now, s);
+    if (p?.level === 'high') out.push({ key: 'plateau', title: 'A stall is likely in the next week or two', detail: `${p.reasons.join('; ').replace(/^./, (c) => c.toUpperCase())}.`, action: p.fixes.length ? `${p.fixes.join(', and ').replace(/^./, (c) => c.toUpperCase())}.` : 'Details in Body.' });
+    const m = muscleWarning({ body: d.body, daily: d.daily, workouts: d.workouts, proteinTarget: null }, now);
+    if (m) out.push({ key: 'muscle', title: 'Muscle going faster than it should', detail: `About ${Math.round(m.share * 100)}% of the last ${m.kgLost} kg lost was lean mass (about ${Math.round(m.expected * 100)}% expected).`, action: `${m.fixes.join(', ').replace(/^./, (c) => c.toUpperCase()) || 'Strength sessions and protein'} protect it.` });
   }
   return out;
 }

@@ -90,6 +90,7 @@ export function BpWeightCard({ b }: { b: BpWeight }) {
       <H id="bpw-h" Icon={HeartPulse}>Blood pressure and your weight</H>
       <p className="text-[24px] font-bold tnum">{b.sysNow}/{b.diaNow} <span className="text-[13px] font-normal text-muted">lately{b.sysThen !== undefined ? `, from about ${b.sysThen} at the start` : ''}</span></p>
       {b.perKg !== undefined && <p className="text-[15px]">In your readings, each kg lost goes with about <strong>{b.perKg} mmHg</strong> lower on top{b.kgLost ? ` (${b.kgLost} kg so far)` : ''}.</p>}
+      {b.reviewBy && <p className="text-[15px] rounded-btn bg-surface-2 p-3">Falling steadily: at this rate your readings reach about 110 around <strong>{format(b.reviewBy, 'd MMM')}</strong>. Worth booking a review of your blood pressure tablets with your prescriber before then.</p>}
       {b.lowOnTablets && (
         <p className="text-[15px] rounded-btn bg-caution-soft p-3">Worth mentioning to your prescriber: {b.lowOnTablets.join(', ')}, while on blood pressure tablets. Weight loss and GLP-1 medicines often lower blood pressure; any change to the tablets is theirs to make.</p>
       )}

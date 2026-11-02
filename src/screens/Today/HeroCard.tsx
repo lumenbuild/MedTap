@@ -63,6 +63,10 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer, pe
     big = 'Any time'; sub = last ? `Last ${fmtWhen(Date.parse(last.takenAt), now)}` : 'No doses yet';
   }
 
+  // Nothing to take right now (done for today, later today, not today): a smaller card, and logging a dose is still
+  // there but quiet, so it doesn't read as "take one now". It grows back when a dose is due.
+  const calm = status !== 'due' && status !== 'past-latest-time' && big !== 'Any time';
+
   // How much: tablets, or for injections the syringe draw / pen clicks from the vial or pen in use.
   const guide = med.peptide && nextAmount > 0 ? doseGuide(med, nextAmount) : undefined;
   const units = !med.peptide && nextAmount > 0 && med.strength > 0 && med.unit !== 'tablet' ? stockUnitsFor(med, nextAmount) : null;
@@ -82,8 +86,8 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer, pe
   return (
     <article aria-label={person ? `${person}: ${shownName(med)}` : shownName(med)} className={`hero ${med.peptide ? 'pep' : ''} ${footer ? 'pb-2' : ''} ${className}`}>
       <p className="text-sm font-medium text-muted">{person ? `${label} · ${person}` : label}</p>
-      <p className="mt-1 font-bold text-[64px] leading-[66px] tracking-[-0.03em] tnum" aria-hidden="true">{big}</p>
-      <p className="mt-4 text-xl font-medium flex items-center gap-2.5">
+      <p className={`mt-1 font-bold tracking-[-0.03em] tnum ${calm ? 'text-[44px] leading-[48px]' : 'text-[64px] leading-[66px]'}`} aria-hidden="true">{big}</p>
+      <p className={`${calm ? 'mt-2' : 'mt-4'} text-xl font-medium flex items-center gap-2.5`}>
         <MedBadge color={shownColour(med)} icon={med.icon} size={34} /> <span className="min-w-0">{shownMedName(med)}</span>
       </p>
       <p className="ml-5 mt-0.5 text-[15px] text-muted tnum">
@@ -119,7 +123,9 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer, pe
       )}
       <p className="sr-only" aria-live="polite">{person ? `${person}, ` : ''}{shownName(med)}: {typeof big === 'string' ? big : `next at ${next ? fmtTime(next) : ''}`}. {sub}.</p>
 
-      <Button className="hero-btn w-full min-h-[56px] mt-6 text-[17px] font-semibold" onClick={onLog}>Log dose</Button>
+      {calm
+        ? <button type="button" onClick={onLog} className="w-full min-h-[48px] mt-4 rounded-btn font-semibold text-[15px]" style={{ boxShadow: 'inset 0 0 0 1.5px color-mix(in srgb, var(--hero-ink) 45%, transparent)' }}>Log a dose</button>
+        : <Button className="hero-btn w-full min-h-[56px] mt-6 text-[17px] font-semibold" onClick={onLog}>Log dose</Button>}
       {footer}
     </article>
   );

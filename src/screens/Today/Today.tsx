@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { clearCheckInRequest, clearLogRequest, onCheckInRequest, onLogRequest } from '../../app/pendingLog';
 import { shownMedName, shownName } from '../../logic/privacy';
-import { CalendarPlus, Coffee, HeartPulse, Lock, Nfc, Pill, Ruler, Scale, Smile, Wine } from 'lucide-react';
+import { CalendarPlus, Coffee, GlassWater, HeartPulse, Lock, Nfc, Pill, Ruler, Scale, Smile, Utensils, Wine } from 'lucide-react';
+import { addIntake } from '../../db/repos/training';
 import { Tile } from '../../components/ui/Visual';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
 import { useBodyEntries, useCheckIns, useDaily, useDoses, useExercises, useWorkouts, useFamily, useMeds, useScheduleSettings, useSupplies, useTags, useVitals } from '../../app/data';
@@ -64,6 +65,8 @@ import { readiness } from '../../logic/training';
 
 const FoodToday = lazy(() => import('../Food').then((m) => ({ default: m.FoodToday })));
 
+const LogFoodSheetLazy = lazy(() => import('../../components/food/LogFoodSheet').then((m) => ({ default: m.LogFoodSheet })));
+
 export function Today() {
   const meds = useMeds();
   const doses = useDoses();
@@ -85,6 +88,7 @@ export function Today() {
   const [checkIn, setCheckIn] = useState<CheckInSeed | null>(null);
   const [bodySheet, setBodySheet] = useState<BodySheetState>(null);
   const [drink, setDrink] = useState<{ editing?: CheckIn } | null>(null);
+  const [foodOpen, setFoodOpen] = useState(false);
 
   const medMap = useMemo(() => new Map((meds ?? []).map((m) => [m.id, m])), [meds]);
   // Streaks, milestones and today's ring for the person shown, worked out again every ten minutes or when the
@@ -120,6 +124,13 @@ export function Today() {
   const reached = motivation?.milestones.find((m) => m.kind === 'streak' && now - m.at < 3 * 86_400_000 && !settings.milestonesSeen.includes(m.id));
   const streakNews = reached ? { title: `New: ${reached.title}`, onDone: () => setSetting('milestonesSeen', [reached.id, ...settings.milestonesSeen].slice(0, 200)) } : undefined;
   // One tap: a check-in with just that chip, now (Undo removes it). Used in Trends' patterns.
+  // Water in one tap (the first of your amounts), with Undo.
+  const addWater = async () => {
+    const ml = settings?.intakeAmounts.waterMl[0] ?? 250;
+    const day = format(Date.now(), 'yyyy-MM-dd');
+    const total = await addIntake(fam!.personId, day, 'waterMl', ml);
+    toast(`Water +${ml} mL · ${(total / 1000).toFixed(1)} L today`, { onAction: () => { void addIntake(fam!.personId, day, 'waterMl', -ml); } });
+  };
   const quick = async (chip: string, what: string) => {
     const c = await addCheckIn({ at: new Date().toISOString(), chips: [chip], personId: storedPerson(fam.personId) });
     toast(`${what} logged`, { onAction: () => removeCheckIn(c.id) });
@@ -239,6 +250,32 @@ export function Today() {
       {up.meds.length > 1 && up.at !== null
         ? <HeroGroup meds={up.meds} doses={viewDoses} s={s} now={now} at={up.at} due={up.due} onLog={setLogFor} onLogAll={logAll} whose={fam.many ? whose : undefined} />
         : headline && hero(headline)}
+      {/* Everything to log, right under the next dose: no scrolling to find it. */}
+      {fam.everyone ? (
+        <p className="text-sm text-muted text-center px-4">Pick a person above to log for them.</p>
+      ) : (
+      <section className="box" aria-labelledby="log-h">
+      <h2 id="log-h" className="text-sm font-medium text-muted mb-2">{fam.many ? `Log for ${fam.person}` : 'Log'}</h2>
+      <div role="group" className="grid grid-cols-4 gap-2" aria-labelledby="log-h">
+        {([
+          ...(HAS_FOOD && settings.foodTracking ? [['Food', 'Log food', Utensils, () => setFoodOpen(true)] as const] : []),
+          ['Water', `Water, add ${settings.intakeAmounts.waterMl[0] ?? 250} mL`, GlassWater, () => void addWater()],
+          ['Check in', 'Check in', Smile, () => setCheckIn({})],
+          ['Coffee', 'Log caffeine', Coffee, () => setDrink({})],
+          ...(HAS_BODY ? [
+            // TapWeigh's headline card already has Log weight.
+            ...(FOCUS === 'weight' ? [] : [['Weight', 'Log weight', Scale, () => setBodySheet({ kind: 'weight' })] as const]),
+            ['BP', 'Log blood pressure and pulse', HeartPulse, () => setVitalSheet({})],
+          ] as const : []),
+          ...(HAS_BODY ? [] : [['BP', 'Log blood pressure and pulse', HeartPulse, () => setVitalSheet({})] as const]),
+          ['Alcohol', 'Log alcohol now', Wine, () => quick(ALCOHOL, 'Alcohol')],
+          ...(HAS_BODY ? [['Measure', 'Add measurement', Ruler, () => setBodySheet({ kind: 'measure' })] as const] : []),
+          // TapWeigh and TapLift are built around tags: one more tile for them.
+          ...(HAS_MEDS ? [] : [['Tags', 'Your tags', Nfc, () => go('/tags')] as const]),
+        ] as const).map(([label, name, Icon, on]) => <Tile key={label} Icon={Icon} label={label} name={name} onClick={on} />)}
+      </div>
+      </section>
+      )}
       {scheduled.length > 1 && (
         <section aria-labelledby="today-meds" className="box">
           {/* One ring for the day (doses due today, check-in, water, protein), with the streak, heading the list. */}
@@ -260,8 +297,14 @@ export function Today() {
           {scheduled.length <= 1 && <DayStrip ring={motivation.ring} streaks={motivation.streaks} milestones={motivation.milestones} news={streakNews} />}
         </>;
       })()}
-      {!fam.everyone && <TodayCalls />}
-      {!fam.everyone && <TodayNumbers />}
+
+      {prn.length > 0 && (
+        <section className="box" aria-label="As needed">
+          <h2 className="text-sm font-medium text-muted">As needed</h2>
+          {prn.map((m) => <PrnCard key={m.id} med={m} doses={viewDoses} s={s} now={now} onLog={() => setLogFor(m)} person={whose(m)} limits={!(fam.everyone && m.shared)} />)}
+        </section>
+      )}
+
       {!fam.everyone && settings.usualAsk && (
         <UsualCard asks={usualToAsk(usualHabits(intakes, now, s), intakes, now, settings.usualDismissed, s)} personId={storedPerson(fam.personId)} now={now} s={s}
           onNotToday={(k) => setSetting('usualDismissed', [k, ...settings.usualDismissed].slice(0, 60))} />
@@ -303,42 +346,7 @@ export function Today() {
         ];
         return <NeedsAttention items={items} />;
       })()}
-      {!fam.everyone && <DailyBrief />}
-      {!fam.everyone && <TopInsights />}
-
-      {prn.length > 0 && (
-        <section className="box" aria-label="As needed">
-          <h2 className="text-sm font-medium text-muted">As needed</h2>
-          {prn.map((m) => <PrnCard key={m.id} med={m} doses={viewDoses} s={s} now={now} onLog={() => setLogFor(m)} person={whose(m)} limits={!(fam.everyone && m.shared)} />)}
-        </section>
-      )}
-
-      {fam.everyone ? (
-        <p className="text-sm text-muted text-center px-4">Pick a person above to log for them.</p>
-      ) : (
-      <div role="group" className="grid grid-cols-4 gap-2" aria-label={fam.many ? `Log for ${fam.person}` : 'Log something else'}>
-        {([
-          ['Check in', 'Check in', Smile, () => setCheckIn({})],
-          ['BP', 'Log blood pressure and pulse', HeartPulse, () => setVitalSheet({})],
-          ...(HAS_BODY ? [
-            // TapWeigh's headline card already has Log weight.
-            ...(FOCUS === 'weight' ? [] : [['Weight', 'Log weight', Scale, () => setBodySheet({ kind: 'weight' })] as const]),
-            ['Measure', 'Add measurement', Ruler, () => setBodySheet({ kind: 'measure' })],
-          ] as const : []),
-          ['Coffee', 'Log caffeine', Coffee, () => setDrink({})],
-          ['Alcohol', 'Log alcohol now', Wine, () => quick(ALCOHOL, 'Alcohol')],
-          // TapWeigh and TapLift are built around tags: one more tile for them.
-          ...(HAS_MEDS ? [] : [['Tags', 'Your tags', Nfc, () => go('/tags')] as const]),
-        ] as const).map(([label, name, Icon, on]) => <Tile key={label} Icon={Icon} label={label} name={name} onClick={on} />)}
-      </div>
-      )}
-
-      {!fam.everyone && <WeekTeaser now={now} />}
-
-      {HAS_FOOD && settings.foodTracking && !fam.everyone && (
-        <Suspense fallback={null}><FoodToday personId={fam.personId} energy={settings.energyUnit} target={settings.energyTargetKcal} now={now} /></Suspense>
-      )}
-
+      {!fam.everyone && daily && <SleepAsk checkIns={viewCheckIns} daily={daily.filter(mine)} personId={storedPerson(fam.personId)} checkFrom={settings.caffeineCheckFrom} now={now} s={s} />}
       {HAS_TRAINING && settings.trainingTools && !fam.everyone && daily && (() => {
         const mineDaily = daily.filter((d) => !d.deletedAt && personOf(d) === fam.personId);
         const today = format(now, 'yyyy-MM-dd');
@@ -346,9 +354,18 @@ export function Today() {
           ready={null} amounts={settings.intakeAmounts} />;
       })()}
 
-      {!fam.everyone && daily && <SleepAsk checkIns={viewCheckIns} daily={daily.filter(mine)} personId={storedPerson(fam.personId)} checkFrom={settings.caffeineCheckFrom} now={now} s={s} />}
+      {HAS_FOOD && settings.foodTracking && !fam.everyone && (
+        <Suspense fallback={null}><FoodToday personId={fam.personId} energy={settings.energyUnit} target={settings.energyTargetKcal} now={now} /></Suspense>
+      )}
+
       {!fam.everyone && <CaffeineCard intakes={intakes} prefs={cafPrefs} now={now} s={s} onLog={() => setDrink({})} />}
 
+      {/* Below what needs doing: advice, numbers and insights to read. */}
+      {!fam.everyone && <TodayCalls />}
+      {!fam.everyone && <TodayNumbers />}
+      {!fam.everyone && <DailyBrief />}
+      {!fam.everyone && <TopInsights />}
+      {!fam.everyone && <WeekTeaser now={now} />}
       {HAS_BODY && !fam.everyone && <GoalLines goals={fam.people.find((p) => p.id === fam.personId)?.goals ?? []} entries={viewBody} units={settings.units} now={now} />}
 
       <AutoBackupPermission enabled={settings.autoBackupEnabled} />
@@ -373,6 +390,7 @@ export function Today() {
         soreness={HAS_TRAINING && settings.trainingTools} personId={checkIn?.editing ? personOf(checkIn.editing) : fam.personId} />
       <VitalsSheet state={vitalSheet} onClose={() => setVitalSheet(null)} personId={fam.personId} />
       <CaffeineSheet open={!!drink} editing={drink?.editing} onClose={() => setDrink(null)} intakes={intakes} prefs={cafPrefs} s={s} personId={storedPerson(fam.personId)} />
+      {foodOpen && settings && fam && <Suspense fallback={null}><LogFoodSheetLazy personId={fam.personId} energy={settings.energyUnit} onClose={() => setFoodOpen(false)} /></Suspense>}
       <BodySheet state={bodySheet} onClose={() => setBodySheet(null)} units={settings.units} personId={bodySheet?.entry ? personOf(bodySheet.entry) : fam.personId} />
     </div>
   );

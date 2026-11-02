@@ -9,6 +9,8 @@ import { energyBalance, expenditure } from '../logic/energy';
 import { fmtWeight } from '../logic/units';
 import type { Units } from '../db/repos/settings';
 import { MiniRing } from './ui/Visual';
+import { muscleWarning, nextWeighIn, personalLevers, plateauAhead } from '../logic/aheadSmarts';
+import { LeversCard, MuscleWarningCard, NextWeighInLine, PlateauCard } from './AheadCards';
 
 const sign = (v: number) => (v > 0 ? '+' : v < 0 ? '−' : '');
 const month = (t: number) => format(t, 'MMM yyyy');
@@ -26,6 +28,10 @@ export function BodyModelCards({ units }: { units: Units }) {
   const lean = leanForecast(data.body, data.workouts, data.daily, tr.perWeek, settings.proteinTargetG, now);
   const plan = landingPlan(tr, land, { daily: data.daily, workouts: data.workouts, checkIns: data.checkIns }, now);
   const rate = Math.abs(tr.perWeek);
+  const next = nextWeighIn({ trend: tr, foodLogs: data.foodLogs, workouts: data.workouts, checkIns: data.checkIns, daily: data.daily }, now, s);
+  const plateau = plateauAhead({ trend: tr, daily: data.daily, foodLogs: data.foodLogs }, now, s);
+  const levers = personalLevers({ trend: tr, daily: data.daily, foodLogs: data.foodLogs, target: settings.energyTargetKcal }, now, s);
+  const muscle = muscleWarning({ body: data.body, daily: data.daily, workouts: data.workouts, proteinTarget: settings.proteinTargetG }, now);
   return (
     <>
       <section className="hero body" aria-labelledby="tw-h">
@@ -37,8 +43,10 @@ export function BodyModelCards({ units }: { units: Units }) {
           {Math.abs(tr.off) < 0.4 ? `Latest weigh-in ${w(tr.latest)}, right on the trend.`
             : `Latest weigh-in ${w(tr.latest)}: ${sign(tr.off)}${w(Math.abs(tr.off))} off the trend${tr.causes.length ? `, likely ${tr.off > 0 ? 'water' : 'less water'}: ${tr.causes.join(', ')}` : ''}.`}
         </p>
+        {next && <NextWeighInLine n={next} units={units} />}
         <p className="text-[13px] text-muted mt-1">The trend smooths out water, salt and food in the gut, so one reading never moves it much.</p>
       </section>
+      {plateau && <PlateauCard p={plateau} />}
 
       <section className="box space-y-2" aria-labelledby="head-h">
         <h2 id="head-h" className="text-sm font-medium text-muted flex items-center gap-1.5"><TrendingDown size={15} aria-hidden="true" />Where you're heading</h2>
@@ -53,6 +61,8 @@ export function BodyModelCards({ units }: { units: Units }) {
           : 'Faster than expected lately: worth checking protein and that you’re eating enough.'}</p>}
       </section>
 
+      <LeversCard levers={levers} goalKg={goalKg} units={units} />
+      {muscle && <MuscleWarningCard m={muscle} units={units} />}
       {lean && (
         <section className="box space-y-2" aria-labelledby="lean-h">
           <h2 id="lean-h" className="text-sm font-medium text-muted flex items-center gap-1.5"><Dumbbell size={15} aria-hidden="true" />Muscle in the coming loss</h2>

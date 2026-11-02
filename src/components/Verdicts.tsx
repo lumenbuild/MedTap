@@ -94,7 +94,7 @@ export async function setJudgeBy(med: Medication, o: Outcome | '') {
 }
 
 /** Today's calls: train, caffeine, a second dose, food. */
-const ORDER: Call['key'][] = ['second-dose', 'weight', 'train', 'protein', 'lever', 'sleep', 'food', 'caffeine'];
+const ORDER: Call['key'][] = ['second-dose', 'weight', 'ahead', 'train', 'protein', 'lever', 'sleep', 'food', 'caffeine'];
 
 export function CallsCard({ calls: all, warnings }: { calls: Call[]; warnings: Warning[] }) {
   const [more, setMore] = useState(false);

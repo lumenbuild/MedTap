@@ -91,6 +91,8 @@ export interface BpWeight {
   perKg?: number; sysNow: number; diaNow: number; sysThen?: number; kgLost?: number;
   /** On BP tablets and readings running low (or dizzy check-ins): one for the prescriber. */
   lowOnTablets?: string[];
+  /** On BP tablets and falling: when readings are likely to reach about 110 at this rate (worth a review before). */
+  reviewBy?: number;
 }
 
 export function bpWithWeight(x: { vitals: Vital[]; body: BodyEntry[]; checkIns: CheckIn[]; meds: Medication[] }, now: number): BpWeight | null {
@@ -118,6 +120,14 @@ export function bpWithWeight(x: { vitals: Vital[]; body: BodyEntry[]; checkIns: 
     if (recent.some((v) => v.systolic! < 100)) why.push('a reading under 100');
     if (x.checkIns.some((c) => live(c) && Date.parse(c.at) > now - 14 * DAY && c.chips.some((ch) => /dizz|lighthead|faint/i.test(ch)))) why.push('dizziness noted');
     if (why.length) out.lowOnTablets = why;
+    // Falling at a steady rate: when it's likely to reach about 110, so a review can be booked ahead.
+    const pts90 = bps.filter((v) => Date.parse(v.at) > now - 90 * DAY).map((v) => ({ x: Date.parse(v.at), y: v.systolic! }));
+    const f90 = fit(pts90);
+    if (!why.length && f90 && pts90.length >= 6 && sysNow > 110) {
+      const perDay = f90.slope * DAY;
+      const days = perDay < -0.03 ? (sysNow - 110) / -perDay : Infinity;
+      if (days <= 120) out.reviewBy = now + days * DAY;
+    }
   }
   return out;
 }
