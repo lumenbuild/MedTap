@@ -29,6 +29,7 @@ import { allExercises } from '../logic/exercises';
 import { wearOffToday } from '../logic/wearOff';
 import { isStimulant, secondDose, stimulantHours } from '../logic/stimulant';
 import { mindReadiness } from '../logic/biohack';
+import { cravingForecast } from '../logic/aheadSmarts';
 import { planCheckInNotes } from '../logic/reminders';
 import { fmtAmount, fmtTime } from '../logic/format';
 import { shownName } from '../logic/privacy';
@@ -359,6 +360,7 @@ async function doSync() {
   if (settings.digestNotify) await safe('digest', scheduleDigest);
   if (settings.wearOffNotify) await safe('wear-off', () => scheduleWearOff(settings));
   if (HAS_PEPTIDES && settings.biohackTools) await safe('bedtime', () => scheduleBedtime(settings));
+  if (settings.foodTracking) await safe('cravings', () => scheduleCraving(settings));
   if (!settings.remindersEnabled) return;
   const [meds, doses, people] = await Promise.all([db.medications.toArray(), db.doses.toArray(), listPeople()]);
   const live = doses.filter((d) => !d.deletedAt);
@@ -418,6 +420,22 @@ async function scheduleTraining(settings: Awaited<ReturnType<typeof getSettings>
   await LocalNotifications.schedule({
     notifications: plan.map((r) => ({ id: r.id, title: r.title, body: r.body, schedule: { at: new Date(r.at), allowWhileIdle: true }, channelId: TRAINING_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/training' } })),
   });
+}
+
+/** Half an hour before cravings usually hit on this day of the week (from craving check-ins and food logged as a
+ *  craving): a nudge to have the planned protein snack first. */
+async function scheduleCraving(settings: Awaited<ReturnType<typeof getSettings>>) {
+  const me = settings.activePersonId;
+  const [checkIns, foodLogs] = await Promise.all([db.checkIns.toArray(), db.foodLogs.toArray()]);
+  const now = Date.now();
+  const c = cravingForecast({ checkIns: checkIns.filter((x) => personOf(x) === me), foodLogs: foodLogs.filter((x) => personOf(x) === me) }, now);
+  if (!c?.today) return;
+  const at = new Date(now); at.setHours(c.today.hour, 0, 0, 0);
+  const when = at.getTime() - 30 * 60_000;
+  if (when <= now) return;
+  await LocalNotifications.schedule({ notifications: [{ id: 900_600_000, title: settings.discreetReminders ? 'Heads-up' : 'Cravings usually hit soon',
+    body: settings.discreetReminders ? 'A small plan for the next hour' : `Around ${fmtTime(at.getTime())} on ${new Date(now).toLocaleDateString('en-AU', { weekday: 'long' })}s. A protein snack now takes the edge off.`,
+    schedule: { at: new Date(when), allowWhileIdle: true }, channelId: CHECKIN_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/food' } }] });
 }
 
 /** 30 minutes before each medicine's forecast wear-off today (learned effect window, adjusted for today). */
