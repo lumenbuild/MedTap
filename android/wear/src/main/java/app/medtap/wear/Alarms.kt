@@ -104,6 +104,11 @@ object Alarms {
         }
     }
 
+    /** Look again in 10 minutes for the background readings after a dose. */
+    fun retryHr(c: Context, h: JSONObject) {
+        at(c, System.currentTimeMillis() + 10 * 60_000L, pending(c, h.optString("doseId").hashCode(), intent(c, "hr", h)))
+    }
+
     /** A buzz when the rest between sets ends (the phone's workout). */
     fun planRest(c: Context) {
         val w = WatchState.workout(c)
@@ -141,7 +146,7 @@ object Alarms {
 /** Each alarm, and the buttons on its notification. */
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(c: Context, i: Intent) {
-        if (i.action == Intent.ACTION_BOOT_COMPLETED || i.action == Intent.ACTION_MY_PACKAGE_REPLACED) { Alarms.channels(c); Alarms.plan(c); Alarms.planRest(c); WearOff.update(c); return }
+        if (i.action == Intent.ACTION_BOOT_COMPLETED || i.action == Intent.ACTION_MY_PACKAGE_REPLACED) { Alarms.channels(c); Alarms.plan(c); Alarms.planRest(c); WearOff.update(c); PassiveHr.sync(c); return }
         val data = try { JSONObject(i.getStringExtra("data") ?: "{}") } catch (_: Exception) { JSONObject() }
         val nm = c.getSystemService(NotificationManager::class.java)
         Alarms.channels(c)
@@ -176,8 +181,22 @@ class AlarmReceiver : BroadcastReceiver() {
             "hr" -> {
                 val key = "hr.${data.optString("doseId")}"
                 if (WatchState.flag(c, key) > 0) return
+                val doseAt = data.optLong("at")
+                val now = System.currentTimeMillis()
+                // From the background feed: the readings 40 to 50 minutes after the dose, nothing to do. They can
+                // arrive a few minutes late, so it looks again every 10 minutes until 80 minutes after.
+                if (PassiveHr.allowed(c)) {
+                    val bpm = PassiveHr.medianBetween(c, doseAt + 40 * 60_000L, doseAt + 50 * 60_000L)
+                    if (bpm != null) {
+                        WatchState.setFlag(c, key)
+                        PassiveHr.send(c)
+                        async { WatchState.checkIn(c, JSONObject().put("hrBpm", bpm).put("note", "45 min after a dose (automatic)").put("at", doseAt + 45 * 60_000L)) }
+                        return
+                    }
+                    if (now < doseAt + 80 * 60_000L) { Alarms.retryHr(c, data); return }
+                }
                 WatchState.setFlag(c, key)
-                val mins = ((System.currentTimeMillis() - data.optLong("at")) / 60_000L).toInt()
+                val mins = ((now - doseAt) / 60_000L).toInt()
                 Alarms.buzz(c, longArrayOf(0, 120))
                 val open = Alarms.openApp(c, "hr?note=${android.net.Uri.encode("$mins min after a dose")}", 3)
                 nm.notify(key.hashCode(), NotificationCompat.Builder(c, Alarms.CH_NUDGES).setSmallIcon(R.drawable.ic_dose)

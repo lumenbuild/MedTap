@@ -160,7 +160,7 @@ fun FocusPage(version: Int, tick: Int, nav: NavHostController) {
         item { Scale("Focus now?", rated, C.mind) { v -> rated = v; scope.launch { confirm(ctx, WatchState.checkIn(ctx, JSONObject().put("focus", v)), "Focus $v") } } }
         item { Action("Reaction test", C.mind, "30 seconds") { nav.navigate("reaction") } }
         item { Action("Full brain test", C.mind, "Reaction + memory · 2 min") { nav.navigate("brain") } }
-        item { Action("Heart rate", C.heart, "20-second reading") { nav.navigate("hr?note=${android.net.Uri.encode(if (w != null) "${fmtLeft(now - w.from)} after a dose" else "Watch")}") } }
+        item { Action("Heart rate now", C.heart, if (PassiveHr.allowed(ctx)) "Optional: it's read in the background" else "20-second reading") { nav.navigate("hr?note=${android.net.Uri.encode(if (w != null) "${fmtLeft(now - w.from)} after a dose" else "Watch")}") } }
     }
 }
 
@@ -334,6 +334,7 @@ fun SettingsPage(version: Int) {
                 colors = ToggleChipDefaults.toggleChipColors(checkedStartBackgroundColor = C.surface, checkedEndBackgroundColor = C.surface, uncheckedStartBackgroundColor = C.surface, uncheckedEndBackgroundColor = C.surface,
                     checkedToggleControlColor = C.primary))
         }
+        if (WatchState.on(ctx, WatchState.Pref.HR) && !PassiveHr.allowed(ctx)) item { BackgroundHrAsk { v++ } }
         item { Small(if (reminders) "Dose reminders: on this watch" else "Dose reminders on the watch: turn on in the phone app, Settings → Watch") }
         if (Build.VERSION.SDK_INT >= 31 && !ctx.getSystemService(android.app.AlarmManager::class.java).canScheduleExactAlarms()) item {
             Action("Allow on-time alarms", C.act, "So reminders aren't late") {
@@ -348,3 +349,16 @@ fun SettingsPage(version: Int) {
     }
 }
 
+
+/** Heart rate in the background: the sensor first, then "all the time" (Android asks for them one after the other). */
+@Composable
+fun BackgroundHrAsk(done: () -> Unit) {
+    val ctx = LocalContext.current
+    val bg = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { PassiveHr.sync(ctx); done() }
+    val fg = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { ok ->
+        if (ok && Build.VERSION.SDK_INT >= 33) bg.launch(PassiveHr.bgPermission(ctx)) else { PassiveHr.sync(ctx); done() }
+    }
+    Action("Heart rate in the background", C.heart, "Allow \"all the time\": no readings to start") {
+        if (androidx.core.content.ContextCompat.checkSelfPermission(ctx, PassiveHr.fgPermission(ctx)) == android.content.pm.PackageManager.PERMISSION_GRANTED) bg.launch(PassiveHr.bgPermission(ctx)) else fg.launch(PassiveHr.fgPermission(ctx))
+    }
+}

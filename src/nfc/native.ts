@@ -99,6 +99,8 @@ export interface WatchCheckIn {
   at: number; focus?: number; mood?: number; energy?: number; sleepQuality?: number; chip?: string; chips?: unknown[];
   rtMs?: number; rtLapses?: number; rtEarly?: number; nbackPct?: number;
   caffeineMg?: number; drink?: string; waterMl?: number; hrBpm?: number; note?: string;
+  /** A batch of the watch's background heart-rate readings (ms, bpm). */
+  hrSamples?: { t: number; bpm: number }[];
   /** A dose skipped from the watch's reminder: the medicine's id, and the set time it was for. */
   skip?: string; dueAt?: number;
 }

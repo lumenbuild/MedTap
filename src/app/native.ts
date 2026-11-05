@@ -2,6 +2,7 @@
 import { extractUrl } from '../logic/recipeImport';
 import { requestRecipe } from './shareInbox';
 import { onSharedFile } from './scale';
+import { mergeHrSamples } from '../logic/watchHr';
 import { App as CapApp } from '@capacitor/app';
 import { LocalNotifications, type ActionPerformed } from '@capacitor/local-notifications';
 import { liveQuery } from 'dexie';
@@ -159,6 +160,13 @@ async function logWatchCheckIns() {
         if (getRecentDose(mine, med.id, at, settings.guardMinutes)) continue;
         const due = num(it.dueAt);
         await logDose({ medicationId: med.id, takenAt: new Date(due && due <= at + 3_600_000 ? due : at).toISOString(), amount: getExpectedAmount(med, mine, due ?? at, s), source: 'watch', skipped: true, skipReason: 'Skipped on the watch' });
+        continue;
+      }
+      // The watch's background heart rate, in a batch: into the day's 5-minute blocks.
+      if (Array.isArray(it.hrSamples)) {
+        const samples = (it.hrSamples as { t?: unknown; bpm?: unknown }[]).map((x) => ({ t: Number(x.t), bpm: Number(x.bpm) })).filter((x) => Number.isFinite(x.t) && Number.isFinite(x.bpm));
+        const rows = mergeHrSamples(await db.daily.toArray(), samples, who, s.tz, new Date().toISOString());
+        if (rows.length) await db.daily.bulkPut(rows);
         continue;
       }
       if (num(it.waterMl)) { await addIntake(settings.activePersonId, dayKey(at, s), 'waterMl', num(it.waterMl)!); continue; }

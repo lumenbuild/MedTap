@@ -5,6 +5,8 @@ import { MarkersCard } from '../../components/MarkersCard';
 import { MuscleCard } from '../../components/Biohack';
 import { BodyModelCards } from '../../components/BodyModel';
 import { ScaleCard } from '../../components/ScaleCard';
+import { ScaleInsights } from '../../components/ScaleInsights';
+import { go } from '../../app/router';
 import { medIsFor, personOf } from '../../db/repos/people';
 import { MuscleWatchCard } from '../../components/Fitness';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
@@ -110,6 +112,9 @@ export function Body() {
       <WeeklyChangeChart entries={entries} units={units} goalKg={wGoal?.target} now={now} />
       <BodyModelCards units={units} />
       <ScaleCard entries={entries} units={units} personId={fam.personId} age={(() => { const y = fam.people.find((p) => p.id === fam.personId)?.birthYear; return y ? new Date(now).getFullYear() - y : undefined; })()} />
+      <ScaleInsights entries={entries} daily={daily.filter((x) => personOf(x) === fam.personId)} workouts={workouts.filter((x) => personOf(x) === fam.personId)}
+        proteinTarget={settings.proteinTargetG} sex={fam.people.find((p) => p.id === fam.personId)?.sex} goalKg={goals.find((g) => g.metric === 'weightKg')?.target} units={units} now={now}
+        today={new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(now)} onAbout={() => go('/health')} />
 
       <GoalsSection personId={fam.personId} goals={[...goals].sort((a, b) => Number(b.metric === 'weightKg') - Number(a.metric === 'weightKg'))} entries={entries} units={units} now={now}
         chartFor={(g) => g.metric === 'weightKg' ? null : <GoalForecastCharts goals={[g]} entries={entries} units={units} now={now} />} />
