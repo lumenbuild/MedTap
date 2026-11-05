@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Alarms.channels(this)
+        PassiveHr.sync(this)
         route.value = intent?.getStringExtra("route")
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
             registerForActivityResult(ActivityResultContracts.RequestPermission()) { WearOff.update(this) }.launch(Manifest.permission.POST_NOTIFICATIONS)

@@ -216,13 +216,13 @@ object WatchState {
     enum class Pref(val key: String, val label: String, val detail: String) {
         WIND_DOWN("windDown", "Wind-down buzz", "45 min before tonight's bedtime"),
         MORNING("morningAsk", "How did you sleep?", "Asks in the morning"),
-        HR("hrChecks", "Heart rate after a dose", "A reading 45 min after a stimulant"),
+        HR("hrChecks", "Heart rate", "In the background, and 45 min after a stimulant"),
         WEAR_OFF("wearOffLive", "Wear-off countdown", "Live on the watch face"),
         REST_BUZZ("restBuzz", "Buzz when rest ends", "During a workout"),
     }
 
     fun on(context: Context, p: Pref): Boolean = prefs(context).getBoolean(p.key, true)
-    fun set(context: Context, p: Pref, v: Boolean) { prefs(context).edit().putBoolean(p.key, v).apply(); Alarms.plan(context); Alarms.planRest(context); WearOff.update(context) }
+    fun set(context: Context, p: Pref, v: Boolean) { prefs(context).edit().putBoolean(p.key, v).apply(); Alarms.plan(context); Alarms.planRest(context); WearOff.update(context); if (p == Pref.HR) PassiveHr.sync(context) }
 
     /** Small things the watch remembers: alarms already handled, the morning question answered. */
     fun flag(context: Context, key: String): Long = prefs(context).getLong("f.$key", 0L)

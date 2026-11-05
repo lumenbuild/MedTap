@@ -6,6 +6,7 @@
 // Pure, so it can be tested; src/app/health.ts writes the result.
 import type { BodyEntry, CardioActivity, CardioEntry, DailyHealth, Vital, Workout } from '../db/schema';
 import type { HealthData } from '../nfc/native';
+import { mergeBlocks } from './watchHr';
 
 export interface HealthPlan {
   daily: DailyHealth[]; body: { date: string; kg: number }[]; vitals: { at: string; systolic: number; diastolic: number }[];
@@ -39,8 +40,9 @@ export function planHealthImport(data: HealthData, existing: { daily: DailyHealt
     const row: DailyHealth = {
       ...(old ?? { id: crypto.randomUUID(), date: d.date, createdAt: nowIso, personId }),
       steps: d.steps ?? old?.steps, sleepMin: d.sleepMin ?? old?.sleepMin, restingHr: d.restingHr ?? old?.restingHr,
-      exerciseMin: d.exerciseMin ?? old?.exerciseMin, hrvMs: d.hrvMs ?? old?.hrvMs, hrByHour: d.hrByHour ?? old?.hrByHour,
-      hr5: d.hr5 ?? old?.hr5, steps5: d.steps5 ?? old?.steps5,
+      exerciseMin: d.exerciseMin ?? old?.exerciseMin, hrvMs: d.hrvMs ?? old?.hrvMs, hrByHour: mergeBlocks(d.hrByHour, old?.hrByHour),
+      // Heart rate the watch sent straight to the phone stays where Health Connect hasn't caught up.
+      hr5: mergeBlocks(d.hr5, old?.hr5), steps5: d.steps5 ?? old?.steps5,
       sleepDeepMin: d.sleepDeepMin ?? old?.sleepDeepMin, sleepRemMin: d.sleepRemMin ?? old?.sleepRemMin, sleepAwakeMin: d.sleepAwakeMin ?? old?.sleepAwakeMin,
       sleepWakes: d.sleepWakes ?? old?.sleepWakes, sleepStart: d.sleepStart ?? old?.sleepStart, sleepEnd: d.sleepEnd ?? old?.sleepEnd, updatedAt: nowIso,
     };
