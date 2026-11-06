@@ -1,22 +1,12 @@
-// The decision features where people already look: today's calls and warnings on Today, an "Is it working?" summary
+// The decision features where people already look (today's calls and warnings are in Today's plan): an "Is it working?" summary
 // on Insights and Health, and each medicine's verdict and dose decision on its page.
 import { ChevronRight, Scale } from 'lucide-react';
 import type { Medication } from '../db/schema';
 import { useDecisionData } from '../app/useDecisions';
 import { useNow } from '../app/useNow';
 import { verdictFor, verdicts } from '../logic/verdict';
-import { doseDecision, earlyWarnings, todaysCalls } from '../logic/decisions';
-import { CallsCard, setJudgeBy, VerdictCard } from './Verdicts';
-
-export function TodayCalls() {
-  const dd = useDecisionData();
-  const now = useNow(600_000);
-  if (!dd || dd.everyone) return null;
-  const { data, s, settings } = dd;
-  const calls = todaysCalls(data, now, s, settings);
-  const warnings = earlyWarnings(data, now, s, settings.waterTargetMl);
-  return <CallsCard calls={calls} warnings={warnings} />;
-}
+import { doseDecision } from '../logic/decisions';
+import { setJudgeBy, VerdictCard } from './Verdicts';
 
 /** "Is it working?": how many of the things taken are working, not clear yet, or not working, opening the full list. */
 export function WorkingLink() {

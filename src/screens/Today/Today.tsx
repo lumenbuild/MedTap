@@ -49,10 +49,8 @@ import { restartPrompt, stepStatus } from '../../logic/dosePlan';
 import { TrainingHero, WeightHero } from './FocusHero';
 import { AutoBackupPermission, BackupReminder, CheckInAutoOpen, CheckInPrompt, FocusQuick, InstallCard, NeedsAttention, UpdateCard } from './PromptCards';
 import { focusAsk } from '../../logic/stimulant';
-import { TopInsights } from '../../components/InsightList';
 import { DailyBrief } from '../../components/Biohack';
-import { TodayCalls } from '../../components/Decisions';
-import { TodayNumbers } from '../../components/TodayNumbers';
+import { GoalRings, TodayPlan } from '../../components/TodayPlan';
 import { HAS_MEDS, HAS_BODY, HAS_TRAINING, HAS_FOOD, FOCUS, HAS_PEPTIDES } from '../../edition';
 import { IntakeCard } from '../../components/Fitness';
 import { WeekTeaser } from '../../components/WeekReview';
@@ -298,6 +296,11 @@ export function Today() {
         </>;
       })()}
 
+      {/* One ranked plan for the day (calls, warnings, the brief, getting sick and insights, said once each), then the
+          goal rings: what adds up to the goal. */}
+      {!fam.everyone && <TodayPlan />}
+      {!fam.everyone && <GoalRings />}
+
       {prn.length > 0 && (
         <section className="box" aria-label="As needed">
           <h2 className="text-sm font-medium text-muted">As needed</h2>
@@ -360,11 +363,8 @@ export function Today() {
 
       {!fam.everyone && <CaffeineCard intakes={intakes} prefs={cafPrefs} now={now} s={s} onLog={() => setDrink({})} />}
 
-      {/* Below what needs doing: advice, numbers and insights to read. */}
-      {!fam.everyone && <TodayCalls />}
-      {!fam.everyone && <TodayNumbers />}
+      {/* Readiness for the day (biohacking tools) and last week, once read. */}
       {!fam.everyone && <DailyBrief />}
-      {!fam.everyone && <TopInsights />}
       {!fam.everyone && <WeekTeaser now={now} />}
       {HAS_BODY && !fam.everyone && <GoalLines goals={fam.people.find((p) => p.id === fam.personId)?.goals ?? []} entries={viewBody} units={settings.units} now={now} />}
 

@@ -1,13 +1,12 @@
 // Decisions on screen: a verdict for each medicine, peptide and supplement (with its evidence, costs, how sure, and a
 // test that would settle it), dose decisions, today's calls, early warnings, and what's working this week.
-import { useState } from 'react';
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, CheckCircle2, CircleDashed, CircleHelp, FlaskConical, MinusCircle, XCircle } from 'lucide-react';
 import type { Medication } from '../db/schema';
 import { db } from '../db/db';
 import { storedPerson } from '../db/repos/people';
 import { randomBlocks } from '../logic/experiments';
 import { lower, OUTCOMES, type Outcome, type ProposedExperiment, type Verdict } from '../logic/verdict';
-import type { Call, DoseDecision, Warning, WhatsWorking } from '../logic/decisions';
+import type { DoseDecision, Warning, WhatsWorking } from '../logic/decisions';
 import { fmtHM } from '../logic/sleep';
 import { useToast } from '../app/toast';
 import { go } from '../app/router';
@@ -94,33 +93,6 @@ export async function setJudgeBy(med: Medication, o: Outcome | '') {
 }
 
 /** Today's calls: train, caffeine, a second dose, food. */
-const ORDER: Call['key'][] = ['second-dose', 'weight', 'ahead', 'train', 'protein', 'lever', 'sleep', 'food', 'caffeine'];
-
-export function CallsCard({ calls: all, warnings }: { calls: Call[]; warnings: Warning[] }) {
-  const [more, setMore] = useState(false);
-  if (!all.length && !warnings.length) return null;
-  // The four that matter most first; the rest a tap away.
-  const sorted = [...all].sort((a, b) => ORDER.indexOf(a.key) - ORDER.indexOf(b.key));
-  const calls = more ? sorted : sorted.slice(0, 4);
-  const dot: Record<Call['tone'], string> = { go: 'var(--success)', easy: 'var(--caution)', stop: 'var(--danger)', info: 'var(--primary)' };
-  return (
-    <section className="box space-y-3" aria-labelledby="calls-h">
-      <h2 id="calls-h" className="text-sm font-medium text-muted">Today's calls</h2>
-      {warnings.map((w) => <WarningRow key={w.key} w={w} />)}
-      {calls.length > 0 && (
-        <ul className="divide-y divide-border">
-          {calls.map((c) => (
-            <li key={c.key} className="py-2.5 flex gap-3">
-              <span aria-hidden="true" className="mt-[7px] w-2.5 h-2.5 rounded-full shrink-0" style={{ background: dot[c.tone] }} />
-              <span><span className="block font-semibold">{c.title}</span><span className="block text-sm text-muted">{c.detail}</span></span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {sorted.length > 4 && <button type="button" onClick={() => setMore(!more)} className="min-h-[44px] text-sm font-medium underline underline-offset-4">{more ? 'Show fewer' : `Show ${sorted.length - 4} more`}</button>}
-    </section>
-  );
-}
 
 export function WarningRow({ w }: { w: Warning }) {
   return (

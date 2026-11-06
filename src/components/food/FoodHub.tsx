@@ -19,7 +19,7 @@ export function useQuickLog(personId: string) {
     const at = new Date();
     const date = format(at, 'yyyy-MM-dd');
     const l = await logFood({ name, foodId, servings, nutrients, at: at.toISOString(), date, personId });
-    toast(`Logged ${name}`, { onAction: async () => { await removeFoodLog(l, date); } });
+    toast(`Logged ${name}${l.waterPosted ? ` · +${l.waterPosted} mL water` : ''}`, { onAction: async () => { await removeFoodLog(l, date); } });
   };
 }
 

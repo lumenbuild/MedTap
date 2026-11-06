@@ -131,6 +131,11 @@ export interface AppSettings {
   snoozes: Snooze[];
   /** A notification 30 minutes before a medicine's forecast wear-off (app). */
   wearOffNotify: boolean;
+  /** The sickness forecast: "I'm unwell" / "I'm fine" answers by night (it learns from them), a morning notification
+   *  when it flags something (app), and the night last notified. */
+  sickFeedback: Record<string, 'sick' | 'fine'>;
+  sickNotify: boolean;
+  sickNotified: string;
   /** Dose reminders from the watch app itself (Log, Snooze, Skip on the wrist, and they work without the phone nearby). */
   watchReminders: boolean;
   /** Caffeine: the person's own daily limit (mg), usual bedtime ('HH:mm') and how fast they clear it (half-life, h). */
@@ -256,6 +261,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pharmacyContact: '',
   snoozes: [],
   wearOffNotify: true,
+  sickFeedback: {},
+  sickNotify: true,
+  sickNotified: '',
   watchReminders: false,
   caffeineLimitMg: 400,
   bedtime: '22:30',

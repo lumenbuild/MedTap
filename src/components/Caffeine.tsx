@@ -46,7 +46,7 @@ export function CaffeineCard({ intakes, prefs, now, s, onLog }: { intakes: Intak
   const again = async () => {
     if (!last) return;
     const c = await addCheckIn({ at: new Date().toISOString(), chips: [CAFFEINE], note: last.name, caffeineMg: last.mg, personId: last.personId });
-    toast(`${last.name ?? 'Caffeine'} · ${last.mg} mg: ${afterLog(intakes, { id: c.id, t: Date.parse(c.at), mg: last.mg }, prefs, s)}`, { onAction: () => removeCheckIn(c.id) });
+    toast(`${last.name ?? 'Caffeine'} · ${last.mg} mg${c.waterMl ? ` · +${c.waterMl} mL water` : ''}: ${afterLog(intakes, { id: c.id, t: Date.parse(c.at), mg: last.mg }, prefs, s)}`, { onAction: () => removeCheckIn(c.id) });
   };
   return (
     <section className="box space-y-3" aria-labelledby="caf-h">
@@ -84,7 +84,7 @@ export function UsualCard({ asks, personId, now, s, onNotToday }: { asks: UsualH
   const start = getDayBounds(now, s.dayStartsAt, s.tz).start;
   const yes = async (h: UsualHabit) => {
     const c = await addCheckIn({ at: new Date(Math.min(h.at, Date.now())).toISOString(), chips: [CAFFEINE], note: h.name, caffeineMg: h.mg, personId });
-    toast(`${h.name} logged at ${fmtTime(h.at)}`, { onAction: () => removeCheckIn(c.id) });
+    toast(`${h.name} logged at ${fmtTime(h.at)}${c.waterMl ? ` · +${c.waterMl} mL water` : ''}`, { onAction: () => removeCheckIn(c.id) });
   };
   return (
     <section className="box space-y-2" aria-labelledby="usual-h">
@@ -195,7 +195,7 @@ function NewDrink({ intakes, prefs, s, personId, onClose }: { intakes: Intake[];
     const t = earlier && when ? Math.min(Date.now(), new Date(when).getTime()) : Date.now();
     const c = await addCheckIn({ at: new Date(t).toISOString(), chips: [CAFFEINE], note: drink, caffeineMg: Math.round(amount), personId });
     onClose();
-    toast(`${drink} · ${Math.round(amount)} mg: ${afterLog(intakes, { id: c.id, t, mg: amount }, prefs, s)}`, { onAction: () => removeCheckIn(c.id) });
+    toast(`${drink} · ${Math.round(amount)} mg${c.waterMl ? ` · +${c.waterMl} mL water` : ''}: ${afterLog(intakes, { id: c.id, t, mg: amount }, prefs, s)}`, { onAction: () => removeCheckIn(c.id) });
   };
   const DrinkButton = ({ d }: { d: { name: string; mg: number } }) => (
     <li>
