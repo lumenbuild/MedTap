@@ -20,6 +20,9 @@ import { MiniRing } from '../components/ui/Visual';
 import { fmtHM } from '../logic/sleep';
 import type { ScheduleSettings } from '../logic/schedule';
 import { WorkingLink } from '../components/Decisions';
+import { SickCard } from '../components/TodayPlan';
+import { TopicLinks } from '../components/TopicLinks';
+import { HAS_BODY } from '../edition';
 import { EnergyCard, GlucoseCard, IllnessCard, LoadCard, MedEffectsList, NightVitalsCard } from '../components/HealthCards';
 
 const DAY = 86_400_000;
@@ -45,6 +48,7 @@ export function Health() {
   if (!d) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
   const r = readiness(d.daily, d.checkIns, now, d.s);
   const ill = illnessWatch(d.daily, now, d.s);
+  const hasSick = d.daily.filter((x) => !x.deletedAt && (typeof x.restingHr === 'number' || typeof x.skinTempDelta === 'number')).length >= 12;
   const load = trainingLoad(d.workouts, now);
   const suggestion = daySuggestion(r, load, ill);
   const vitals = nightVitals(d.daily, now, d.s);
@@ -87,7 +91,10 @@ export function Health() {
           </ul>
         </section>
       )}
-      {ill && <IllnessCard ill={ill} />}
+      {/* Getting sick: learned from your own nights and past illnesses (the simpler watch when there isn't enough yet). */}
+      <SickCard />
+      <TopicLinks body={HAS_BODY} />
+      {ill && !hasSick && <IllnessCard ill={ill} />}
       <WorkingLink />
       {/* Last night's vitals live in "Against your usual" once there's enough history for a range. */}
       {vitals && !bands.some((b) => ['hrvMs', 'restingHr', 'spo2Avg', 'respRate', 'skinTempDelta'].includes(b.key)) && <NightVitalsCard stats={vitals.stats} />}

@@ -16,29 +16,42 @@ export const LOW_MG = 50;
 /** Half-life choices in Settings (hours). */
 export const HALF_LIVES = [{ h: 3, label: 'Faster (about 3 hours)' }, { h: 5, label: 'Usual (about 5 hours)' }, { h: 8, label: 'Slower (about 8 hours)' }];
 
-export interface Drink { name: string; mg: number; group: 'Coffee' | 'Tea' | 'Energy and soft drinks' | 'Other' }
+export interface Drink { name: string; mg: number; group: 'Coffee' | 'Tea' | 'Energy and soft drinks' | 'Other';
+  /** How much it is to drink (mL), counted toward the day's water. */ ml?: number }
 
 /** Typical amounts, rounded. Café coffee varies widely by beans and shop, so the amount can be changed when logging. */
 export const DRINKS: Drink[] = [
-  { name: 'Espresso, 1 shot', mg: 80, group: 'Coffee' },
-  { name: 'Flat white or latte, 1 shot', mg: 80, group: 'Coffee' },
-  { name: 'Flat white or latte, 2 shots', mg: 160, group: 'Coffee' },
-  { name: 'Instant coffee', mg: 70, group: 'Coffee' },
-  { name: 'Filter or plunger coffee', mg: 120, group: 'Coffee' },
-  { name: 'Cold brew', mg: 150, group: 'Coffee' },
-  { name: 'Coffee pod', mg: 70, group: 'Coffee' },
-  { name: 'Decaf', mg: 5, group: 'Coffee' },
-  { name: 'Black tea', mg: 45, group: 'Tea' },
-  { name: 'Green tea', mg: 30, group: 'Tea' },
-  { name: 'Matcha', mg: 70, group: 'Tea' },
-  { name: 'Chai latte', mg: 40, group: 'Tea' },
-  { name: 'Energy drink, 250 mL', mg: 80, group: 'Energy and soft drinks' },
-  { name: 'Energy drink, 500 mL', mg: 160, group: 'Energy and soft drinks' },
-  { name: 'Cola, 375 mL can', mg: 40, group: 'Energy and soft drinks' },
-  { name: 'Pre-workout, 1 scoop', mg: 200, group: 'Other' },
+  { name: 'Espresso, 1 shot', mg: 80, group: 'Coffee', ml: 30 },
+  { name: 'Flat white or latte, 1 shot', mg: 80, group: 'Coffee', ml: 220 },
+  { name: 'Flat white or latte, 2 shots', mg: 160, group: 'Coffee', ml: 250 },
+  { name: 'Instant coffee', mg: 70, group: 'Coffee', ml: 250 },
+  { name: 'Filter or plunger coffee', mg: 120, group: 'Coffee', ml: 250 },
+  { name: 'Cold brew', mg: 150, group: 'Coffee', ml: 250 },
+  { name: 'Coffee pod', mg: 70, group: 'Coffee', ml: 110 },
+  { name: 'Decaf', mg: 5, group: 'Coffee', ml: 250 },
+  { name: 'Black tea', mg: 45, group: 'Tea', ml: 250 },
+  { name: 'Green tea', mg: 30, group: 'Tea', ml: 250 },
+  { name: 'Matcha', mg: 70, group: 'Tea', ml: 250 },
+  { name: 'Chai latte', mg: 40, group: 'Tea', ml: 250 },
+  { name: 'Energy drink, 250 mL', mg: 80, group: 'Energy and soft drinks', ml: 250 },
+  { name: 'Energy drink, 500 mL', mg: 160, group: 'Energy and soft drinks', ml: 500 },
+  { name: 'Cola, 375 mL can', mg: 40, group: 'Energy and soft drinks', ml: 375 },
+  { name: 'Pre-workout, 1 scoop', mg: 200, group: 'Other', ml: 300 },
   { name: 'Caffeine tablet', mg: 100, group: 'Other' },
   { name: 'Dark chocolate, 50 g', mg: 40, group: 'Other' },
 ];
+
+/** How much of a drink (mL) counts toward the day's water: from the drink list, or a size in its name ("Monster
+ *  500 mL", "1.5 L"). Undefined when it isn't known or isn't a drink (a tablet, chocolate). */
+export function drinkMl(name: string | undefined): number | undefined {
+  if (!name) return undefined;
+  const known = DRINKS.find((d) => d.name.toLowerCase() === name.trim().toLowerCase());
+  if (known) return known.ml;
+  const m = /(\d+(?:\.\d+)?)\s*(ml|l)\b/i.exec(name);
+  if (!m) return undefined;
+  const ml = Number(m[1]) * (m[2].toLowerCase() === 'l' ? 1000 : 1);
+  return ml >= 20 && ml <= 3000 ? Math.round(ml) : undefined;
+}
 
 /** A check-in that is just a caffeine drink (logged on its own, not ticked in a fuller check-in). */
 export const isDrink = (c: CheckIn) => c.chips.includes(CAFFEINE) && c.chips.length === 1 && c.mood === undefined && c.energy === undefined

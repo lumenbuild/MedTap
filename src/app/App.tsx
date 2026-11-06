@@ -6,6 +6,7 @@ import { LockGate } from './LockGate';
 import { viewMode } from './viewMode';
 import { useMeds, useSettings } from './data';
 import { TabBar } from '../components/TabBar';
+import { HealthNav } from '../components/HealthNav';
 import { SECTION_TITLE, Settings, type SettingsSection } from '../screens/Settings';
 import { Today } from '../screens/Today/Today';
 import { TagLanding } from '../screens/TagLanding/TagLanding';
@@ -48,6 +49,10 @@ const Routines = lazy(() => import('../screens/Training/Routines').then((m) => (
 const FoodScreen = lazy(() => import('../screens/Food').then((m) => ({ default: m.FoodScreen })));
 const Sleep = lazy(() => import('../screens/Sleep').then((m) => ({ default: m.Sleep })));
 const Health = lazy(() => import('../screens/Health').then((m) => ({ default: m.Health })));
+const TopicScreen = lazy(() => import('../screens/Topic').then((m) => ({ default: m.Topic })));
+const WeekScreen = lazy(() => import('../screens/Week').then((m) => ({ default: m.Week })));
+const DayScreen = lazy(() => import('../screens/Day').then((m) => ({ default: m.Day })));
+const TOPIC_TITLE: Record<string, string> = { sleep: 'Your sleep', rhr: 'Resting heart rate', hrv: 'HRV', focus: 'Focus', weight: 'Weight', lean: 'Lean mass' };
 const Working = lazy(() => import('../screens/Working').then((m) => ({ default: m.Working })));
 /** MedTap's layout: Today, Stack, Insights (and Training, Sleep). The other apps keep their own tabs. */
 const STACK = HAS_PEPTIDES;
@@ -83,7 +88,7 @@ function title(r: Route, peptides = HAS_PEPTIDES): string {
     case 'supplies': return peptides ? 'Supplies' : 'Today';
     case 'protocol': return peptides ? 'Protocol' : 'Today';
     case 'protocolReport': return peptides ? 'Protocol report' : 'Today';
-    case 'progress': return STACK ? 'Insights' : 'Progress';
+    case 'progress': return STACK ? (HAS_BODY ? 'Body' : 'Insights') : 'Progress';
     case 'training': return HAS_TRAINING ? 'Training' : 'Today';
     case 'workout': return HAS_TRAINING ? 'Workout' : 'Today';
     case 'exercise': return HAS_TRAINING ? 'Exercise' : 'Today';
@@ -94,6 +99,9 @@ function title(r: Route, peptides = HAS_PEPTIDES): string {
     case 'labs': return HAS_MEDS ? 'Lab results' : 'Today';
     case 'food': return HAS_FOOD ? 'Food' : 'Today';
     case 'caffeine': return 'Caffeine cut-off and limit';
+    case 'topic': return TOPIC_TITLE[r.id] ?? 'Insights';
+    case 'day': return 'Your day';
+    case 'week': return 'Your week';
     case 'travel': return HAS_VISITS ? 'Plan a trip' : 'Today';
     default: return '';
   }
@@ -109,6 +117,7 @@ function backTo(r: Route, protocol: boolean, foodTab = false): string | undefine
     case 'appointmentSummary': return '#/appointments';
     case 'food': return FOCUS === 'weight' || foodTab ? undefined : '#/today'; // a tab in TapWeigh, and in MedTap when food is on
     case 'caffeine': return '#/today';
+    case 'topic': case 'day': case 'week': return '#/today';
     case 'labs': return HAS_VISITS ? '#/appointments' : protocol ? '#/progress' : '#/trends';
     case 'settings': return r.section ? '#/settings' : '#/today';
     case 'medNew': return r.guideId ? `#/guide/${r.guideId}` : '#/meds';
@@ -167,6 +176,9 @@ function Screen({ r }: { r: Route }) {
     case 'labs': return HAS_MEDS ? <Labs /> : <Today />;
     case 'food': return HAS_FOOD ? <Suspense fallback={<ChartsLoading />}><FoodScreen /></Suspense> : <Today />;
     case 'caffeine': return <Suspense fallback={<ChartsLoading />}><CaffeineFinder /></Suspense>;
+    case 'topic': return <Suspense fallback={<ChartsLoading />}><TopicScreen key={r.id} id={r.id} /></Suspense>;
+    case 'day': return <Suspense fallback={<ChartsLoading />}><DayScreen key={r.date ?? 'today'} date={r.date} /></Suspense>;
+    case 'week': return <Suspense fallback={<ChartsLoading />}><WeekScreen /></Suspense>;
     case 'travel': return HAS_VISITS ? <Travel /> : <Today />;
     default: return <Today />;
   }
@@ -187,7 +199,9 @@ export function App() {
   const showTabs = !back && r.name !== 'tag';
   // A medicine's page is titled with its name.
   const pageMed = r.name === 'med' ? meds?.find((m) => m.id === r.id) : undefined;
-  const heading = pageMed ? shownName(pageMed) : r.name === 'sleep' && settings && !settings.sleepTools ? 'Today' : title(r, protocol);
+  const heading = pageMed ? shownName(pageMed) : r.name === 'sleep' && settings && !settings.sleepTools ? 'Today'
+    // MedTap: Sleep and Training are sections of Health.
+    : STACK && ['sleep', 'training'].includes(r.name) ? 'Health' : title(r, protocol);
   // Progress is Trends and Body together, for the peptide layout. Without it they're separate tabs, so a link to
   // Progress opens the matching one.
   const loose = r.name === 'progress' && settings !== undefined && !STACK;
@@ -230,7 +244,10 @@ export function App() {
                   <h1 className={r.name === 'today' ? 'text-[34px] leading-[40px] font-extrabold tracking-[-0.02em] -mt-1 mb-4' : 'text-[34px] leading-[40px] font-extrabold tracking-[-0.02em] mt-2 mb-4'}>{heading}</h1>
                 </header>
               ))}
-              <main><Screen r={r} /></main>
+              <main>
+                {STACK && ['health', 'sleep', 'training'].includes(r.name) && <HealthNav route={'/' + r.name} overview={healthTab} sleep={sleepTab} training={training} />}
+                <Screen r={r} />
+              </main>
               {showTabs && <TabBar route={'/' + r.name} stack={STACK} training={training} sleep={sleepTab} health={healthTab} food={foodTab} />}
             </>
           )}

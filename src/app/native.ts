@@ -31,6 +31,7 @@ import { wearOffToday } from '../logic/wearOff';
 import { isStimulant, secondDose, stimulantHours } from '../logic/stimulant';
 import { mindReadiness } from '../logic/biohack';
 import { cravingForecast } from '../logic/aheadSmarts';
+import { sickForecast, sickHeadline } from '../logic/sickness';
 import { planCheckInNotes } from '../logic/reminders';
 import { fmtAmount, fmtTime } from '../logic/format';
 import { shownName } from '../logic/privacy';
@@ -82,7 +83,7 @@ export async function initNative() {
   await MedTapNative.addListener('tag', (e) => openUrl(e.url));
   if (isNativeAndroid) MedTapNative.nfcListen().catch(() => { /* no NFC on this phone */ });
   await CapApp.addListener('appUrlOpen', (e) => openUrl(e.url));
-  await CapApp.addListener('resume', () => { void syncReminders(); void syncExtras(); void autoImportHealth(); if (isNativeAndroid) { void logWatchTaps(); void logWatchCheckIns(); void logWidgetTaps(); } });
+  await CapApp.addListener('resume', () => { void syncReminders(); void syncExtras(); void autoImportHealth().then(notifySick); if (isNativeAndroid) { void logWatchTaps(); void logWatchCheckIns(); void logWidgetTaps(); } });
   // Shortcuts, Siri and the widget ask to log a medicine; Health Connect can open the privacy page.
   await MedTapNative.addListener('logRequest', (e) => { go('/today'); requestLog(e.medId); });
   await MedTapNative.addListener('route', (e) => { if (e.path === '/checkin') { go('/today'); requestCheckIn(); } else go(e.path); });
@@ -98,7 +99,7 @@ export async function initNative() {
     await MedTapNative.addListener('watchCheckIn', () => { void logWatchCheckIns(); }); void logWatchCheckIns();
     await MedTapNative.addListener('widgetAction', () => { void logWidgetTaps(); }); void logWidgetTaps();
   }
-  void autoImportHealth();
+  void autoImportHealth().then(notifySick);
 
   await registerActions((await getSettings()).snoozeMin);
   if (isNativeAndroid) {
@@ -446,6 +447,25 @@ async function scheduleCraving(settings: Awaited<ReturnType<typeof getSettings>>
     schedule: { at: new Date(when), allowWhileIdle: true }, channelId: CHECKIN_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/food' } }] });
 }
 
+/** In the morning, once a night: when last night's readings look like the run-up to getting sick, say so (with what's
+ *  off), so the day can be planned around it. */
+export async function notifySick() {
+  try {
+    const st = await getSettings();
+    if (!st.sickNotify || !st.healthImport || (await reminderPermission()) !== 'granted') return;
+    const h = new Date().getHours();
+    if (h < 5 || h >= 12) return;
+    const me = st.healthPersonId;
+    const [daily, checkIns, workouts] = await Promise.all([db.daily.toArray(), db.checkIns.toArray(), db.workouts.toArray()]);
+    const f = sickForecast({ daily: daily.filter((x) => personOf(x) === me), checkIns: checkIns.filter((x) => personOf(x) === me), workouts: workouts.filter((x) => personOf(x) === me), feedback: st.sickFeedback }, Date.now());
+    if (!f || f.level === 'clear' || st.sickNotified === f.date) return;
+    await setSetting('sickNotified', f.date);
+    await LocalNotifications.schedule({ notifications: [{ id: 900_700_000, title: sickHeadline(f),
+      body: `${f.off.map((x) => `${x.label} ${x.text}`).join(', ')}. An easier day, fluids and an early night help.`,
+      schedule: { at: new Date(Date.now() + 1000), allowWhileIdle: true }, channelId: CHECKIN_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/health' } }] });
+  } catch (e) { console.error('sick', e); }
+}
+
 /** 30 minutes before each medicine's forecast wear-off today (learned effect window, adjusted for today). */
 async function scheduleWearOff(settings: Awaited<ReturnType<typeof getSettings>>) {
   const me = settings.healthPersonId;
@@ -595,7 +615,7 @@ export async function testCheckInNote(): Promise<boolean> {
 async function scheduleDigest() {
   const d = new Date(); d.setHours(8, 30, 0, 0);
   d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || (Date.now() < d.getTime() && d.getDay() === 1 ? 0 : 7)));
-  await LocalNotifications.schedule({ notifications: [{ id: 900_300_000, title: 'Your week', body: 'Doses, weight, training and sleep against the week before. Tap to see.', schedule: { at: d, allowWhileIdle: true }, channelId: TRAINING_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/progress/trends' } }] });
+  await LocalNotifications.schedule({ notifications: [{ id: 900_300_000, title: 'Your week', body: 'Results, what drove them, and next week’s three levers.', schedule: { at: d, allowWhileIdle: true }, channelId: TRAINING_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/week' } }] });
 }
 
 /** The Monday digest notification on (asking for permission) or off. */

@@ -1,10 +1,10 @@
-import { Dumbbell, HeartPulse, House, Layers, LineChart, Moon, Pill, Scale, TrendingUp, Utensils, type LucideIcon } from 'lucide-react';
+import { Dumbbell, HeartPulse, House, Layers, LineChart, Pill, Scale, TrendingUp, Utensils, type LucideIcon } from 'lucide-react';
 import { FOCUS, HAS_BODY } from '../edition';
 
 type Tab = { path: string; label: string; Icon: LucideIcon; match?: string[] };
 
-/** The main tabs. MedTap: Today, Stack (everything taken: medicines, peptides, supplements, and their stock), Insights
- *  (trends, body and records), then Training, Sleep and Health (the watch's data) when they're on. */
+/** The main tabs. MedTap: Today, Stack (everything taken: medicines, peptides, supplements, and their stock), Food,
+ *  Body (body, trends and records) and Health (the watch's data, sleep and training) when they're on. */
 export function tabsFor(stack: boolean, training = false, sleep = false, health = false, food = false): Tab[] {
   const train: Tab[] = training ? [{ path: '/training', label: 'Training', Icon: Dumbbell }] : [];
   // TapWeigh: weight first, then food. TapLift: training first. Neither has medicines.
@@ -20,14 +20,13 @@ export function tabsFor(stack: boolean, training = false, sleep = false, health 
     { path: '/trends', label: 'Trends', Icon: LineChart },
     { path: '/body', label: 'Body', Icon: Scale },
   ];
+  // MedTap: five at most. Body holds trends too; Health holds sleep and training as sections.
   if (stack) return [
     { path: '/today', label: 'Today', Icon: House },
     { path: '/meds', label: 'Stack', Icon: Layers, match: ['/protocol'] },
     ...(food ? [{ path: '/food', label: 'Food', Icon: Utensils }] : []),
-    { path: '/progress', label: 'Insights', Icon: TrendingUp, match: ['/trends', '/body'] },
-    ...train,
-    ...(sleep ? [{ path: '/sleep', label: 'Sleep', Icon: Moon }] : []),
-    ...(health ? [{ path: '/health', label: 'Health', Icon: HeartPulse }] : []),
+    { path: '/progress', label: HAS_BODY ? 'Body' : 'Insights', Icon: HAS_BODY ? Scale : TrendingUp, match: ['/trends', '/body'] },
+    ...(health || sleep || training ? [{ path: health ? '/health' : sleep ? '/sleep' : '/training', label: 'Health', Icon: HeartPulse, match: ['/health', '/sleep', '/training'] }] : []),
   ];
   return [
     { path: '/today', label: 'Today', Icon: House },

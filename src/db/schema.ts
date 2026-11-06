@@ -277,6 +277,8 @@ export interface CheckIn extends Stamped {
   relatedDoseId?: string; deletedAt?: string; personId?: string;
   /** A caffeine drink (with the Caffeine chip): its mg; the note is the drink's name. */
   caffeineMg?: number;
+  /** A drink's volume (mL), added to the day's water when it was logged (and taken off again if it's removed). */
+  waterMl?: number;
   /** A brain test (biohacking tools): median reaction time (ms), lapses (over 500 ms), early taps, and the share right
    *  on the working-memory part (0–100); 'full' (2 minutes), 'quick' (reaction only) or 'watch'. */
   rtMs?: number; rtLapses?: number; rtEarly?: number; nbackPct?: number; test?: 'full' | 'quick' | 'watch';
@@ -486,6 +488,8 @@ export interface FoodLog extends Stamped {
   nutrients: Nutrients;
   /** Protein added to the day's protein total (taken off again if this is removed), and the caffeine check-in made. */
   proteinPosted?: number; caffeineCheckInId?: string;
+  /** A drink's volume (mL) added to the day's water (taken off again if this is removed). */
+  waterPosted?: number;
   /** How hungry they were (1 not at all … 5 very), and why they ate, if they said. */
   hunger?: number; why?: EatWhy;
   personId?: string; deletedAt?: string;

@@ -3,17 +3,15 @@
 // appetite and fluids around a weekly shot on Protocol.
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Activity, AlertTriangle, Brain, Droplets, Plus, Trash2 } from 'lucide-react';
+import { Activity, Brain, Droplets, Plus, Trash2 } from 'lucide-react';
 import type { Medication } from '../db/schema';
 import { medIsFor, personOf } from '../db/repos/people';
 import { setBreaks } from '../db/repos/meds';
-import { useBodyEntries, useCheckIns, useDaily, useDoses, useExperiments, useFamily, useMeds, useScheduleSettings, useSettings, useWorkouts } from '../app/data';
+import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useMeds, useScheduleSettings, useSettings, useWorkouts } from '../app/data';
 import { useNow } from '../app/useNow';
 import { useToast } from '../app/toast';
 import { afterBreak, doseCreep, eveningTestDue, focusByHour, illnessWarning, mindReadiness, recoveryTimes, tolerance } from '../logic/biohack';
 import { appetiteAhead, fluids, gutByShotDay, muscleScore } from '../logic/bodyhack';
-import { dailyBrief } from '../logic/brief';
-import { conditionOn } from '../logic/experiments';
 import { isStimulant } from '../logic/stimulant';
 import { isGlpLike } from '../logic/peptideGuide';
 import { fmtHHmm } from '../logic/format';
@@ -26,34 +24,25 @@ import { TextInput } from './ui/Field';
 const useOn = () => { const st = useSettings(); return HAS_PEPTIDES && !!st?.biohackTools; };
 const fmtL = (ml: number) => `${Math.round(ml / 100) / 10} L`;
 
-/** Today: the daily brief (doses, shots, appetite, water), and with the biohacking tools readiness, the plan for the
- *  day, an illness warning, how long recovery usually takes, and an evening test. */
+/** Today, with the biohacking tools: readiness and its plan for the day, how long recovery usually takes, and an
+ *  evening test. (The daily brief's lines and getting sick are in Today's plan.) */
 export function DailyBrief() {
   const on = useOn();
   const daily = useDaily(); const checkIns = useCheckIns(); const doses = useDoses(); const meds = useMeds(); const workouts = useWorkouts(); const fam = useFamily(); const ss = useScheduleSettings();
-  const experiments = useExperiments();
   const now = useNow(300_000);
   const [more, setMore] = useState(false);
   if (!daily || !checkIns || !doses || !meds || !workouts || !fam || !ss || fam.everyone) return null;
   const [st, s] = ss;
   const me = <T extends { personId?: string }>(x: T) => personOf(x) === fam.personId;
   const mine = { daily: daily.filter(me), checkIns: checkIns.filter(me), doses, meds: meds.filter((m) => medIsFor(m, fam.personId)), workouts: workouts.filter(me) };
-  const brief = dailyBrief({ ...mine, waterTarget: st.waterTargetMl, biohack: on }, now, s);
-  // Self-experiments running today.
-  for (const e of (experiments ?? []).filter((x) => !x.deletedAt && me(x))) {
-    const c = !e.ended ? conditionOn(e, format(now, 'yyyy-MM-dd')) : null;
-    if (c) brief.push({ key: `exp:${e.id}`, text: `Experiment “${e.title}”: today is ${c.arm === 'a' ? e.a : e.b}` });
-  }
-  const ill = on ? illnessWarning(mine.daily, now, s) : null;
   const best = on ? focusByHour(mine.checkIns, now, s)?.best : undefined;
-  const r = on ? mindReadiness(mine, now, s, { illness: !!ill, bestHours: best, bedtime: fmtHHmm(st.bedtime) }) : null;
+  const r = on ? mindReadiness(mine, now, s, { illness: !!illnessWarning(mine.daily, now, s), bestHours: best, bedtime: fmtHHmm(st.bedtime) }) : null;
   const rec = on ? recoveryTimes(mine, now, s) : [];
   const evening = on && eveningTestDue(mine.meds, doses, mine.checkIns, now, s);
-  if (!r && !ill && !evening && !brief.length) return null;
+  if (!r && !evening) return null;
   return (
     <section aria-labelledby="ready-h" className="box space-y-3">
-      <h2 id="ready-h" className="text-sm font-medium text-muted">Your day</h2>
-      {brief.length > 0 && <ul className="space-y-1 leading-snug">{brief.map((b) => <li key={b.key} className="flex gap-2"><span aria-hidden="true" className="mt-[0.55em] w-1.5 h-1.5 rounded-full bg-text shrink-0" /><span>{b.text}</span></li>)}</ul>}
+      <h2 id="ready-h" className="text-sm font-medium text-muted">Readiness</h2>
       {r && (
         <div className="flex items-start gap-3">
           <MiniRing value={r.score} max={100} size={52} tone={r.score >= 75 ? 'good' : r.score >= 55 ? 'primary' : 'watch'} label={`Readiness ${r.score} of 100`}>{r.score}</MiniRing>
@@ -63,7 +52,6 @@ export function DailyBrief() {
           </div>
         </div>
       )}
-      {ill && <p className="text-sm flex gap-2 rounded-btn bg-caution-soft p-2.5"><AlertTriangle size={16} aria-hidden="true" className="shrink-0 mt-0.5 text-caution" /><span>Resting heart rate {ill.rhr} bpm (usually {ill.baseRhr}){ill.hrv !== undefined ? `, HRV ${ill.hrv} ms (usually ${ill.baseHrv})` : ''} two days running: often a sign of getting sick.</span></p>}
       {evening && <a href="#/brain" className="flex items-center gap-2 text-sm font-medium min-h-[44px]"><Brain size={18} aria-hidden="true" className="text-primary" />Quick evening test: is there a dip as it wears off?</a>}
       {r && (
         <>

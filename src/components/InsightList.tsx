@@ -1,5 +1,5 @@
 // The insights on screen, all in one design: an icon, a headline, what it rests on, one thing to do, and "Not now".
-// Today shows the top couple (TopInsights); Progress shows every one (InsightFeed). Acting on one that changes a
+// Today's plan shows the top few among everything else for the day; Progress shows every one (InsightFeed). Acting on one that changes a
 // setting also notes it, so the app can check back a few weeks later on what happened.
 import { useMemo, useState } from 'react';
 import { Activity, ArrowDownRight, ClipboardList, Pill, Brain, Thermometer, TrendingDown, TrendingUp, BatteryLow, CalendarDays, CalendarX, Clock, Footprints, Moon, Scale, Coffee, Droplet, Dumbbell, FileText, HeartPulse, Layers, Lightbulb, SearchCheck, Sparkles, Target, Utensils, X, Zap, type LucideIcon } from 'lucide-react';
@@ -59,7 +59,7 @@ export function useInsights(): { list: Insight[]; settings: AppSettings } | null
 }
 
 /** One insight: icon, headline, evidence, its action and Not now. */
-export function InsightRow({ x, settings }: { x: Insight; settings: AppSettings }) {
+export function InsightRow({ x, settings, because }: { x: Insight; settings: AppSettings; /** Links to the numbers it rests on. */ because?: { label: string; href: string }[] }) {
   const toast = useToast();
   const [odd, setOdd] = useState(false);
   const now = useNow(60_000);
@@ -111,6 +111,7 @@ export function InsightRow({ x, settings }: { x: Insight; settings: AppSettings 
           </>
         )}
         {x.lanes && x.lanes.length > 0 && <Lanes lanes={x.lanes} now={now} />}
+        {because && because.length > 0 && <BecauseChips items={because} />}
         {x.action && <Button variant="secondary" className="mt-2 min-h-[44px]" onClick={act}>{x.action.label}</Button>}
       </div>
       <button type="button" onClick={() => hide(x.snoozeDays)} aria-label={`Not now: ${x.headline}`} className="w-11 h-11 -mr-2 -mt-1.5 rounded-full flex items-center justify-center text-muted shrink-0">
@@ -118,6 +119,16 @@ export function InsightRow({ x, settings }: { x: Insight; settings: AppSettings 
       </button>
       {odd && <OddInsightSheet settings={settings} onClose={() => setOdd(false)} />}
     </li>
+  );
+}
+
+/** "Because" links: the numbers a line rests on, each a tap away. */
+export function BecauseChips({ items }: { items: { label: string; href: string }[] }) {
+  return (
+    <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[12px]">
+      <span className="text-muted">Because</span>
+      {items.map((b) => <a key={b.label} href={b.href} className="inline-flex items-center min-h-[28px] px-2.5 rounded-full bg-surface-2 font-medium">{b.label}</a>)}
+    </p>
   );
 }
 
@@ -132,24 +143,6 @@ function OddInsightSheet({ settings, onClose }: { settings: AppSettings; onClose
   const ids = new Set(pm.map((m) => m.id));
   const pd = dosesForPerson(doses.filter((d) => ids.has(d.medicationId)), pm, fam.personId);
   return <OddSheet odd={oddRecords(pm, pd, HAS_BODY ? body.filter(me) : [], checkIns.filter(me), vitals.filter(me), now, settings.oddDismissed)} dismissed={settings.oddDismissed} onClose={onClose} />;
-}
-
-/** Today: the one or two that matter most, and a link to the rest. */
-export function TopInsights({ max = 2 }: { max?: number }) {
-  const r = useInsights();
-  if (!r || !r.list.length) return null;
-  // The daily brief above already says these (second dose, appetite coming back, water).
-  const list = r.list.filter((x) => !['second', 'appetite', 'fluids'].includes(x.kind));
-  if (!list.length) return null;
-  const top = list.slice(0, max);
-  const more = list.length - top.length;
-  return (
-    <section aria-labelledby="ins-h" className="box">
-      <h2 id="ins-h" className="sr-only">For you</h2>
-      <ul className="divide-y divide-border">{top.map((x) => <InsightRow key={x.id} x={x} settings={r.settings} />)}</ul>
-      {more > 0 && <a href="#/progress/trends" className="min-h-[44px] flex items-center text-sm font-medium underline underline-offset-4">{more} more insight{more === 1 ? '' : 's'}</a>}
-    </section>
-  );
 }
 
 /** Progress: every insight, most important first (the first few, then the rest on request). */

@@ -65,6 +65,7 @@ export function WeekReviewSection() {
     <section aria-labelledby="week-h" id="week">
       <h2 id="week-h" className="text-sm font-medium text-muted">Last week · {format(d.weekStart, 'd MMM')} – {format(d.weekEnd - 1, 'd MMM')}</h2>
       <ReviewLines d={d} />
+      <a href="#/week" className="min-h-[44px] flex items-center text-sm font-medium underline underline-offset-4">What drove it, and next week's levers</a>
       {isNative && !r.notify && (
         <button type="button" className="min-h-[44px] text-sm text-muted underline underline-offset-4" onClick={async () => {
           const on = await setDigestNotify(true);
@@ -81,7 +82,7 @@ export function WeekTeaser({ now }: { now: number }) {
   if (!r || r.seen >= r.d.weekStart || ![1, 2, 3].includes(new Date(now).getDay())) return null;
   return (
     <div className="border-t border-border pt-3">
-      <IconRow Icon={CalendarRange} tone="good" href="#/progress/trends"
+      <IconRow Icon={CalendarRange} tone="good" href="#/week"
         action={<button type="button" aria-label="Done with last week" onClick={() => setSetting('digestSeen', r.d.weekStart)} className="w-11 h-11 -mr-2 rounded-full flex items-center justify-center text-muted"><X size={18} aria-hidden="true" /></button>}>
         <span className="font-medium">Your week: {r.d.headline}</span>
         <span className="block text-sm text-muted">{r.d.lines.length + r.d.wins.length} things from last week · see them</span>

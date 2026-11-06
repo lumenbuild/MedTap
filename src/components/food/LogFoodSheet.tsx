@@ -334,7 +334,7 @@ function Amount({ food, personId, energy, onBack, onClose }: { food: Food; perso
     // A common food is saved on its first log, so it's one tap next time.
     const saved = food.id ? food : await saveFood({ kind: food.kind, name: food.name, nutrients: food.nutrients, serving: food.serving, source: 'common' });
     const l = await logFood({ ...eat, name: food.name, foodId: saved.id, servings, nutrients, at: when, date: format(new Date(when), 'yyyy-MM-dd'), personId });
-    toast(`Logged ${food.name}${(nutrients.caffeine ?? 0) >= 1 ? ' (and its caffeine)' : ''}`, { onAction: async () => { await removeFoodLog(l, format(new Date(when), 'yyyy-MM-dd')); } });
+    toast(`Logged ${food.name}${l.waterPosted ? ` · +${l.waterPosted} mL water` : ''}${(nutrients.caffeine ?? 0) >= 1 ? ' (and its caffeine)' : ''}`, { onAction: async () => { await removeFoodLog(l, format(new Date(when), 'yyyy-MM-dd')); } });
     onClose();
   };
   return (
