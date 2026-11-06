@@ -1,4 +1,5 @@
 import { SupplementsSection } from '../../components/HowToTake';
+import { StackToday } from '../../components/StackSmart';
 import { BookOpen, Calculator, Camera, CalendarClock, CalendarRange, CalendarX, ChevronRight, FileText, Link2, Nfc, Package, Plane, Plus, Wallet, X, type LucideIcon } from 'lucide-react';
 import { HAS_PEPTIDES, HAS_VISITS } from '../../edition';
 
@@ -60,7 +61,7 @@ export function MedsList() {
   // Stock and orders: what runs out or needs ordering in the next 3 weeks, across everything.
   const lead = Math.min(...active.filter((m) => m.peptide).map((m) => m.peptide?.leadTimeDays ?? DEFAULT_LEAD_DAYS), DEFAULT_LEAD_DAYS);
   const orders = [
-    ...active.map((m) => {
+    ...active.filter((m) => !(peptidesOn && m.peptide)).map((m) => {
       const f = forecastRunOut(m, doses, now, s);
       if (!f || f.runOutAt === null || f.runOutAt - now > 21 * DAY) return null;
       const by = m.peptide ? f.runOutAt - (m.peptide.leadTimeDays ?? DEFAULT_LEAD_DAYS) * DAY : f.runOutAt - settings.refillWarnDays * DAY;
@@ -109,9 +110,12 @@ export function MedsList() {
         </section>
       ))}
 
+      {/* The peptides together: levels, courses and one list to buy from. */}
+      {peptidesOn && !fam.everyone && <StackToday />}
+
       {active.length > 0 && (
         <section aria-labelledby="orders-h" className="box space-y-1">
-          <h2 id="orders-h" className="text-sm font-medium text-muted">Stock and orders</h2>
+          <h2 id="orders-h" className="text-sm font-medium text-muted">{peptidesOn ? 'Medicines and supplies to order' : 'Stock and orders'}</h2>
           {orders.length ? (
             <ul className="divide-y divide-border">{orders.map((o) => (
               <li key={o.key}><a href={o.href} className="flex items-center gap-3 min-h-[52px]">

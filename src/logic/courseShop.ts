@@ -4,7 +4,7 @@
 // even if it isn't empty. Pure.
 import type { Dose, Medication } from '../db/schema';
 import type { GuideEntry } from './peptideGuide';
-import { currentVial, stockVials, vialStatus } from './peptide';
+import { currentVial, stockVials, vialStatus, vialYield } from './peptide';
 import { plannedInjections } from './protocol';
 import { courseInfo, getDayBounds, type ScheduleSettings } from './schedule';
 
@@ -50,10 +50,12 @@ export function courseShop(med: Medication, doses: Dose[], now: number, s: Sched
   const v = vialStatus(med, doses, now);
   const stock = stockVials(med);
   const vialSize = stock[0]?.amount ?? currentVial(med)?.amount ?? med.strength;
+  // What vials really give, once there's a record of it (dead space, overfill and spills).
+  const loss = vialYield(med, doses)?.lossPerVial ?? 0;
 
   // Day by day: use the vial in hand (until empty or past use-within), then unopened ones, then bought ones.
   let left = v && !v.expired ? v.left : 0, mixedAt = v?.startedAt ?? now;
-  const queue = stock.map((x) => x.amount);
+  const queue = stock.map((x) => Math.max(0, x.amount - loss));
   let bought = 0, runsOutAt: number | undefined;
   p.perDay.forEach((need, i) => {
     const t = now + i * DAY;
@@ -61,7 +63,7 @@ export function courseShop(med: Medication, doses: Dose[], now: number, s: Sched
     while (rest > 1e-9) {
       if (left <= 1e-9 || t - mixedAt >= within) {
         if (queue.length) left = queue.shift()!;
-        else { if (runsOutAt === undefined) runsOutAt = t; bought++; left = vialSize; }
+        else { if (runsOutAt === undefined) runsOutAt = t; bought++; left = Math.max(vialSize * 0.5, vialSize - loss); }
         mixedAt = t;
       }
       const take = Math.min(left, rest); left -= take; rest -= take;

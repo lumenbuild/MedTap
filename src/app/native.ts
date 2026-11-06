@@ -32,6 +32,7 @@ import { isStimulant, secondDose, stimulantHours } from '../logic/stimulant';
 import { mindReadiness } from '../logic/biohack';
 import { cravingForecast } from '../logic/aheadSmarts';
 import { sickForecast, sickHeadline } from '../logic/sickness';
+import { stackShop } from '../logic/stackSmart';
 import { planCheckInNotes } from '../logic/reminders';
 import { fmtAmount, fmtTime } from '../logic/format';
 import { shownName } from '../logic/privacy';
@@ -370,6 +371,7 @@ async function doSync() {
   if (settings.wearOffNotify) await safe('wear-off', () => scheduleWearOff(settings));
   if (HAS_PEPTIDES && settings.biohackTools) await safe('bedtime', () => scheduleBedtime(settings));
   if (settings.foodTracking) await safe('cravings', () => scheduleCraving(settings));
+  if (HAS_PEPTIDES && settings.peptideTools) await safe('orders', () => scheduleOrderBy(settings));
   if (!settings.remindersEnabled) return;
   const [meds, doses, people] = await Promise.all([db.medications.toArray(), db.doses.toArray(), listPeople()]);
   const live = doses.filter((d) => !d.deletedAt);
@@ -445,6 +447,23 @@ async function scheduleCraving(settings: Awaited<ReturnType<typeof getSettings>>
   await LocalNotifications.schedule({ notifications: [{ id: 900_600_000, title: settings.discreetReminders ? 'Heads-up' : 'Cravings usually hit soon',
     body: settings.discreetReminders ? 'A small plan for the next hour' : `Around ${fmtTime(at.getTime())} on ${new Date(now).toLocaleDateString('en-AU', { weekday: 'long' })}s. A protein snack now takes the edge off.`,
     schedule: { at: new Date(when), allowWhileIdle: true }, channelId: CHECKIN_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/food' } }] });
+}
+
+/** The morning of the stack's "order by" date (from what each peptide's plan needs and how long delivery takes). */
+async function scheduleOrderBy(settings: Awaited<ReturnType<typeof getSettings>>) {
+  const me = settings.activePersonId;
+  const [meds, doses] = await Promise.all([db.medications.toArray(), db.doses.toArray()]);
+  const mine = meds.filter((m) => medIsFor(m, me));
+  const ids = new Set(mine.map((m) => m.id));
+  const shop = stackShop(mine, doses.filter((d) => ids.has(d.medicationId) && !d.deletedAt), Date.now(), scheduleSettings(settings), settings.peptideOrders);
+  if (shop?.orderBy === undefined || settings.peptideOrders.some((o) => !o.arrivedAt)) return;
+  const at = new Date(Math.max(shop.orderBy, Date.now())); at.setHours(9, 0, 0, 0);
+  if (at.getTime() <= Date.now()) at.setDate(at.getDate() + 1);
+  if (at.getTime() - Date.now() > 14 * 86_400_000) return;
+  const due = shop.items.filter((x) => x.orderBy !== undefined && x.orderBy <= shop.orderBy! + 3 * 86_400_000).map((x) => x.name);
+  await LocalNotifications.schedule({ notifications: [{ id: 900_800_000, title: settings.discreetReminders ? 'Time to order' : `Order ${due.join(', ')} today`,
+    body: settings.discreetReminders ? 'Your stack runs short soon' : `Delivery takes about ${shop.leadDays} days; what you have runs out before then.`,
+    schedule: { at, allowWhileIdle: true }, channelId: CHECKIN_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/meds' } }] });
 }
 
 /** In the morning, once a night: when last night's readings look like the run-up to getting sick, say so (with what's

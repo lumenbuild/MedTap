@@ -273,7 +273,10 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
       })()}
       <DosePlanCard med={med} flat />
       <section aria-label="Estimated level" className="space-y-3">
-        {med.peptide?.halfLifeHours
+        {med.peptide?.halfLifeHours && med.peptide.halfLifeHours < 24
+          // Gone within a day of each shot: a level chart would only draw spikes.
+          ? <p className="text-[15px] rounded-card bg-surface-2 p-3">With a half-life of about {Math.round(med.peptide.halfLifeHours)} hours, {shownName(med)} clears within a day of each shot, so there's no level to build up between doses.</p>
+          : med.peptide?.halfLifeHours
           ? <><Suspense fallback={<div className="h-[150px]" />}><LevelProjection med={med} doses={doses.filter((d) => d.medicationId === med.id)} s={s} now={now} /></Suspense>
             {(() => {
               const sv = med.schedule.type === 'fixed' && !med.schedule.everyNDays ? splitView(med.peptide.halfLifeHours, med.schedule.days, guideEntry?.tmaxHours) : null;
@@ -289,8 +292,8 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
               );
             })()}</>
           : guideEntry?.halfLifeHours
-            ? <button type="button" className="w-full text-left rounded-card bg-surface-2 p-3 min-h-[56px]" onClick={async () => { await setHalfLife(med.id, guideEntry.halfLifeHours); toast(`Half-life set to ${Math.round(guideEntry.halfLifeHours! / 24)} days`, { onAction: () => setHalfLife(med.id, undefined) }); }}>
-                <span className="block font-medium">Use the {guideEntry.name} half-life ({Math.round(guideEntry.halfLifeHours / 24)} days)</span>
+            ? <button type="button" className="w-full text-left rounded-card bg-surface-2 p-3 min-h-[56px]" onClick={async () => { await setHalfLife(med.id, guideEntry.halfLifeHours); toast(`Half-life set to ${guideEntry.halfLifeHours! >= 48 ? `${Math.round(guideEntry.halfLifeHours! / 24)} days` : `${Math.round(guideEntry.halfLifeHours!)} hours`}`, { onAction: () => setHalfLife(med.id, undefined) }); }}>
+                <span className="block font-medium">Use the {guideEntry.name} half-life ({guideEntry.halfLifeHours >= 48 ? `${Math.round(guideEntry.halfLifeHours / 24)} days` : `${Math.round(guideEntry.halfLifeHours)} hours`})</span>
                 <span className="block text-sm text-muted">Shows your estimated level through the plan, and how steady it is between shots.</span>
               </button>
             : <p className="text-sm text-muted">Add a half-life on <a href={`#/meds/${med.id}`} className="underline underline-offset-4">its page</a> to see the estimated level through your plan.</p>}

@@ -138,6 +138,29 @@ export function needsNewVial(v: VialStatus | undefined, dose: number): boolean {
   return !!v && (v.expired || (dose > 0 && v.left + 1e-9 < dose));
 }
 
+const median_ = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+export interface VialYield { vials: number; expected: number; actual: number; /** Usual loss per vial (in the medicine's unit), and the share. */ lossPerVial: number; share: number }
+
+/** Finished vials: the doses each gave against what its amount should have given. 2+ vials, from doses logged
+ *  against them. Losses of 5% or more are worth knowing (dead space in the syringe and hub, overfill, spills). */
+export function vialYield(med: Medication, doses: Dose[]): VialYield | null {
+  if (!med.peptide || med.peptide.kind === 'pen') return null;
+  const done = vialsOf(med).filter((v) => v.status === 'finished' && v.startedAt && v.finishedAt);
+  const rows = done.map((v) => {
+    const ds = dosesFromVial(v, med.id, doses).filter((d) => !d.skipped);
+    const used = ds.reduce((a, d) => a + d.amount, 0);
+    // Finished early (not by its use-within date): what went in the syringe against what was in it.
+    return { amount: v.amount, used, n: ds.length };
+  }).filter((x) => x.n >= 3 && x.used > 0 && x.used <= x.amount * 1.05);
+  if (rows.length < 2) return null;
+  const loss = median_(rows.map((x) => x.amount - x.used));
+  const share = loss / median_(rows.map((x) => x.amount));
+  if (share < 0.05) return null;
+  const perDose = median_(rows.map((x) => x.used / x.n));
+  return { vials: rows.length, expected: Math.floor(median_(rows.map((x) => x.amount)) / perDose), actual: Math.round(median_(rows.map((x) => x.n))), lossPerVial: Math.round(loss * 1000) / 1000, share: Math.round(share * 100) / 100 };
+}
+
+
 /** What to draw (vials) or dial (pens) for a dose, from the vial or pen in use. */
 export type Guide = { kind: 'draw'; draw: Draw; capacity: number; syringe: SyringeType; waterMl: number; amount: number }
   | { kind: 'pen'; clicks?: number };

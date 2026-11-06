@@ -6,6 +6,7 @@ import type { Call, Warning } from './decisions';
 import type { BriefLine } from './brief';
 import type { Insight, InsightKind } from './insights';
 import type { SickForecast } from './sickness';
+import type { StackItem } from './stackSmart';
 import { sickHeadline } from './sickness';
 
 export type Thread = 'meds' | 'fuel' | 'body' | 'recovery' | 'move';
@@ -66,7 +67,7 @@ const AREA: Partial<Record<InsightKind, Thread>> = {
 };
 const INSIGHT_LINK: Partial<Record<Thread, Because>> = { recovery: L.sleep, move: L.steps, fuel: L.food, body: L.weight, meds: L.doses };
 
-export interface PlanInput { calls: Call[]; warnings: Warning[]; brief: BriefLine[]; insights: Insight[]; sick?: SickForecast | null }
+export interface PlanInput { calls: Call[]; warnings: Warning[]; brief: BriefLine[]; insights: Insight[]; sick?: SickForecast | null; stack?: StackItem[] }
 
 /** One ranked list for today. */
 export function todayPlan(d: PlanInput): PlanItem[] {
@@ -79,6 +80,8 @@ export function todayPlan(d: PlanInput): PlanItem[] {
       detail: `${d.sick.off.map((x) => `${x.label} ${x.text}`).join(' · ')}. An easier day, fluids and an early night help.`,
       because: [L.vitals, ...d.sick.off.slice(0, 2).map((x) => ({ label: x.label, href: '#/health' }))], sick: d.sick });
   }
+  // The stack: a vial at a new strength, a vial near its date, an order to place, a course just ended.
+  for (const x of d.stack ?? []) out.push({ key: `stack:${x.key}`, thread: 'meds', tone: x.tone, impact: x.impact, title: x.title, detail: x.detail, because: [{ label: 'Stock', href: x.href }] });
   for (const w of d.warnings) {
     const m = WARN[w.key] ?? { thread: 'recovery' as Thread, because: [L.trends] };
     out.push({ key: `warn:${w.key}`, thread: m.thread, tone: 'watch', impact: 85, title: w.title, detail: `${w.detail} ${w.action}`.trim(), because: m.because });
