@@ -21,6 +21,8 @@ import { fmtHM } from '../logic/sleep';
 import type { ScheduleSettings } from '../logic/schedule';
 import { WorkingLink } from '../components/Decisions';
 import { SickCard } from '../components/TodayPlan';
+import { TopicLinks } from '../components/TopicLinks';
+import { HAS_BODY } from '../edition';
 import { EnergyCard, GlucoseCard, IllnessCard, LoadCard, MedEffectsList, NightVitalsCard } from '../components/HealthCards';
 
 const DAY = 86_400_000;
@@ -91,6 +93,7 @@ export function Health() {
       )}
       {/* Getting sick: learned from your own nights and past illnesses (the simpler watch when there isn't enough yet). */}
       <SickCard />
+      <TopicLinks body={HAS_BODY} />
       {ill && !hasSick && <IllnessCard ill={ill} />}
       <WorkingLink />
       {/* Last night's vitals live in "Against your usual" once there's enough history for a range. */}

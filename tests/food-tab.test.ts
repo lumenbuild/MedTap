@@ -51,9 +51,13 @@ describe('a smart scale through Health Connect', () => {
 });
 
 describe('the Food tab', () => {
-  it('sits after Stack when food is on, and every tab still fits', () => {
+  it('sits after Stack when food is on: five tabs at most, with sleep and training inside Health', () => {
     const all = tabsFor(true, true, true, true, true).map((t) => t.label);
-    expect(all).toEqual(['Today', 'Stack', 'Food', 'Insights', 'Training', 'Sleep', 'Health']);
+    expect(all).toEqual(['Today', 'Stack', 'Food', 'Body', 'Health']);
+    // Health opens on Sleep or Training when the watch's data isn't on.
+    expect(tabsFor(true, true, true, false, true).find((t) => t.label === 'Health')?.path).toBe('/sleep');
+    expect(tabsFor(true, true, false, false, true).find((t) => t.label === 'Health')?.path).toBe('/training');
+    expect(tabsFor(true, false, false, false, true).map((t) => t.label)).toEqual(['Today', 'Stack', 'Food', 'Body']);
     expect(tabsFor(true, false, false, false, false).map((t) => t.label)).not.toContain('Food');
   });
 });

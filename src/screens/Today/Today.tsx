@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { clearCheckInRequest, clearLogRequest, onCheckInRequest, onLogRequest } from '../../app/pendingLog';
 import { shownMedName, shownName } from '../../logic/privacy';
-import { CalendarPlus, Coffee, GlassWater, HeartPulse, Lock, Nfc, Pill, Ruler, Scale, Smile, Utensils, Wine } from 'lucide-react';
+import { CalendarPlus, ChevronRight, Coffee, Dumbbell, GanttChart, GlassWater, HeartPulse, Lock, Nfc, Pill, Ruler, Scale, Smile, Utensils, Wine } from 'lucide-react';
 import { addIntake } from '../../db/repos/training';
 import { Tile } from '../../components/ui/Visual';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
@@ -267,6 +267,8 @@ export function Today() {
           ] as const : []),
           ...(HAS_BODY ? [] : [['BP', 'Log blood pressure and pulse', HeartPulse, () => setVitalSheet({})] as const]),
           ['Alcohol', 'Log alcohol now', Wine, () => quick(ALCOHOL, 'Alcohol')],
+          // Training lives in Health now: starting a workout stays one tap from Today.
+          ...(HAS_TRAINING && settings.trainingTools && FOCUS !== 'training' ? [['Workout', 'Start a workout', Dumbbell, () => go('/training/start')] as const] : []),
           ...(HAS_BODY ? [['Measure', 'Add measurement', Ruler, () => setBodySheet({ kind: 'measure' })] as const] : []),
           // TapWeigh and TapLift are built around tags: one more tile for them.
           ...(HAS_MEDS ? [] : [['Tags', 'Your tags', Nfc, () => go('/tags')] as const]),
@@ -371,6 +373,14 @@ export function Today() {
       <AutoBackupPermission enabled={settings.autoBackupEnabled} />
       <UpdateCard dismissed={settings.updateDismissed} />
       <InstallCard hasDoses={firstRecord !== null} dismissed={settings.installCardDismissed} />
+
+      {!fam.everyone && (
+        <a href="#/day" className="box flex items-center gap-3 min-h-[60px] active:scale-[0.99] transition-transform">
+          <span aria-hidden="true" className="w-9 h-9 rounded-[10px] flex items-center justify-center text-white shrink-0" style={{ background: 'var(--c-mind)' }}><GanttChart size={19} /></span>
+          <span className="flex-1 min-w-0"><span className="block font-semibold">Your day on one timeline</span><span className="block text-sm text-muted">Doses, food, drinks, heart rate and sleep together</span></span>
+          <ChevronRight size={18} aria-hidden="true" className="text-muted" />
+        </a>
+      )}
 
       <Timeline doses={viewDoses} checkIns={viewCheckIns} body={HAS_BODY ? viewBody : []} vitals={viewVitals} onVital={(v) => setVitalSheet({ editing: v })} meds={viewMedMap} s={s} units={settings.units} now={now} personLabel={fam.everyone ? whose : undefined}
         onDose={setEditing} onCheckIn={(c: CheckIn) => (isDrink(c) ? setDrink({ editing: c }) : setCheckIn({ editing: c }))} onBody={(b: BodyEntry) => setBodySheet({ kind: 'edit', entry: b })} />

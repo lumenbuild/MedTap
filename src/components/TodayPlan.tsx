@@ -76,7 +76,7 @@ export function GoalRings() {
   if (h && now - new Date(`${h.date}T12:00`).getTime() < 1.5 * 86_400_000) {
     const prior = hrvs.slice(-31, -1).map((d) => d.hrvMs!);
     const diff = prior.length >= 5 ? Math.round(h.hrvMs! - median(prior)) : 0;
-    chips.push({ label: 'HRV', value: `${Math.round(h.hrvMs!)} ms${Math.abs(diff) >= 2 ? ` ${diff > 0 ? '▲' : '▼'}${Math.abs(diff)}` : ''}`, href: '#/health', tone: diff >= 2 ? 'good' : diff <= -2 ? 'watch' : undefined });
+    chips.push({ label: 'HRV', value: `${Math.round(h.hrvMs!)} ms${Math.abs(diff) >= 2 ? ` ${diff > 0 ? '▲' : '▼'}${Math.abs(diff)}` : ''}`, href: '#/topic/hrv', tone: diff >= 2 ? 'good' : diff <= -2 ? 'watch' : undefined });
   }
   const ws = data.body.filter((b) => typeof b.weightKg === 'number').sort((a, b) => a.date.localeCompare(b.date));
   const w = ws.at(-1);
@@ -85,7 +85,7 @@ export function GoalRings() {
     const before = [...ws].reverse().find((b) => b.date <= weekAgo);
     const u = settings.units;
     const ch = before ? Math.round((kgTo(w.weightKg!, u) - kgTo(before.weightKg!, u)) * 10) / 10 : undefined;
-    chips.push({ label: 'Weight', value: `${kgTo(w.weightKg!, u)}${ch !== undefined && Math.abs(ch) >= 0.1 ? ` ${ch < 0 ? '▼' : '▲'}${Math.abs(ch)}` : ''}`, href: '#/progress/body', tone: ch !== undefined && ch <= -0.1 ? 'good' : undefined });
+    chips.push({ label: 'Weight', value: `${kgTo(w.weightKg!, u)}${ch !== undefined && Math.abs(ch) >= 0.1 ? ` ${ch < 0 ? '▼' : '▲'}${Math.abs(ch)}` : ''}`, href: '#/topic/weight', tone: ch !== undefined && ch <= -0.1 ? 'good' : undefined });
   }
   if (!rings.length && !chips.length) return null;
   const cols = ['grid-cols-1', 'grid-cols-2', 'grid-cols-3', 'grid-cols-4', 'grid-cols-5'][Math.max(0, Math.min(5, rings.length) - 1)];

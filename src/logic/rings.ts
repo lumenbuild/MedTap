@@ -28,14 +28,14 @@ export function goalRings(d: RingInput, now: number, s: ScheduleSettings): Ring[
     const share = mix.kgLost > 0 ? Math.min(1, Math.max(0.5, mix.fatLost / mix.kgLost)) : 0.75;
     const toGo = d.goalKg !== undefined && latest !== undefined ? r1(Math.max(0, latest - d.goalKg) * share) : undefined;
     out.push({ key: 'fat', label: 'Fat lost', value: `${mix.fatLost} kg`, sub: toGo !== undefined ? (toGo > 0 ? `${toGo} kg to go` : 'goal reached') : 'since ' + mix.since.slice(5).split('-').reverse().join('/'),
-      frac: toGo !== undefined ? clamp(mix.fatLost / (mix.fatLost + toGo)) : clamp(mix.fatLost / 10), tone: 'good', href: '#/progress/body' });
+      frac: toGo !== undefined ? clamp(mix.fatLost / (mix.fatLost + toGo)) : clamp(mix.fatLost / 10), tone: 'good', href: '#/topic/weight' });
   } else if (weights.length >= 2 && latest !== undefined) {
     const start = Math.max(...weights.slice(0, Math.max(1, Math.ceil(weights.length / 4))).map((b) => b.weightKg!));
     const lost = r1(start - latest);
     if (lost > 0) {
       const toGo = d.goalKg !== undefined ? r1(Math.max(0, latest - d.goalKg)) : undefined;
       out.push({ key: 'weight', label: 'Weight lost', value: `${lost} kg`, sub: toGo !== undefined ? (toGo > 0 ? `${toGo} kg to go` : 'goal reached') : 'in 6 months',
-        frac: toGo !== undefined ? clamp(lost / (lost + toGo)) : clamp(lost / 10), tone: 'good', href: '#/progress/body' });
+        frac: toGo !== undefined ? clamp(lost / (lost + toGo)) : clamp(lost / 10), tone: 'good', href: '#/topic/weight' });
     }
   }
   // Lean mass kept since the loss began.
@@ -46,7 +46,7 @@ export function goalRings(d: RingInput, now: number, s: ScheduleSettings): Ring[
       const kept = clamp(1 - mix.leanLost / leanStart);
       const ok = mix.kgLost <= 0 || mix.leanLost <= mix.kgLost * 0.3;
       out.push({ key: 'lean', label: 'Lean kept', value: `${Math.round(kept * 1000) / 10}%`, sub: mix.leanLost > 0 ? `−${mix.leanLost} kg lean` : `+${Math.abs(mix.leanLost)} kg lean`,
-        frac: kept, tone: ok ? 'good' : 'watch', href: '#/progress/body' });
+        frac: kept, tone: ok ? 'good' : 'watch', href: '#/topic/lean' });
     }
   }
   const today = dayKey(now, s);
@@ -64,6 +64,6 @@ export function goalRings(d: RingInput, now: number, s: ScheduleSettings): Ring[
   const t = rows.find((r) => r.date === today);
   if (t?.steps && d.stepsTarget) out.push({ key: 'steps', label: 'Steps', value: t.steps.toLocaleString('en-AU'), sub: `of ${d.stepsTarget.toLocaleString('en-AU')}`, frac: clamp(t.steps / d.stepsTarget), tone: t.steps >= d.stepsTarget ? 'good' : 'primary', href: '#/health' });
   const n = nightsOf(rows, now).at(-1);
-  if (n && now - new Date(`${n.date}T12:00`).getTime() < 1.5 * DAY) out.push({ key: 'sleep', label: 'Sleep', value: fmtHM(n.asleep), sub: `of ${fmtHM(d.sleepTargetMin)}`, frac: clamp(n.asleep / d.sleepTargetMin), tone: n.asleep >= d.sleepTargetMin * 0.9 ? 'good' : n.asleep < d.sleepTargetMin * 0.75 ? 'watch' : 'primary', href: '#/sleep' });
+  if (n && now - new Date(`${n.date}T12:00`).getTime() < 1.5 * DAY) out.push({ key: 'sleep', label: 'Sleep', value: fmtHM(n.asleep), sub: `of ${fmtHM(d.sleepTargetMin)}`, frac: clamp(n.asleep / d.sleepTargetMin), tone: n.asleep >= d.sleepTargetMin * 0.9 ? 'good' : n.asleep < d.sleepTargetMin * 0.75 ? 'watch' : 'primary', href: '#/topic/sleep' });
   return out;
 }
