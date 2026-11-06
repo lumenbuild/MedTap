@@ -16,7 +16,7 @@ import { disguise, privateRule } from '../../logic/privateView';
 import { getSettings, setSetting } from '../../db/repos/settings';
 import { personOf, storedPerson } from '../../db/repos/people';
 import { DEFAULT_PERSON } from '../../db/schema';
-import { addBottle, createMed, deleteMedForever, setArchived, updateMed, type MedInput } from '../../db/repos/meds';
+import { addBottle, addVials, createMed, deleteMedForever, setArchived, startVial, updateMed, updateVial, type MedInput } from '../../db/repos/meds';
 import { linkTag } from '../../db/repos/tags';
 import { go, replace } from '../../app/router';
 import { useToast } from '../../app/toast';
@@ -216,6 +216,10 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
   const [fromGuideId, setFromGuideId] = useState<string | undefined>(guideId && guideById(guideId) ? guideId : undefined);
   const [stepMode, setStepMode] = useState<'lowest' | 'ladder' | 'none'>('lowest');
   const [split, setSplit] = useState(false);
+  /** A new peptide's vials, saved as vial records: unopened ones, and one already mixed (when). */
+  const [vialsHave, setVialsHave] = useState(guideId ? '1' : '');
+  const [mixedNow, setMixedNow] = useState(false);
+  const [mixedOn, setMixedOn] = useState(() => format(Date.now(), 'yyyy-MM-dd'));
   useEffect(() => { const g = guideId ? guideById(guideId) : undefined; if (g) setF((p) => fromGuide(p, g)); }, [guideId]);
   const loadedId = existing?.id;
 
@@ -296,8 +300,20 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
         const add = g.chips.filter((w) => !st.chips.some((c) => c.toLowerCase() === w.toLowerCase()));
         if (add.length) await setSetting('chips', [...st.chips, ...add]);
       }
-      const med = await createMed(input);
+      const med = await createMed({ ...input, ...(input.peptide ? { stockCount: undefined } : {}) });
       if (labelExpiry) await addBottle(med.id, { expiry: labelExpiry });
+      // A peptide's vials become vial records, so the Stock tab, the Stack list and reminders count the same ones.
+      if (input.peptide) {
+        const unopened = Math.max(0, Math.round(Number(vialsHave) || 0));
+        if (unopened) await addVials(med.id, unopened, { amount: input.strength });
+        if (mixedNow) {
+          await startVial(med.id, { details: { amount: input.strength }, waterMl: input.peptide.kind === 'pen' ? undefined : input.peptide.waterMl });
+          const m = await db.medications.get(med.id);
+          const cur = m?.vials?.find((v) => v.status === 'in-use');
+          const at = new Date(`${mixedOn}T${format(Date.now(), 'HH:mm')}`);
+          if (cur && mixedOn !== format(Date.now(), 'yyyy-MM-dd') && at.getTime() < Date.now()) await updateVial(med.id, cur.id, { startedAt: at.toISOString(), addedAt: at.toISOString() });
+        }
+      }
       if (tagId) {
         await linkTag(tagId, med.id);
         toast(`Saved ${shownName(med)} and linked the tag`);
@@ -367,7 +383,7 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
           </Card>
         );
       })()}
-      {!existing && (
+      {!existing && !fromGuideId && (
         <ScanLabelCard onApply={(d) => {
           setF((p) => fromLabel(p, d));
           setLabelExpiry(d.expiry);
@@ -412,6 +428,28 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
         )}
       </Card>
 
+      {!existing && f.mixed && (() => {
+        const pen = f.kind === 'pen', w = pen ? 'pen' : 'vial';
+        const n = Math.max(0, Math.round(Number(vialsHave) || 0));
+        return (
+          <Card className="space-y-3">
+            <h2 className="text-sm font-medium text-muted">Your {w}s</h2>
+            <p className="text-[15px]">So the Stock tab can count them and work out what to draw.</p>
+            <div className="flex items-center gap-3">
+              <span className="flex-1">Unopened {w}s{Number(f.strength) > 0 ? ` (${f.strength} ${f.unit} each)` : ''}</span>
+              <button type="button" aria-label={`Fewer unopened ${w}s`} onClick={() => setVialsHave(String(Math.max(0, n - 1)))} className="w-11 h-11 rounded-btn bg-surface-2 text-xl font-semibold">−</button>
+              <span className="w-8 text-center text-[20px] font-bold tnum" aria-live="polite">{n}</span>
+              <button type="button" aria-label={`More unopened ${w}s`} onClick={() => setVialsHave(String(n + 1))} className="w-11 h-11 rounded-btn bg-surface-2 text-xl font-semibold">+</button>
+            </div>
+            <Switch label={pen ? 'One pen is already in use' : 'One vial is already mixed'} checked={mixedNow} onChange={setMixedNow}>
+              {pen ? 'Counts down from it as you log doses.' : `Mixed with ${f.waterMl || '?'} mL; counts down from it as you log doses.`}
+            </Switch>
+            {mixedNow && <TextInput label={pen ? 'Started on' : 'Mixed on'} type="date" value={mixedOn} max={format(Date.now(), 'yyyy-MM-dd')} onChange={(e) => setMixedOn(e.target.value)} />}
+          </Card>
+        );
+      })()}
+
+      <Fold on={!existing && f.mixed} title="Ingredients and privacy">
       <Card className="space-y-2">
         <h2 className="text-sm font-medium text-muted">Active ingredients</h2>
         {(() => {
@@ -468,6 +506,8 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
         )}
       </Card>
 
+      </Fold>
+
       <Card className="space-y-4">
         <div>
           <h2 className="text-sm font-medium text-muted">From your prescription</h2>
@@ -475,6 +515,7 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
         <ScheduleFields f={f} set={set as ScheduleSetter} errors={errors} unit={f.unit} />
       </Card>
 
+      <Fold on={!existing && f.mixed} title="Instructions, look and refills">
       <Card className="space-y-4">
         <div>
           <h2 className="text-sm font-medium text-muted flex items-center gap-2"><ClipboardList size={20} className="text-primary" aria-hidden="true" /> Instructions</h2>
@@ -514,9 +555,12 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
 
       <Card className="space-y-4">
         <h2 className="text-sm font-medium text-muted">Stock and refills</h2>
-        <TextInput label={f.mixed ? `How many ${f.kind === 'pen' ? 'pens' : 'vials'} you have (optional)` : `How many ${f.unit === 'tablet' || !Number(f.strength) ? `${f.form}s` : `${f.form}s (${f.strength} ${f.unit} each)`} you have (optional)`}
+        {f.mixed ? (
+          existing ? <p className="text-[15px]">Counted from your {f.kind === 'pen' ? 'pens' : 'vials'} on the <button type="button" className="underline underline-offset-4 font-medium" onClick={() => pickTab('stock')}>Stock tab</button>: {Math.round((existing.stockCount ?? 0) * 100) / 100} on hand.</p>
+            : <p className="text-[15px] text-muted">Counted from “Your {f.kind === 'pen' ? 'pens' : 'vials'}” above.</p>
+        ) : <TextInput label={`How many ${f.unit === 'tablet' || !Number(f.strength) ? `${f.form}s` : `${f.form}s (${f.strength} ${f.unit} each)`} you have (optional)`}
           type="number" inputMode="decimal" min="0" step="any" value={f.stockCount} onChange={(e) => set('stockCount', e.target.value)} error={errors.stockCount}
-          help={perDose !== undefined ? `−${perDose} per dose` : undefined} />
+          help={perDose !== undefined ? `−${perDose} per dose` : undefined} />}
         {existing && !existing.peptide && <CountButton med={existing} label={countsFromPhoto(existing) ? "Count what's left (photo or typed)" : "Count what's left"} onCounted={(n) => set('stockCount', String(n))} />}
         <TextInput label="Let me know when it's down to (optional)" type="number" inputMode="decimal" min="0" step="any" value={f.lowStockAt}
           onChange={(e) => set('lowStockAt', e.target.value)} error={errors.lowStockAt} />
@@ -529,6 +573,7 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
           value={f.cost} onChange={(e) => set('cost', e.target.value)} help={undefined} />
         <TextArea label="Script and refill notes (optional)" value={f.scriptNotes} onChange={(e) => set('scriptNotes', e.target.value)} />
       </Card>
+      </Fold>
 
       {existing && (
         <Card className="space-y-3">
@@ -674,5 +719,16 @@ function StockLine({ med, onEdit }: { med: Medication; onEdit: () => void }) {
       {med.repeatsLeft !== undefined && <p className="tnum">{med.repeatsLeft} repeat{med.repeatsLeft === 1 ? '' : 's'} left on the script</p>}
       <button type="button" onClick={onEdit} className="min-h-[44px] text-sm font-medium underline underline-offset-4">Change the count or repeats</button>
     </section>
+  );
+}
+
+/** For a new peptide, the rarely needed sections folded under one line (open to change them). */
+function Fold({ on, title, children }: { on: boolean; title: string; children: React.ReactNode }) {
+  if (!on) return <>{children}</>;
+  return (
+    <details className="rounded-card border border-border px-4">
+      <summary className="min-h-[52px] flex items-center font-medium cursor-pointer">{title}</summary>
+      <div className="space-y-4 pb-4">{children}</div>
+    </details>
   );
 }

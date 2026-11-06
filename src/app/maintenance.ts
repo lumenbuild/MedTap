@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { getSettings, scheduleSettings, setSetting } from '../db/repos/settings';
 import { deviceTimeZone } from '../logic/tz';
-import { applyDuePlannedChanges } from '../db/repos/meds';
+import { applyDuePlannedChanges, syncVialStock } from '../db/repos/meds';
 import { dayKey } from '../logic/stats';
 import { runAutoBackup } from './autoBackup';
 import { db } from '../db/db';
@@ -16,6 +16,8 @@ export async function runMaintenance() {
   if (!st.homeTimeZone) await setSetting('homeTimeZone', deviceTimeZone()); // first use: this is home
   await applyDuePlannedChanges(dayKey(Date.now(), scheduleSettings(st)), st.dayStartsAt);
   await runAutoBackup();
+  // Peptides counted by vial: the count follows the vials (a vial past its use-within date stops counting).
+  for (const m of await db.medications.toArray()) if (m.peptide && m.vials?.length && !m.archived) await syncVialStock(m.id);
   await updateCalorieTarget();
   await updateAutoTargets(); // after calories: fibre follows them
 }

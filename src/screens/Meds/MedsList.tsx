@@ -169,7 +169,9 @@ function MedRow({ med, tags, doses, s, now }: { med: Medication; tags: Tag[]; do
           {!med.archived && planLine(med, now, s) && <span className="block text-sm tnum">{planLine(med, now, s)}</span>}
           <span className="flex flex-wrap gap-1.5 text-xs tnum">
             <Chip Icon={Nfc} muted={n === 0}>{n === 0 ? 'No tag' : n}</Chip>
-            {med.stockCount !== undefined && <Chip Icon={Package} warn={low}>{Math.round(med.stockCount * 100) / 100}{days !== undefined ? ` · ${days} d` : ''}</Chip>}
+            {med.stockCount !== undefined && <Chip Icon={Package} warn={low}>{med.peptide && med.vials?.length
+              ? (() => { const v = Math.floor(med.stockCount + 1e-9); const w = med.peptide.kind === 'pen' ? 'pen' : 'vial'; return `${v} ${w}${v === 1 ? '' : 's'}${med.stockCount - v > 0.01 ? ' + open' : ''}`; })()
+              : Math.round(med.stockCount * 100) / 100}{days !== undefined ? ` · ${days} d` : ''}</Chip>}
             {med.repeatsLeft !== undefined && <Chip Icon={FileText} warn={med.repeatsLeft === 0}>{med.repeatsLeft} rpt</Chip>}
             {cost !== undefined && <Chip Icon={Wallet}>{money(cost)}/mo</Chip>}
             {bottle && <Chip Icon={CalendarX} warn={bottleSoon}>{format(new Date(`${bottle.expiry}T12:00`), 'd MMM')}</Chip>}

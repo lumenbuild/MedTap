@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { AlertTriangle, Minus, Plus, Syringe as SyringeIcon } from 'lucide-react';
 import type { Medication, SyringeType } from '../db/schema';
 import { concentration, convert, doseForUnits, drawFor, drawWarnings, fmtMl, SYRINGES, unitsPerMl, waterForUnits } from '../logic/peptide';
-import { useFamily, useMeds } from '../app/data';
+import { useDoses, useFamily, useMeds } from '../app/data';
+import { currentVial, needsNewVial, stockVials, vialStatus } from '../logic/peptide';
+import { db } from '../db/db';
+import { useToast } from '../app/toast';
 import { medIsFor } from '../db/repos/people';
 import { shownName } from '../logic/privacy';
 import { SyringeGauge, syringeSizes, WARN_TEXT } from '../components/Syringe';
@@ -40,7 +43,7 @@ function Stepper({ label, value, unit, onChange, onUnit, active = false }: { lab
         <span className="text-[15px] text-muted">{label}</span>
         <span className="flex items-baseline gap-1 mt-1">
           <input type="number" inputMode="decimal" min="0" step="any" value={value} onChange={(e) => onChange(e.target.value)} aria-label={`${label} (${unit})`}
-            className="w-full min-w-0 bg-transparent text-[28px] leading-8 font-bold tnum tracking-[-0.02em] outline-none" />
+            className={`w-full min-w-0 bg-transparent ${value.length > 5 ? 'text-[20px]' : value.length > 3 ? 'text-[24px]' : 'text-[28px]'} leading-8 font-bold tnum tracking-[-0.02em] outline-none`} />
         </span>
       </label>
       <span className="flex items-center justify-between">
@@ -58,8 +61,9 @@ function Stepper({ label, value, unit, onChange, onUnit, active = false }: { lab
 
 /** Reconstitution calculator: vial + water + dose → syringe units, the reverse, and the water for an easy draw.
  *  Your own peptides are one tap away. Uses only the numbers entered. */
-export function PeptideCalc() {
-  const meds = useMeds(); const fam = useFamily();
+export function PeptideCalc({ medId }: { medId?: string }) {
+  const meds = useMeds(); const fam = useFamily(); const doses = useDoses();
+  const toast = useToast();
   const [p] = useState(preset);
   const [vial, setVial] = useState(p ? String(p.vialMg) : '10');
   const [vialUnit, setVialUnit] = useState<Unit>('mg');
@@ -73,16 +77,33 @@ export function PeptideCalc() {
   const [mode, setMode] = useState<Mode>('draw');
   const [picked, setPicked] = useState<string>('custom');
 
-  const mine = (meds ?? []).filter((m) => !m.archived && m.peptide?.kind === 'vial' && m.strength > 0 && (!fam || medIsFor(m, fam.personId))).slice(0, 4);
+  const mine = (meds ?? []).filter((m) => !m.archived && m.peptide && m.peptide.kind !== 'pen' && m.strength > 0 && (!fam || medIsFor(m, fam.personId)));
+  /** Your peptide's numbers: the vial in use (or the next one, once it's used up), its water and your usual dose. */
   const pick = (m: Medication) => {
     setPicked(m.id);
     const u: Unit = m.unit === 'mcg' ? 'mcg' : 'mg';
-    setVial(String(m.strength)); setVialUnit(u);
-    if (m.peptide?.waterMl) setWater(String(m.peptide.waterMl));
+    const st = doses ? vialStatus(m, doses, Date.now()) : undefined;
+    const using = st && !needsNewVial(st, m.defaultAmount) ? currentVial(m) : stockVials(m)[0];
+    // Vials are labelled in mg: 5000 mcg reads as 5 mg.
+    const amt = using?.amount ?? m.strength;
+    if (u === 'mcg' && amt >= 1000) { setVial(String(amt / 1000)); setVialUnit('mg'); } else { setVial(String(amt)); setVialUnit(u); }
+    setWater(String(using?.waterMl ?? m.peptide?.waterMl ?? 1));
     setDose(String(m.defaultAmount)); setDoseUnit(u);
     if (m.peptide?.syringe) setSyringe(m.peptide.syringe);
     const size = syringeSizes(m.peptide?.syringe ?? 'U-100').find((x) => x.units === m.peptide?.syringeUnits);
     setSizeMl(String(size?.ml ?? 0.5));
+  };
+
+  const [auto, setAuto] = useState(false);
+  if (!auto && medId && meds && doses) { const m = meds.find((x) => x.id === medId); setAuto(true); if (m) pick(m); }
+  const pickedMed = mine.find((m) => m.id === picked);
+  // Water that differs from the peptide's usual: save it for the next vials.
+  const saveWater = async (ml: number) => {
+    if (!pickedMed?.peptide) return;
+    const before = pickedMed.peptide.waterMl;
+    await db.medications.update(pickedMed.id, { peptide: { ...pickedMed.peptide, waterMl: ml }, updatedAt: new Date().toISOString() });
+    setWater(String(ml));
+    toast(`${shownName(pickedMed)}: new vials mixed with ${ml} mL`, { onAction: () => db.medications.update(pickedMed.id, { peptide: { ...pickedMed.peptide!, waterMl: before } }) });
   };
 
   const sizes = syringeSizes(syringe);
@@ -113,7 +134,7 @@ export function PeptideCalc() {
 
       <div className="grid grid-cols-3 gap-2">
         <Stepper label="Vial" value={vial} unit={vialUnit} onChange={(v) => { setVial(v); setPicked('custom'); }} onUnit={() => setVialUnit(swap(vialUnit))} />
-        <Stepper label="Water" value={water} unit="mL" onChange={(v) => { setWater(v); setPicked('custom'); }} active={mode === 'water'} />
+        <Stepper label="Water" value={water} unit="mL" onChange={(v) => setWater(v)} active={mode === 'water'} />
         {mode === 'dose'
           ? <Stepper label="Units" value={units} unit="units" onChange={setUnits} active />
           : mode === 'water'
@@ -146,6 +167,17 @@ export function PeptideCalc() {
         </dl>
       </section>
 
+      {(() => {
+        // Water worked out (or changed here) that differs from the peptide's usual: save it for its next vials.
+        const ml = mode === 'water' ? Math.round(waterNeeded * 100) / 100 : num(water);
+        if (!pickedMed || !(ml > 0) || ml === pickedMed.peptide?.waterMl) return null;
+        return (
+          <div className="box flex items-center gap-3">
+            <p className="flex-1 text-[15px]">Mix your next {shownName(pickedMed)} vials with <strong>{r(ml, 2)} mL</strong>? (Now {pickedMed.peptide?.waterMl} mL.)</p>
+            <button type="button" onClick={() => saveWater(ml)} className="min-h-[44px] px-4 rounded-btn bg-primary text-on-primary font-semibold shrink-0">Save</button>
+          </div>
+        );
+      })()}
       {mode === 'draw' && warnings.map((w) => (
         <p key={w} className="text-sm rounded-btn bg-caution-soft p-3 flex gap-2"><AlertTriangle size={16} className="shrink-0 mt-0.5" aria-hidden="true" />{WARN_TEXT[w]}</p>
       ))}

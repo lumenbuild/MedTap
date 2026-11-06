@@ -1,7 +1,7 @@
 import { db } from '../db';
 import type { Bottle, Course, PeptideVial, MedEvent, Medication, PlannedChange, StepPlan, StepUpCriteria } from '../schema';
 import { describeChange, splitDueChanges } from '../../logic/plans';
-import { scheduleAtDose, vialsOf } from '../../logic/peptide';
+import { scheduleAtDose, vialsOf, vialStockCount } from '../../logic/peptide';
 import { fmtAmount } from '../../logic/format';
 
 const nowIso = () => new Date().toISOString();
@@ -177,6 +177,18 @@ export async function dismissRestart(medId: string) {
 
 // ── Vials and pens (peptide tools) ───────────────────────────────────────────────────────────────────
 
+/** Keep the stock count in step with the vial records (unopened vials plus what's left in the one in use), so the
+ *  Stack list, reminders and the Stock tab all say the same. */
+export async function syncVialStock(medId: string) {
+  const med = await db.medications.get(medId);
+  if (!med?.peptide || !med.vials?.length) return;
+  const doses = await db.doses.where('medicationId').equals(medId).toArray();
+  const n = vialStockCount(med, doses, Date.now());
+  if (n === undefined || n === med.stockCount) return;
+  const now = nowIso();
+  await db.medications.update(medId, { stockCount: n, stockBase: { count: n, at: now }, updatedAt: now });
+}
+
 export type VialDetails = Pick<PeptideVial, 'amount' | 'lot' | 'supplier' | 'purity' | 'expiry' | 'note' | 'cost'>;
 
 /** Add unopened vials or pens to stock (and to the stock count). Returns their ids, for undo. */
@@ -185,10 +197,8 @@ export async function addVials(medId: string, count: number, details: VialDetail
   if (!med || !(count >= 1)) return [];
   const now = nowIso();
   const added: PeptideVial[] = Array.from({ length: count }, () => ({ ...details, id: crypto.randomUUID(), status: 'stock', addedAt: now }));
-  const stockCount = Math.round(((med.stockCount ?? 0) + count) * 1000) / 1000;
-  await db.medications.update(medId, {
-    vials: [...vialsOf(med), ...added], stockCount, stockBase: { count: stockCount, at: now }, updatedAt: now,
-  });
+  await db.medications.update(medId, { vials: [...vialsOf(med), ...added], updatedAt: now });
+  await syncVialStock(medId);
   return added.map((v) => v.id);
 }
 
@@ -206,11 +216,13 @@ export async function startVial(medId: string, opts: { vialId?: string; details?
     list = [...list, { amount: med.strength, ...opts.details, id: crypto.randomUUID(), status: 'in-use', addedAt: now, startedAt: now, waterMl: opts.waterMl }];
   }
   await db.medications.update(medId, { vials: list, updatedAt: now });
+  await syncVialStock(medId);
   return med.vials;
 }
 
 export async function setVials(medId: string, vials: PeptideVial[] | undefined) {
   await db.medications.update(medId, { vials, updatedAt: nowIso() });
+  await syncVialStock(medId);
 }
 
 export async function updateVial(medId: string, vialId: string, patch: Partial<PeptideVial>) {
@@ -227,11 +239,17 @@ export async function removePlannedChange(medId: string, changeId: string): Prom
   return removed;
 }
 
-/** Add a refill to the stock count, optionally using up one script repeat. */
+/** Add a refill to the stock count, optionally using up one script repeat. A peptide with vial records gets that many
+ *  unopened vials instead (the count follows them). */
 export async function restock(medId: string, added: number, usedRepeat: boolean) {
   const med = await db.medications.get(medId);
   if (!med) return;
   const now = nowIso();
+  if (med.peptide && med.vials?.length && added >= 1) {
+    await addVials(medId, Math.round(added), { amount: med.strength });
+    if (usedRepeat && med.repeatsLeft !== undefined) await db.medications.update(medId, { repeatsLeft: Math.max(0, med.repeatsLeft - 1) });
+    return;
+  }
   const stockCount = Math.round(((med.stockCount ?? 0) + added) * 1000) / 1000;
   await db.medications.update(medId, {
     stockCount, stockBase: { count: stockCount, at: now }, packSize: added > 0 ? added : med.packSize,
@@ -245,6 +263,13 @@ export async function unrestock(medId: string, added: number, usedRepeat: boolea
   const med = await db.medications.get(medId);
   if (!med) return;
   const now = nowIso();
+  if (med.peptide && med.vials?.length) {
+    // The newest unopened vials come off.
+    const newest = med.vials.filter((v) => v.status === 'stock').sort((a, b) => b.addedAt.localeCompare(a.addedAt)).slice(0, Math.round(added)).map((v) => v.id);
+    await setVials(medId, med.vials.filter((v) => !newest.includes(v.id)));
+    if (usedRepeat && med.repeatsLeft !== undefined) await db.medications.update(medId, { repeatsLeft: med.repeatsLeft + 1 });
+    return;
+  }
   const stockCount = Math.round(((med.stockCount ?? 0) - added) * 1000) / 1000;
   await db.medications.update(medId, {
     stockCount, stockBase: { count: stockCount, at: now },

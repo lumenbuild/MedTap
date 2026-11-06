@@ -98,8 +98,14 @@ function Points({ items, tone }: { items: string[]; tone?: 'watch' }) {
   );
 }
 
-function Section({ title, Icon, children }: { title: string; Icon?: typeof Syringe; children: React.ReactNode }) {
+function Section({ title, Icon, children, fold = false }: { title: string; Icon?: typeof Syringe; children: React.ReactNode; /** Reading, not doing: folded under its title. */ fold?: boolean }) {
   const hid = `g-${title.replace(/\W+/g, '-').toLowerCase()}`;
+  if (fold) return (
+    <details className="box group">
+      <summary className="min-h-[44px] -my-1 flex items-center gap-1.5 font-semibold cursor-pointer list-none">{Icon && <Icon size={16} aria-hidden="true" />}<span className="flex-1">{title}</span><span aria-hidden="true" className="text-muted text-[20px] leading-none group-open:rotate-45 transition-transform">+</span></summary>
+      <div className="mt-2">{children}</div>
+    </details>
+  );
   return (
     <section aria-labelledby={hid} className="box">
       <h2 id={hid} className="text-sm font-medium text-muted flex items-center gap-1.5 mb-2">{Icon && <Icon size={16} aria-hidden="true" />}{title}</h2>
@@ -132,7 +138,7 @@ function GuideHero({ g, vial }: { g: GuideEntry; vial?: GuideVial }) {
           {d && <span className="text-[24px] font-semibold ml-2">= {v(d.units)} units</span>}</p>
         {d ? <><div className="mt-2"><SyringeGauge units={d.units} capacity={d.units > 50 ? 100 : 50} onHero /></div>
           <p className="mt-1 text-muted text-[15px]">Your {fmtDose(vial!.amount, g.unit)} vial + {v(vial!.waterMl)} mL water</p></>
-          : <p className="mt-1 text-muted text-[15px]">Add your vial under Mixing and drawing to see the units.</p>}
+          : <p className="mt-1 text-muted text-[15px]">Enter your vial below to see the units to draw.</p>}
       </section>
       <ul className="flex flex-wrap gap-2" aria-label="At a glance">
         {facts.map((f) => <li key={f} className="min-h-[40px] px-3.5 rounded-full inline-flex items-center text-[15px] font-medium" style={{ background: 'var(--fill)' }}>{f}</li>)}
@@ -158,23 +164,20 @@ function GuidePage({ g }: { g: GuideEntry }) {
         <p className="text-[15px] leading-snug">{g.what}</p>
         {g.aka.length > 0 && <p className="text-sm text-muted">Also called {g.aka.join(', ')}.</p>}
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        {mine
-          ? <Button className="min-h-[52px]" onClick={() => go(`/meds/${mine.id}`)}>Open yours</Button>
-          : <Button className="min-h-[52px]" onClick={() => go(`/meds/new/guide/${g.id}`)}><Plus size={18} aria-hidden="true" className="inline mr-1 -mt-0.5" />Set it up</Button>}
-        <Button variant="secondary" className="min-h-[52px]" onClick={() => go('/calc')}><Calculator size={18} aria-hidden="true" className="inline mr-1 -mt-0.5" />Calculator</Button>
-      </div>
+      {/* Your vial first: its size and water give the units to draw, and setting it up carries them into your stock. */}
+      <Section title={mine ? 'Your vial' : 'Your vial (from its label)'} Icon={Syringe}>
+        <MixVial key={edited === null ? `${own?.amount}/${own?.waterMl}` : 'edited'} g={g} vial={vial} own={edited === null && !!own}
+          onChange={(v) => { setEdited(v); if (v) saveVial(g.id, v); }} />
+      </Section>
+      {mine
+        ? <Button className="w-full min-h-[52px]" onClick={() => go(`/meds/${mine.id}/stock`)}>Open yours: stock and doses</Button>
+        : <Button className="w-full min-h-[52px]" onClick={() => go(`/meds/new/guide/${g.id}`)}><Plus size={18} aria-hidden="true" className="inline mr-1 -mt-0.5" />Set it up{vial ? ` with this ${fmtDose(vial.amount, g.unit)} vial` : ''}</Button>}
 
       {mine && <Yours g={g} med={mine} />}
       <Stack g={g} selfId={mine?.id} />
 
-      <Section title="Mixing and drawing" Icon={Syringe}>
-        <MixVial key={edited === null ? `${own?.amount}/${own?.waterMl}` : 'edited'} g={g} vial={vial} own={edited === null && !!own}
-          onChange={(v) => { setEdited(v); if (v) saveVial(g.id, v); }} />
-      </Section>
-
-      <Section title="What the research shows" Icon={FlaskConical}><Points items={g.research} /></Section>
-      <Section title="What people notice" Icon={Sparkles}><Points items={g.notice} /></Section>
+      <Section title="What the research shows" Icon={FlaskConical} fold><Points items={g.research} /></Section>
+      <Section title="What people notice" Icon={Sparkles} fold><Points items={g.notice} /></Section>
 
       <Section title="How it’s taken">
         <dl className="space-y-2">
@@ -225,9 +228,9 @@ function GuidePage({ g }: { g: GuideEntry }) {
       <Labs g={g} />
       <TestThis g={g} />
       <Section title="Get help now if" Icon={AlertTriangle}><Points items={g.getHelp} tone="watch" /></Section>
-      <Section title="Worth knowing"><Points items={g.worthKnowing} /></Section>
-      <Section title="Tips"><Points items={g.tips} /></Section>
-      <Section title="Sources">
+      <Section title="Worth knowing" fold><Points items={g.worthKnowing} /></Section>
+      <Section title="Tips" fold><Points items={g.tips} /></Section>
+      <Section title="Sources" fold>
         <Points items={g.sources} />
         <a href="#/guide" className="min-h-[44px] inline-flex items-center text-sm font-medium underline underline-offset-4">The basics: supplies, mixing, injecting, checking a batch</a>
       </Section>

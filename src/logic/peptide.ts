@@ -123,6 +123,21 @@ export function vialStatus(med: VialMed, doses: Dose[], now: number, vial = curr
   };
 }
 
+/** Vials or pens on hand, from the vial records (the one source for stock once there are records): every unopened one,
+ *  plus what's left of the one in use as a share of it (none once it's past its use-within date). Undefined without
+ *  vial records. */
+export function vialStockCount(med: VialMed, doses: Dose[], now: number): number | undefined {
+  if (!med.peptide || !med.vials?.length) return undefined;
+  const v = vialStatus(med, doses, now);
+  const part = v && !v.expired && v.vial.amount > 0 ? v.left / v.vial.amount : 0;
+  return Math.round((stockVials(med).length + part) * 100) / 100;
+}
+
+/** The vial in use is used up (less than one usual dose left) or past its use-within date: time to mix the next. */
+export function needsNewVial(v: VialStatus | undefined, dose: number): boolean {
+  return !!v && (v.expired || (dose > 0 && v.left + 1e-9 < dose));
+}
+
 /** What to draw (vials) or dial (pens) for a dose, from the vial or pen in use. */
 export type Guide = { kind: 'draw'; draw: Draw; capacity: number; syringe: SyringeType; waterMl: number; amount: number }
   | { kind: 'pen'; clicks?: number };
