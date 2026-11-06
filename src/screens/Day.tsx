@@ -13,8 +13,8 @@ import { fmtHM } from '../logic/sleep';
 const LANES: { key: Lane; label: string; Icon: LucideIcon; colour: string }[] = [
   { key: 'meds', label: 'Doses', Icon: Pill, colour: 'var(--c-meds)' },
   { key: 'food', label: 'Food', Icon: Utensils, colour: 'var(--c-act)' },
-  { key: 'drink', label: 'Drinks', Icon: Coffee, colour: 'var(--primary)' },
-  { key: 'move', label: 'Move', Icon: Dumbbell, colour: 'var(--c-heart)' },
+  { key: 'drink', label: 'Drinks', Icon: Coffee, colour: 'var(--c-pep)' },
+  { key: 'move', label: 'Move', Icon: Dumbbell, colour: 'var(--success)' },
   { key: 'feel', label: 'Feel', Icon: Smile, colour: 'var(--c-mind)' },
   { key: 'body', label: 'Body', Icon: Scale, colour: 'var(--c-body)' },
 ];
@@ -43,15 +43,14 @@ export function Day({ date }: { date?: string }) {
     t.caffeineMg ? ['Caffeine', `${t.caffeineMg} mg`] : null,
   ].filter((x): x is string[] => !!x);
 
-  // The chart: 6 am to 6 am-ish would hide the morning; midnight to midnight, with lanes above the heart rate.
-  const W = 320, laneH = 20, top = 4, hrH = 72;
-  const H = top + lanes.length * laneH + hrH + 18;
-  const x = (ms: number) => ((Math.min(Math.max(ms, v.from), v.to) - v.from) / (v.to - v.from)) * W;
+  // The chart, midnight to midnight: a lane per kind of entry over the heart rate, with sleep shaded behind. Lanes are
+  // laid out as boxes (dots stay round at any width); the heart rate is a line stretched to fit.
+  const laneH = 22, hrH = v.hr.length ? 64 : 0;
+  const pct = (ms: number) => ((Math.min(Math.max(ms, v.from), v.to) - v.from) / (v.to - v.from)) * 100;
   const hrs = v.hr.map((p) => p.v);
   const lo = hrs.length ? Math.min(...hrs) - 3 : 40, hi = hrs.length ? Math.max(...hrs) + 3 : 120;
-  const hy = (b: number) => top + lanes.length * laneH + 6 + (1 - (b - lo) / Math.max(1, hi - lo)) * (hrH - 8);
-  const path = v.hr.map((p, i) => `${i && p.t - v.hr[i - 1].t < 40 * 60_000 ? 'L' : 'M'}${x(p.t).toFixed(1)},${hy(p.v).toFixed(1)}`).join('');
-  const nowX = isToday ? x(now) : null;
+  const path = v.hr.map((p, i) => `${i && p.t - v.hr[i - 1].t < 40 * 60_000 ? 'L' : 'M'}${pct(p.t).toFixed(2)},${(4 + (1 - (p.v - lo) / Math.max(1, hi - lo)) * (hrH - 8)).toFixed(1)}`).join('');
+  const nowPct = isToday ? pct(now) : null;
 
   return (
     <div className="space-y-4">
@@ -69,28 +68,35 @@ export function Day({ date }: { date?: string }) {
         <section className="box space-y-2" aria-labelledby="dayline-h">
           <h2 id="dayline-h" className="text-sm font-medium text-muted">The day at a glance</h2>
           <div className="flex gap-2">
-            <ul className="shrink-0 pt-[4px] text-[11px] text-muted" aria-hidden="true">
+            <ul className="shrink-0 text-[11px] text-muted" aria-hidden="true">
               {lanes.map((l) => <li key={l.key} className="flex items-center gap-1" style={{ height: laneH }}><span className="w-2 h-2 rounded-full" style={{ background: l.colour }} />{l.label}</li>)}
-              {v.hr.length > 0 && <li className="flex items-center gap-1 mt-2"><HeartPulse size={11} />bpm</li>}
+              {hrH > 0 && <li className="flex items-center gap-1" style={{ height: hrH }}><HeartPulse size={11} />{Math.min(...hrs)}–{Math.max(...hrs)}</li>}
             </ul>
-            <svg viewBox={`0 0 ${W} ${H}`} className="flex-1 min-w-0 block" style={{ height: H }} role="img"
+            <div className="flex-1 min-w-0">
+            <div className="relative" role="img"
               aria-label={`${label}: ${v.events.length} entries${v.hr.length ? `, heart rate ${Math.min(...hrs)} to ${Math.max(...hrs)}` : ''}${v.sleep.length ? ', with sleep shaded' : ''}. Each entry is listed below.`}>
-              {v.sleep.map((s, i) => <rect key={i} x={x(s.from)} y={0} width={Math.max(0, x(s.to) - x(s.from))} height={H - 16} fill="var(--c-sleep)" opacity="0.14" />)}
-              {[0, 6, 12, 18, 24].map((h) => <line key={h} x1={(h / 24) * W} x2={(h / 24) * W} y1={0} y2={H - 16} stroke="var(--border)" strokeWidth="1" vectorEffect="non-scaling-stroke" />)}
-              {lanes.map((l, i) => {
-                const y = top + i * laneH + laneH / 2;
-                return (
-                  <g key={l.key}>
+              <div aria-hidden="true">
+                {v.sleep.map((sl, i) => <div key={i} className="absolute top-0 bottom-0" style={{ left: `${pct(sl.from)}%`, width: `${Math.max(0, pct(sl.to) - pct(sl.from))}%`, background: 'var(--c-sleep)', opacity: 0.14 }} />)}
+                {[0, 25, 50, 75, 100].map((x) => <div key={x} className="absolute top-0 bottom-0 w-px" style={{ left: `${x}%`, background: 'var(--border)' }} />)}
+                {lanes.map((l) => (
+                  <div key={l.key} className="relative" style={{ height: laneH }}>
                     {v.events.filter((e) => e.lane === l.key).map((e) => e.end
-                      ? <rect key={e.id} x={x(e.t)} y={y - 5} width={Math.max(6, x(e.end) - x(e.t))} height={10} rx={5} fill={l.colour} />
-                      : <circle key={e.id} cx={x(e.t)} cy={y} r={5} fill={l.colour} stroke="var(--surface)" strokeWidth="2" />)}
-                  </g>
-                );
-              })}
-              {path && <path d={path} fill="none" stroke="var(--c-heart)" strokeWidth="1.75" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
-              {nowX !== null && <line x1={nowX} x2={nowX} y1={0} y2={H - 16} stroke="var(--text)" strokeWidth="1.5" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />}
-              {[0, 6, 12, 18].map((h) => <text key={h} x={(h / 24) * W + 2} y={H - 4} fontSize="10" fill="var(--text-muted)">{h === 0 ? '12a' : h === 12 ? '12p' : h < 12 ? `${h}a` : `${h - 12}p`}</text>)}
-            </svg>
+                      ? <span key={e.id} className="absolute top-1/2 -translate-y-1/2 h-2.5 rounded-full" style={{ left: `${pct(e.t)}%`, width: `max(10px, ${pct(e.end) - pct(e.t)}%)`, background: l.colour }} />
+                      : <span key={e.id} className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full border-2" style={{ left: `${pct(e.t)}%`, background: l.colour, borderColor: 'var(--surface)' }} />)}
+                  </div>
+                ))}
+                {hrH > 0 && (
+                  <svg viewBox={`0 0 100 ${hrH}`} preserveAspectRatio="none" className="block w-full" style={{ height: hrH }}>
+                    <path d={path} fill="none" stroke="var(--c-heart)" strokeWidth="1.75" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                  </svg>
+                )}
+                {nowPct !== null && <div className="absolute top-0 bottom-0 w-0.5" style={{ left: `${nowPct}%`, background: 'var(--text)' }} />}
+              </div>
+            </div>
+            <div className="relative h-4 mt-1 text-[11px] text-muted" aria-hidden="true">
+              {[['12a', 0], ['6a', 25], ['12p', 50], ['6p', 75]].map(([t, x]) => <span key={t} className="absolute" style={{ left: `${x}%`, transform: x ? 'translateX(-50%)' : undefined }}>{t}</span>)}
+            </div>
+            </div>
           </div>
           {v.sleep.length > 0 && <p className="text-[11px] text-muted">Shaded: asleep.</p>}
         </section>

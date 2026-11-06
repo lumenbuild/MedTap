@@ -127,7 +127,7 @@ export function DriversCard({ d, title }: { d: Drivers; title?: string }) {
                 <div className="flex justify-end">{!x.helps && <div className="h-2 rounded-l-full" style={{ width: `${(Math.abs(x.diff) / max) * 100}%`, background: 'var(--caution)' }} />}</div>
                 <div>{x.helps && <div className="h-2 rounded-r-full" style={{ width: `${(Math.abs(x.diff) / max) * 100}%`, background: 'var(--success)' }} />}</div>
               </div>
-              <p className="text-[12px] text-muted mt-0.5 tnum">{x.sure === 'clear' ? 'Clear' : 'Likely'} · {x.nWith} days with, {x.nWithout} without</p>
+              <p className="text-[12px] text-muted mt-0.5 tnum">{x.sure === 'clear' ? 'Clear' : 'Likely'} · {x.nWith} days with, {x.nWithout} without{x.key.startsWith('med-') ? ' · worth mentioning to your prescriber' : ''}</p>
             </li>
           ))}
         </ul>

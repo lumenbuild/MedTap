@@ -78,6 +78,16 @@ describe('what moves it for you', () => {
   });
 });
 
+describe('levers stay safe', () => {
+  it('never a medicine, never less of a healthy habit', () => {
+    const drv = (key: string, label: string, helps: boolean) => ({ key, label, helps, withIt: 1, without: 2, diff: -1, text: '−1', nWith: 9, nWithout: 30, sure: 'clear' as const, on: ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05'] });
+    const all = [{ topic: 'focus' as const, label: 'Focus', days: 60, drivers: [drv('med-x', 'Taking Vyvanse', false), drv('steps', 'Over 9k steps', false), drv('alcohol', 'Alcohol', false)] }];
+    const lev = nextLevers(all, '2026-11-02', '2026-11-08');
+    expect(lev.map((l) => l.title)).toEqual(['Fewer days with alcohol']);
+    expect(weekCauses(all, '2026-11-02', '2026-11-08').some((c) => /Vyvanse/.test(c.text))).toBe(false);
+  });
+});
+
 describe('the day on one timeline', () => {
   it('lays out the day and links heart rate after a dose, caffeine at sleep and a late meal', () => {
     const med: Medication = { id: 'm', name: 'Ritalin', strength: 10, unit: 'mg', form: 'tablet', defaultAmount: 10, schedule: { type: 'prn' }, color: '', icon: 'pill', archived: false, ...st };

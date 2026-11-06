@@ -29,7 +29,7 @@ export interface Driver {
 export interface Drivers { topic: Topic; label: string; days: number; drivers: Driver[] }
 
 const TOPIC: Record<Topic, { label: string; higherBetter: boolean; meaningful: number; fmt: (v: number) => string }> = {
-  sleep: { label: 'Sleep', higherBetter: true, meaningful: 10, fmt: (v) => `${v > 0 ? '+' : '−'}${fmtHM(Math.abs(Math.round(v)))}` },
+  sleep: { label: 'Sleep', higherBetter: true, meaningful: 10, fmt: (v) => { const m = Math.abs(Math.round(v)); return `${v > 0 ? '+' : '−'}${m < 60 ? `${m} min` : fmtHM(m)}`; } },
   rhr: { label: 'Resting heart rate', higherBetter: false, meaningful: 1, fmt: (v) => `${v > 0 ? '+' : '−'}${Math.abs(Math.round(v * 10) / 10)} bpm` },
   hrv: { label: 'HRV', higherBetter: true, meaningful: 2, fmt: (v) => `${v > 0 ? '+' : '−'}${Math.abs(Math.round(v))} ms` },
   focus: { label: 'Focus', higherBetter: true, meaningful: 0.3, fmt: (v) => `${v > 0 ? '+' : '−'}${Math.abs(Math.round(v * 10) / 10)} of 5` },
