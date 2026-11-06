@@ -1,13 +1,21 @@
 import { db } from '../db';
 import type { Dose } from '../schema';
 import { round, stockUnitsFor } from '../../logic/stock';
+import { vialStockCount } from '../../logic/peptide';
 
 const nowIso = () => new Date().toISOString();
 
 async function adjustStock(medicationId: string, amount: number, sign: 1 | -1, skipped?: boolean) {
   if (skipped) return; // a skipped dose never came out of the pack
   const med = await db.medications.get(medicationId);
-  if (!med || med.stockCount === undefined || med.stockCount === null) return;
+  if (!med) return;
+  // A peptide with vial records: the count is worked out from the vials and the doses taken from them.
+  if (med.peptide && med.vials?.length) {
+    const n = vialStockCount(med, await db.doses.where('medicationId').equals(medicationId).toArray(), Date.now());
+    if (n !== undefined && n !== med.stockCount) await db.medications.update(medicationId, { stockCount: n, stockBase: { count: n, at: new Date().toISOString() } });
+    return;
+  }
+  if (med.stockCount === undefined || med.stockCount === null) return;
   await db.medications.update(medicationId, { stockCount: round(med.stockCount + sign * stockUnitsFor(med, amount)) });
 }
 
@@ -68,5 +76,7 @@ export async function updateDose(id: string, patch: Partial<Pick<Dose, 'takenAt'
       await adjustStock(dose.medicationId, patch.amount, -1);
     }
     await db.doses.update(id, { ...patch, updatedAt: nowIso() });
+    // Vial-tracked peptides recount from the doses, now changed.
+    await adjustStock(dose.medicationId, 0, 1);
   });
 }

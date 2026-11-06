@@ -156,7 +156,7 @@ function Screen({ r }: { r: Route }) {
     case 'help': return <Help topic={r.topic} />;
     case 'sync': return <Sync />;
     case 'join': return <JoinSync code={r.code} />;
-    case 'calc': return peptides ? <PeptideCalc /> : <Today />;
+    case 'calc': return peptides ? <PeptideCalc key={r.medId ?? 'calc'} medId={r.medId} /> : <Today />;
     case 'guide': return peptides ? <PeptideGuide key={r.id ?? 'list'} id={r.id} /> : <Today />;
     case 'brain': return bio ? <Brain /> : <Today />;
     case 'journal': return bio ? <Journal /> : <Today />;

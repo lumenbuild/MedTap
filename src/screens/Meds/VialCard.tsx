@@ -5,7 +5,7 @@ import { useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { Camera, ChevronRight, FlaskConical, Plus, Trash2 } from 'lucide-react';
 import type { Dose, Medication, PeptideVial, Tag } from '../../db/schema';
-import { addVials, setVials, startVial, unrestock, updateVial, type VialDetails } from '../../db/repos/meds';
+import { addVials, setVials, startVial, updateVial, type VialDetails } from '../../db/repos/meds';
 import { addVialPhoto, removePhoto, restorePhoto } from '../../db/repos/photos';
 import { personOf } from '../../db/repos/people';
 import { db } from '../../db/db';
@@ -16,7 +16,7 @@ import { useNow } from '../../app/useNow';
 import { useToast } from '../../app/toast';
 import { fmtAmount } from '../../logic/format';
 import { shownName } from '../../logic/privacy';
-import { currentVial, dosesFromVial, isPen, stockVials, vialsOf, vialStatus } from '../../logic/peptide';
+import { currentVial, dosesFromVial, drawFor, isPen, needsNewVial, stockVials, vialsOf, vialStatus } from '../../logic/peptide';
 import { useTags } from '../../app/data';
 import { moveVialTags, restoreTag } from '../../db/repos/tags';
 import { LinkTagSheet } from './LinkTagSheet';
@@ -54,27 +54,38 @@ export function VialCard({ med }: { med: Medication }) {
   const word = pen ? 'pen' : 'vial';
   const v = vialStatus(med, doses, now);
   const stock = stockVials(med);
+  // Used up or past its date: the next dose comes from a new vial.
+  const done = needsNewVial(v, med.defaultAmount);
   const finished = vialsOf(med).filter((x) => x.status === 'finished').sort((a, b) => (b.finishedAt ?? '').localeCompare(a.finishedAt ?? ''));
 
   return (
     <Card className="space-y-3">
       <h2 className="text-sm font-medium text-muted flex items-center gap-2"><FlaskConical size={20} className="text-primary" aria-hidden="true" /> {pen ? 'Pen' : 'Vial'} in use</h2>
-      {v ? (
+      {v && !done ? (
         <button onClick={() => setDetails(v.vial)} className="w-full text-left rounded-btn bg-surface-2 p-3 flex items-start gap-2">
           <ul className="flex-1 space-y-0.5 tnum">
             <li>{pen ? 'Started' : 'Mixed'} {fmtDay(v.startedAt)}{!pen && v.vial.waterMl ? ` with ${v.vial.waterMl} mL` : ''}</li>
             <li>About <strong>{fmtAmount(v.left, med.unit)}</strong> left{med.defaultAmount > 0 ? ` · ${v.dosesLeft} dose${v.dosesLeft === 1 ? '' : 's'} of ${fmtAmount(med.defaultAmount, med.unit)}` : ''}</li>
-            {v.useBy && <li className={v.expired ? 'text-danger font-semibold' : ''}>{v.expired ? `Past its use-within date (${fmtDay(v.useBy)})` : `Use by ${fmtDay(v.useBy)}`}</li>}
+            {v.useBy && <li>Use by {fmtDay(v.useBy)}</li>}
             {batchLine(v.vial) && <li className="text-sm text-muted">{batchLine(v.vial)}</li>}
           </ul>
           <ChevronRight className="text-muted mt-1" aria-hidden="true" />
         </button>
       ) : (
-        <p className="text-muted">Counts what's left</p>
+        // Nothing usable in hand: say why, and make the next step the obvious one.
+        <div className={`rounded-btn p-3 space-y-1 ${v ? 'bg-caution-soft' : 'bg-surface-2'}`}>
+          <p className="font-semibold">{!v ? (stock.length ? `No ${word} ${pen ? 'started' : 'mixed'} yet` : `No ${word}s yet`)
+            : v.expired ? `Past its use-within date (${v.useBy ? fmtDay(v.useBy) : ''})` : `This ${word} is used up`}</p>
+          <p className="text-[15px] tnum">{v && !v.expired ? `About ${fmtAmount(v.left, med.unit)} left, less than a ${fmtAmount(med.defaultAmount, med.unit)} dose. ` : ''}
+            {stock.length ? `Next: ${fmtAmount(stock[0].amount, med.unit)}${stock[0].lot ? `, lot ${stock[0].lot}` : ''}.` : `Add the ${word}s you have to count them and see what to draw.`}</p>
+        </div>
       )}
-      <DrawGuide med={med} amount={med.defaultAmount} />
-      {v && <VialTagRow med={med} vialId={v.vial.id} onLink={() => setLinking(true)} onLabel={() => setLabel(true)} />}
-      <Button className="w-full" onClick={() => setStarting(true)}>{pen ? "I've started a new pen" : "I've mixed a new vial"}</Button>
+      {v && !done && <DrawGuide med={med} amount={med.defaultAmount} />}
+      {!pen && <a href={`#/calc/${med.id}`} className="text-sm font-medium underline underline-offset-4 min-h-[44px] inline-flex items-center">Open in the calculator</a>}
+      {v && !done && <VialTagRow med={med} vialId={v.vial.id} onLink={() => setLinking(true)} onLabel={() => setLabel(true)} />}
+      {!v && !stock.length
+        ? <Button className="w-full" onClick={() => setAdding(true)}>Add {word}s</Button>
+        : <Button className="w-full" variant={v && !done ? 'secondary' : 'primary'} onClick={() => setStarting(true)}>{v && !done ? (pen ? "I've started a new pen" : "I've mixed a new vial") : pen ? 'Start the next pen' : 'Mix the next vial'}</Button>}
 
       <div className="pt-1">
         <div className="flex items-center justify-between">
@@ -148,7 +159,7 @@ export function ShopList({ med, doses, now }: { med: Medication; doses: Dose[]; 
     <section aria-labelledby={`shop-${med.id}`} className="rounded-btn bg-surface-2 p-3 space-y-1.5 tnum">
       <h3 id={`shop-${med.id}`} className="font-semibold">{title}</h3>
       <p>{c.shots} shot{c.shots === 1 ? '' : 's'} · {fmtAmount(c.total, med.unit)} over {c.days} days</p>
-      <p className="text-sm text-muted">In hand: {c.inVial > 0 ? `about ${fmtAmount(c.inVial, med.unit)} in the ${word} in use` : `no ${word} in use`}{c.unopened ? `, ${c.unopened} unopened (${fmtAmount(c.unopenedAmount, med.unit)})` : ''}.</p>
+      <p className="text-sm text-muted">In hand: {c.inVial > 0 ? `about ${fmtAmount(c.inVial, med.unit)} in the ${word} in use` : currentVial(med) ? `the ${word} in use is used up` : `no ${word} ${pen ? 'started' : 'mixed'}`}{c.unopened ? `, ${c.unopened} unopened (${fmtAmount(c.unopenedAmount, med.unit)})` : ''}.</p>
       {c.vials > 0
         ? <p><span className="font-medium">To buy:</span> {buy.join(', ')}.{c.runsOutAt !== undefined && <span className="block text-sm text-muted">What you have runs out about {format(c.runsOutAt, 'd MMM')}.</span>}</p>
         : <p className="font-medium" style={{ color: 'var(--success)' }}>You have enough {word}s. Syringes and swabs: {buy.join(', ')}.</p>}
@@ -216,6 +227,12 @@ function StartSheet({ med, stock, onClose, onStarted }: { med: Medication; stock
           <TextInput label="Water added (mL)" type="number" inputMode="decimal" min="0" step="any"
             value={water} onChange={(e) => setWater(e.target.value)} error={waterOk ? undefined : 'Enter the water you added.'} />
         )}
+        {!pen && waterOk && med.defaultAmount > 0 && (() => {
+          // What each usual dose will be, mixed like this: the number to draw, before mixing.
+          const amt = picked?.amount ?? (Number(amount) || med.strength);
+          const d = drawFor(med.defaultAmount, amt, Number(water), med.peptide?.syringe ?? 'U-100');
+          return <p className="text-[15px] rounded-btn bg-primary-soft p-3 tnum">Each {fmtAmount(med.defaultAmount, med.unit)} dose: draw to <strong>{Math.round(d.units * 10) / 10} units</strong> ({Math.round(d.ml * 100) / 100} mL). <a href={`#/calc/${med.id}`} className="underline underline-offset-4">Calculator</a></p>;
+        })()}
         {flagged && (
           <p role="alert" className="text-sm rounded-btn bg-caution-soft p-3">You flagged batch {flagged.lot}{flagged.note ? `: “${flagged.note}”` : '.'}</p>
         )}
@@ -271,7 +288,6 @@ function AddSheet({ med, onClose }: { med: Medication; onClose: () => void }) {
       onAction: async () => {
         const m = await db.medications.get(med.id);
         if (m) await setVials(med.id, vialsOf(m).filter((x) => !ids.includes(x.id)));
-        await unrestock(med.id, n, false);
       },
     });
     onClose();
