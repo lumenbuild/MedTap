@@ -1,6 +1,7 @@
 // Food: a day's totals (macros and every micro the labels gave), what was logged, saved foods, meals and batch
 // recipes, and the energy unit and target.
 import { setOwnTarget } from '../app/targets';
+import { MicrosCard } from '../components/food/MicrosCard';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { clearRecipeRequest, onRecipeRequest } from '../app/shareInbox';
 import { addDays, format } from 'date-fns';
@@ -121,6 +122,11 @@ export function FoodScreen() {
         // With the watch: calories burned against eaten, and where that takes your weight.
         const e = daily ? energyBalance(daily.filter((d) => personOf(d) === fam.personId), mine, now, scheduleSettings(settings)) : null;
         return e ? <EnergyCard e={e} /> : null;
+      })()}
+
+      {(() => {
+        const me = fam.people.find((p) => p.id === fam.personId);
+        return <MicrosCard logs={mine} from={start.getTime()} to={end.getTime()} now={now} sex={me?.sex} age={me?.birthYear ? new Date(now).getFullYear() - me.birthYear : undefined} dayLabel={label} />;
       })()}
 
       {hunger && <HungerWeekCard h={hunger} proteinPicks={proteinPicks} />}
