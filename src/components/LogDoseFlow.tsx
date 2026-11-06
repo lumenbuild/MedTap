@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { strengthChange } from '../logic/stackSmart';
+import { updateVial } from '../db/repos/meds';
 import { AlertTriangle, Clock, Info } from 'lucide-react';
 import type { Dose, Medication, Person } from '../db/schema';
 import { doseOwner, personOf, storedPerson } from '../db/repos/people';
@@ -66,7 +68,14 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, vialId, onLog
   const vialAmount = inUse?.amount ?? med.strength;
   const vialWater = inUse?.waterMl ?? med.peptide?.waterMl ?? 0;
   const vial = med.peptide && med.peptide.kind !== 'pen' && vialAmount > 0 && vialWater > 0 ? { ...med.peptide, waterMl: vialWater } : undefined;
-  const [inUnits, setInUnits] = useState(false);
+  // Vials are drawn in units: that's the default for them (the last choice is remembered per medicine).
+  const [inUnits, setInUnitsState] = useState(() => {
+    try { const v = localStorage.getItem(`unitsMode:${med.id}`); if (v !== null) return v === '1'; } catch { /* storage off */ }
+    return !!(med.peptide && med.peptide.kind !== 'pen');
+  });
+  const setInUnits = (v: boolean) => { setInUnitsState(v); try { localStorage.setItem(`unitsMode:${med.id}`, v ? '1' : '0'); } catch { /* storage off */ } };
+  // A vial at a different strength from the last: say so plainly until it's confirmed.
+  const sc = med.peptide ? strengthChange(med, amountEdit ?? med.defaultAmount) : null;
   const [earlier, setEarlier] = useState(false);
   const [when, setWhen] = useState(() => toLocalInput(now - 30 * 60_000));
   const [override, setOverride] = useState(false);
@@ -211,6 +220,13 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, vialId, onLog
         </p>
       )}
 
+      {sc && !sc.checked && (
+        <div role="alert" className="rounded-btn bg-caution-soft p-3 space-y-2">
+          <p className="font-semibold">New strength: draw {sc.unitsNow} units, not {sc.unitsWas}</p>
+          <p className="text-[15px]">This vial is mixed to {sc.now} {med.unit}/mL; the last one was {sc.was}. The same dose is a different number of units.</p>
+          <button type="button" className="min-h-[44px] px-4 rounded-btn bg-surface font-semibold" onClick={() => updateVial(med.id, sc.vial.id, { checkedAt: new Date().toISOString() })}>Got it</button>
+        </div>
+      )}
       <div className="space-y-1.5">
         <span className="block text-sm font-medium">Amount</span>
         {vial && inUnits ? (

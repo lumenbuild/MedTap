@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { PeptideInsights, VialExtras } from '../../components/StackSmart';
 import { ingredientsOf, ingredientsText, parseIngredients } from '../../logic/ingredients';
 import { shownName } from '../../logic/privacy';
 import { interactions, unstudied } from '../../logic/interactions';
@@ -399,9 +400,9 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
       {existing && !existing.archived && tab === 'overview' && (onProtocol && !priv
         ? <><PeptidePart med={existing} part="overview" /><MedVerdict med={existing} /><HowToTakeCard med={existing} onPeptidePage /><MedBodyEffects med={existing} /></>
         : <><MedHero med={existing} />{!priv && <MedVerdict med={existing} />}<HowToTakeCard med={existing} />{!priv && <DosePlanCard med={existing} />}<MedBodyEffects med={existing} /></>)}
-      {existing && !existing.archived && tab === 'plan' && !priv && <PeptidePart med={existing} part="plan" />}
+      {existing && !existing.archived && tab === 'plan' && !priv && <><PeptidePart med={existing} part="plan" /><PeptideInsights med={existing} /></>}
       {existing && !existing.archived && tab === 'stock' && (onProtocol
-        ? <><VialCard med={existing} />{!priv && <PeptidePart med={existing} part="stock" />}</>
+        ? <><VialCard med={existing} /><VialExtras med={existing} />{!priv && <PeptidePart med={existing} part="stock" />}</>
         : <>{existing.peptide && HAS_PEPTIDES && <VialCard med={existing} />}{!existing.peptide && <BottlesSection med={existing} />}<StockLine med={existing} onEdit={() => pickTab('details')} /></>)}
       {existing && !existing.archived && tab === 'patterns' && <MedPatterns med={existing} />}
       {existing && tab === 'details' && <TagsSection med={existing} />}

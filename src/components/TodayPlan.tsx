@@ -15,6 +15,7 @@ import { conditionOn } from '../logic/experiments';
 import { sickForecast, UNWELL, type SickForecast } from '../logic/sickness';
 import { todayPlan, THREAD_LABEL, type PlanItem, type Thread } from '../logic/plan';
 import { goalRings, type Ring } from '../logic/rings';
+import { stackPlanItems } from '../logic/stackSmart';
 import { stepsTarget } from '../logic/movement';
 import { readiness } from '../logic/training';
 import { kgTo } from '../logic/units';
@@ -45,7 +46,8 @@ export function useToday() {
     }
     const sick = settings.healthImport || data.daily.some((x) => typeof x.skinTempDelta === 'number' || typeof x.restingHr === 'number')
       ? sickForecast({ daily: data.daily, checkIns: data.checkIns, workouts: data.workouts, feedback: settings.sickFeedback }, now) : null;
-    const plan = todayPlan({ calls: todaysCalls(data, now, s, settings), warnings: earlyWarnings(data, now, s, settings.waterTargetMl), brief, insights: ins.list, sick });
+    const stack = HAS_PEPTIDES && settings.peptideTools ? stackPlanItems(data.meds, data, now, s, settings.peptideOrders) : [];
+    const plan = todayPlan({ calls: todaysCalls(data, now, s, settings), warnings: earlyWarnings(data, now, s, settings.waterTargetMl), brief, insights: ins.list, sick, stack });
     const rings = goalRings({ body: data.body, daily: data.daily, goalKg: dd.goalKg, proteinTarget: settings.proteinTargetG,
       stepsTarget: settings.stepsTargetOwn ?? stepsTarget(data.daily, now) ?? undefined, sleepTargetMin: settings.sleepTargetH * 60 }, now, s);
     return { plan, rings, sick, settings, personId: dd.personId, data, s };

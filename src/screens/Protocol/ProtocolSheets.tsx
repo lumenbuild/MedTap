@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { useDecisionData } from '../../app/useDecisions';
+import { batchCompare } from '../../logic/stackSmart';
+import { money } from '../../logic/cost';
 import { format } from 'date-fns';
 import type { Medication } from '../../db/schema';
 import type { LotStats } from '../../logic/protocol';
@@ -22,9 +25,14 @@ export function LotSheet({ med, batches, onClose }: { med: Medication; batches: 
   const [flagging, setFlagging] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const units = settings?.units ?? 'metric';
+  // Each batch on the peptide's own goal (not just weight), and its price per mg.
+  const dd = useDecisionData();
+  const bc = dd ? batchCompare(med, dd.data, Date.now(), dd.s) : null;
+  const extra = new Map((bc?.rows ?? []).map((r) => [r.lot, r]));
   return (
     <Sheet open onClose={onClose} title={`Batches: ${med.name}`}>
       <p className="text-sm text-muted mb-2">Each batch side by side</p>
+      {bc?.note && <p className="text-[15px] rounded-btn bg-surface-2 p-3 mb-2">{bc.note}</p>}
       <ul>
         {batches.map((b) => (
           <li key={b.lot} className="border-t border-border py-4 space-y-1">
@@ -37,6 +45,8 @@ export function LotSheet({ med, batches, onClose }: { med: Medication; batches: 
               {[
                 HAS_BODY && b.perWeek !== undefined ? `${b.perWeek > 0 ? '+' : ''}${kgTo(b.perWeek, units)} ${weightUnit(units)}/week` : null,
                 b.appetite !== undefined ? `appetite ${b.appetite}` : null,
+                bc?.outcome && bc.outcome !== 'weight' && extra.get(b.lot)?.outcome !== undefined ? `${bc.label?.toLowerCase()} ${extra.get(b.lot)!.outcome}` : null,
+                extra.get(b.lot)?.perMg !== undefined ? `${money(extra.get(b.lot)!.perMg!)} per ${med.unit}` : null,
                 b.noticed.length ? b.noticed.map((x) => `${x.chip} (${x.n})`).join(', ') : null,
               ].filter(Boolean).join(' · ') || <span className="text-muted">No weigh-ins or check-ins while it was in use</span>}
             </p>

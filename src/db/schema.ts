@@ -187,6 +187,10 @@ export interface PeptideVial {
   note?: string;
   /** What was paid for it ($), for cost per mg. */
   cost?: number;
+  /** When its strength (mixed differently from the vial before) was seen and confirmed before a dose. */
+  checkedAt?: string;
+  /** Times it was out of the fridge, and for how long (hours). */
+  excursions?: { at: string; hours: number }[];
 }
 
 export interface Medication extends Stamped {

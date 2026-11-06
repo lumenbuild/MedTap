@@ -134,6 +134,8 @@ export interface AppSettings {
   /** The sickness forecast: "I'm unwell" / "I'm fine" answers by night (it learns from them), a morning notification
    *  when it flags something (app), and the night last notified. */
   sickFeedback: Record<string, 'sick' | 'fine'>;
+  /** Peptide orders: when each was placed and arrived, to learn how long delivery takes. */
+  peptideOrders: { id: string; placedAt: string; arrivedAt?: string; note?: string }[];
   sickNotify: boolean;
   sickNotified: string;
   /** Dose reminders from the watch app itself (Log, Snooze, Skip on the wrist, and they work without the phone nearby). */
@@ -262,6 +264,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   snoozes: [],
   wearOffNotify: true,
   sickFeedback: {},
+  peptideOrders: [],
   sickNotify: true,
   sickNotified: '',
   watchReminders: false,
