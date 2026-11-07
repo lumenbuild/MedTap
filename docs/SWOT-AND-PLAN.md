@@ -88,18 +88,22 @@ Family sync: snapshot → gzip → AES-GCM (random 256-bit family key) ── op
    safely. Keep them current.
 
 ### 3.2 Engineering
-6. **The bundle is big for a tag tap.** A tag tap loads a 1.97 MB main chunk (630 KB gzipped). Four lazy imports
-   don't take effect because the same modules are also imported directly (`maintenance.ts`, `native.ts`, `ocr.ts`,
-   `LogFoodSheet.tsx`; see the build warnings). It feels fine on your Samsung now; it's the first thing to fix if a tap
-   starts to feel slow.
+6. ~~**The bundle is big for a tag tap.**~~ **Fixed 7 Nov 2026.** Every screen now loads on demand. The main chunk
+   went from 1,973 KB to 440 KB (630 → 146 KB gzipped), and a tag tap loads 264 KB gzipped in 15 files (was 615 KB),
+   with no lazy-import warnings left. Measured with the CPU slowed 6×: tag tap → Log button 628 → 566 ms (about 10%
+   faster); app open → Today 1,530 → 1,509 ms (no real change). **Lesson: code size wasn't the main cost.** Today's
+   time goes on its own data loading and analytics (#7), so that's where any further speed-up is.
 7. **It will slow down as your history grows.** 84 whole-table `toArray()` loads (doses, daily health, food logs,
    workouts), with the analytics rerun on every render (Today has 3 `useMemo`s; Trends and Protocol have none). After
    a year of food logs, heart rate and workouts, Today and Trends will lag.
 8. **Screens aren't regression-tested.** The browser runs, accessibility checks and screen-fit checks in PROGRESS.md
    were one-offs and aren't in the repo. There's no lint and no coverage report. A change to one screen can quietly
    break another.
-9. **Dose maths is the one place a bug can hurt you.** Units per dose, U-100 vs U-40 syringes, pens, blends and vial
-   yield are tested, but by example only. A mix-up between syringe types is a 2.5× error.
+9. **Dose maths is the one place a bug can hurt you.** A mix-up between syringe types is a 2.5× error. **Tested
+   7 Nov 2026** (`tests/dose-maths-properties.test.ts`): ten draws worked by hand, plus property tests over thousands
+   of random vials, water, doses and syringes (round trips, U-40 vs U-100, mg vs mcg, scaling, warnings, displayed
+   rounding, the vial-in-use water, pens, blends, vial left, stock recounts, and the before-logging dose check). No
+   bugs found. Still to do: show the working on the draw screen.
 10. **Lock-screen back-off lives in React state**, so a reload resets it. Fine for a privacy screen, which is what
     the code says it is.
 
@@ -114,8 +118,8 @@ Family sync: snapshot → gzip → AES-GCM (random 256-bit family key) ── op
 
 ## 4. Opportunities
 
-1. **Make it faster** (bundle split, loading only recent data, a Web Worker for analytics), so it stays snappy for
-   years of data.
+1. **Make it faster** (loading only recent data, memoising, a Web Worker for analytics), so it stays snappy for
+   years of data. The bundle split is done.
 2. **Simplify.** Build only the edition you use in CI (keeping the others' code if you like), and after a month of
    real use, hide or remove the features you never open. Less to break.
 3. **Make the insights trustworthy.** Show "based on N weeks / N check-ins" everywhere and hide estimates below a
@@ -145,7 +149,7 @@ Family sync: snapshot → gzip → AES-GCM (random 256-bit family key) ── op
 
 | | Helpful | Harmful |
 |---|---|---|
-| **Internal** | Tap-to-log proven on your phone · private · pure, tested logic · everything you track in one app · decisions written down · self-updating | Features outpacing checks · small-sample insights · four editions' overhead · 2 MB bundle · whole-table loading · no screen tests or lint · dose maths tested by example only · docs drift |
+| **Internal** | Tap-to-log proven on your phone · private · pure, tested logic · everything you track in one app · decisions written down · self-updating | Features outpacing checks · small-sample insights · four editions' overhead · whole-table loading and analytics on every render · no screen tests or lint · docs drift |
 | **External** | Faster with growth · simplify · trustworthy insights · Health Connect write-back · second device via relay | Data loss · losing the keystore · dependency on the Pages address · sideloading rules · OS updates breaking things |
 
 ---
@@ -165,9 +169,9 @@ The principle: **protect the data, keep it from breaking, keep it fast, and only
 - [ ] Lock back-off saved in the `device` table so a reload doesn't reset it (small).
 
 ### Step 2: keep it from breaking (next 2–3 weeks)
-- [ ] **Property tests for the dose maths** (`fast-check`): draw ↔ dose round-trips across U-100/U-40, pens and
-      blends, plus a few golden cases worked by hand. Show the working on the draw screen
-      ("5 mg in 2 mL → 2.5 mg/mL → 0.25 mg = 10 units") so you can sanity-check it at a glance.
+- [x] **Property tests for the dose maths** (done 7 Nov 2026, no bugs found).
+- [ ] Show the working on the draw screen ("5 mg in 2 mL → 2.5 mg/mL → 0.25 mg = 10 units") so you can
+      sanity-check it at a glance.
 - [ ] **A small Playwright smoke suite in CI** (MedTap only): open Today, unknown tag → assign → log → undo, log a
       shot from a vial, check-in, log food, start a workout, backup → erase → restore. Plus screen fit at 360×800 and
       axe. This catches "an update broke a screen" before it reaches your phone.
@@ -180,9 +184,9 @@ The principle: **protect the data, keep it from breaking, keep it fast, and only
       once (restart, daylight saving, double tap) and time a cold tag tap.
 
 ### Step 3: keep it fast (when you have a session free)
-- [ ] Run `rollup-plugin-visualizer` once to see what's in the 2 MB chunk.
-- [ ] Fix the four lazy imports that don't take effect, and give the tag screen its own small entry. Target: under
-      250 KB gzipped to reach the Log button.
+- [x] Screens load on demand, the tag screen's code starts loading at boot, and small chunks are merged (done
+      7 Nov 2026; see 3.2 #6). Measuring showed Today's time is computation, not code size, so the items below are
+      where the next real gain is.
 - [ ] Load recent data by default (`where('at').above(since)`, e.g. 90 days), and all of it only when a screen
       asks for "All".
 - [ ] `useMemo` the per-screen analytics, and move the heavy ones (predict, forecast, weekAhead, insights, changes)
@@ -208,10 +212,10 @@ Rule of thumb: one feature per PR, with its tests, and a line in PROGRESS.md.
 1. Back up the keystore and password (password manager + offline).
 2. Make sure automatic backups land somewhere off the phone.
 3. Do one restore drill.
-4. Property tests and on-screen working for the dose maths.
+4. ~~Property tests~~ (done) and on-screen working for the dose maths.
 5. A Playwright smoke suite and ESLint in CI.
 6. A local error log with "Copy diagnostics".
 7. Bring PROGRESS.md up to date; rename the default branch to `main`; tidy the repo root.
-8. Fix the four lazy imports and shrink the tag-tap bundle.
+8. ~~Fix the four lazy imports and shrink the tag-tap bundle.~~ Done; Today's computation (item 9) is the real cost.
 9. Load recent data by default; memoise or move the heavy analytics to a worker.
 10. After a month, prune what you don't use, and decide about the other three editions.

@@ -700,6 +700,21 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
   - the guide renders, the welcome shows again;
   - TapDose has no peptide, training or weight wording; axe clean.
 
+## Dose maths tests and a lighter start (7 Nov 2026)
+- `tests/dose-maths-properties.test.ts` (38 tests, fast-check dev dependency): ten draws worked by hand, and properties over
+  random vials, water, doses and U-100/U-40 syringes (units = mL × units/mL, U-40 = 0.4 × U-100, dose ↔ units round
+  trip, water for a target, scaling, mg/mcg agreement, warnings, displayed rounding, vial-in-use water, pen clicks,
+  blends, vial left, stock recounts, the dose check's mg/mcg slip, 3× usual and more-than-left). No bugs found.
+- Every screen in `App.tsx` is lazy (`screen()` helper); titles come from small modules (`screens/settingsSections.ts`,
+  `screens/Help/topics.ts`), the guide's name loads with the guide (`useGuideName`); housekeeping loads after start
+  (`app/useMaintenance.ts` imports `app/maintenance.ts`); the tag screen loads its new-tag, archived and action-tag
+  screens on demand; `preloadFirstScreen` (called in `main.tsx`) starts fetching the tag screen or Today at boot; and
+  `experimentalMinChunkSize` (60 KB) in `vite.config.ts` merges the small chunks.
+- Main chunk 1,973 → 440 KB (630 → 146 KB gzipped); tag tap path 615 → 264 KB gzipped. Cold, CPU slowed 6×: tag tap to
+  Log 628 → 566 ms, app open to Today 1,530 → 1,509 ms. Today's time is its data loading and analytics, not code size.
+- Checked: tsc, all tests, all four editions and the native build; a browser run (tag tap → Log → logged once, new tag,
+  20 screens) shows the same text as before and no console errors.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 
