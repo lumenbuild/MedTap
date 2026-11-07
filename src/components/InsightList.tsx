@@ -59,7 +59,21 @@ export function useInsights(): { list: Insight[]; settings: AppSettings } | null
 }
 
 /** One insight: icon, headline, evidence, its action and Not now. */
-export function InsightRow({ x, settings, because }: { x: Insight; settings: AppSettings; /** Links to the numbers it rests on. */ because?: { label: string; href: string }[] }) {
+/** An explanation under a headline. Short ones show as they are; in a compact list (Today's plan) a long one shows its
+ *  first line and opens in place on a tap, so the list reads as headlines. */
+export function MoreText({ text, compact, className = 'text-sm text-muted leading-snug mt-0.5' }: { text: string; compact?: boolean; className?: string }) {
+  const [open, setOpen] = useState(false);
+  if (!compact || text.length <= 60) return <p className={className}>{text}</p>;
+  return (
+    <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className={`block w-full text-left ${className}`}>
+      <span className={open ? '' : 'line-clamp-1'}>{text}</span>
+      {!open && <span className="sr-only"> (tap for more)</span>}
+    </button>
+  );
+}
+
+export function InsightRow({ x, settings, because, compact }: { x: Insight; settings: AppSettings; /** Links to the numbers it rests on. */ because?: { label: string; href: string }[];
+  /** In Today's plan: long explanations show one line until tapped. */ compact?: boolean }) {
   const toast = useToast();
   const [odd, setOdd] = useState(false);
   const now = useNow(60_000);
@@ -97,8 +111,10 @@ export function InsightRow({ x, settings, because }: { x: Insight; settings: App
       <span aria-hidden="true" className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: tone.bg, color: tone.fg }}><Icon size={18} /></span>
       <div className="flex-1 min-w-0">
         <p className="text-[15px] font-medium leading-snug">{x.headline}</p>
-        {x.evidence && <p className="text-sm text-muted leading-snug mt-0.5">{x.evidence}</p>}
-        {x.lines && x.lines.length > 0 && <ul className="text-sm text-muted leading-snug mt-1 space-y-0.5 list-disc pl-4">{x.lines.map((l) => <li key={l}>{l}</li>)}</ul>}
+        {x.evidence && <MoreText text={x.evidence} compact={compact && !!x.evidence} />}
+        {x.lines && x.lines.length > 0 && (compact
+          ? <details className="mt-0.5"><summary className="text-sm text-muted min-h-[32px] flex items-center cursor-pointer">Details</summary><ul className="text-sm text-muted leading-snug mt-1 space-y-0.5 list-disc pl-4">{x.lines.map((l) => <li key={l}>{l}</li>)}</ul></details>
+          : <ul className="text-sm text-muted leading-snug mt-1 space-y-0.5 list-disc pl-4">{x.lines.map((l) => <li key={l}>{l}</li>)}</ul>)}
         {x.n !== undefined && <p className="text-[12px] text-muted mt-0.5"><span className="font-medium">{certainty(x)}</span> · {x.n} {x.nOf ?? 'records'}</p>}
         {x.bar && (
           <>

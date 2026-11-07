@@ -715,6 +715,21 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
 - Checked: tsc, all tests, all four editions and the native build; a browser run (tag tap → Log → logged once, new tag,
   20 screens) shows the same text as before and no console errors.
 
+## Usability: doses that weren't logged, and a shorter plan (7 Nov 2026)
+- Found by using the app at Samsung size with realistic data: a set-time dose that passed unlogged (usually taken but not
+  tapped) only showed as "Past latest time" on Today's second screen, and fixing the record took several steps.
+- `unloggedSlots` (logic/schedule.ts, tests/unlogged.test.ts): today's set times whose ±60 min window closed with nothing
+  taken or skipped, after the medicine was added, while the day isn't complete.
+- Today: a "Not logged" card under the next dose, one row per time, with **Taken** (logged at its time, from the vial in
+  use for injections, source `backdated`) and **Skipped**; Undo either way. A row goes as soon as it's tapped, so it
+  can't be logged twice while Today recounts. It asks about the record and never says to take a dose. The row in the
+  day's list reads "7:30 am not logged" instead of "Past latest time".
+- Log dose (tag tap or by hand): "Taken at 7:30 am (its time)" sets the time in one tap when that time passed unlogged.
+- Today's plan: a long explanation shows its first line and opens on a tap (`MoreText`); an insight's bullet list sits
+  under Details. Insights pages still show everything in full.
+- Checked in Chromium at 412×915, light and dark: Taken, Undo, Skipped, the tag shortcut (logs at 7:30), plan rows
+  open; no console errors; all tests and editions build.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 
