@@ -4,7 +4,14 @@ Source of truth for build status. Spec: the owner's HANDOFF document (section nu
 
 ## Current phase
 All phases (0–5) built and live, plus flexible schedules and instructions (PR #2, merged). Now: planned changes,
-skipped doses, refill forecasting, encrypted and automatic backups. Awaiting owner testing on real phones.
+skipped doses, refill forecasting, encrypted and automatic backups.
+
+## Real-device status (supersedes the "not tested on a real phone" notes below)
+- 7 Nov 2026, owner, Samsung phone and Wear OS watch: tag taps open the app and log once, tag writing and "Update this
+  tag", reminders (with Log it / snooze / skip), Health Connect import, home-screen widgets, automatic backups and
+  restore, the watch app, and tag-tap speed all work.
+- Not yet tested: iPhone (Scan, HealthKit, Siri), a non-Samsung Android, Android 12/13, timed cold start.
+- Checklist and results: `docs/DEVICE-TESTS.md`.
 
 ## Phase 0: done
 - Vite + React 18 + TS + Tailwind (tokens as CSS variables, light/dark/system theme), self-hosted Inter.
@@ -721,8 +728,9 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
 ## Known issues / not yet verified
 - Deploys from the repository's default branch (currently `claude/confident-maxwell-rta5d8`; renaming it to `main`
   needs no workflow change). Other branches are tested and built but not deployed. Pages source: GitHub Actions.
-- Real-device checks (§14) not yet done: iPhone Safari tag tap, Android install + Web NFC write/test, double NFC fire.
-  Web NFC error mapping (read-only vs unsupported tag) is best-effort from Chrome's error names; confirm on a real tag.
+- Real-device checks: Android app tested on a Samsung (7 Nov 2026, see "Real-device status" above). Still to do:
+  iPhone Safari tag tap, double NFC fire, Web NFC in Chrome (the website, not the app). Web NFC error mapping
+  (read-only vs unsupported tag) is best-effort from Chrome's error names; confirm on a real tag.
 - Verified in headless Chromium (Pixel 7 viewport, Sydney time zone): add med, unknown tag → assign → log, guard, notes,
   undo, stock, timeline edit/delete/undo, manual link + QR, change event, set-times + as-needed cards, dark mode. No console errors.
 

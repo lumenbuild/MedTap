@@ -76,12 +76,11 @@ Family sync: snapshot → gzip → AES-GCM (random 256-bit family key) ── op
 ## 3. Weaknesses
 
 ### 3.1 Product and process
-1. **Real-device testing is one phone, and isn't written down.** The owner has tested on a Samsung (update 7 Nov
-   2026), but PROGRESS.md still lists Health Connect, widgets, the watch, Web NFC error mapping, double NFC fire and
-   training reminders as "not tested on a real phone yet", and there's no record of what passed. Still untested:
-   iPhone (tag taps, HealthKit, Siri), a non-Samsung Android, an older Android version, and the Wear OS watch.
-   Samsung is the hardest case for reminders (battery saving), so that's a good start; the gap now is coverage and a
-   repeatable written test plan.
+1. **Real-device testing covers one Android phone.** On 7 Nov 2026 the owner confirmed on a Samsung and Wear OS
+   watch that tag taps, tag writing, reminders, Health Connect, widgets, auto-backup/restore, the watch app and
+   tag-tap speed all work (recorded in `docs/DEVICE-TESTS.md`). Samsung is the hardest case for reminders, so this is a
+   strong result. Still untested: iPhone (tag taps, HealthKit, Siri), a non-Samsung Android, Android 12/13, and the
+   edge cases listed in the test plan (restart, DST, double tap, sync between two phones, timed cold start).
 2. **Scope has outrun validation.** 44k lines in 18 days, ~45 screens, ~150 analytics modules, four editions. Each
    PR bundles several features ("Week ahead … warnings … water target … morning briefing … forecast checked against
    last month"). No real user has used most of it yet. Every new feature adds surface that must be kept correct.
@@ -204,7 +203,7 @@ This document flags the issues; it isn't legal advice.
 
 | | Helpful | Harmful |
 |---|---|---|
-| **Internal** | Tap-to-log wedge · privacy-first · pure, tested logic · four editions from one codebase · depth (peptides, ADHD, training, food) · CI and signing | Not tested on real devices · scope sprawl · 2 MB bundle · whole-table loading · no UI tests or lint · device is the only copy · misleading "encrypted" claim · docs drift · bus factor of one |
+| **Internal** | Tap-to-log wedge · privacy-first · pure, tested logic · four editions from one codebase · depth (peptides, ADHD, training, food) · CI and signing | Only one Android phone tested · scope sprawl · 2 MB bundle · whole-table loading · no UI tests or lint · device is the only copy · misleading "encrypted" claim · docs drift · bus factor of one |
 | **External** | GLP-1 boom · ADHD niche · tag kits · caregivers · clinician reports · gyms · hosted sync · iOS · other countries | Medical device rules · unapproved goods advertising · dose-error liability · single-URL dependency · Android sideloading changes · store review · strong competitors · burnout |
 
 ---
@@ -261,7 +260,7 @@ The principle: **stop adding, prove what's there, make it safe, then launch one 
 - [ ] A "restore drill" test in CI: build a large realistic dataset, back up, erase, restore, compare every table.
 - [ ] Lock back-off persisted in the `device` table so a reload doesn't reset it.
 
-### Phase 2: prove it on real hardware (weeks 2–6, overlaps Phase 1)
+### Phase 2: widen real-device testing (weeks 2–6, overlaps Phase 1; Samsung already passes)
 
 **Hardware you need**
 - Android: the Samsung you already test on (battery optimisation is the worst case), plus one Pixel on current
@@ -375,8 +374,8 @@ risk. Keep MedTap as your personal/power-user build.
 1. Freeze features; rename the branch to `main`; turn on branch protection; start Issues.
 2. Correct "encrypted backups" in the privacy policy and store listings.
 3. Back up the keystore twice.
-4. Write down the device test plan, record what already passes on the Samsung, and update PROGRESS.md's "not
-   tested on a real phone" lines; then add a Pixel, an older Android and an iPhone.
+4. Run the remaining edge cases in `docs/DEVICE-TESTS.md` on the Samsung (time the cold start), then add a Pixel,
+   an older Android and an iPhone.
 5. Book the regulatory/legal consult; until then, keep peptide dosing content and step-up prompts out of anything public.
 6. Independent check and property tests for all dose maths; show the working on draws.
 7. Fix the bundle (tag path < 250 KB gz) and stop loading whole tables.
