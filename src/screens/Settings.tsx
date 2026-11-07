@@ -39,11 +39,8 @@ const HealthCard = lazy(() => import('./HealthCard'));
 
 const selectCls = 'w-full min-h-[48px] rounded-btn bg-surface-2 border border-border px-3';
 
-export type SettingsSection = 'targets' | 'reminders' | 'doses' | 'training' | 'checkins' | 'caffeine' | 'people' | 'health' | 'privacy' | 'display' | 'watch' | 'about';
-export const SECTION_TITLE: Record<SettingsSection, string> = {
-  targets: 'Targets', reminders: 'Reminders', doses: 'Doses', training: 'Training', checkins: 'Check-ins', caffeine: 'Caffeine', people: 'People and sync', health: 'Health data',
-  privacy: 'Privacy', display: 'Display', watch: 'Watch', about: `About ${APP_NAME}`,
-};
+import { SECTION_TITLE, type SettingsSection } from './settingsSections';
+export { SECTION_TITLE, type SettingsSection };
 
 const restLabel = (x: number) => (x === 0 ? 'Off' : x % 60 ? `${Math.floor(x / 60) ? `${Math.floor(x / 60)} min ` : ''}${x % 60} s` : `${x / 60} min`);
 /** 90 → "1½ hours", 45 → "45 minutes", 150 → "2 h 30 min". */

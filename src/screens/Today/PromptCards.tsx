@@ -6,7 +6,11 @@ import { IconRow } from '../../components/ui/Visual';
 import { autoBackupState, BackupError, regainPermission } from '../../app/autoBackup';
 import { isNative } from '../../nfc/native';
 import { useToast } from '../../app/toast';
-import type { Medication } from '../../db/schema';
+import type { Dose, Medication } from '../../db/schema';
+import { MedBadge } from '../../components/MedBadge';
+import { logDose, removeDose } from '../../db/repos/doses';
+import { currentVial } from '../../logic/peptide';
+import { shownColour, shownMedName } from '../../logic/privacy';
 import type { CheckInAsk } from '../../logic/reminders';
 import { setSetting } from '../../db/repos/settings';
 import { addCheckIn, removeCheckIn } from '../../db/repos/checkIns';
@@ -83,6 +87,48 @@ export function CheckInAutoOpen({ ask, enabled, shown, busy, onOpen }: { ask?: C
     return () => clearTimeout(t);
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   return null;
+}
+
+/** Set times today that passed with nothing logged (logic/schedule unloggedSlots): most often taken but not tapped.
+ *  One tap records it at its time, or as skipped; Undo either way. It asks about the record, never says to take it. */
+export function UnloggedCard({ items, personId }: { items: { med: Medication; at: number; amount: number }[]; personId?: string }) {
+  const toast = useToast();
+  // Answered rows go at once (Today can take a moment to recount), so a second tap can't log the dose twice.
+  const [answered, setAnswered] = useState<string[]>([]);
+  const keyOf = (x: { med: Medication; at: number }) => `${x.med.id}-${x.at}`;
+  const open = items.filter((x) => !answered.includes(keyOf(x)));
+  if (!open.length) return null;
+  const record = async (x: { med: Medication; at: number; amount: number }, skipped: boolean) => {
+    const k = keyOf(x);
+    if (answered.includes(k)) return;
+    setAnswered((a) => [...a, k]);
+    const v = x.med.peptide ? currentVial(x.med) : undefined;
+    const d: Dose = await logDose({
+      medicationId: x.med.id, takenAt: new Date(x.at).toISOString(), amount: x.amount, source: 'backdated',
+      ...(skipped ? { skipped: true, skipReason: 'Not taken' } : {}),
+      ...(v && v.id !== 'legacy' && !skipped ? { vialId: v.id } : {}),
+      ...(x.med.shared && personId ? { personId } : {}),
+    });
+    toast(skipped ? `${shownName(x.med)} ${fmtTime(x.at)}: marked as skipped` : `${shownName(x.med)}: logged at ${fmtTime(x.at)}`,
+      { onAction: async () => { await removeDose(d.id); setAnswered((a) => a.filter((y) => y !== k)); } });
+  };
+  return (
+    <section aria-label="Not logged" className="box space-y-3">
+      <h2 className="text-sm font-medium text-muted">Not logged</h2>
+      {open.map((x) => (
+        <div key={keyOf(x)}>
+          <p className="flex items-center gap-2.5">
+            <MedBadge color={shownColour(x.med)} icon={x.med.icon} size={28} />
+            <span className="min-w-0"><span className="font-medium">{shownMedName(x.med)}</span> <span className="text-muted tnum">· {fmtTime(x.at)}</span></span>
+          </p>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <Button onClick={() => void record(x, false)} aria-label={`${shownName(x.med)} was taken at ${fmtTime(x.at)}`}>Taken</Button>
+            <Button variant="secondary" onClick={() => void record(x, true)} aria-label={`${shownName(x.med)} at ${fmtTime(x.at)} was skipped`}>Skipped</Button>
+          </div>
+        </div>
+      ))}
+    </section>
+  );
 }
 
 /** Stock, vials, supplies, backups, tags to link: one of them is shown as it is; two or more fold into one line that

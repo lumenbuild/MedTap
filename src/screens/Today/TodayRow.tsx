@@ -1,6 +1,6 @@
 import type { Dose, Medication } from '../../db/schema';
 import { shownColour, shownMedName, shownName } from '../../logic/privacy';
-import { getDosesToday, getNextDue, getStatus, type ScheduleSettings } from '../../logic/schedule';
+import { getDosesToday, getNextDue, getStatus, unloggedSlots, type ScheduleSettings } from '../../logic/schedule';
 import { fmtTime, fmtWhen } from '../../logic/format';
 import { medColour } from '../../logic/palette';
 import { planShort } from '../../logic/dosePlan';
@@ -18,7 +18,7 @@ export function TodayRow({ med, doses, s, now, onLog, person }: {
   const right = done ? (today.length ? fmtTime(Date.parse(today[today.length - 1].takenAt)) : 'Done')
     : status === 'due' ? 'Due now'
       : status === 'not-today' ? planShort(med, now, s) ?? 'Not today'
-        : status === 'past-latest-time' ? 'Past latest time'
+        : status === 'past-latest-time' ? (() => { const u = unloggedSlots(med, doses, now, s); return u.length ? `${fmtTime(u[u.length - 1].at)} not logged` : 'Past latest time'; })()
           : next !== null ? fmtWhen(next, now) : '';
   return (
     <li>

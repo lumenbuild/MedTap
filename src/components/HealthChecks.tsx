@@ -8,7 +8,7 @@ import { useToast } from '../app/toast';
 import type { ApnoeaCheck, Band, BodyClock, BpWeight, FitnessAge, RhrExplained } from '../logic/healthChecks';
 import { Button } from './ui/Button';
 import { Segmented, TextInput } from './ui/Field';
-import { MiniRing } from './ui/Visual';
+import { BandChart, MiniRing } from './ui/Visual';
 
 const H = ({ id, Icon, children }: { id: string; Icon: typeof Activity; children: React.ReactNode }) =>
   <h2 id={id} className="text-sm font-medium text-muted flex items-center gap-1.5"><Icon size={15} aria-hidden="true" />{children}</h2>;
@@ -54,15 +54,17 @@ export function UsualBandsCard({ bands }: { bands: Band[] }) {
                 <span className="text-[14px] min-w-0 truncate">{b.label}</span>
                 <span className={`text-[14px] tnum font-semibold shrink-0 ${bad ? 'text-caution' : ''}`}>{b.key === 'skinTempDelta' && b.value > 0 ? '+' : ''}{fmt(b.value)}<span className="text-muted font-normal text-[12px]"> · usual {b.usual.toLocaleString('en-AU', { maximumFractionDigits: b.dp })}</span></span>
               </div>
-              <div className="relative h-2 mt-1 rounded-full bg-surface-2" role="img" aria-label={`${b.label} ${fmt(b.value)}, your usual range ${fmt(b.lo)} to ${fmt(b.hi)}${b.state !== 'usual' ? `: ${b.state}` : ''}`}>
+              {b.recent.length >= 7
+                ? <BandChart points={b.recent} lo={b.lo} hi={b.hi} fmt={fmt} label={b.label} bad={bad} />
+                : (<div className="relative h-2 mt-1 rounded-full bg-surface-2" role="img" aria-label={`${b.label} ${fmt(b.value)}, your usual range ${fmt(b.lo)} to ${fmt(b.hi)}${b.state !== 'usual' ? `: ${b.state}` : ''}`}>
                 <div className="absolute inset-y-0 rounded-full bg-border-strong" style={{ left: '25%', width: '50%' }} />
                 <div className={`absolute -top-1 w-1.5 h-4 rounded-full ${bad ? 'bg-caution' : 'bg-text'}`} style={{ left: `calc(${pos}% - 3px)` }} />
-              </div>
+              </div>)}
             </li>
           );
         })}
       </ul>
-      <p className="text-[12px] text-muted">The grey band is your own normal from the 4 weeks before; the marker is the latest.</p>
+      <p className="text-[12px] text-muted">Last 8 weeks. Grey band: your usual from the 4 weeks before. Line: 7-day average. Dot: the latest. Touch a chart to read a day.</p>
     </section>
   );
 }

@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { getSettings, scheduleSettings, setSetting } from '../db/repos/settings';
 import { deviceTimeZone } from '../logic/tz';
 import { applyDuePlannedChanges, syncVialStock } from '../db/repos/meds';
@@ -34,15 +33,4 @@ export async function updateCalorieTarget(now = Date.now()) {
   if (!e) return;
   await setSetting('energyTargetKcal', calorieTarget(e, st.lossRateKgWeek).kcal);
   await setSetting('energyAutoAt', now);
-}
-
-/** Run at start, every 5 minutes while open, and whenever the app comes back to the foreground. */
-export function useMaintenance() {
-  useEffect(() => {
-    const run = () => { if (document.visibilityState === 'visible') runMaintenance().catch((e) => console.error(e)); };
-    run();
-    const id = setInterval(run, 5 * 60_000);
-    document.addEventListener('visibilitychange', run);
-    return () => { clearInterval(id); document.removeEventListener('visibilitychange', run); };
-  }, []);
 }

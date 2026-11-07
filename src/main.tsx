@@ -2,7 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fontsource-variable/geist';
 import './styles/index.css';
-import { App } from './app/App';
+import { App, preloadFirstScreen } from './app/App';
 import { ErrorBoundary } from './app/ErrorBoundary';
 import { parseTagParam } from './nfc/url';
 import { getSettings, scheduleSettings } from './db/repos/settings';
@@ -16,6 +16,7 @@ const tagId = parseTagParam(window.location.search);
 if (tagId !== null) {
   history.replaceState(null, '', `${window.location.pathname}#/tag/${encodeURIComponent(tagId)}`);
 }
+preloadFirstScreen(window.location.hash);
 
 const render = () => createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

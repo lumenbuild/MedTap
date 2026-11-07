@@ -4,7 +4,14 @@ Source of truth for build status. Spec: the owner's HANDOFF document (section nu
 
 ## Current phase
 All phases (0–5) built and live, plus flexible schedules and instructions (PR #2, merged). Now: planned changes,
-skipped doses, refill forecasting, encrypted and automatic backups. Awaiting owner testing on real phones.
+skipped doses, refill forecasting, encrypted and automatic backups.
+
+## Real-device status (supersedes the "not tested on a real phone" notes below)
+- 7 Nov 2026, owner, Samsung phone and Wear OS watch: tag taps open the app and log once, tag writing and "Update this
+  tag", reminders (with Log it / snooze / skip), Health Connect import, home-screen widgets, automatic backups and
+  restore, the watch app, and tag-tap speed all work.
+- Not yet tested: iPhone (Scan, HealthKit, Siri), a non-Samsung Android, Android 12/13, timed cold start.
+- Checklist and results: `docs/DEVICE-TESTS.md`.
 
 ## Phase 0: done
 - Vite + React 18 + TS + Tailwind (tokens as CSS variables, light/dark/system theme), self-hosted Inter.
@@ -693,6 +700,53 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
   - the guide renders, the welcome shows again;
   - TapDose has no peptide, training or weight wording; axe clean.
 
+## Dose maths tests and a lighter start (7 Nov 2026)
+- `tests/dose-maths-properties.test.ts` (38 tests, fast-check dev dependency): ten draws worked by hand, and properties over
+  random vials, water, doses and U-100/U-40 syringes (units = mL × units/mL, U-40 = 0.4 × U-100, dose ↔ units round
+  trip, water for a target, scaling, mg/mcg agreement, warnings, displayed rounding, vial-in-use water, pen clicks,
+  blends, vial left, stock recounts, the dose check's mg/mcg slip, 3× usual and more-than-left). No bugs found.
+- Every screen in `App.tsx` is lazy (`screen()` helper); titles come from small modules (`screens/settingsSections.ts`,
+  `screens/Help/topics.ts`), the guide's name loads with the guide (`useGuideName`); housekeeping loads after start
+  (`app/useMaintenance.ts` imports `app/maintenance.ts`); the tag screen loads its new-tag, archived and action-tag
+  screens on demand; `preloadFirstScreen` (called in `main.tsx`) starts fetching the tag screen or Today at boot; and
+  `experimentalMinChunkSize` (60 KB) in `vite.config.ts` merges the small chunks.
+- Main chunk 1,973 → 440 KB (630 → 146 KB gzipped); tag tap path 615 → 264 KB gzipped. Cold, CPU slowed 6×: tag tap to
+  Log 628 → 566 ms, app open to Today 1,530 → 1,509 ms. Today's time is its data loading and analytics, not code size.
+- Checked: tsc, all tests, all four editions and the native build; a browser run (tag tap → Log → logged once, new tag,
+  20 screens) shows the same text as before and no console errors.
+
+## Usability: doses that weren't logged, and a shorter plan (7 Nov 2026)
+- Found by using the app at Samsung size with realistic data: a set-time dose that passed unlogged (usually taken but not
+  tapped) only showed as "Past latest time" on Today's second screen, and fixing the record took several steps.
+- `unloggedSlots` (logic/schedule.ts, tests/unlogged.test.ts): today's set times whose ±60 min window closed with nothing
+  taken or skipped, after the medicine was added, while the day isn't complete.
+- Today: a "Not logged" card under the next dose, one row per time, with **Taken** (logged at its time, from the vial in
+  use for injections, source `backdated`) and **Skipped**; Undo either way. A row goes as soon as it's tapped, so it
+  can't be logged twice while Today recounts. It asks about the record and never says to take a dose. The row in the
+  day's list reads "7:30 am not logged" instead of "Past latest time".
+- Log dose (tag tap or by hand): "Taken at 7:30 am (its time)" sets the time in one tap when that time passed unlogged.
+- Today's plan: a long explanation shows its first line and opens on a tap (`MoreText`); an insight's bullet list sits
+  under Details. Insights pages still show everything in full.
+- Checked in Chromium at 412×915, light and dark: Taken, Undo, Skipped, the tag shortcut (logs at 7:30), plan rows
+  open; no console errors; all tests and editions build.
+
+## More charts: Health, Your week, Food (7 Nov 2026)
+Added where screens were numbers and text, without repeating Trends' "Daily habits" chart (one home per measure).
+- **Health → Against your usual:** each reading (resting HR, HRV, sleep, steps, BP, and the scale/watch extras) is an
+  8-week chart (`BandChart` in `components/ui/Visual.tsx`): the usual range as a grey band with room above and below,
+  each day as a light dot, the 7-day average as the line, the latest marked (amber when outside in the unhelpful
+  direction). `Band.recent` (logic/healthChecks.ts) carries the 8 weeks, one value a day.
+- **Your week → Day by day** (`logic/weekDays.ts`, `components/WeekByDay.tsx`, tests/week-days.test.ts): small charts
+  on the week's seven columns, each on its own scale: doses taken against planned as dots (filled taken, outlined
+  not), weight and mood as a line with dots, sleep and steps as bars from zero; a dashed line is the week before's
+  average; the person's day boundary decides which day a dose belongs to.
+- **Food → Last 7 days:** Calories / Protein / Macros switch (remembered on the device): protein as bars against its
+  target (over it isn't amber), macros as each day's energy split by protein, carbs and fat (palette slots 1–3,
+  validated light and dark; the light green is under 3:1, so the legend gives grams and % and a tap reads the day).
+- All three: touch or hover reads out a day; on touch the selection stays until another tap (lifting the finger
+  fires pointerleave, which used to clear it at once).
+- Checked in Chromium at 412×915, light and dark: renders, taps read out, no console errors; tests and editions build.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 
@@ -721,8 +775,9 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
 ## Known issues / not yet verified
 - Deploys from the repository's default branch (currently `claude/confident-maxwell-rta5d8`; renaming it to `main`
   needs no workflow change). Other branches are tested and built but not deployed. Pages source: GitHub Actions.
-- Real-device checks (§14) not yet done: iPhone Safari tag tap, Android install + Web NFC write/test, double NFC fire.
-  Web NFC error mapping (read-only vs unsupported tag) is best-effort from Chrome's error names; confirm on a real tag.
+- Real-device checks: Android app tested on a Samsung (7 Nov 2026, see "Real-device status" above). Still to do:
+  iPhone Safari tag tap, double NFC fire, Web NFC in Chrome (the website, not the app). Web NFC error mapping
+  (read-only vs unsupported tag) is best-effort from Chrome's error names; confirm on a real tag.
 - Verified in headless Chromium (Pixel 7 viewport, Sydney time zone): add med, unknown tag → assign → log, guard, notes,
   undo, stock, timeline edit/delete/undo, manual link + QR, change event, set-times + as-needed cards, dark mode. No console errors.
 

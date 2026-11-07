@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { Activity, Footprints, HeartPulse, Moon, Pill, Scale, Thermometer, Utensils, X, type LucideIcon } from 'lucide-react';
 import { useDecisionData } from '../app/useDecisions';
-import { useInsights, InsightRow, BecauseChips } from './InsightList';
+import { useInsights, InsightRow, BecauseChips, MoreText } from './InsightList';
 import { useNow } from '../app/useNow';
 import { useToast } from '../app/toast';
 import { HAS_PEPTIDES } from '../edition';
@@ -164,7 +164,7 @@ export function TodayPlan({ max = 4 }: { max?: number }) {
       )}
       <ul className="divide-y divide-border">
         {list.map((x) => x.sick ? <SickRow key={x.key} item={x} f={x.sick} settings={t.settings} personId={t.personId} />
-          : x.insight ? <InsightRow key={x.key} x={x.insight} settings={t.settings} because={x.because} />
+          : x.insight ? <InsightRow key={x.key} x={x.insight} settings={t.settings} because={x.because} compact />
           : <PlanRow key={x.key} x={x} settings={t.settings} />)}
       </ul>
       {shown.length > max && <button type="button" aria-expanded={all} onClick={() => setAll((v) => !v)} className="min-h-[44px] text-sm font-medium underline underline-offset-4">{all ? 'Show fewer' : `Show ${shown.length - max} more`}</button>}
@@ -191,7 +191,7 @@ function PlanRow({ x, settings }: { x: PlanItem; settings: AppSettings }) {
       </span>
       <div className="flex-1 min-w-0">
         <p className="text-[15px] font-medium leading-snug">{x.title}</p>
-        {x.detail && <p className="text-sm text-muted leading-snug mt-0.5">{x.detail}</p>}
+        {x.detail && <MoreText text={x.detail} compact />}
         {x.because.length > 0 && <BecauseChips items={x.because} />}
       </div>
       <button type="button" onClick={hide} aria-label={`Not now: ${x.title}`} className="w-11 h-11 -mr-2 -mt-1.5 rounded-full flex items-center justify-center text-muted shrink-0"><X size={18} aria-hidden="true" /></button>
