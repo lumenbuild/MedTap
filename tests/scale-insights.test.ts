@@ -55,7 +55,8 @@ describe('scale insights', () => {
       const start = mon.getTime() - w * 7 * DAY;
       const good = w % 2 === 0;
       lean += good ? 0 : -0.4;
-      for (const d of [1, 4]) body.push({ id: `m${w}${d}`, date: ymd(start + d * DAY), weightKg: 110 - (14 - w) * 0.8, bodyFatPct: 36, leanKg: Math.round(lean * 10) / 10, ...st });
+      // Readings consistent with themselves: lean is the weight minus the fat the scale reports.
+      for (const d of [1, 4]) { const kg = 110 - (14 - w) * 0.8; body.push({ id: `m${w}${d}`, date: ymd(start + d * DAY), weightKg: kg, bodyFatPct: Math.round(((kg - lean) / kg) * 1000) / 10, ...st }); }
       for (let d = 0; d < 7; d++) daily.push({ id: `p${w}${d}`, date: ymd(start + d * DAY), proteinG: good ? 150 : 90, ...st });
       if (good) for (const d of [1, 3]) workouts.push({ id: `s${w}${d}`, startedAt: new Date(start + d * DAY).toISOString(), sets: [{ id: 'x', exerciseId: 'squat', weightKg: 60, reps: 8, done: true }], source: 'manual', ...st });
     }

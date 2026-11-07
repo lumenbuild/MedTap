@@ -53,32 +53,48 @@ export function planHealthImport(data: HealthData, existing: { daily: DailyHealt
   // One weigh-in per day: from the person's scale (the app that sends most of their weights, so a second app's copies
   // don't win), the day's first reading (the morning weigh-in, before food and drink). A day already imported is
   // corrected when that changes; a weight typed in by hand is never touched.
+  // The scale in use now: the app that sent most weigh-ins in the last 30 days (counting all time let an old app with
+  // a longer history win, so a new scale's readings were left out).
+  const nowMs = Date.parse(nowIso);
+  const recentW = data.weights.filter((w) => w.t > nowMs - 30 * 86_400_000);
   const count = new Map<string, number>();
-  for (const w of data.weights) count.set(w.src ?? '', (count.get(w.src ?? '') ?? 0) + 1);
+  for (const w of recentW.length ? recentW : data.weights) count.set(w.src ?? '', (count.get(w.src ?? '') ?? 0) + 1);
   const main = [...count].sort((a, b) => b[1] - a[1])[0]?.[0];
-  const fromScale = data.weights.filter((w) => (w.src ?? '') === main);
   const byDay = new Map<string, { t: number; kg: number }>();
-  for (const w of fromScale) { const k = ymdIn(w.t, tz); if (!byDay.has(k) || byDay.get(k)!.t > w.t) byDay.set(k, w); }
+  // Each day: the first weigh-in from that scale; a day it has none, the first from any app.
+  for (const w of data.weights) {
+    const k = ymdIn(w.t, tz);
+    const had = byDay.get(k) as ({ t: number; kg: number; src?: string } | undefined);
+    const better = !had || ((w.src ?? '') === main && (had.src ?? '') !== main) || (((w.src ?? '') === main) === ((had.src ?? '') === main) && w.t < had.t);
+    if (better) byDay.set(k, w);
+  }
   const body = [...byDay].map(([date, w]) => ({ date, kg: Math.round(w.kg * 10) / 10 })).filter(({ date, kg }) => {
     const had = existing.body.find((b) => mine(b) && b.date === date && !b.deletedAt && typeof b.weightKg === 'number');
     return !had || (had.note === 'From Health' && had.weightKg !== kg);
   });
   const vitals = data.bp.filter((r) => !existing.vitals.some((v) => mine(v) && Math.abs(Date.parse(v.at) - r.t) < 5 * 60_000))
     .map((r) => ({ at: new Date(r.t).toISOString(), systolic: r.sys, diastolic: r.dia }));
-  // Body fat and lean mass: the latest of each day, only where that day's entry doesn't have one.
+  // Body fat and the rest: for each day, the reading taken with that day's weigh-in (closest in time to it), so fat and
+  // weight come from the same step on the scale; on a day without one, the latest. Days imported from Health before are
+  // corrected; a figure typed in by hand is never touched.
   const latest = <T extends { t: number }>(list: T[] | undefined) => {
     const m = new Map<string, T>();
-    for (const x of list ?? []) { const k = ymdIn(x.t, tz); if (!m.has(k) || m.get(k)!.t < x.t) m.set(k, x); }
+    for (const x of list ?? []) {
+      const k = ymdIn(x.t, tz), w = byDay.get(k), had = m.get(k);
+      const better = !had || (w ? Math.abs(x.t - w.t) < Math.abs(had.t - w.t) : had.t < x.t);
+      if (better) m.set(k, x);
+    }
     return m;
   };
   const fat = latest(data.bodyFat), lean = latest(data.lean), bone = latest(data.bone), water = latest(data.water), bmr = latest(data.bmr);
   const comp: HealthPlan['comp'] = [];
   const r1 = (v: number) => Math.round(v * 10) / 10;
   for (const date of new Set([...fat.keys(), ...lean.keys(), ...bone.keys(), ...water.keys(), ...bmr.keys()])) {
-    const e = existing.body.find((b) => mine(b) && b.date === date);
+    const e = existing.body.find((b) => mine(b) && b.date === date && !b.deletedAt);
     const row: HealthPlan['comp'][number] = { date };
-    if (fat.has(date) && e?.bodyFatPct === undefined) row.bodyFatPct = r1(fat.get(date)!.pct);
-    if (lean.has(date) && e?.leanKg === undefined) row.leanKg = r1(lean.get(date)!.kg);
+    const fromHealth = !e || e.note === 'From Health';
+    if (fat.has(date) && (e?.bodyFatPct === undefined || (fromHealth && e.bodyFatPct !== r1(fat.get(date)!.pct)))) row.bodyFatPct = r1(fat.get(date)!.pct);
+    if (lean.has(date) && (e?.leanKg === undefined || (fromHealth && e.leanKg !== r1(lean.get(date)!.kg)))) row.leanKg = r1(lean.get(date)!.kg);
     if (bone.has(date) && e?.boneKg === undefined) row.boneKg = r1(bone.get(date)!.kg);
     if (water.has(date) && e?.waterKg === undefined) row.waterKg = r1(water.get(date)!.kg);
     if (bmr.has(date) && e?.bmrKcal === undefined) row.bmrKcal = Math.round(bmr.get(date)!.kcal);

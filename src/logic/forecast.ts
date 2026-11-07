@@ -9,6 +9,7 @@
 //   differed between the first and second half of the window, so the goal date comes as "likely between … and …".
 // - The chart's trend line is the same kind of robust line, fitted to the 3 weeks before each day.
 import type { BodyEntry, BodyGoal, GoalMetric } from '../db/schema';
+import { leanOf } from './bodyComp';
 
 export interface Pt { t: number; v: number }
 
@@ -27,9 +28,9 @@ const r = (n: number, dp = 2) => Math.round(n * 10 ** dp) / 10 ** dp;
 export function seriesOf(entries: BodyEntry[], metric: GoalMetric): Pt[] {
   const byDay = new Map<string, number[]>();
   for (const e of entries) {
-    // Lean mass: logged, or worked out from weight and body fat % on the same day.
-    const v = metric === 'leanKg' && e.leanKg === undefined && typeof e.weightKg === 'number' && typeof e.bodyFatPct === 'number'
-      ? Math.round(e.weightKg * (1 - e.bodyFatPct / 100) * 100) / 100 : e[metric];
+    // Lean mass: the reading's weight minus its fat (see bodyComp), else a lean figure logged on its own.
+    const lean = metric === 'leanKg' ? leanOf(e) : undefined;
+    const v = metric === 'leanKg' ? (lean === undefined ? undefined : Math.round(lean * 100) / 100) : e[metric];
     if (e.deletedAt || typeof v !== 'number') continue;
     byDay.set(e.date, [...(byDay.get(e.date) ?? []), v]);
   }

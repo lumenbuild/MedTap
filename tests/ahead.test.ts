@@ -55,11 +55,15 @@ describe('looking ahead', () => {
     expect(n.lastNightShort).toBe(true);
   });
   it('muscle going faster than it should, with why', () => {
-    const body: BodyEntry[] = Array.from({ length: 10 }, (_, i) => { const k = i * 3.5; return { id: `b${i}`, date: ymd(at(k)), weightKg: 116.5 + k * 0.1, leanKg: 70 + k * 0.06, bodyFatPct: 40, ...st }; });
+    // Weight and body fat from the same readings: 60% of the loss is lean.
+    const reading = (i: number, lean: (k: number) => number): BodyEntry => { const k = i * 3.5; const kg = 116.5 + k * 0.1; return { id: `b${i}`, date: ymd(at(k)), weightKg: kg, bodyFatPct: ((kg - lean(k)) / kg) * 100, ...st }; };
+    const body: BodyEntry[] = Array.from({ length: 10 }, (_, i) => reading(i, (k) => 70 + k * 0.06));
     const m = muscleWarning({ body, daily: [], workouts: [], proteinTarget: 150 }, NOW)!;
     expect(m.share).toBeCloseTo(0.6, 1);
     expect(m.reasons.join(' ')).toMatch(/no strength sessions/);
-    const steady = body.map((b) => ({ ...b, leanKg: 70 }));
+    // Another app's lean figure (or skeletal muscle) on the same days doesn't change the answer.
+    expect(muscleWarning({ body: body.map((b, i) => ({ ...b, leanKg: 50 + i, muscleKg: 40 })), daily: [], workouts: [], proteinTarget: 150 }, NOW)!.share).toBeCloseTo(0.6, 1);
+    const steady = Array.from({ length: 10 }, (_, i) => reading(i, () => 70));
     expect(muscleWarning({ body: steady, daily: [], workouts: [], proteinTarget: 150 }, NOW)).toBeNull();
   });
   it('what one day is worth in days to the goal', () => {

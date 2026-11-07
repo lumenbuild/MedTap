@@ -8,6 +8,7 @@
 // The muscle share follows Forbes: the more fat there is to lose, the smaller the lean share (10.4 / (10.4 + fat kg)),
 // adjusted for strength training, protein and the speed of loss.
 import type { BodyEntry, CheckIn, DailyHealth, Dose, FoodLog, Medication, Workout } from '../db/schema';
+import { leanOf } from './bodyComp';
 import { robustFit } from './forecast';
 import { inGroup } from './interactions';
 
@@ -187,12 +188,12 @@ export function leanForecast(body: BodyEntry[], workouts: Workout[], daily: Dail
   if (fast) { m *= 1.2; mBest *= 1.2; raising.push('losing more than 1% of body weight a week'); }
   const share = Math.min(0.6, base * m), better = levers.length ? Math.min(0.6, base * mBest) : undefined;
   // Measured: lean change against weight change across the readings (needs 2+ kg of change).
-  const lean = body.filter((b) => live(b) && typeof b.leanKg === 'number' && typeof b.weightKg === 'number' && ms(b.date) > now - 56 * DAY).sort((a, b) => a.date.localeCompare(b.date));
+  const lean = body.filter((b) => live(b) && leanOf(b) !== undefined && typeof b.bodyFatPct === 'number' && typeof b.weightKg === 'number' && ms(b.date) > now - 56 * DAY).sort((a, b) => a.date.localeCompare(b.date));
   let measured: number | undefined;
   if (lean.length >= 4) {
     const k = Math.max(1, Math.floor(lean.length / 3));
     const a = lean.slice(0, k), b = lean.slice(-k);
-    const dW = mean(a.map((x) => x.weightKg!)) - mean(b.map((x) => x.weightKg!)), dL = mean(a.map((x) => x.leanKg!)) - mean(b.map((x) => x.leanKg!));
+    const dW = mean(a.map((x) => x.weightKg!)) - mean(b.map((x) => x.weightKg!)), dL = mean(a.map((x) => leanOf(x)!)) - mean(b.map((x) => leanOf(x)!));
     if (dW >= 2) measured = Math.max(0, Math.min(1, dL / dW));
   }
   return { share: Math.round(share * 100) / 100, better: better !== undefined ? Math.round(better * 100) / 100 : undefined, fatKg, raising, levers, measured: measured !== undefined ? Math.round(measured * 100) / 100 : undefined };
