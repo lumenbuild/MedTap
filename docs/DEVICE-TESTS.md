@@ -1,7 +1,7 @@
 # Device tests
 
-Run before each release on every phone in the matrix. Record the date, device, Android/iOS version, app build and
-result. A failure goes in an issue labelled `device-test` and blocks the release.
+Run after a big phone or app update, on each phone you use. Record the date, device, Android/iOS version, app build and
+result. A failure goes in an issue labelled `device-test`. Fix it before relying on that feature again.
 
 ## Results so far
 
