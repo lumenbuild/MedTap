@@ -93,6 +93,7 @@ export function Settings({ section }: { section?: string }) {
             Reminders say only “Reminder” and the time
           </Switch>
           <Switch label="Weekly summary on Mondays" checked={settings.digestNotify} onChange={async (v) => { const on = await setDigestNotify(v); if (v && !on) notifyOff(); }} />
+          <Switch label="Morning briefing" checked={settings.briefingNotify} onChange={async (v) => { await setSetting('briefingNotify', v); void syncReminders(); }}>7:30 am: the day's forecast and the things worth doing</Switch>
           {settings.healthImport && <Switch label="Getting-sick heads-up" checked={settings.sickNotify} onChange={(v) => setSetting('sickNotify', v)}>In the morning, when last night looks like the run-up to being unwell</Switch>}
           <Switch label="Wear-off heads-up" checked={settings.wearOffNotify} onChange={async (v) => { await setSetting('wearOffNotify', v); void syncReminders(); }}>30 min before focus usually drops</Switch>
           {HAS_TRAINING && settings.trainingTools && (

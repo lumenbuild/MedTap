@@ -3,6 +3,7 @@
 // habit is worth in days to the goal, and when cravings usually hit. Each is a forecast with its reasons, never a
 // change to a medicine. Pure.
 import type { BodyEntry, CheckIn, DailyHealth, Dose, FoodLog, Medication, Workout } from '../db/schema';
+import { leanOf } from './bodyComp';
 import type { WeightTrend } from './bodyModel';
 import { inGroup } from './interactions';
 import { dayKey } from './stats';
@@ -173,14 +174,18 @@ export interface MuscleWarning { share: number; expected: number; reasons: strin
  *  for the fat there is to lose (Forbes). Scales swing with water, so only with 5+ readings and 1.5 kg+ lost. */
 export function muscleWarning(x: { body: BodyEntry[]; daily: DailyHealth[]; workouts: Workout[]; proteinTarget: number | null }, now: number): MuscleWarning | null {
   const rows = x.body.filter((b) => live(b) && typeof b.weightKg === 'number' && ms(b.date) > now - 35 * DAY);
-  const lean = rows.filter((b) => typeof (b.leanKg ?? b.muscleKg) === 'number');
-  if (lean.length < 5) return null;
-  const sw = slopePerDay(rows.map((b) => ({ t: ms(b.date), v: b.weightKg! })));
-  const sl = slopePerDay(lean.map((b) => ({ t: ms(b.date), v: (b.leanKg ?? b.muscleKg)! })));
+  // Only readings with both weight and body fat %, so lean and fat come from the same weigh-in (mixing in another
+  // app's lean figure or skeletal muscle made lean look like it fell as fast as weight).
+  const comp = rows.filter((b) => typeof b.bodyFatPct === 'number').sort((a, b) => a.date.localeCompare(b.date));
+  if (comp.length < 6 || ms(comp[comp.length - 1]?.date ?? '') - ms(comp[0]?.date ?? '') < 21 * DAY) return null;
+  const sw = slopePerDay(comp.map((b) => ({ t: ms(b.date), v: b.weightKg! })));
+  const sl = slopePerDay(comp.map((b) => ({ t: ms(b.date), v: leanOf(b)! })));
   if (sw === undefined || sl === undefined) return null;
   const kgLost = -sw * 35, leanLost = -sl * 35;
   if (kgLost < 1.5) return null;
-  const share = Math.max(0, Math.min(1, leanLost / kgLost));
+  // Lean "lost" faster than weight is the scale's water swings, not muscle: no call.
+  if (leanLost > kgLost) return null;
+  const share = Math.max(0, leanLost / kgLost);
   const fat = rows.filter((b) => typeof b.bodyFatPct === 'number').sort((a, b) => b.date.localeCompare(a.date))[0];
   const fatKg = fat ? (fat.weightKg! * fat.bodyFatPct!) / 100 : rows[0].weightKg! * 0.3;
   const expected = 10.4 / (10.4 + fatKg);

@@ -22,11 +22,12 @@ function fit(pts: { x: number; y: number }[]): { slope: number; at: (x: number) 
   return { slope, at: (x) => my + slope * (x - mx), r2: syy ? (sxy * sxy) / (sxx * syy) : 0 };
 }
 
-/** Each reading with weight and body fat as fat and lean kg (lean from the scale where it gave one). */
+/** Each reading with weight and body fat as fat and lean kg: lean is that reading's weight minus its fat, so the two
+ *  always add up to the weight (another app's separate lean figure, taken at another moment, would not). */
 export interface Comp { t: number; date: string; kg: number; fat: number; lean: number; bf: number }
 export function comps(body: BodyEntry[]): Comp[] {
   return body.filter((b) => live(b) && typeof b.weightKg === 'number' && typeof b.bodyFatPct === 'number')
-    .map((b) => { const fat = (b.weightKg! * b.bodyFatPct!) / 100; return { t: ms(b.date), date: b.date, kg: b.weightKg!, fat, lean: b.leanKg ?? b.weightKg! - fat, bf: b.bodyFatPct! }; })
+    .map((b) => { const fat = (b.weightKg! * b.bodyFatPct!) / 100; return { t: ms(b.date), date: b.date, kg: b.weightKg!, fat, lean: b.weightKg! - fat, bf: b.bodyFatPct! }; })
     .sort((a, b) => a.t - b.t);
 }
 

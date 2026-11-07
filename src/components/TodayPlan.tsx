@@ -16,6 +16,7 @@ import { sickForecast, UNWELL, type SickForecast } from '../logic/sickness';
 import { todayPlan, THREAD_LABEL, type PlanItem, type Thread } from '../logic/plan';
 import { goalRings, type Ring } from '../logic/rings';
 import { stackPlanItems } from '../logic/stackSmart';
+import { weekAhead } from '../logic/weekAhead';
 import { stepsTarget } from '../logic/movement';
 import { readiness } from '../logic/training';
 import { kgTo } from '../logic/units';
@@ -47,10 +48,20 @@ export function useToday() {
     const sick = settings.healthImport || data.daily.some((x) => typeof x.skinTempDelta === 'number' || typeof x.restingHr === 'number')
       ? sickForecast({ daily: data.daily, checkIns: data.checkIns, workouts: data.workouts, feedback: settings.sickFeedback }, now) : null;
     const stack = HAS_PEPTIDES && settings.peptideTools ? stackPlanItems(data.meds, data, now, s, settings.peptideOrders) : [];
-    const plan = todayPlan({ calls: todaysCalls(data, now, s, settings), warnings: earlyWarnings(data, now, s, settings.waterTargetMl), brief, insights: ins.list, sick, stack });
+    // The week ahead: today's advice from the forecast, and what might cause problems in the next two days.
+    const ahead = weekAhead(data, { waterTargetMl: settings.waterTargetMl, fibreTargetG: settings.fibreTargetG, proteinTargetG: settings.proteinTargetG, bedtime: settings.bedtime,
+      caffeineCutoff: settings.caffeineCutoff, orders: settings.peptideOrders }, now, s);
+    const thread = { food: 'fuel', water: 'fuel', train: 'move', sleep: 'recovery', caffeine: 'recovery' } as const;
+    const calls = todaysCalls(data, now, s, settings);
+    // Today's measured readiness decides today's training: the forecast's pattern is for the days after.
+    const measuredTrain = calls.some((c) => c.key === 'train');
+    for (const a of (ahead.days[0]?.advice ?? []).filter((x) => !(measuredTrain && x.kind === 'train'))) stack.push({ key: `ahead:${a.key}`, title: a.text, detail: `Forecast: ${a.why}.`, tone: 'info', href: '#/ahead', impact: 64, thread: thread[a.kind] });
+    for (const x of ahead.risks.filter((x) => !['order', 'useby'].some((k) => x.key.startsWith(k)) && !(measuredTrain && x.key === 'train-strain' && (x.when ?? 0) < now + 86_400_000) && (x.when === undefined || x.when < now + 2 * 86_400_000)))
+      stack.push({ key: `risk:${x.key}`, title: x.title, detail: x.detail, tone: x.level, href: '#/ahead', impact: x.level === 'watch' ? 88 : 66, thread: 'recovery' });
+    const plan = todayPlan({ calls, warnings: earlyWarnings(data, now, s, settings.waterTargetMl), brief, insights: ins.list, sick, stack });
     const rings = goalRings({ body: data.body, daily: data.daily, goalKg: dd.goalKg, proteinTarget: settings.proteinTargetG,
       stepsTarget: settings.stepsTargetOwn ?? stepsTarget(data.daily, now) ?? undefined, sleepTargetMin: settings.sleepTargetH * 60 }, now, s);
-    return { plan, rings, sick, settings, personId: dd.personId, data, s };
+    return { plan, rings, sick, settings, personId: dd.personId, data, s, waterBoost: ahead.days[0]?.waterBoost ?? 0 };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dd, ins, tick]);
 }
@@ -138,7 +149,7 @@ export function TodayPlan({ max = 4 }: { max?: number }) {
     <section className="box space-y-2" aria-labelledby="plan-h">
       <div className="flex items-baseline justify-between gap-2">
         <h2 id="plan-h" className="font-semibold text-[17px]">Today's plan</h2>
-        <span className="text-[13px] text-muted tnum">{items.length} {items.length === 1 ? 'thing' : 'things'}</span>
+        <a href="#/ahead" className="text-[14px] font-medium underline underline-offset-4 min-h-[44px] inline-flex items-center">Week ahead</a>
       </div>
       {threads.length > 1 && (
         <div role="group" aria-label="Show" className="flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-0.5">

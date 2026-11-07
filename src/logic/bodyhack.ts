@@ -2,6 +2,7 @@
 // stimulant), a muscle-protection score while losing weight, gut symptoms and appetite by days since a shot, and the
 // year in review. From the person's own records. Pure.
 import type { BodyEntry, CheckIn, DailyHealth, Dose, LabResult, Medication, Workout } from '../db/schema';
+import { leanOf } from './bodyComp';
 import { inGroup } from './interactions';
 import { isStimulant } from './stimulant';
 import { appetiteCurve } from './predict';
@@ -71,10 +72,10 @@ export function muscleScore(body: BodyEntry[], daily: DailyHealth[], workouts: W
     const p = pct <= 1 ? 1 : pct >= 2 ? 0 : 2 - pct;
     score += 30 * p; max += 30; parts.push({ what: 'Rate of loss', text: `${r1(Math.max(0, pct))}% of body weight a week`, points: Math.round(30 * p), of: 30 });
   }
-  const lean = body.filter((b) => live(b) && typeof b.leanKg === 'number' && typeof b.weightKg === 'number').sort((a, b) => a.date.localeCompare(b.date));
+  const lean = body.filter((b) => live(b) && typeof b.bodyFatPct === 'number' && typeof b.weightKg === 'number').sort((a, b) => a.date.localeCompare(b.date));
   if (lean.length >= 2) {
     const a = lean[0], b = lean[lean.length - 1];
-    const lost = a.weightKg! - b.weightKg!, leanLost = a.leanKg! - b.leanKg!;
+    const lost = a.weightKg! - b.weightKg!, leanLost = leanOf(a)! - leanOf(b)!;
     if (lost > 1 && leanLost / lost > 0.25) { const pen = Math.min(15, Math.round((leanLost / lost - 0.25) * 60)); score -= pen; parts.push({ what: 'Lean mass', text: `${Math.round((leanLost / lost) * 100)}% of the weight lost was lean`, points: -pen, of: 0 }); }
   }
   if (!max) return null;

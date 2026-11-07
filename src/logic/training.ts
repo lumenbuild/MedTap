@@ -2,6 +2,7 @@
 // muscle, the training calendar, readiness, lean mass while losing weight, strength against the peptide, plates and
 // cardio. Pure; `now` is passed in. From the person's own logs; suggestions are about training load, never medicine.
 import type { BodyEntry, CardioActivity, CheckIn, DailyHealth, Dose, FitnessGoal, Medication, MuscleGroup, RoutineItem, Workout, WorkoutSet } from '../db/schema';
+import { leanOf } from './bodyComp';
 import type { ScheduleSettings } from './schedule';
 import { getDayBounds, weekdayOf } from './schedule';
 import { forecast, seriesOf, type Forecast, type Pt } from './forecast';
@@ -269,7 +270,7 @@ export interface MuscleWatch { overall?: LeanShare; steps: (LeanShare & { dose: 
 /** Lean mass at each entry: logged, or weight × (1 − body fat %) on the same day. */
 export function leanPoints(body: BodyEntry[]): { t: number; kg: number; lean: number }[] {
   return body.filter((b) => live(b) && typeof b.weightKg === 'number' && (typeof b.leanKg === 'number' || typeof b.bodyFatPct === 'number'))
-    .map((b) => ({ t: ymdToMs(b.date), kg: b.weightKg!, lean: b.leanKg ?? b.weightKg! * (1 - b.bodyFatPct! / 100) })).sort((a, b) => a.t - b.t);
+    .map((b) => ({ t: ymdToMs(b.date), kg: b.weightKg!, lean: leanOf(b)! })).sort((a, b) => a.t - b.t);
 }
 
 /** How much of the weight lost was lean mass, overall and on each dose step (2+ kg lost, 2+ entries). */
