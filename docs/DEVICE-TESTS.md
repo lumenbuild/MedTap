@@ -12,15 +12,14 @@ result. A failure goes in an issue labelled `device-test`. Fix it before relying
 Next time, write down the model, the Android version and the build number (Settings → About), so a later failure can
 be compared against a known good run.
 
-## Device matrix
+## Devices
 
-| Device | Why | Status |
-|---|---|---|
-| Samsung, current Android | Strictest battery saving, so the worst case for reminders | Tested 7 Nov 2026 |
-| Pixel, current Android | Stock Android; Health Connect built in | Not yet |
-| Older Android (12 or 13) | Health Connect as a separate app; older NFC stack | Not yet |
-| iPhone, current iOS | Tag reading via Scan, HealthKit, Siri, reminders | Not yet (needs Apple Developer account to install) |
-| Wear OS watch | Watch app, tile, complication, workout sets | Tested with the Samsung (item 7) |
+| Device | Status |
+|---|---|
+| Samsung phone | Tested 7 Nov 2026 |
+| Wear OS watch | Tested 7 Nov 2026 (with the Samsung) |
+
+Add a row if you start using another phone or tablet.
 
 ## Core areas (owner-tested on Samsung, 7 Nov 2026)
 
