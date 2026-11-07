@@ -137,6 +137,8 @@ export interface AppSettings {
   /** Peptide orders: when each was placed and arrived, to learn how long delivery takes. */
   peptideOrders: { id: string; placedAt: string; arrivedAt?: string; note?: string }[];
   sickNotify: boolean;
+  /** A morning notification with the day's forecast: what to watch for and the two things worth doing (app). */
+  briefingNotify: boolean;
   sickNotified: string;
   /** Dose reminders from the watch app itself (Log, Snooze, Skip on the wrist, and they work without the phone nearby). */
   watchReminders: boolean;
@@ -266,6 +268,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   sickFeedback: {},
   peptideOrders: [],
   sickNotify: true,
+  briefingNotify: true,
   sickNotified: '',
   watchReminders: false,
   caffeineLimitMg: 400,

@@ -81,7 +81,8 @@ export function todayPlan(d: PlanInput): PlanItem[] {
       because: [L.vitals, ...d.sick.off.slice(0, 2).map((x) => ({ label: x.label, href: '#/health' }))], sick: d.sick });
   }
   // The stack: a vial at a new strength, a vial near its date, an order to place, a course just ended.
-  for (const x of d.stack ?? []) out.push({ key: `stack:${x.key}`, thread: 'meds', tone: x.tone, impact: x.impact, title: x.title, detail: x.detail, because: [{ label: 'Stock', href: x.href }] });
+  for (const x of d.stack ?? []) out.push({ key: `stack:${x.key}`, thread: x.thread ?? 'meds', tone: x.tone, impact: x.impact, title: x.title, detail: x.detail,
+    because: [{ label: x.href === '#/ahead' ? 'Week ahead' : 'Stock', href: x.href }] });
   for (const w of d.warnings) {
     const m = WARN[w.key] ?? { thread: 'recovery' as Thread, because: [L.trends] };
     out.push({ key: `warn:${w.key}`, thread: m.thread, tone: 'watch', impact: 85, title: w.title, detail: `${w.detail} ${w.action}`.trim(), because: m.because });

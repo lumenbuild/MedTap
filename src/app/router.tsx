@@ -50,7 +50,7 @@ export type Route =
   | { name: 'tag'; id: string } | { name: 'sync' } | { name: 'join'; code: string } | { name: 'calc'; medId?: string } | { name: 'supplies' }
   | { name: 'protocol' } | { name: 'protocolReport' } | { name: 'progress'; view?: 'trends' | 'body' }
   | { name: 'appointments' } | { name: 'appointmentSummary' } | { name: 'labs' } | { name: 'travel' }
-  | { name: 'training'; start?: boolean } | { name: 'workout'; id: string } | { name: 'exercise'; id: string } | { name: 'routines' } | { name: 'tags' } | { name: 'welcome' } | { name: 'food' } | { name: 'caffeine' } | { name: 'topic'; id: string } | { name: 'day'; date?: string } | { name: 'week' };
+  | { name: 'training'; start?: boolean } | { name: 'workout'; id: string } | { name: 'exercise'; id: string } | { name: 'routines' } | { name: 'tags' } | { name: 'welcome' } | { name: 'food' } | { name: 'caffeine' } | { name: 'topic'; id: string } | { name: 'day'; date?: string } | { name: 'week' } | { name: 'ahead' };
 
 const MED_SECTIONS = ['overview', 'plan', 'stock', 'patterns', 'details'] as const;
 export type MedSection = (typeof MED_SECTIONS)[number];
@@ -87,6 +87,7 @@ export function parseRoute(path: string): Route {
     case 'topic': return { name: 'topic', id: b ?? 'sleep' };
     case 'day': return { name: 'day', date: b || undefined };
     case 'week': return { name: 'week' };
+    case 'ahead': return { name: 'ahead' };
     case 'travel': return { name: 'travel' };
     case 'training':
       if (b === 'workout' && c) return { name: 'workout', id: c };

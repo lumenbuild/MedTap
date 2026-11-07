@@ -33,6 +33,7 @@ import { mindReadiness } from '../logic/biohack';
 import { cravingForecast } from '../logic/aheadSmarts';
 import { sickForecast, sickHeadline } from '../logic/sickness';
 import { stackShop } from '../logic/stackSmart';
+import { weekAhead } from '../logic/weekAhead';
 import { planCheckInNotes } from '../logic/reminders';
 import { fmtAmount, fmtTime } from '../logic/format';
 import { shownName } from '../logic/privacy';
@@ -372,6 +373,7 @@ async function doSync() {
   if (HAS_PEPTIDES && settings.biohackTools) await safe('bedtime', () => scheduleBedtime(settings));
   if (settings.foodTracking) await safe('cravings', () => scheduleCraving(settings));
   if (HAS_PEPTIDES && settings.peptideTools) await safe('orders', () => scheduleOrderBy(settings));
+  if (settings.briefingNotify) await safe('briefing', () => scheduleBriefing(settings));
   if (!settings.remindersEnabled) return;
   const [meds, doses, people] = await Promise.all([db.medications.toArray(), db.doses.toArray(), listPeople()]);
   const live = doses.filter((d) => !d.deletedAt);
@@ -447,6 +449,27 @@ async function scheduleCraving(settings: Awaited<ReturnType<typeof getSettings>>
   await LocalNotifications.schedule({ notifications: [{ id: 900_600_000, title: settings.discreetReminders ? 'Heads-up' : 'Cravings usually hit soon',
     body: settings.discreetReminders ? 'A small plan for the next hour' : `Around ${fmtTime(at.getTime())} on ${new Date(now).toLocaleDateString('en-AU', { weekday: 'long' })}s. A protein snack now takes the edge off.`,
     schedule: { at: new Date(when), allowWhileIdle: true }, channelId: CHECKIN_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/food' } }] });
+}
+
+/** 7:30 tomorrow (or this morning, before then): that day's forecast in a line or two, the watch-outs first. */
+async function scheduleBriefing(settings: Awaited<ReturnType<typeof getSettings>>) {
+  const me = settings.activePersonId;
+  const [meds, doses, checkIns, daily, body, workouts, foodLogs] = await Promise.all([db.medications.toArray(), db.doses.toArray(), db.checkIns.toArray(), db.daily.toArray(), db.bodyEntries.toArray(), db.workouts.toArray(), db.foodLogs.toArray()]);
+  const mine = <T extends { personId?: string; deletedAt?: string }>(x: T) => personOf(x) === me && !x.deletedAt;
+  const pm = meds.filter((m) => medIsFor(m, me));
+  const ids = new Set(pm.map((m) => m.id));
+  const at = new Date(); at.setHours(7, 30, 0, 0);
+  if (at.getTime() <= Date.now()) at.setDate(at.getDate() + 1);
+  const s = scheduleSettings(settings);
+  const w = weekAhead({ meds: pm, doses: doses.filter((d) => ids.has(d.medicationId) && !d.deletedAt), checkIns: checkIns.filter(mine), daily: daily.filter(mine), body: body.filter(mine), workouts: workouts.filter(mine), foodLogs: foodLogs.filter(mine) },
+    { waterTargetMl: settings.waterTargetMl, fibreTargetG: settings.fibreTargetG, proteinTargetG: settings.proteinTargetG, bedtime: settings.bedtime, caffeineCutoff: settings.caffeineCutoff, orders: settings.peptideOrders }, at.getTime() - 3_600_000, s);
+  const day = w.days.find((d) => at.getTime() >= d.start && at.getTime() < d.start + 86_400_000) ?? w.days[0];
+  const risk = w.risks.find((x) => x.level === 'watch' && (x.when === undefined || x.when < day.start + 86_400_000));
+  const lines = [risk?.title, ...day.advice.slice(0, 2).map((a) => a.text)].filter(Boolean) as string[];
+  if (!lines.length) return;
+  await LocalNotifications.schedule({ notifications: [{ id: 900_900_000, title: settings.discreetReminders ? 'Your day ahead' : risk ? 'Today: one to watch' : 'Today',
+    body: settings.discreetReminders ? 'A couple of things worth doing today' : lines.join(' · '),
+    schedule: { at, allowWhileIdle: true }, channelId: CHECKIN_CHANNEL, smallIcon: 'ic_stat_medtap', extra: { route: '/ahead' } }] });
 }
 
 /** The morning of the stack's "order by" date (from what each peptide's plan needs and how long delivery takes). */

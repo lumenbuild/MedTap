@@ -223,7 +223,7 @@ export function fridgeNote(v: PeptideVial | undefined): string | undefined {
 
 // ── Today's plan: what the stack needs today ──────────────────────────────────────────────────────────
 
-export interface StackItem { key: string; title: string; detail: string; tone: 'watch' | 'info'; href: string; impact: number }
+export interface StackItem { key: string; title: string; detail: string; tone: 'watch' | 'info'; href: string; impact: number; /** Which part of the plan (meds by default). */ thread?: 'meds' | 'fuel' | 'body' | 'recovery' | 'move' }
 
 /** Things the stack needs from you today: a vial at a new strength to confirm, a vial used up or near its use-by date,
  *  an order to place, a course ending or ended with its summary. */

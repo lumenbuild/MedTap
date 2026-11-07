@@ -50,6 +50,7 @@ const FoodScreen = lazy(() => import('../screens/Food').then((m) => ({ default: 
 const Sleep = lazy(() => import('../screens/Sleep').then((m) => ({ default: m.Sleep })));
 const Health = lazy(() => import('../screens/Health').then((m) => ({ default: m.Health })));
 const TopicScreen = lazy(() => import('../screens/Topic').then((m) => ({ default: m.Topic })));
+const AheadScreen = lazy(() => import('../screens/Ahead').then((m) => ({ default: m.Ahead })));
 const WeekScreen = lazy(() => import('../screens/Week').then((m) => ({ default: m.Week })));
 const DayScreen = lazy(() => import('../screens/Day').then((m) => ({ default: m.Day })));
 const TOPIC_TITLE: Record<string, string> = { sleep: 'Your sleep', rhr: 'Resting heart rate', hrv: 'HRV', focus: 'Focus', weight: 'Weight', lean: 'Lean mass' };
@@ -102,6 +103,7 @@ function title(r: Route, peptides = HAS_PEPTIDES): string {
     case 'topic': return TOPIC_TITLE[r.id] ?? 'Insights';
     case 'day': return 'Your day';
     case 'week': return 'Your week';
+    case 'ahead': return 'Week ahead';
     case 'travel': return HAS_VISITS ? 'Plan a trip' : 'Today';
     default: return '';
   }
@@ -117,7 +119,7 @@ function backTo(r: Route, protocol: boolean, foodTab = false): string | undefine
     case 'appointmentSummary': return '#/appointments';
     case 'food': return FOCUS === 'weight' || foodTab ? undefined : '#/today'; // a tab in TapWeigh, and in MedTap when food is on
     case 'caffeine': return '#/today';
-    case 'topic': case 'day': case 'week': return '#/today';
+    case 'topic': case 'day': case 'week': case 'ahead': return '#/today';
     case 'labs': return HAS_VISITS ? '#/appointments' : protocol ? '#/progress' : '#/trends';
     case 'settings': return r.section ? '#/settings' : '#/today';
     case 'medNew': return r.guideId ? `#/guide/${r.guideId}` : '#/meds';
@@ -179,6 +181,7 @@ function Screen({ r }: { r: Route }) {
     case 'topic': return <Suspense fallback={<ChartsLoading />}><TopicScreen key={r.id} id={r.id} /></Suspense>;
     case 'day': return <Suspense fallback={<ChartsLoading />}><DayScreen key={r.date ?? 'today'} date={r.date} /></Suspense>;
     case 'week': return <Suspense fallback={<ChartsLoading />}><WeekScreen /></Suspense>;
+    case 'ahead': return <Suspense fallback={<ChartsLoading />}><AheadScreen /></Suspense>;
     case 'travel': return HAS_VISITS ? <Travel /> : <Today />;
     default: return <Today />;
   }

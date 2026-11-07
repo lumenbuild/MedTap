@@ -50,7 +50,7 @@ import { TrainingHero, WeightHero } from './FocusHero';
 import { AutoBackupPermission, BackupReminder, CheckInAutoOpen, CheckInPrompt, FocusQuick, InstallCard, NeedsAttention, UpdateCard } from './PromptCards';
 import { focusAsk } from '../../logic/stimulant';
 import { DailyBrief } from '../../components/Biohack';
-import { GoalRings, TodayPlan } from '../../components/TodayPlan';
+import { GoalRings, TodayPlan, useToday } from '../../components/TodayPlan';
 import { HAS_MEDS, HAS_BODY, HAS_TRAINING, HAS_FOOD, FOCUS, HAS_PEPTIDES } from '../../edition';
 import { IntakeCard } from '../../components/Fitness';
 import { WeekTeaser } from '../../components/WeekReview';
@@ -87,6 +87,8 @@ export function Today() {
   const [bodySheet, setBodySheet] = useState<BodySheetState>(null);
   const [drink, setDrink] = useState<{ editing?: CheckIn } | null>(null);
   const [foodOpen, setFoodOpen] = useState(false);
+  // The forecast raises today's water target on stomach-upset days.
+  const todayData = useToday();
 
   const medMap = useMemo(() => new Map((meds ?? []).map((m) => [m.id, m])), [meds]);
   // Streaks, milestones and today's ring for the person shown, worked out again every ten minutes or when the
@@ -355,7 +357,7 @@ export function Today() {
       {HAS_TRAINING && settings.trainingTools && !fam.everyone && daily && (() => {
         const mineDaily = daily.filter((d) => !d.deletedAt && personOf(d) === fam.personId);
         const today = format(now, 'yyyy-MM-dd');
-        return <IntakeCard personId={fam.personId} today={today} day={mineDaily.find((d) => d.date === today)} proteinTarget={settings.proteinTargetG} waterTarget={settings.waterTargetMl}
+        return <IntakeCard personId={fam.personId} today={today} day={mineDaily.find((d) => d.date === today)} proteinTarget={settings.proteinTargetG} waterTarget={settings.waterTargetMl ? settings.waterTargetMl + (todayData?.waterBoost ?? 0) : settings.waterTargetMl}
           ready={null} amounts={settings.intakeAmounts} />;
       })()}
 
