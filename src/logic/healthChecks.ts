@@ -271,7 +271,9 @@ export function bodyClock(daily: DailyHealth[], checkIns: CheckIn[], now: number
 
 // ── 8. Unusual for you ─────────────────────────────────────────────────────────────────────────────────
 
-export interface Band { key: string; label: string; unit: string; value: number; lo: number; hi: number; usual: number; state: 'low' | 'usual' | 'high'; dp: number; higherBetter?: boolean }
+export interface Band { key: string; label: string; unit: string; value: number; lo: number; hi: number; usual: number; state: 'low' | 'usual' | 'high'; dp: number; higherBetter?: boolean;
+  /** The last 8 weeks of readings (one per day where there are several, averaged), for the chart behind the band. */
+  recent: { t: number; v: number }[] }
 
 /** Each reading's latest value against the person's own range: the median of the 28 days before ± 2 × the typical
  *  spread (scaled MAD, at least a small floor so a very steady reading isn't flagged for nothing). */
@@ -287,7 +289,12 @@ export function usualBands(x: { daily: DailyHealth[]; body: BodyEntry[]; vitals:
     const half = Math.max(2 * mad, floor);
     const lo = m - half, hi = m + half;
     const k = 10 ** dp, rd = (v: number) => Math.round(v * k) / k;
-    out.push({ key, label, unit, dp, value: rd(last.v), usual: rd(m), lo: rd(lo), hi: rd(hi), state: last.v < lo ? 'low' : last.v > hi ? 'high' : 'usual', higherBetter });
+    // The chart: 8 weeks, one value per day (several readings on a day, e.g. blood pressure, are averaged).
+    const byDay = new Map<number, number[]>();
+    for (const p of series) if (p.t > now - 56 * DAY && p.t <= now) { const k = Math.floor(p.t / DAY); byDay.set(k, [...(byDay.get(k) ?? []), p.v]); }
+    const recent = [...byDay.values()].map((vs) => vs.reduce((a, b) => a + b, 0) / vs.length)
+      .map((v, i) => ({ t: [...byDay.keys()][i] * DAY + DAY / 2, v })).sort((a, b) => a.t - b.t);
+    out.push({ key, label, unit, dp, value: rd(last.v), usual: rd(m), lo: rd(lo), hi: rd(hi), state: last.v < lo ? 'low' : last.v > hi ? 'high' : 'usual', higherBetter, recent });
   };
   const d = (k: keyof DailyHealth) => x.daily.filter((r) => live(r) && typeof r[k] === 'number').map((r) => ({ t: ms(r.date), v: r[k] as number }));
   add('restingHr', 'Resting heart rate', 'bpm', 0, 3, d('restingHr'), false);

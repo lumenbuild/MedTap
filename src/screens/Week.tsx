@@ -14,6 +14,8 @@ import { shownName } from '../logic/privacy';
 import { ymd } from '../logic/day';
 import { setSetting } from '../db/repos/settings';
 import { HAS_BODY, HAS_MEDS } from '../edition';
+import { weekDays } from '../logic/weekDays';
+import { WeekByDay } from '../components/WeekByDay';
 
 const STATUS: Record<VerdictStatus, { label: string; Icon: typeof Pill; colour: string }> = {
   working: { label: 'Working', Icon: CheckCircle2, colour: 'var(--success)' },
@@ -52,6 +54,11 @@ export function Week() {
           <ReviewLines d={r.d} />
         </section>
       )}
+
+      {(() => {
+        const w = weekDays({ meds: data.meds, doses: data.doses, checkIns: data.checkIns, body: HAS_BODY ? data.body : [], daily: data.daily }, from, s);
+        return <WeekByDay days={w.days} rows={w.rows} units={settings.units} />;
+      })()}
 
       <section className="box space-y-2" aria-labelledby="why-h">
         <h2 id="why-h" className="font-semibold flex items-center gap-1.5"><Sparkles size={16} aria-hidden="true" />What drove it</h2>

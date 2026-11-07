@@ -730,6 +730,23 @@ strength against the peptide, readiness, muscle balance, and one timeline for ev
 - Checked in Chromium at 412×915, light and dark: Taken, Undo, Skipped, the tag shortcut (logs at 7:30), plan rows
   open; no console errors; all tests and editions build.
 
+## More charts: Health, Your week, Food (7 Nov 2026)
+Added where screens were numbers and text, without repeating Trends' "Daily habits" chart (one home per measure).
+- **Health → Against your usual:** each reading (resting HR, HRV, sleep, steps, BP, and the scale/watch extras) is an
+  8-week chart (`BandChart` in `components/ui/Visual.tsx`): the usual range as a grey band with room above and below,
+  each day as a light dot, the 7-day average as the line, the latest marked (amber when outside in the unhelpful
+  direction). `Band.recent` (logic/healthChecks.ts) carries the 8 weeks, one value a day.
+- **Your week → Day by day** (`logic/weekDays.ts`, `components/WeekByDay.tsx`, tests/week-days.test.ts): small charts
+  on the week's seven columns, each on its own scale: doses taken against planned as dots (filled taken, outlined
+  not), weight and mood as a line with dots, sleep and steps as bars from zero; a dashed line is the week before's
+  average; the person's day boundary decides which day a dose belongs to.
+- **Food → Last 7 days:** Calories / Protein / Macros switch (remembered on the device): protein as bars against its
+  target (over it isn't amber), macros as each day's energy split by protein, carbs and fat (palette slots 1–3,
+  validated light and dark; the light green is under 3:1, so the legend gives grams and % and a tap reads the day).
+- All three: touch or hover reads out a day; on touch the selection stays until another tap (lifting the finger
+  fires pointerleave, which used to clear it at once).
+- Checked in Chromium at 412×915, light and dark: renders, taps read out, no console errors; tests and editions build.
+
 ## Deferred from Phase 1 to where the spec puts them
 - All since built (calendar, mood row, low-stock banner, Move my data).
 
