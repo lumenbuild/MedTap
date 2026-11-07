@@ -76,10 +76,12 @@ Family sync: snapshot → gzip → AES-GCM (random 256-bit family key) ── op
 ## 3. Weaknesses
 
 ### 3.1 Product and process
-1. **Almost nothing has been verified on a real phone.** PROGRESS.md says, repeatedly: Health Connect, Apple Health,
-   Siri, widgets, the watch, Web NFC write error mapping, iPhone tag taps, double NFC fire, training reminders: "not
-   tested on a real phone yet". The emulator crashed. The whole product is a phone + tag product. **This is the
-   single biggest weakness.**
+1. **Real-device testing is one phone, and isn't written down.** The owner has tested on a Samsung (update 7 Nov
+   2026), but PROGRESS.md still lists Health Connect, widgets, the watch, Web NFC error mapping, double NFC fire and
+   training reminders as "not tested on a real phone yet", and there's no record of what passed. Still untested:
+   iPhone (tag taps, HealthKit, Siri), a non-Samsung Android, an older Android version, and the Wear OS watch.
+   Samsung is the hardest case for reminders (battery saving), so that's a good start; the gap now is coverage and a
+   repeatable written test plan.
 2. **Scope has outrun validation.** 44k lines in 18 days, ~45 screens, ~150 analytics modules, four editions. Each
    PR bundles several features ("Week ahead … warnings … water target … morning briefing … forecast checked against
    last month"). No real user has used most of it yet. Every new feature adds surface that must be kept correct.
@@ -262,8 +264,8 @@ The principle: **stop adding, prove what's there, make it safe, then launch one 
 ### Phase 2: prove it on real hardware (weeks 2–6, overlaps Phase 1)
 
 **Hardware you need**
-- Android: one Samsung (battery optimisation is the worst case) and one Pixel, on current Android; one older
-  Android (12 or 13).
+- Android: the Samsung you already test on (battery optimisation is the worst case), plus one Pixel on current
+  Android and one older Android (12 or 13).
 - iPhone: one on current iOS (iPhone XS or newer for background tag reading).
 - Wear OS watch (if keeping the watch app; otherwise drop it for now).
 - Tags: NTAG213 and NTAG215 stickers, on-metal tags for gym kit, a couple of key fobs.
@@ -373,7 +375,8 @@ risk. Keep MedTap as your personal/power-user build.
 1. Freeze features; rename the branch to `main`; turn on branch protection; start Issues.
 2. Correct "encrypted backups" in the privacy policy and store listings.
 3. Back up the keystore twice.
-4. Buy the test phones and tags; write and run the device test plan.
+4. Write down the device test plan, record what already passes on the Samsung, and update PROGRESS.md's "not
+   tested on a real phone" lines; then add a Pixel, an older Android and an iPhone.
 5. Book the regulatory/legal consult; until then, keep peptide dosing content and step-up prompts out of anything public.
 6. Independent check and property tests for all dose maths; show the working on draws.
 7. Fix the bundle (tag path < 250 KB gz) and stop loading whole tables.
