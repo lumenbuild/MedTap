@@ -52,7 +52,8 @@ export function Timeline({ doses, checkIns, body, vitals, meds, s, units, now, o
   return (
     <Card>
       <div className="flex items-center gap-1 -my-2">
-        <h2 className="flex-1 text-sm font-medium text-muted" aria-live="polite">Logged {label}</h2>
+        <h2 className="flex-1 font-semibold text-[17px]" aria-live="polite">{back === 0 ? 'So far today' : `Logged ${label}`}</h2>
+        <a href={`#/day${back ? `/${format(Date.now() - back * 86_400_000, 'yyyy-MM-dd')}` : ''}`} className="min-h-[44px] inline-flex items-center text-[14px] font-medium text-primary pr-1">Timeline</a>
         <button type="button" aria-label="Day before" disabled={back >= oldest} onClick={() => setBack(back + 1)}
           className="w-11 h-11 flex items-center justify-center text-muted disabled:opacity-30"><ChevronLeft size={20} aria-hidden="true" /></button>
         <button type="button" aria-label="Day after" disabled={back === 0} onClick={() => setBack(back - 1)}

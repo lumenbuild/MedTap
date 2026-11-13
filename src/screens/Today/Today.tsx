@@ -1,11 +1,11 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { clearCheckInRequest, clearLogRequest, onCheckInRequest, onLogRequest } from '../../app/pendingLog';
 import { shownMedName, shownName } from '../../logic/privacy';
-import { CalendarPlus, ChevronRight, Coffee, Dumbbell, GanttChart, GlassWater, HeartPulse, Lock, Nfc, Pill, Ruler, Scale, Smile, Utensils, Wine } from 'lucide-react';
+import { Beef, Footprints, Moon, CalendarPlus, ChevronRight, Coffee, Dumbbell, GanttChart, GlassWater, HeartPulse, Lock, Nfc, Pill, Ruler, Scale, Smile, Utensils, Wine } from 'lucide-react';
 import { addIntake } from '../../db/repos/training';
 import { Tile } from '../../components/ui/Visual';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
-import { useBodyEntries, useCheckIns, useDaily, useDoses, useExercises, useWorkouts, useFamily, useMeds, useScheduleSettings, useSupplies, useTags, useVitals } from '../../app/data';
+import { useBodyEntries, useCheckIns, useDaily, useDoses, useExercises, useWorkouts, useFamily, useMeds, useScheduleSettings, useSupplies, useTags, useVitals, useFoodLogs } from '../../app/data';
 import { VitalsSheet, type VitalsSheetState } from '../../components/VitalsSheet';
 import { dosesForPerson, medIsFor, personOf, storedPerson } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
@@ -33,8 +33,9 @@ import { BodySheet, type BodySheetState } from '../../components/BodySheets';
 import { HeroCard, HeroGroup } from './HeroCard';
 import { currentVial } from '../../logic/peptide';
 import { TodayRow } from './TodayRow';
+import { YourDay, type DayTileData } from './YourDay';
 import { ALCOHOL } from '../../logic/lifestyle';
-import { intakesOf, isDrink, usualHabits, usualToAsk } from '../../logic/caffeine';
+import { dayTotal, intakesOf, isDrink, level, usualHabits, usualToAsk } from '../../logic/caffeine';
 import { CaffeineCard, CaffeineSheet, SleepAsk, UsualCard } from '../../components/Caffeine';
 import { DayStrip, MilestoneCard } from '../../components/Motivation';
 import { milestones, streaks, todayRing } from '../../logic/motivation';
@@ -90,6 +91,8 @@ export function Today() {
   const [bodySheet, setBodySheet] = useState<BodySheetState>(null);
   const [drink, setDrink] = useState<{ editing?: CheckIn } | null>(null);
   const [foodOpen, setFoodOpen] = useState(false);
+  const [intake, setIntake] = useState<'proteinG' | 'waterMl' | null>(null);
+  const foodLogs = useFoodLogs();
   // The forecast raises today's water target on stomach-upset days.
   const todayData = useToday();
 
@@ -260,67 +263,74 @@ export function Today() {
       {up.meds.length > 1 && up.at !== null
         ? <HeroGroup meds={up.meds} doses={viewDoses} s={s} now={now} at={up.at} due={up.due} onLog={setLogFor} onLogAll={logAll} whose={fam.many ? whose : undefined} />
         : headline && hero(headline)}
-      {/* Everything to log, right under the next dose: no scrolling to find it. */}
-      {fam.everyone ? (
-        <p className="text-sm text-muted text-center px-4">Pick a person above to log for them.</p>
-      ) : (
-      <section className="box" aria-labelledby="log-h">
-      <h2 id="log-h" className="text-sm font-medium text-muted mb-2">{fam.many ? `Log for ${fam.person}` : 'Log'}</h2>
-      <div role="group" className="grid grid-cols-4 gap-2" aria-labelledby="log-h">
-        {([
-          ...(HAS_FOOD && settings.foodTracking ? [['Food', 'Log food', Utensils, () => setFoodOpen(true)] as const] : []),
-          ['Water', `Water, add ${settings.intakeAmounts.waterMl[0] ?? 250} mL`, GlassWater, () => void addWater()],
-          ['Check in', 'Check in', Smile, () => setCheckIn({})],
-          ['Coffee', 'Log caffeine', Coffee, () => setDrink({})],
-          ...(HAS_BODY ? [
-            // TapWeigh's headline card already has Log weight.
-            ...(FOCUS === 'weight' ? [] : [['Weight', 'Log weight', Scale, () => setBodySheet({ kind: 'weight' })] as const]),
-            ['BP', 'Log blood pressure and pulse', HeartPulse, () => setVitalSheet({})],
-          ] as const : []),
-          ...(HAS_BODY ? [] : [['BP', 'Log blood pressure and pulse', HeartPulse, () => setVitalSheet({})] as const]),
-          ['Alcohol', 'Log alcohol now', Wine, () => quick(ALCOHOL, 'Alcohol')],
-          // Training lives in Health now: starting a workout stays one tap from Today.
-          ...(HAS_TRAINING && settings.trainingTools && FOCUS !== 'training' ? [['Workout', 'Start a workout', Dumbbell, () => go('/training/start')] as const] : []),
-          ...(HAS_BODY ? [['Measure', 'Add measurement', Ruler, () => setBodySheet({ kind: 'measure' })] as const] : []),
-          // TapWeigh and TapLift are built around tags: one more tile for them.
-          ...(HAS_MEDS ? [] : [['Tags', 'Your tags', Nfc, () => go('/tags')] as const]),
-        ] as const).map(([label, name, Icon, on]) => <Tile key={label} Icon={Icon} label={label} name={name} onClick={on} />)}
-      </div>
-      </section>
-      )}
-      {scheduled.length > 1 && (
-        <section aria-labelledby="today-meds" className="box">
-          {/* One ring for the day (doses due today, check-in, water, protein), with the streak, heading the list. */}
-          <h2 id="today-meds" className="sr-only">Today</h2>
-          {motivation && !fam.everyone && <DayStrip ring={motivation.ring} streaks={motivation.streaks} milestones={motivation.milestones} bare news={streakNews} />}
-          <ul className="mt-1">
-            {[...scheduled.filter((m) => isScheduledDay(m, now, s)), ...scheduled.filter((m) => !isScheduledDay(m, now, s))].map((m) => <TodayRow key={m.id} med={m} doses={viewDoses} s={s} now={now} person={whose(m)} onLog={() => setLogFor(m)} />)}
-          </ul>
-        </section>
-      )}
+      {fam.everyone && <p className="text-sm text-muted text-center px-4">Pick a person above to log for them.</p>}
 
+      {/* Your day: the doses, every number for the day as the same kind of tile, and the rest to log. */}
       {!fam.everyone && (() => {
-        if (!motivation) return null;
-        // Streaks reached are said on the day ring's line; the rest (bests, workouts, goal steps) get a moment of their own.
-        const unseen = motivation.milestones.filter((m) => m.kind !== 'streak' && now - m.at < 3 * 86_400_000 && !settings.milestonesSeen.includes(m.id));
-        return <>
-          {unseen.length > 0 && <MilestoneCard m={unseen[0]} more={unseen.length - 1}
-            onDone={() => setSetting('milestonesSeen', [...unseen.map((m) => m.id), ...settings.milestonesSeen].slice(0, 200))} />}
-          {scheduled.length <= 1 && <DayStrip ring={motivation.ring} streaks={motivation.streaks} milestones={motivation.milestones} news={streakNews} />}
-        </>;
+        const todayKey = format(now, 'yyyy-MM-dd');
+        const row = (daily ?? []).find((d) => !d.deletedAt && personOf(d) === fam.personId && d.date === todayKey);
+        const training = HAS_TRAINING && settings.trainingTools;
+        const food = HAS_FOOD && settings.foodTracking;
+        const midnight = new Date(now); midnight.setHours(0, 0, 0, 0);
+        const kcal = (foodLogs ?? []).filter((l) => !l.deletedAt && personOf(l) === fam.personId && Date.parse(l.at) >= midnight.getTime() && Date.parse(l.at) <= now)
+          .reduce((a, l) => a + (l.nutrients.kcal ?? 0), 0);
+        const water = (row?.waterMl ?? 0) + (row?.waterOtherMl ?? 0);
+        const waterTarget = settings.waterTargetMl ? settings.waterTargetMl + waterBoost : null;
+        const caf = dayTotal(intakes, now, s);
+        const inYou = Math.round(level(intakes, now, settings.caffeineHalfLifeH));
+        const stepsGoal = settings.stepsTargetOwn ?? stepsTarget((daily ?? []).filter(mine), now);
+        const sleepGoal = settings.sleepTargetH * 60;
+        const top = motivation?.streaks.filter((x) => x.length > 1).sort((a, b) => b.length * (b.unit === 'week' ? 7 : 1) - a.length * (a.unit === 'week' ? 7 : 1))[0];
+        const L = (ml: number) => `${Math.round(ml / 100) / 10}`;
+        const tiles: DayTileData[] = [
+          { key: 'water', label: 'Water', Icon: GlassWater, colour: 'var(--c-body)', value: L(water), of: waterTarget ? `/ ${L(waterTarget)} L` : 'L', frac: waterTarget ? water / waterTarget : undefined,
+            sub: waterBoost ? `+${waterBoost} mL today for side effects` : undefined, onOpen: () => setIntake('waterMl'), onAdd: () => void addWater(), addLabel: `Add ${settings.intakeAmounts.waterMl[0] ?? 250} mL of water` },
+          ...(training || food ? [{ key: 'protein', label: 'Protein', Icon: Beef, colour: 'var(--c-act)', value: String(Math.round(row?.proteinG ?? 0)), of: settings.proteinTargetG ? `/ ${settings.proteinTargetG} g` : 'g',
+            frac: settings.proteinTargetG ? (row?.proteinG ?? 0) / settings.proteinTargetG : undefined, onOpen: () => setIntake('proteinG'), onAdd: () => setIntake('proteinG'), addLabel: 'Add protein' }] : []),
+          ...(food ? [{ key: 'food', label: 'Food', Icon: Utensils, colour: 'var(--c-pep)', value: Math.round(kcal).toLocaleString('en-AU'), of: settings.energyTargetKcal ? `/ ${settings.energyTargetKcal.toLocaleString('en-AU')} Cal` : 'Cal',
+            frac: settings.energyTargetKcal ? kcal / settings.energyTargetKcal : undefined, tone: settings.energyTargetKcal && kcal > settings.energyTargetKcal * 1.05 ? 'watch' as const : undefined, href: '#/food', onAdd: () => setFoodOpen(true), addLabel: 'Log food' }] : []),
+          { key: 'caffeine', label: 'Caffeine', Icon: Coffee, colour: 'var(--c-mind)', value: String(Math.round(caf)), of: settings.caffeineLimitMg ? `/ ${settings.caffeineLimitMg} mg` : 'mg',
+            frac: settings.caffeineLimitMg ? caf / settings.caffeineLimitMg : undefined, tone: settings.caffeineLimitMg && caf > settings.caffeineLimitMg ? 'watch' as const : undefined,
+            sub: inYou >= 5 ? `${inYou} mg in you now` : undefined, href: '#/caffeine', onAdd: () => setDrink({}), addLabel: 'Log a drink' },
+          ...(row?.steps !== undefined ? [{ key: 'steps', label: 'Steps', Icon: Footprints, colour: 'var(--c-heart)', value: row.steps.toLocaleString('en-AU'), of: stepsGoal ? `/ ${(Math.round(stepsGoal / 100) / 10).toLocaleString('en-AU')}k` : undefined,
+            frac: stepsGoal ? row.steps / stepsGoal : undefined, href: '#/health' }] : []),
+          ...(row?.sleepMin !== undefined ? [{ key: 'sleep', label: 'Sleep', Icon: Moon, colour: 'var(--c-sleep)', value: `${Math.floor(row.sleepMin / 60)}h ${String(Math.round(row.sleepMin % 60)).padStart(2, '0')}`, of: `/ ${settings.sleepTargetH} h`,
+            frac: row.sleepMin / sleepGoal, href: HAS_PEPTIDES && settings.sleepTools ? '#/sleep' : '#/health' }] : []),
+        ];
+        const actions = [
+          { label: 'Check in', Icon: Smile, onClick: () => setCheckIn({}) },
+          ...(HAS_BODY && FOCUS !== 'weight' ? [{ label: 'Weight', Icon: Scale, onClick: () => setBodySheet({ kind: 'weight' }), name: 'Log weight' }] : []),
+          { label: 'Blood pressure', Icon: HeartPulse, onClick: () => setVitalSheet({}), name: 'Log blood pressure and pulse' },
+          { label: 'Alcohol', Icon: Wine, onClick: () => void quick(ALCOHOL, 'Alcohol'), name: 'Log alcohol now' },
+          ...(training && FOCUS !== 'training' ? [{ label: 'Workout', Icon: Dumbbell, onClick: () => go('/training/start'), name: 'Start a workout' }] : []),
+          ...(HAS_BODY ? [{ label: 'Measure', Icon: Ruler, onClick: () => setBodySheet({ kind: 'measure' }), name: 'Add measurement' }] : []),
+          ...(HAS_MEDS ? [] : [{ label: 'Tags', Icon: Nfc, onClick: () => go('/tags'), name: 'Your tags' }]),
+        ];
+        const dayMeds = [...scheduled.filter((m) => isScheduledDay(m, now, s)), ...scheduled.filter((m) => !isScheduledDay(m, now, s))];
+        return (
+          <YourDay streak={top ? `${top.length}-${top.unit} streak` : undefined} tiles={tiles} actions={actions} chips={<GoalRings chipsOnly />}>
+            {streakNews && (
+              <p className="flex items-center gap-2 rounded-btn bg-success-soft px-3 py-1.5 mb-1 text-[15px]" role="status">
+                <span className="flex-1 min-w-0">{streakNews.title}</span>
+                <button type="button" onClick={streakNews.onDone} className="min-h-[44px] px-2 font-medium">Nice</button>
+              </p>
+            )}
+            {dayMeds.length > 1 && <ul aria-label="Today's doses">{dayMeds.map((m) => <TodayRow key={m.id} med={m} doses={viewDoses} s={s} now={now} person={whose(m)} onLog={() => setLogFor(m)} />)}</ul>}
+            {prn.length > 0 && <div aria-label="As needed">{prn.map((m) => <PrnCard key={m.id} med={m} doses={viewDoses} s={s} now={now} onLog={() => setLogFor(m)} person={whose(m)} limits={!(fam.everyone && m.shared)} />)}</div>}
+          </YourDay>
+        );
       })()}
 
-      {/* One ranked plan for the day (calls, warnings, the brief, getting sick and insights, said once each), then the
-          goal rings: what adds up to the goal. */}
-      {!fam.everyone && <TodayPlan />}
-      {!fam.everyone && <GoalRings />}
+      {/* Bests, workouts and goal steps reached get a moment of their own. */}
+      {!fam.everyone && (() => {
+        if (!motivation) return null;
+        const unseen = motivation.milestones.filter((m) => m.kind !== 'streak' && now - m.at < 3 * 86_400_000 && !settings.milestonesSeen.includes(m.id));
+        return unseen.length > 0 ? <MilestoneCard m={unseen[0]} more={unseen.length - 1}
+          onDone={() => setSetting('milestonesSeen', [...unseen.map((m) => m.id), ...settings.milestonesSeen].slice(0, 200))} /> : null;
+      })()}
 
-      {prn.length > 0 && (
-        <section className="box" aria-label="As needed">
-          <h2 className="text-sm font-medium text-muted">As needed</h2>
-          {prn.map((m) => <PrnCard key={m.id} med={m} doses={viewDoses} s={s} now={now} onLog={() => setLogFor(m)} person={whose(m)} limits={!(fam.everyone && m.shared)} />)}
-        </section>
-      )}
+      {/* What to do today: one ranked list, one line each. */}
+      {!fam.everyone && <TodayPlan />}
 
       {!fam.everyone && settings.usualAsk && (
         <UsualCard asks={usualToAsk(usualHabits(intakes, now, s), intakes, now, settings.usualDismissed, s)} personId={storedPerson(fam.personId)} now={now} s={s}
@@ -364,19 +374,6 @@ export function Today() {
         return <NeedsAttention items={items} />;
       })()}
       {!fam.everyone && daily && <SleepAsk checkIns={viewCheckIns} daily={daily.filter(mine)} personId={storedPerson(fam.personId)} checkFrom={settings.caffeineCheckFrom} now={now} s={s} />}
-      {HAS_TRAINING && settings.trainingTools && !fam.everyone && daily && (() => {
-        const mineDaily = daily.filter((d) => !d.deletedAt && personOf(d) === fam.personId);
-        const today = format(now, 'yyyy-MM-dd');
-        return <IntakeCard personId={fam.personId} today={today} day={mineDaily.find((d) => d.date === today)} proteinTarget={settings.proteinTargetG} waterTarget={settings.waterTargetMl ? settings.waterTargetMl + waterBoost : settings.waterTargetMl}
-          ready={null} amounts={settings.intakeAmounts} />;
-      })()}
-
-      {HAS_FOOD && settings.foodTracking && !fam.everyone && (
-        <Suspense fallback={null}><FoodToday personId={fam.personId} energy={settings.energyUnit} target={settings.energyTargetKcal} now={now} /></Suspense>
-      )}
-
-      {!fam.everyone && <CaffeineCard intakes={intakes} prefs={cafPrefs} now={now} s={s} onLog={() => setDrink({})} />}
-
       {/* Readiness for the day (biohacking tools) and last week, once read. */}
       {!fam.everyone && <DailyBrief />}
       {!fam.everyone && <WeekTeaser now={now} />}
@@ -385,14 +382,6 @@ export function Today() {
       <AutoBackupPermission enabled={settings.autoBackupEnabled} />
       <UpdateCard dismissed={settings.updateDismissed} />
       <InstallCard hasDoses={firstRecord !== null} dismissed={settings.installCardDismissed} />
-
-      {!fam.everyone && (
-        <a href="#/day" className="box flex items-center gap-3 min-h-[60px] active:scale-[0.99] transition-transform">
-          <span aria-hidden="true" className="w-9 h-9 rounded-[10px] flex items-center justify-center text-white shrink-0" style={{ background: 'var(--c-mind)' }}><GanttChart size={19} /></span>
-          <span className="flex-1 min-w-0"><span className="block font-semibold">Your day on one timeline</span><span className="block text-sm text-muted">Doses, food, drinks, heart rate and sleep together</span></span>
-          <ChevronRight size={18} aria-hidden="true" className="text-muted" />
-        </a>
-      )}
 
       <Timeline doses={viewDoses} checkIns={viewCheckIns} body={HAS_BODY ? viewBody : []} vitals={viewVitals} onVital={(v) => setVitalSheet({ editing: v })} meds={viewMedMap} s={s} units={settings.units} now={now} personLabel={fam.everyone ? whose : undefined}
         onDose={setEditing} onCheckIn={(c: CheckIn) => (isDrink(c) ? setDrink({ editing: c }) : setCheckIn({ editing: c }))} onBody={(b: BodyEntry) => setBodySheet({ kind: 'edit', entry: b })} />
@@ -406,6 +395,10 @@ export function Today() {
       <Sheet open={!!logFor} onClose={() => setLogFor(null)} title={logFor ? `Log ${shownMedName(logFor)}` : ''}>
         {logFor && <LogDoseFlow med={logFor} doses={doses} s={s} now={now} onLogged={onLogged} onCancel={() => setLogFor(null)}
           people={fam.people} defaultPersonId={fam.everyone ? null : fam.personId} />}
+      </Sheet>
+      <Sheet open={!!intake} onClose={() => setIntake(null)} title={intake === 'proteinG' ? 'Protein' : 'Water'}>
+        {intake && <IntakeCard bare only={intake} personId={fam.personId} today={format(now, 'yyyy-MM-dd')} day={(daily ?? []).find((d) => !d.deletedAt && personOf(d) === fam.personId && d.date === format(now, 'yyyy-MM-dd'))}
+          proteinTarget={settings.proteinTargetG} waterTarget={settings.waterTargetMl ? settings.waterTargetMl + waterBoost : settings.waterTargetMl} ready={null} amounts={settings.intakeAmounts} />}
       </Sheet>
       <DoseEditSheet dose={editing} med={editing ? medMap.get(editing.medicationId) : undefined} onClose={() => setEditing(null)} />
       <CheckInSheet seed={checkIn} onClose={() => setCheckIn(null)} doses={viewDoses} checkIns={viewCheckIns} meds={viewMeds} chips={settings.chips} s={s}

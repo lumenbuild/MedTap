@@ -1,11 +1,11 @@
 // Today, joined up: the goal rings (what adds up to the goal, at a glance) and one ranked plan in place of the
 // separate calls, brief, insights and week cards. Each line says what to do, why, and links to the numbers it rests
 // on; a filter shows one part of life at a time. The sickness forecast sits at the top when it flags something.
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { memoLast } from '../db/live';
 import type { Insight } from '../logic/insights';
 import { format } from 'date-fns';
-import { Activity, Footprints, HeartPulse, Moon, Pill, Scale, Thermometer, Utensils, X, type LucideIcon } from 'lucide-react';
+import { Activity, ChevronDown, ChevronRight, ChevronUp, Footprints, HeartPulse, Moon, Pill, Scale, Thermometer, Utensils, X, type LucideIcon } from 'lucide-react';
 import { useDecisionData } from '../app/useDecisions';
 import { useInsights, InsightRow, BecauseChips } from './InsightList';
 import { useNow } from '../app/useNow';
@@ -81,7 +81,7 @@ const short = (r: Ring) => {
   return r.value.replace(' kg', 'kg');
 };
 
-export function GoalRings() {
+export function GoalRings({ chipsOnly = false }: { /** Just readiness, HRV and weight, as links (in Today's Your day card). */ chipsOnly?: boolean } = {}) {
   const t = useToday();
   const now = useNow(600_000);
   if (!t) return null;
@@ -106,6 +106,14 @@ export function GoalRings() {
     const ch = before ? Math.round((kgTo(w.weightKg!, u) - kgTo(before.weightKg!, u)) * 10) / 10 : undefined;
     chips.push({ label: 'Weight', value: `${kgTo(w.weightKg!, u)}${ch !== undefined && Math.abs(ch) >= 0.1 ? ` ${ch < 0 ? '▼' : '▲'}${Math.abs(ch)}` : ''}`, href: '#/topic/weight', tone: ch !== undefined && ch <= -0.1 ? 'good' : undefined });
   }
+  if (chipsOnly) return chips.length ? (
+    <ul className="flex flex-wrap gap-1.5" aria-label="Readiness, HRV and weight">
+      {chips.map((c) => (
+        <li key={c.label}><a href={c.href} className={`inline-flex items-center gap-1.5 min-h-[36px] px-3 rounded-full text-[13px] tnum ${c.tone === 'watch' ? 'bg-caution-soft' : 'bg-surface-2'}`}>
+          <span className="text-muted">{c.label}</span><span className={`font-semibold ${c.tone === 'good' ? 'text-success' : ''}`}>{c.value}</span></a></li>
+      ))}
+    </ul>
+  ) : null;
   if (!rings.length && !chips.length) return null;
   const cols = ['grid-cols-1', 'grid-cols-2', 'grid-cols-3', 'grid-cols-4', 'grid-cols-5'][Math.max(0, Math.min(5, rings.length) - 1)];
   return (
@@ -140,41 +148,62 @@ export function GoalRings() {
 
 const DOT: Record<PlanItem['tone'], string> = { go: 'var(--success)', good: 'var(--success)', easy: 'var(--caution)', watch: 'var(--caution)', stop: 'var(--danger)', info: 'var(--primary)' };
 
-export function TodayPlan({ max = 4 }: { max?: number }) {
+export function TodayPlan({ max = 3 }: { max?: number }) {
   const t = useToday();
-  const [thread, setThread] = useState<Thread | 'all'>('all');
   const [all, setAll] = useState(false);
+  const [open, setOpen] = useState<string | null>(null);
   const now = useNow(60_000);
   if (!t || !t.plan.length) return null;
   const hidden = t.settings.insightsHidden;
   const items = t.plan.filter((x) => !(hidden[x.key] > now));
-  const threads = [...new Set(items.map((x) => x.thread))];
-  const shown = items.filter((x) => thread === 'all' || x.thread === thread);
-  const list = all ? shown : shown.slice(0, max);
+  if (!items.length) return null;
+  const list = all ? items : items.slice(0, max);
   return (
-    <section className="box space-y-2" aria-labelledby="plan-h">
-      <div className="flex items-baseline justify-between gap-2">
-        <h2 id="plan-h" className="font-semibold text-[17px]">Today's plan</h2>
-        <a href="#/ahead" className="text-[14px] font-medium underline underline-offset-4 min-h-[44px] inline-flex items-center">Week ahead</a>
-      </div>
-      {threads.length > 1 && (
-        <div role="group" aria-label="Show" className="flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-0.5">
-          {(['all', ...threads] as const).map((k) => (
-            <button key={k} type="button" aria-pressed={thread === k} onClick={() => { setThread(k); setAll(false); }}
-              className={`shrink-0 min-h-[36px] px-3 rounded-full text-[13px] font-medium inline-flex items-center gap-1.5 ${thread === k ? 'bg-text text-bg' : 'bg-surface-2'}`}>
-              {k !== 'all' && <span aria-hidden="true" className="w-2 h-2 rounded-full" style={{ background: THREAD_COLOUR[k] }} />}
-              {k === 'all' ? 'All' : THREAD_LABEL[k]}
-            </button>
-          ))}
-        </div>
-      )}
+    <section className="box" aria-labelledby="plan-h">
+      <SectionHead id="plan-h" title="What to do today" action={{ label: 'Week ahead', href: '#/ahead' }} />
+      {/* One line each, most useful first; tap one for why, what it rests on, and Not now. */}
       <ul className="divide-y divide-border">
-        {list.map((x) => x.sick ? <SickRow key={x.key} item={x} f={x.sick} settings={t.settings} personId={t.personId} />
-          : x.insight ? <InsightRow key={x.key} x={x.insight} settings={t.settings} because={x.because} />
-          : <PlanRow key={x.key} x={x} settings={t.settings} />)}
+        {list.map((x) => open === x.key ? (
+          <li key={x.key} className="relative">
+            <ul>{x.sick ? <SickRow item={x} f={x.sick} settings={t.settings} personId={t.personId} />
+              : x.insight ? <InsightRow x={x.insight} settings={t.settings} because={x.because} />
+              : <PlanRow x={x} settings={t.settings} />}</ul>
+            <button type="button" onClick={() => setOpen(null)} aria-expanded="true" className="w-full min-h-[40px] -mt-1 text-[13px] text-muted flex items-center justify-center gap-1">Less <ChevronUp size={14} aria-hidden="true" /></button>
+          </li>
+        ) : (
+          <li key={x.key}>
+            <button type="button" onClick={() => setOpen(x.key)} aria-expanded="false" className="w-full min-h-[56px] py-2 flex items-center gap-3 text-left">
+              <ThreadDot x={x} />
+              <span className="flex-1 min-w-0 text-[15px] font-medium leading-snug">{x.title}</span>
+              <ChevronDown size={18} aria-hidden="true" className="text-muted shrink-0" />
+            </button>
+          </li>
+        ))}
       </ul>
-      {shown.length > max && <button type="button" aria-expanded={all} onClick={() => setAll((v) => !v)} className="min-h-[44px] text-sm font-medium underline underline-offset-4">{all ? 'Show fewer' : `Show ${shown.length - max} more`}</button>}
+      {items.length > max && <button type="button" aria-expanded={all} onClick={() => setAll((v) => !v)} className="min-h-[44px] text-sm font-medium text-primary">{all ? 'Show fewer' : `${items.length - max} more`}</button>}
     </section>
+  );
+}
+
+/** The icon for a plan line: its part of life, with a dot for how it reads (go, easy, watch, stop). */
+function ThreadDot({ x }: { x: PlanItem }) {
+  const Icon = x.sick ? Thermometer : THREAD_ICON[x.thread];
+  return (
+    <span aria-hidden="true" className="relative w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-white" style={{ background: x.sick ? 'var(--caution)' : THREAD_COLOUR[x.thread] }}>
+      <Icon size={18} />
+      <span className="absolute -right-0.5 -bottom-0.5 w-3 h-3 rounded-full border-2" style={{ background: DOT[x.tone], borderColor: 'var(--surface)' }} />
+    </span>
+  );
+}
+
+/** Every section on Today opens the same way: a title, and at most one link on the right. */
+export function SectionHead({ id, title, action, extra }: { id: string; title: string; action?: { label: string; href: string }; extra?: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-2 mb-1">
+      <h2 id={id} className="font-semibold text-[17px]">{title}</h2>
+      {extra}
+      {action && <a href={action.href} className="min-h-[44px] inline-flex items-center gap-0.5 text-[14px] font-medium text-primary">{action.label}<ChevronRight size={16} aria-hidden="true" /></a>}
+    </div>
   );
 }
 
