@@ -50,7 +50,19 @@ export function getLastDose(doses: Dose[], medId: string, before = Infinity): Do
 }
 
 /** The user's "day" runs from dayStartsAt to dayStartsAt, not midnight to midnight. */
+// Called for every record on most screens, so recent answers are kept: a cached day is reused when it holds the time.
+const boundsCache = new Map<string, { start: number; end: number }>();
 export function getDayBounds(now: number, dayStartsAt: string, tz: string): { start: number; end: number } {
+  const key = `${tz}|${dayStartsAt}|${Math.floor(now / HOUR)}`;
+  const hit = boundsCache.get(key);
+  if (hit && now >= hit.start && now < hit.end) return { start: hit.start, end: hit.end };
+  const b = computeDayBounds(now, dayStartsAt, tz);
+  if (boundsCache.size > 20_000) boundsCache.clear();
+  boundsCache.set(key, b);
+  return { start: b.start, end: b.end };
+}
+
+function computeDayBounds(now: number, dayStartsAt: string, tz: string): { start: number; end: number } {
   const p = zonedParts(now, tz);
   const startMin = hhmmToMinutes(dayStartsAt);
   const day = p.h * 60 + p.mi < startMin ? addDays(p.y, p.m, p.d, -1) : { y: p.y, m: p.m, d: p.d };

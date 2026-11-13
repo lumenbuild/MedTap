@@ -19,13 +19,37 @@ export function deviceTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 }
 
-/** Wall-clock fields of an instant in a time zone. */
-export function zonedParts(ms: number, tz: string): ZonedParts {
+function partsByFormatter(ms: number, tz: string): ZonedParts {
   const p: Record<string, number> = {};
   for (const { type, value } of formatter(tz).formatToParts(new Date(ms))) {
     if (type !== 'literal') p[type] = Number(value);
   }
   return { y: p.year, m: p.month, d: p.day, h: p.hour === 24 ? 0 : p.hour, mi: p.minute, s: p.second };
+}
+
+// A time zone's offset from UTC only ever changes on a quarter-hour boundary, so it's worked out once per 15 minutes
+// (the slow part, Intl formatting) and the wall clock follows by arithmetic. This is called tens of thousands of
+// times when the screens work out days, streaks and patterns.
+const QUARTER = 15 * 60_000;
+const offsetCache = new Map<string, number>();
+function offsetAt(ms: number, tz: string): number {
+  const bucket = Math.floor(ms / QUARTER);
+  const key = `${tz}|${bucket}`;
+  let o = offsetCache.get(key);
+  if (o === undefined) {
+    const t = bucket * QUARTER;
+    const p = partsByFormatter(t, tz);
+    o = Date.UTC(p.y, p.m - 1, p.d, p.h, p.mi, p.s) - t;
+    if (offsetCache.size > 50_000) offsetCache.clear();
+    offsetCache.set(key, o);
+  }
+  return o;
+}
+
+/** Wall-clock fields of an instant in a time zone. */
+export function zonedParts(ms: number, tz: string): ZonedParts {
+  const d = new Date(ms + offsetAt(ms, tz));
+  return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate(), h: d.getUTCHours(), mi: d.getUTCMinutes(), s: d.getUTCSeconds() };
 }
 
 function offsetMs(ms: number, tz: string): number {

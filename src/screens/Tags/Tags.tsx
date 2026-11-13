@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { ChevronRight, Eraser, Nfc, Plus } from 'lucide-react';
 import { DEFAULT_PERSON, type Tag, type TagAction } from '../../db/schema';
-import { useExercises, useFamily, useMeds, useRoutines, useTags } from '../../app/data';
+import { useExercises, useFamily, useMeds, useRoutines, useTags, useFoods } from '../../app/data';
 import { linkActionTag, renameTag, restoreTag, unlinkTag } from '../../db/repos/tags';
 import { personOf } from '../../db/repos/people';
 import { allExercises } from '../../logic/exercises';
@@ -23,13 +23,11 @@ import { TagTest } from '../Meds/TagTest';
 import { tagName } from '../Meds/TagsSection';
 import { ActionPicker } from './ActionPicker';
 import { EraseTagSheet } from './EraseTagSheet';
-import { db } from '../../db/db';
-import { useLive } from '../../db/live';
 import { HAS_MEDS, FOCUS } from '../../edition';
 
 export function Tags() {
   const tags = useTags(); const meds = useMeds(); const own = useExercises(); const routines = useRoutines(); const fam = useFamily();
-  const foods = useLive(() => db.foods.toArray(), []);
+  const foods = useFoods();
   const now = useNow(60_000);
   const [choosing, setChoosing] = useState(false);
   const [writing, setWriting] = useState<{ action: TagAction; label: string } | null>(null);

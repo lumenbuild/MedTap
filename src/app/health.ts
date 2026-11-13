@@ -41,21 +41,32 @@ export async function importHealth(full = false): Promise<ImportResult> {
   const person = storedPerson(s.healthPersonId);
   const [daily, body, vitals, workouts] = await Promise.all([db.daily.toArray(), db.bodyEntries.toArray(), db.vitals.toArray(), db.workouts.toArray()]);
   const plan = planHealthImport(data, { daily, body, vitals, workouts }, person, tz, new Date(now).toISOString());
-  await db.daily.bulkPut(plan.daily);
-  if (HAS_BODY) for (const b of plan.body) await upsertBody(b.date, { weightKg: b.kg, note: 'From Health' }, s.healthPersonId);
-  if (HAS_BODY) for (const { date, ...c } of plan.comp) await upsertBody(date, { ...c, compSource: 'scale' }, s.healthPersonId);
-  if (HAS_TRAINING) {
-    const at = new Date(now).toISOString();
-    await db.workouts.bulkAdd(plan.cardio.map(({ at: start, ...c }) => ({ id: crypto.randomUUID(), startedAt: start, endedAt: start, sets: [], source: 'health' as const, personId: person, createdAt: at, updatedAt: at,
-      cardio: c })));
-    // Heart rate and calories from the watch, added to workouts already here.
-    for (const e of plan.enrich) {
-      const w = await db.workouts.get(e.id);
-      if (!w) continue;
-      await db.workouts.update(e.id, { ...(e.cardio && w.cardio ? { cardio: { ...w.cardio, ...e.cardio } } : {}), ...(e.watch ? { watch: e.watch } : {}), updatedAt: at });
+  // One write for the whole import, and only rows that actually changed: every write makes the screens work their
+  // numbers out again, and an import every time the app opens mostly brings back what's already here.
+  const same = (a: object | undefined, b: object) => { if (!a) return false; const strip = ({ updatedAt: _u, ...r }: Record<string, unknown>) => JSON.stringify(r); return strip(a as Record<string, unknown>) === strip(b as Record<string, unknown>); };
+  const oldDaily = new Map(daily.map((d) => [d.id, d]));
+  const changedDaily = plan.daily.filter((d) => !same(oldDaily.get(d.id), d));
+  const bodyOf = (date: string) => body.find((b) => !b.deletedAt && (b.personId ?? undefined) === (person ?? undefined) && b.date === date);
+  const differs = (date: string, fields: Record<string, unknown>) => { const b = bodyOf(date) as Record<string, unknown> | undefined; return !b || Object.entries(fields).some(([k, v]) => b[k] !== v); };
+  await db.transaction('rw', [db.daily, db.bodyEntries, db.workouts, db.vitals], async () => {
+    if (changedDaily.length) await db.daily.bulkPut(changedDaily);
+    if (HAS_BODY) for (const b of plan.body) if (differs(b.date, { weightKg: b.kg })) await upsertBody(b.date, { weightKg: b.kg, note: 'From Health' }, s.healthPersonId);
+    if (HAS_BODY) for (const { date, ...c } of plan.comp) if (differs(date, { ...c, compSource: 'scale' })) await upsertBody(date, { ...c, compSource: 'scale' }, s.healthPersonId);
+    if (HAS_TRAINING) {
+      const at = new Date(now).toISOString();
+      if (plan.cardio.length) await db.workouts.bulkAdd(plan.cardio.map(({ at: start, ...c }) => ({ id: crypto.randomUUID(), startedAt: start, endedAt: start, sets: [], source: 'health' as const, personId: person, createdAt: at, updatedAt: at,
+        cardio: c })));
+      // Heart rate and calories from the watch, added to workouts already here.
+      for (const e of plan.enrich) {
+        const w = await db.workouts.get(e.id);
+        if (!w) continue;
+        const next = { ...(e.cardio && w.cardio ? { cardio: { ...w.cardio, ...e.cardio } } : {}), ...(e.watch ? { watch: e.watch } : {}) };
+        if (Object.entries(next).every(([k, v]) => JSON.stringify((w as unknown as Record<string, unknown>)[k]) === JSON.stringify(v))) continue;
+        await db.workouts.update(e.id, { ...next, updatedAt: at });
+      }
     }
-  }
-  for (const v of plan.vitals) await addVital({ at: v.at, systolic: v.systolic, diastolic: v.diastolic, note: 'From Health', personId: person });
+    for (const v of plan.vitals) await addVital({ at: v.at, systolic: v.systolic, diastolic: v.diastolic, note: 'From Health', personId: person });
+  });
   await setSetting('healthLastImport', new Date(now).toISOString());
   return { newest: HAS_BODY ? plan.newest : undefined, days: plan.daily.length, weighIns: HAS_BODY ? plan.body.length : 0, readings: plan.vitals.length, workouts: HAS_TRAINING ? plan.cardio.length + plan.enrich.length : 0 };
 }

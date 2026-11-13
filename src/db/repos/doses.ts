@@ -2,6 +2,7 @@ import { db } from '../db';
 import type { Dose } from '../schema';
 import { round, stockUnitsFor } from '../../logic/stock';
 import { vialStockCount } from '../../logic/peptide';
+import { SAME_TAP_MS, sameTap } from '../../logic/duplicate';
 
 const nowIso = () => new Date().toISOString();
 
@@ -35,14 +36,22 @@ export interface NewDose {
 }
 
 /** Save a dose and take it off the stock count. */
-export async function logDose(input: NewDose): Promise<Dose> {
+/** Log a dose. The same dose tapped again within a minute isn't logged twice: the first comes back, marked
+ *  `duplicate` (pass `again` to log it anyway). */
+export async function logDose(input: NewDose, opts: { again?: boolean } = {}): Promise<Dose & { duplicate?: boolean }> {
   const now = nowIso();
   const dose: Dose = { id: crypto.randomUUID(), createdAt: now, updatedAt: now, ...input };
+  let first: Dose | undefined;
   await db.transaction('rw', db.doses, db.medications, async () => {
+    if (!opts.again) {
+      const recent = await db.doses.where('medicationId').equals(input.medicationId).filter((d) => Date.parse(d.createdAt) > Date.now() - SAME_TAP_MS).toArray();
+      first = sameTap(recent, input, input.takenAt, (d) => d.takenAt);
+      if (first) return;
+    }
     await db.doses.add(dose);
     await adjustStock(dose.medicationId, dose.amount, -1, dose.skipped);
   });
-  return dose;
+  return first ? { ...first, duplicate: true } : dose;
 }
 
 /** Soft-delete a dose (used for Undo and Delete) and put its stock back. */

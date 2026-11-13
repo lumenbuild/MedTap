@@ -7,7 +7,7 @@ import { getDayBounds, getSlots, isScheduledDay, timeInDay, weekdayOf, type Sche
 import { medOn } from './plans';
 import { dayKey } from './stats';
 import { dayStartOffset, plannedDoses } from './protocol';
-import { hhmmToMinutes } from './tz';
+import { hhmmToMinutes, zonedParts } from './tz';
 import { focusReader } from './focusReading';
 
 const MIN = 60_000;
@@ -212,7 +212,7 @@ export function sleepImpact(meds: Medication[], doses: Dose[], checkIns: CheckIn
     byDay.set(k, Math.max(byDay.get(k) ?? 0, t));
   }
   const sleepCis = checkIns.filter((c) => !c.deletedAt && (typeof c.sleepQuality === 'number' || typeof c.sleepHours === 'number'));
-  const hourOf = (t: number) => { const p = new Intl.DateTimeFormat('en-AU', { hour: 'numeric', minute: 'numeric', hourCycle: 'h23', timeZone: s.tz }).formatToParts(t); return Number(p.find((x) => x.type === 'hour')!.value) + Number(p.find((x) => x.type === 'minute')!.value) / 60; };
+  const hourOf = (t: number) => { const p = zonedParts(t, s.tz); return p.h + p.mi / 60; };
   for (const [, last] of byDay) {
     const dayEnd = getDayBounds(last, s.dayStartsAt, s.tz).end;
     const next = sleepCis.find((c) => { const t = Date.parse(c.at); return t > last && t >= dayEnd - 6 * HOUR && t < dayEnd + 10 * HOUR; });

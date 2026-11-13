@@ -3,11 +3,9 @@
 // calories in against out, activity, glucose, and what changed after starting each medicine.
 import { Brain, Droplet, Flame, Footprints, Mountain } from 'lucide-react';
 import type { DailyHealth, FoodLog } from '../db/schema';
-import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useMeds, useScheduleSettings, useVitals, useWorkouts } from '../app/data';
+import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useMeds, useScheduleSettings, useVitals, useWorkouts, useFoodLogs } from '../app/data';
 import { apnoeaCheck, bodyClock, bpWithWeight, fitnessAge, rhrExplained, usualBands } from '../logic/healthChecks';
 import { ApnoeaCard, BodyClockCard, BpWeightCard, FitnessAgeCard, RhrCard, UsualBandsCard } from '../components/HealthChecks';
-import { useLive } from '../db/live';
-import { db } from '../db/db';
 import { useNow } from '../app/useNow';
 import { medIsFor, personOf } from '../db/repos/people';
 import { readiness } from '../logic/training';
@@ -31,7 +29,7 @@ const n0 = (v: number) => Math.round(v).toLocaleString('en-AU');
 function useMine() {
   const daily = useDaily(); const workouts = useWorkouts(); const fam = useFamily(); const ss = useScheduleSettings(); const checkIns = useCheckIns();
   const meds = useMeds(); const doses = useDoses(); const body = useBodyEntries(); const vitals = useVitals();
-  const foodLogs = useLive(() => db.foodLogs.toArray(), []);
+  const foodLogs = useFoodLogs();
   if (!daily || !workouts || !fam || !ss || !checkIns || !meds || !doses || !foodLogs || !body || !vitals) return null;
   const person = fam.people.find((p) => p.id === fam.personId);
   const me = <T extends { personId?: string; deletedAt?: string }>(x: T) => personOf(x) === fam.personId && !x.deletedAt;

@@ -11,6 +11,7 @@ import { fmtEnergy, fmtNutrient, type EnergyUnit } from '../../logic/nutrition';
 import { dailyTotals, type Usual } from '../../logic/usualFoods';
 import { Card } from '../ui/Card';
 import { MiniRing } from '../ui/Visual';
+import { sayLogged } from '../../app/logged';
 
 /** Log something now, at the given amount, with Undo. */
 export function useQuickLog(personId: string) {
@@ -19,7 +20,7 @@ export function useQuickLog(personId: string) {
     const at = new Date();
     const date = format(at, 'yyyy-MM-dd');
     const l = await logFood({ name, foodId, servings, nutrients, at: at.toISOString(), date, personId });
-    toast(`Logged ${name}${l.waterPosted ? ` · +${l.waterPosted} mL water` : ''}`, { onAction: async () => { await removeFoodLog(l, date); } });
+    sayLogged(toast, l, `Logged ${name}${l.waterPosted ? ` · +${l.waterPosted} mL water` : ''}`, () => removeFoodLog(l, date));
   };
 }
 

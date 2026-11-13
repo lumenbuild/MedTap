@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { Nfc } from 'lucide-react';
 import { DEFAULT_PERSON, type Tag } from '../../db/schema';
-import { useCheckIns, useDaily, useDoses, useExercises, useMeds, useRoutines, useScheduleSettings, useWorkouts } from '../../app/data';
+import { useCheckIns, useDaily, useDoses, useExercises, useMeds, useRoutines, useScheduleSettings, useWorkouts, useFoods } from '../../app/data';
 import { personOf } from '../../db/repos/people';
 import { addExerciseNow, addIntake, finishCardio, startCardio, startWorkout, newSetId } from '../../db/repos/training';
 import { setSetting } from '../../db/repos/settings';
@@ -32,6 +32,7 @@ import { dayKey } from '../../logic/stats';
 import type { ScheduleSettings } from '../../logic/schedule';
 import type { EnergyUnit } from '../../logic/nutrition';
 import { macroLine } from '../../components/food/LogFoodSheet';
+import { sayLogged } from '../../app/logged';
 
 const TRAINING = ['exercise', 'routine', 'cardio', 'water', 'protein'];
 // The sheets restart when their state changes, and this screen redraws every second, so each gets the same object every
@@ -46,7 +47,7 @@ export function ActionTag({ tag, personName }: { tag: Tag; personName?: string }
   const personId = tag.personId ?? DEFAULT_PERSON;
   const workouts = useWorkouts(); const own = useExercises(); const routines = useRoutines(); const daily = useDaily();
   const ss = useScheduleSettings(); const checkIns = useCheckIns(); const doses = useDoses(); const meds = useMeds();
-  const foods = useLive(() => db.foods.toArray(), []);
+  const foods = useFoods();
   const now = useNow(1000);
   const today = useTrainingContext(tag.personId ?? DEFAULT_PERSON, now);
   const toast = useToast();
@@ -223,7 +224,7 @@ function FoodTag({ foodId, personId, head, s, energy, close }: { foodId: string;
         setBusy(true);
         const now = Date.now();
         const log = await logFood({ name: food.name, foodId: food.id, servings: 1, nutrients: food.nutrients, at: new Date(now).toISOString(), date: dayKey(now, s), personId });
-        toast(`Logged ${food.name}`, { duration: 10_000, onAction: () => removeFoodLog(log, dayKey(now, s)) });
+        sayLogged(toast, log, `Logged ${food.name}`, () => removeFoodLog(log, dayKey(now, s)));
         close();
       }}>Log one serving</Button>
       <Button variant="secondary" className="w-full mt-3" onClick={() => replace('/food')}>Log a different amount</Button>

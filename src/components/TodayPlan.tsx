@@ -1,7 +1,9 @@
 // Today, joined up: the goal rings (what adds up to the goal, at a glance) and one ranked plan in place of the
 // separate calls, brief, insights and week cards. Each line says what to do, why, and links to the numbers it rests
 // on; a filter shows one part of life at a time. The sickness forecast sits at the top when it flags something.
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
+import { memoLast } from '../db/live';
+import type { Insight } from '../logic/insights';
 import { format } from 'date-fns';
 import { Activity, Footprints, HeartPulse, Moon, Pill, Scale, Thermometer, Utensils, X, type LucideIcon } from 'lucide-react';
 import { useDecisionData } from '../app/useDecisions';
@@ -30,40 +32,44 @@ const THREAD_COLOUR: Record<Thread, string> = { meds: 'var(--c-meds)', fuel: 'va
 const SIGNAL_WORD = { skinTempDelta: 'skin temperature', restingHr: 'resting heart rate', respRate: 'breathing rate', hrvMs: 'HRV', spo2Avg: 'blood oxygen' } as const;
 const median = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 
-/** Everything Today's plan and rings need, worked out once every ten minutes or when the records change. */
+type DecisionData = NonNullable<ReturnType<typeof useDecisionData>>;
+
+/** Everything Today's plan and rings need, worked out once every ten minutes or when the records change, and shared
+ *  by every card that asks (the plan, the rings, the water card, topic pages). */
+const computeToday = memoLast((dd: DecisionData, list: Insight[], tick: number) => {
+  const now = Date.now();
+  const { data, s, settings } = dd;
+  const biohack = HAS_PEPTIDES && settings.biohackTools;
+  const brief = dailyBrief({ meds: data.meds, doses: data.doses, checkIns: data.checkIns, daily: data.daily, workouts: data.workouts, waterTarget: settings.waterTargetMl, biohack }, now, s);
+  for (const e of data.experiments.filter((x) => !x.deletedAt && !x.ended)) {
+    const c = conditionOn(e, format(now, 'yyyy-MM-dd'));
+    if (c) brief.push({ key: `exp:${e.id}`, text: `Experiment “${e.title}”: today is ${c.arm === 'a' ? e.a : e.b}` });
+  }
+  const sick = settings.healthImport || data.daily.some((x) => typeof x.skinTempDelta === 'number' || typeof x.restingHr === 'number')
+    ? sickForecast({ daily: data.daily, checkIns: data.checkIns, workouts: data.workouts, feedback: settings.sickFeedback }, now) : null;
+  const stack = HAS_PEPTIDES && settings.peptideTools ? stackPlanItems(data.meds, data, now, s, settings.peptideOrders) : [];
+  // The week ahead: today's advice from the forecast, and what might cause problems in the next two days.
+  const ahead = weekAhead(data, { waterTargetMl: settings.waterTargetMl, fibreTargetG: settings.fibreTargetG, proteinTargetG: settings.proteinTargetG, bedtime: settings.bedtime,
+    caffeineCutoff: settings.caffeineCutoff, orders: settings.peptideOrders }, now, s);
+  const thread = { food: 'fuel', water: 'fuel', train: 'move', sleep: 'recovery', caffeine: 'recovery' } as const;
+  const calls = todaysCalls(data, now, s, settings);
+  // Today's measured readiness decides today's training: the forecast's pattern is for the days after.
+  const measuredTrain = calls.some((c) => c.key === 'train');
+  for (const a of (ahead.days[0]?.advice ?? []).filter((x) => !(measuredTrain && x.kind === 'train'))) stack.push({ key: `ahead:${a.key}`, title: a.text, detail: `Forecast: ${a.why}.`, tone: 'info', href: '#/ahead', impact: 64, thread: thread[a.kind] });
+  for (const x of ahead.risks.filter((x) => !['order', 'useby'].some((k) => x.key.startsWith(k)) && !(measuredTrain && x.key === 'train-strain' && (x.when ?? 0) < now + 86_400_000) && (x.when === undefined || x.when < now + 2 * 86_400_000)))
+    stack.push({ key: `risk:${x.key}`, title: x.title, detail: x.detail, tone: x.level, href: '#/ahead', impact: x.level === 'watch' ? 88 : 66, thread: 'recovery' });
+  const plan = todayPlan({ calls, warnings: earlyWarnings(data, now, s, settings.waterTargetMl), brief, insights: list, sick, stack });
+  const rings = goalRings({ body: data.body, daily: data.daily, goalKg: dd.goalKg, proteinTarget: settings.proteinTargetG,
+    stepsTarget: settings.stepsTargetOwn ?? stepsTarget(data.daily, now) ?? undefined, sleepTargetMin: settings.sleepTargetH * 60 }, now, s);
+  return { plan, rings, sick, settings, personId: dd.personId, data, s, waterBoost: ahead.days[0]?.waterBoost ?? 0, tick };
+});
+
 export function useToday() {
   const dd = useDecisionData();
   const ins = useInsights();
-  const now = useNow(600_000);
-  const tick = Math.floor(now / 600_000);
-  return useMemo(() => {
-    if (!dd || dd.everyone || !ins) return null;
-    const { data, s, settings } = dd;
-    const biohack = HAS_PEPTIDES && settings.biohackTools;
-    const brief = dailyBrief({ meds: data.meds, doses: data.doses, checkIns: data.checkIns, daily: data.daily, workouts: data.workouts, waterTarget: settings.waterTargetMl, biohack }, now, s);
-    for (const e of data.experiments.filter((x) => !x.deletedAt && !x.ended)) {
-      const c = conditionOn(e, format(now, 'yyyy-MM-dd'));
-      if (c) brief.push({ key: `exp:${e.id}`, text: `Experiment “${e.title}”: today is ${c.arm === 'a' ? e.a : e.b}` });
-    }
-    const sick = settings.healthImport || data.daily.some((x) => typeof x.skinTempDelta === 'number' || typeof x.restingHr === 'number')
-      ? sickForecast({ daily: data.daily, checkIns: data.checkIns, workouts: data.workouts, feedback: settings.sickFeedback }, now) : null;
-    const stack = HAS_PEPTIDES && settings.peptideTools ? stackPlanItems(data.meds, data, now, s, settings.peptideOrders) : [];
-    // The week ahead: today's advice from the forecast, and what might cause problems in the next two days.
-    const ahead = weekAhead(data, { waterTargetMl: settings.waterTargetMl, fibreTargetG: settings.fibreTargetG, proteinTargetG: settings.proteinTargetG, bedtime: settings.bedtime,
-      caffeineCutoff: settings.caffeineCutoff, orders: settings.peptideOrders }, now, s);
-    const thread = { food: 'fuel', water: 'fuel', train: 'move', sleep: 'recovery', caffeine: 'recovery' } as const;
-    const calls = todaysCalls(data, now, s, settings);
-    // Today's measured readiness decides today's training: the forecast's pattern is for the days after.
-    const measuredTrain = calls.some((c) => c.key === 'train');
-    for (const a of (ahead.days[0]?.advice ?? []).filter((x) => !(measuredTrain && x.kind === 'train'))) stack.push({ key: `ahead:${a.key}`, title: a.text, detail: `Forecast: ${a.why}.`, tone: 'info', href: '#/ahead', impact: 64, thread: thread[a.kind] });
-    for (const x of ahead.risks.filter((x) => !['order', 'useby'].some((k) => x.key.startsWith(k)) && !(measuredTrain && x.key === 'train-strain' && (x.when ?? 0) < now + 86_400_000) && (x.when === undefined || x.when < now + 2 * 86_400_000)))
-      stack.push({ key: `risk:${x.key}`, title: x.title, detail: x.detail, tone: x.level, href: '#/ahead', impact: x.level === 'watch' ? 88 : 66, thread: 'recovery' });
-    const plan = todayPlan({ calls, warnings: earlyWarnings(data, now, s, settings.waterTargetMl), brief, insights: ins.list, sick, stack });
-    const rings = goalRings({ body: data.body, daily: data.daily, goalKg: dd.goalKg, proteinTarget: settings.proteinTargetG,
-      stepsTarget: settings.stepsTargetOwn ?? stepsTarget(data.daily, now) ?? undefined, sleepTargetMin: settings.sleepTargetH * 60 }, now, s);
-    return { plan, rings, sick, settings, personId: dd.personId, data, s, waterBoost: ahead.days[0]?.waterBoost ?? 0 };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dd, ins, tick]);
+  const tick = Math.floor(useNow(600_000) / 600_000);
+  if (!dd || dd.everyone || !ins) return null;
+  return computeToday(dd, ins.list, tick);
 }
 
 // ── Goal rings ───────────────────────────────────────────────────────────────────────────────────────
@@ -220,7 +226,7 @@ export function SickBody({ f, settings, personId, compact = true }: { f: SickFor
     const before = settings.sickFeedback;
     await setSetting('sickFeedback', { ...before, [f.date]: v });
     const c = v === 'sick' ? await addCheckIn({ at: new Date().toISOString(), chips: [UNWELL], personId: storedPerson(personId) }) : undefined;
-    toast(v === 'sick' ? 'Noted. It learns which signals move first for you.' : 'Noted. It will alert a little less readily.', { onAction: async () => { await setSetting('sickFeedback', before); if (c) await removeCheckIn(c.id); } });
+    toast(v === 'sick' ? 'Noted. It learns which signals move first for you.' : 'Noted. It will alert a little less readily.', { onAction: async () => { await setSetting('sickFeedback', before); if (c && !c.duplicate) await removeCheckIn(c.id); } });
   };
   const max = Math.max(f.watchAt * 1.6, ...f.recent.map((x) => x.score), 1);
   return (

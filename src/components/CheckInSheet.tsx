@@ -16,6 +16,7 @@ import { Sheet, SheetActions, useFreshKey } from './ui/Sheet';
 import { Button } from './ui/Button';
 import { Stepper } from './ui/Stepper';
 import { MOOD_LABELS, MoodPicker, Rating } from './ui/Rating';
+import { sayLogged } from '../app/logged';
 
 const SIX_HOURS = 6 * 3_600_000;
 
@@ -72,7 +73,7 @@ function CheckInForm({ seed, onClose, doses, checkIns, meds, chips, s, personId,
       toast('Check-in updated');
     } else {
       const c = await addCheckIn(input);
-      toast(`Check-in saved at ${fmtTime(at)}`, { onAction: () => removeCheckIn(c.id) });
+      sayLogged(toast, c, `Check-in saved at ${fmtTime(at)}`, () => removeCheckIn(c.id));
     }
     onClose();
   };
@@ -80,7 +81,7 @@ function CheckInForm({ seed, onClose, doses, checkIns, meds, chips, s, personId,
   const usual = !seed.editing && f.mood === undefined && f.energy === undefined && f.focus === undefined ? usualAnswers(checkIns.filter((c) => personOf(c) === personId), Date.now()) : null;
   const sameAsUsual = async () => {
     const c = await addCheckIn({ ...f, ...usual, relatedDoseId, personId: storedPerson(personId) });
-    toast('Saved: same as usual', { onAction: () => removeCheckIn(c.id) });
+    sayLogged(toast, c, 'Saved: same as usual', () => removeCheckIn(c.id));
     onClose();
   };
   const del = async () => {

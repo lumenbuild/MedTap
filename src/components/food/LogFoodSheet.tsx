@@ -7,8 +7,6 @@ import { RecipeStep } from './RecipeImport';
 import type { Draft } from './draft';
 import type { EatWhy, Food, Nutrients, Portions } from '../../db/schema';
 import { Rating } from '../ui/Rating';
-import { useLive } from '../../db/live';
-import { db } from '../../db/db';
 import { foodByBarcode, logFood, removeFoodLog, saveFood } from '../../db/repos/food';
 import { useToast } from '../../app/toast';
 import { readBarcode, validBarcode } from '../../app/barcode';
@@ -24,6 +22,8 @@ import { COMMON_FOODS, COMMON_GROUPS, searchCommon, type CommonFood, type Common
 import { LiveScanner } from './LiveScanner';
 import { Button } from '../ui/Button';
 import { TextInput } from '../ui/Field';
+import { useFoods } from '../../app/data';
+import { sayLogged } from '../../app/logged';
 
 type Step =
   | { s: 'home' }
@@ -56,7 +56,7 @@ export function LogFoodSheet({ personId, energy, onClose, recipeUrl, start }: {
   const labelInput = useRef<HTMLInputElement>(null);
   const pendingBarcode = useRef<string | undefined>(undefined);
   const [live, setLive] = useState(false);
-  const foods = useLive(() => db.foods.toArray(), []);
+  const foods = useFoods();
 
   const saved = useMemo(() => (foods ?? []).filter((f) => !f.deletedAt)
     .filter((f) => !q.trim() || `${f.name} ${f.brand ?? ''}`.toLowerCase().includes(q.trim().toLowerCase()))
@@ -334,7 +334,7 @@ function Amount({ food, personId, energy, onBack, onClose }: { food: Food; perso
     // A common food is saved on its first log, so it's one tap next time.
     const saved = food.id ? food : await saveFood({ kind: food.kind, name: food.name, nutrients: food.nutrients, serving: food.serving, source: 'common' });
     const l = await logFood({ ...eat, name: food.name, foodId: saved.id, servings, nutrients, at: when, date: format(new Date(when), 'yyyy-MM-dd'), personId });
-    toast(`Logged ${food.name}${l.waterPosted ? ` · +${l.waterPosted} mL water` : ''}${(nutrients.caffeine ?? 0) >= 1 ? ' (and its caffeine)' : ''}`, { onAction: async () => { await removeFoodLog(l, format(new Date(when), 'yyyy-MM-dd')); } });
+    sayLogged(toast, l, `Logged ${food.name}${l.waterPosted ? ` · +${l.waterPosted} mL water` : ''}${(nutrients.caffeine ?? 0) >= 1 ? ' (and its caffeine)' : ''}`, () => removeFoodLog(l, format(new Date(when), 'yyyy-MM-dd')));
     onClose();
   };
   return (
@@ -390,7 +390,7 @@ function PortionsStep({ personId, energy, onBack, onClose }: { personId: string;
     const when = atIso(at);
     const food = name.trim() ? await saveFood({ kind: 'meal', name: name.trim(), nutrients: n, portions: p, serving: 'Usual size', source: 'portions' }) : undefined;
     const l = await logFood({ ...eat, name: name.trim() || 'Meal', foodId: food?.id, servings: 1, nutrients: n, at: when, date: format(new Date(when), 'yyyy-MM-dd'), personId });
-    toast(food ? `Logged and saved ${food.name}` : 'Meal logged', { onAction: async () => { await removeFoodLog(l, format(new Date(when), 'yyyy-MM-dd')); } });
+    sayLogged(toast, l, food ? `Logged and saved ${food.name}` : 'Meal logged', () => removeFoodLog(l, format(new Date(when), 'yyyy-MM-dd')));
     onClose();
   };
   return (
@@ -431,7 +431,7 @@ function TypedStep({ personId, energy, onBack, onClose }: { personId: string; en
     const when = atIso(at);
     const food = keep ? await saveFood({ kind: 'product', name: name.trim(), nutrients, serving: '1 serving', source: 'typed' }) : undefined;
     const l = await logFood({ ...eat, name: name.trim(), foodId: food?.id, servings: 1, nutrients, at: when, date: format(new Date(when), 'yyyy-MM-dd'), personId });
-    toast(`Logged ${name.trim()}`, { onAction: async () => { await removeFoodLog(l, format(new Date(when), 'yyyy-MM-dd')); } });
+    sayLogged(toast, l, `Logged ${name.trim()}`, () => removeFoodLog(l, format(new Date(when), 'yyyy-MM-dd')));
     onClose();
   };
   const field = (k: string) => (

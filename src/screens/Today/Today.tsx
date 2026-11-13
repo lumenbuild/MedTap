@@ -60,6 +60,8 @@ import { setSetting } from '../../db/repos/settings';
 import { gettingStarted, showGettingStarted } from '../../logic/gettingStarted';
 import { GettingStartedCard } from '../../components/GettingStarted';
 import { readiness } from '../../logic/training';
+import { useOnce } from '../../app/useOnce';
+import { sayLogged } from '../../app/logged';
 
 const FoodToday = lazy(() => import('../Food').then((m) => ({ default: m.FoodToday })));
 
@@ -81,6 +83,7 @@ export function Today() {
   const fam = useFamily();
   const now = useNow();
   const toast = useToast();
+  const once = useOnce();
   const [logFor, setLogFor] = useState<Medication | null>(null);
   const [editing, setEditing] = useState<Dose | null>(null);
   const [checkIn, setCheckIn] = useState<CheckInSeed | null>(null);
@@ -125,16 +128,17 @@ export function Today() {
   const streakNews = reached ? { title: `New: ${reached.title}`, onDone: () => setSetting('milestonesSeen', [reached.id, ...settings.milestonesSeen].slice(0, 200)) } : undefined;
   // One tap: a check-in with just that chip, now (Undo removes it). Used in Trends' patterns.
   // Water in one tap (the first of your amounts), with Undo.
-  const addWater = async () => {
+  const addWater = once(async () => {
     const ml = settings?.intakeAmounts.waterMl[0] ?? 250;
     const day = format(Date.now(), 'yyyy-MM-dd');
     const total = await addIntake(fam!.personId, day, 'waterMl', ml);
     toast(`Water +${ml} mL · ${(total / 1000).toFixed(1)} L today`, { onAction: () => { void addIntake(fam!.personId, day, 'waterMl', -ml); } });
-  };
-  const quick = async (chip: string, what: string) => {
-    const c = await addCheckIn({ at: new Date().toISOString(), chips: [chip], personId: storedPerson(fam.personId) });
-    toast(`${what} logged`, { onAction: () => removeCheckIn(c.id) });
-  };
+  });
+  const quick = once(async (chip: string, what: string) => {
+    const input = { at: new Date().toISOString(), chips: [chip], personId: storedPerson(fam.personId) };
+    const c = await addCheckIn(input);
+    sayLogged(toast, c, `${what} logged`, () => removeCheckIn(c.id), async () => { const again = await addCheckIn(input, { again: true }); toast(`${what} logged again`, { onAction: () => removeCheckIn(again.id) }); });
+  });
   // Whose medications are shown: one family member, or everyone (carer view, each card labelled).
   const mine = <T extends { personId?: string }>(r: T) => fam.everyone || personOf(r) === fam.personId;
   // Shared medications (e.g. Panadol) appear for everyone; in one person's view only their doses of them count.
@@ -163,15 +167,19 @@ export function Today() {
   // injections alike). With nothing planned ahead (all on a break), the most urgent one says so.
   const up = nextUp(active, doses, Math.floor(now / 60_000) * 60_000, s);
   const headline = up.meds.length === 1 ? up.meds[0] : up.meds.length === 0 ? scheduled[0] : undefined;
-  const logAll = async (items: { med: Medication; amount: number }[]) => {
+  const logAll = once(async (items: { med: Medication; amount: number }[]) => {
     const at = new Date().toISOString();
-    const logged: Dose[] = [];
+    const logged: (Dose & { duplicate?: boolean })[] = [];
     for (const { med, amount } of items) {
       const v = med.peptide ? currentVial(med) : undefined;
       logged.push(await logDose({ medicationId: med.id, takenAt: at, amount, source: 'manual', vialId: v && v.id !== 'legacy' ? v.id : undefined }));
     }
-    toast(`Logged ${items.map((x) => shownName(x.med)).join(', ')}`, { onAction: async () => { for (const d of logged) await removeDose(d.id); toast('Removed. Nothing was logged.'); } });
-  };
+    // A second tap on the same group: what was logged a moment ago stands, and isn't logged again.
+    const fresh = logged.filter((d) => !d.duplicate);
+    if (!fresh.length) { sayLogged(toast, logged[0], ''); return; }
+    const names = items.filter((_, i) => !logged[i].duplicate).map((x) => shownName(x.med)).join(', ');
+    toast(`Logged ${names}`, { onAction: async () => { for (const d of fresh) await removeDose(d.id); toast('Removed. Nothing was logged.'); } });
+  });
 
   const firstRecord = [...doses, ...checkIns, ...body].filter((r) => !r.deletedAt).reduce<number | null>((min, r) => {
     const t = Date.parse(r.createdAt);
