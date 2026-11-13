@@ -1,7 +1,8 @@
-// The Health tab (MedTap): everything the watch and Health Connect bring in, made useful. How recovered you are and
-// what today suits, anything off overnight, last night's vitals against your usual, training load and fitness,
-// calories in against out, activity, glucose, and what changed after starting each medicine.
-import { Brain, Droplet, Flame, Footprints, Mountain } from 'lucide-react';
+// The Health tab (MedTap): what the watch and Health Connect bring in, made useful. How recovered you are and what
+// today suits, last night's readings against your usual (once, here), the sickness watch, training load and fitness,
+// activity and glucose. Calories in and out live on Food, each medicine's effects on its own page, and whether each
+// one is working on Insights: each thing has one home.
+import { Brain, Flame, Footprints, Mountain } from 'lucide-react';
 import type { DailyHealth, FoodLog } from '../db/schema';
 import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useMeds, useScheduleSettings, useVitals, useWorkouts, useFoodLogs } from '../app/data';
 import { apnoeaCheck, bodyClock, bpWithWeight, fitnessAge, rhrExplained, usualBands } from '../logic/healthChecks';
@@ -11,17 +12,15 @@ import { medIsFor, personOf } from '../db/repos/people';
 import { readiness } from '../logic/training';
 import { illnessWatch, nightVitals } from '../logic/vitals';
 import { daySuggestion, trainingLoad, vo2Trend } from '../logic/trainingLoad';
-import { medEffects } from '../logic/medEffects';
 import { energyBalance } from '../logic/energy';
 import { dayKey } from '../logic/stats';
 import { MiniRing } from '../components/ui/Visual';
 import { fmtHM } from '../logic/sleep';
 import type { ScheduleSettings } from '../logic/schedule';
-import { WorkingLink } from '../components/Decisions';
 import { SickCard } from '../components/TodayPlan';
 import { TopicLinks } from '../components/TopicLinks';
-import { HAS_BODY } from '../edition';
-import { EnergyCard, GlucoseCard, IllnessCard, LoadCard, MedEffectsList, NightVitalsCard } from '../components/HealthCards';
+import { HAS_BODY, HAS_TRAINING } from '../edition';
+import { GlucoseCard, IllnessCard, LoadCard, NightVitalsCard } from '../components/HealthCards';
 
 const DAY = 86_400_000;
 const n0 = (v: number) => Math.round(v).toLocaleString('en-AU');
@@ -52,7 +51,6 @@ export function Health() {
   const vitals = nightVitals(d.daily, now, d.s);
   const energy = energyBalance(d.daily, d.foodLogs, now, d.s);
   const vo2 = vo2Trend(d.daily, now);
-  const effects = d.meds.map((m) => ({ m, e: medEffects(m, d.doses, d.daily, now) })).filter((x) => x.e && x.e.effects.length);
   const nothing = !r && !vitals && !load && !energy && !vo2;
   // Cross-checks with the scale, blood pressure, medicines and check-ins.
   const bands = usualBands({ daily: d.daily, body: d.body, vitals: d.vitals }, now);
@@ -84,35 +82,25 @@ export function Health() {
               {suggestion && <p className="text-muted text-[15px]">{suggestion.why}</p>}
             </div>
           </div>
-          <ul className="mt-3 flex flex-wrap gap-1.5">
-            {r.parts.map((p) => <li key={p.what} className="text-[13px] rounded-full px-2.5 py-1 bg-surface"><span aria-hidden="true">{p.good ? '● ' : '▲ '}</span>{p.what}: {p.text}</li>)}
-          </ul>
+          <p className="mt-2 text-[13px] text-muted">From last night against your usual, below, and this week's training.</p>
         </section>
       )}
+      {/* Last night's readings against your own usual: the one list of them (readiness and the sickness watch read the same). */}
+      <UsualBandsCard bands={bands} />
+      {vitals && !bands.some((b) => ['hrvMs', 'restingHr', 'spo2Avg', 'respRate', 'skinTempDelta'].includes(b.key)) && <NightVitalsCard stats={vitals.stats} />}
       {/* Getting sick: learned from your own nights and past illnesses (the simpler watch when there isn't enough yet). */}
       <SickCard />
       <TopicLinks body={HAS_BODY} />
       {ill && !hasSick && <IllnessCard ill={ill} />}
-      <WorkingLink />
-      {/* Last night's vitals live in "Against your usual" once there's enough history for a range. */}
-      {vitals && !bands.some((b) => ['hrvMs', 'restingHr', 'spo2Avg', 'respRate', 'skinTempDelta'].includes(b.key)) && <NightVitalsCard stats={vitals.stats} />}
-      <UsualBandsCard bands={bands} />
       {bp && <BpWeightCard b={bp} />}
       {osa && <ApnoeaCard a={osa} personId={d.personId} need={need('height', 'birthYear', 'sex')} />}
       {fit && <FitnessAgeCard f={fit} personId={d.personId} need={need('birthYear', 'sex')} />}
       {rhr && rhr.parts.length > 0 && <RhrCard r={rhr} />}
       {clock && <BodyClockCard c={clock} />}
-      {(load || vo2) && <LoadCard load={load} vo2={vo2} />}
-      {energy && <EnergyCard e={energy} />}
+      {/* Training load lives in the Training section when it's on. */}
+      {(load || vo2) && !(HAS_TRAINING && d.settings.trainingTools) && <LoadCard load={load} vo2={vo2} />}
       <ActivityCard daily={d.daily} now={now} s={d.s} />
       <GlucoseCard daily={d.daily} now={now} />
-      {effects.length > 0 && (
-        <section className="box space-y-3" aria-labelledby="fx-h">
-          <h2 id="fx-h" className="text-sm font-medium text-muted">Since starting each medicine</h2>
-          {effects.map(({ m, e }) => <MedEffectsList key={m.id} med={m} e={e!} link />)}
-          <p className="text-sm text-muted">The 4 weeks before the first dose against the latest 4 weeks. Other things change over the same time too.</p>
-        </section>
-      )}
     </div>
   );
 }
@@ -121,12 +109,10 @@ function ActivityCard({ daily, now, s }: { daily: DailyHealth[]; now: number; s:
   const today = daily.find((d) => d.date === dayKey(now, s));
   const week = daily.filter((d) => new Date(`${d.date}T12:00`).getTime() > now - 7 * DAY);
   const mindful = week.reduce((a, d) => a + (d.mindfulMin ?? 0), 0);
-  const water = today ? (today.waterMl ?? 0) + (today.waterOtherMl ?? 0) : 0;
   const tiles = [
     today?.steps !== undefined && { Icon: Footprints, label: 'Steps', value: n0(today.steps), tone: 'act' },
     today?.kcalActive !== undefined && { Icon: Flame, label: 'Active calories', value: n0(today.kcalActive), tone: 'act' },
     today?.floors !== undefined && { Icon: Mountain, label: 'Floors', value: String(today.floors), tone: 'act' },
-    water > 0 && { Icon: Droplet, label: 'Water', value: `${n0(water)} mL`, tone: 'body' },
     mindful > 0 && { Icon: Brain, label: 'Mindful, 7 days', value: mindful < 60 ? `${mindful} min` : fmtHM(mindful), tone: 'mind' },
   ].filter(Boolean) as { Icon: typeof Flame; label: string; value: string; tone: string }[];
   if (!tiles.length) return null;

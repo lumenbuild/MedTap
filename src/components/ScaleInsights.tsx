@@ -44,8 +44,8 @@ export function ScaleInsights({ entries, daily, workouts, proteinTarget, sex, go
         <section className="box space-y-3" aria-labelledby="mix-h">
           <H id="mix-h" Icon={Layers}>What you've lost since {format(new Date(`${mix.since}T12:00`), 'd MMM')}</H>
           <div className="grid grid-cols-3 gap-2 tnum">
-            <div><p className="text-[22px] font-bold leading-tight whitespace-nowrap">{w(mix.fatLost)}</p><p className="text-[12px] text-muted">fat</p></div>
-            <div><p className="text-[22px] font-bold leading-tight whitespace-nowrap text-muted">{w(mix.leanLost)}</p><p className="text-[12px] text-muted">lean: muscle, water, organs</p></div>
+            <div><p className="text-[22px] font-bold leading-tight whitespace-nowrap">{w(mix.fatLost)}</p><p className="text-[12px] text-muted">fat {mix.fatLost < 0 ? 'gained' : 'lost'}</p></div>
+            <div><p className="text-[22px] font-bold leading-tight whitespace-nowrap text-muted">{mix.leanLost < 0 ? '+' : ''}{w(mix.leanLost)}</p><p className="text-[12px] text-muted">lean {mix.leanLost < 0 ? 'gained' : 'lost'}: muscle, water, organs</p></div>
             <div><p className="text-[22px] font-bold leading-tight whitespace-nowrap">{w(mix.kgLost)}</p><p className="text-[12px] text-muted">in all</p></div>
           </div>
           {mix.kgLost > 0 && mix.fatLost > 0 && (

@@ -19,6 +19,7 @@ import { fmtAmount } from '../logic/format';
 import { shortActing, courseCalendar, courseLine, courseSummary, fridgeNote, stackLevels, stackShop, strengthChange, vialYield } from '../logic/stackSmart';
 import { Sheet, SheetActions } from './ui/Sheet';
 import { Button } from './ui/Button';
+import { useSupplies } from '../app/data';
 
 const DAY = 86_400_000;
 const fmtDay = (t: number) => format(t, 'EEE d MMM');
@@ -109,6 +110,8 @@ function CalendarCard({ cal, now }: { cal: ReturnType<typeof courseCalendar>; no
 /** One list for the whole stack, and the order log that teaches delivery time. */
 export function ShopCard() {
   const dd = useDecisionData();
+  const supplies = useSupplies();
+  const tracked = (supplies ?? []).some((x) => !x.deletedAt && x.kind !== 'sharps');
   const now = useNow(600_000);
   const toast = useToast();
   if (!dd || dd.everyone) return null;
@@ -145,7 +148,8 @@ export function ShopCard() {
           ))}
         </ul>
       ) : <p className="text-[15px] text-success font-medium">Enough vials for every peptide's plan.</p>}
-      {(shop.waterMl > 0 || shop.syringes > 0) && (
+      {/* With supplies tracked, water and syringes are in "Medicines and supplies to order" below, by when to order them. */}
+      {!tracked && (shop.waterMl > 0 || shop.syringes > 0) && (
         <p className="text-[15px] tnum">{[shop.waterMl > 0 ? `${shop.waterMl} mL bacteriostatic water` : null, shop.syringes ? `${shop.syringes} syringes` : null, shop.swabs ? `${shop.swabs} swabs` : null].filter(Boolean).join(' · ')}</p>
       )}
       <p className="text-[12px] text-muted">For each peptide's plan (its course, or the next 4 weeks). Delivery: {shop.leadDays} days{shop.learned ? ', learned from your orders' : ' (tap below when you order to learn yours)'}.</p>

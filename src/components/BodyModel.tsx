@@ -5,7 +5,7 @@ import { Dumbbell, Flag, Plane, Scale, TrendingDown } from 'lucide-react';
 import { useDecisionData } from '../app/useDecisions';
 import { useNow } from '../app/useNow';
 import { landing, landingPlan, leanForecast, weightTrend } from '../logic/bodyModel';
-import { energyBalance, expenditure } from '../logic/energy';
+import { usualBurn } from '../logic/energy';
 import { fmtWeight } from '../logic/units';
 import type { Units } from '../db/repos/settings';
 import { MiniRing } from './ui/Visual';
@@ -23,7 +23,7 @@ export function BodyModelCards({ units }: { units: Units }) {
   const tr = weightTrend({ body: data.body, foodLogs: data.foodLogs, workouts: data.workouts, checkIns: data.checkIns, daily: data.daily, doses: data.doses, meds: data.meds }, now);
   if (!tr) return null;
   const w = (kg: number) => fmtWeight(kg, units);
-  const burn = expenditure(data.foodLogs, data.body, now, s)?.kcal ?? energyBalance(data.daily, data.foodLogs, now, s)?.watchMaintenance;
+  const burn = usualBurn(data.foodLogs, data.body, data.daily, now, s)?.kcal;
   const land = landing(tr, burn, goalKg, now);
   const lean = leanForecast(data.body, data.workouts, data.daily, tr.perWeek, settings.proteinTargetG, now);
   const plan = landingPlan(tr, land, { daily: data.daily, workouts: data.workouts, checkIns: data.checkIns }, now);

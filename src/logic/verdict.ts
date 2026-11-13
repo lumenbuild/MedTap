@@ -164,7 +164,8 @@ export function verdictFor(med: Medication, d: VerdictData, now: number, s: Sche
     const fit = pts.length >= 4 && pts[pts.length - 1].t - pts[0].t >= 21 * DAY ? robustFit(pts, now) : null;
     if (!fit) return { ...base, status: 'unclear', headline: 'Not enough weigh-ins yet', evidence: [`${pts.length} weigh-in${pts.length === 1 ? '' : 's'} since starting`], next: 'Weigh in at least weekly; 4 over 3 weeks gives a trend.' };
     const perWeek = Math.round(fit.slope * 7 * 100) / 100;
-    const total = Math.round((pts[pts.length - 1].v - pts[0].v) * 10) / 10;
+    // From the same trend as the weekly rate (not first against last reading, which one odd weigh-in can flip).
+    const total = Math.round(fit.slope * ((pts[pts.length - 1].t - pts[0].t) / DAY) * 10) / 10;
     const ev = [`${perWeek <= 0 ? 'Losing' : 'Gaining'} ${Math.abs(perWeek)} kg a week since starting (${total > 0 ? '+' : ''}${total} kg, ${pts.length} weigh-ins)`];
     const conf = pts.length >= 10 ? 'Solid' : pts.length >= 6 ? 'Likely' : 'Early';
     if (perWeek <= -0.25) return { ...base, status: 'working', method: 'trend', confidence: conf, headline: 'Working: weight coming down', evidence: ev };

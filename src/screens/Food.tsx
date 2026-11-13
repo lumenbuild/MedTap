@@ -39,7 +39,7 @@ import { EnergyCard } from '../components/HealthCards';
 import { DayHero, ProteinGapCard, RecipesCard, UsualCard, WeekCard } from '../components/food/FoodHub';
 import { usualFoods } from '../logic/usualFoods';
 import { proteinGap } from '../logic/dailySmarts';
-import { energyBalance } from '../logic/energy';
+import { usualBurn, energyBalance } from '../logic/energy';
 
 const frac = (f: number) => (f === 0.5 ? '½' : f === 1.5 ? '1½' : f === 0.75 ? '¾' : f === 1.25 ? '1¼' : String(f));
 
@@ -120,8 +120,9 @@ export function FoodScreen() {
       </Card>
       {(() => {
         // With the watch: calories burned against eaten, and where that takes your weight.
-        const e = daily ? energyBalance(daily.filter((d) => personOf(d) === fam.personId), mine, now, scheduleSettings(settings)) : null;
-        return e ? <EnergyCard e={e} /> : null;
+        const myDaily = daily ? daily.filter((d) => personOf(d) === fam.personId) : [];
+        const e = daily ? energyBalance(myDaily, mine, now, scheduleSettings(settings)) : null;
+        return e ? <EnergyCard e={e} usual={usualBurn(mine, (body ?? []).filter((b) => personOf(b) === fam.personId), myDaily, now, scheduleSettings(settings))} /> : null;
       })()}
 
       {(() => {

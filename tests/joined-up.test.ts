@@ -29,11 +29,14 @@ describe("today's plan", () => {
       brief: [{ key: 'second:m1', text: 'Second dose at 1 pm' }, { key: 'water:x', text: 'About 3 L of water' }],
       insights: ins,
     });
-    expect(p.filter((x) => /second/i.test(x.title))).toHaveLength(1);
-    expect(p[0].key).toBe('call:second-dose:0');
-    expect(p[1].key).toBe('warn:overtraining');
+    // The next dose and its time are the top card's: the plan doesn't say them again.
+    expect(p.filter((x) => /second/i.test(x.title))).toHaveLength(0);
+    expect(p[0].key).toBe('warn:overtraining');
     expect(p.find((x) => x.key === 'ins:b')?.because[0]).toEqual({ label: '14 days', href: '#/health' });
     expect(p.every((x) => x.thread)).toBe(true);
+    // A second-dose call that flags something stays.
+    const q = todayPlan({ calls: [{ key: 'second-dose', title: 'A second dose now runs into bedtime', detail: '', tone: 'stop' }], warnings: [], brief: [], insights: [] });
+    expect(q.map((x) => x.key)).toEqual(['call:second-dose:0']);
   });
 });
 

@@ -126,3 +126,12 @@ export function energyBalance(daily: { date: string; kcalTotal?: number; foodOth
   }
   return out;
 }
+
+/** What you burn on a usual day: one figure for the whole app (Food, Body, the calorie target). From food logs against
+ *  the weight trend when there are enough (the most reliable), else the watch's average. */
+export function usualBurn(foodLogs: FoodLog[], body: BodyEntry[], daily: Parameters<typeof energyBalance>[0], now: number, s: ScheduleSettings): { kcal: number; from: 'food and weight' | 'watch' } | null {
+  const e = expenditure(foodLogs, body, now, s);
+  if (e) return { kcal: e.kcal, from: 'food and weight' };
+  const w = energyBalance(daily, foodLogs, now, s)?.watchMaintenance;
+  return w ? { kcal: w, from: 'watch' } : null;
+}

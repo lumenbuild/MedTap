@@ -97,6 +97,8 @@ export function Today() {
   // Streaks, milestones and today's ring for the person shown, worked out again every ten minutes or when the
   // records change (not on every clock tick).
   const tenMin = Math.floor(now / 600_000);
+  // Today's water target, the same everywhere: yours, plus the extra on a day side effects are forecast.
+  const waterBoost = todayData?.waterBoost ?? 0;
   const motivation = useMemo(() => {
     if (!meds || !doses || !checkIns || !body || !fam || fam.everyone || !ss) return null;
     const [st, sc] = ss;
@@ -111,9 +113,9 @@ export function Today() {
       perWeek: person?.fitnessGoals?.find((g) => g.kind === 'sessions')?.perWeek, defs: allExercises(own ?? []) };
     const run = streaks(data, t, sc, { training, checkIns: true });
     return { streaks: run, milestones: milestones(data, run, t, st.units, { training, body: HAS_BODY }),
-      ring: todayRing(data, t, sc, { checkInTimes: st.checkInTimes, water: st.waterTargetMl, protein: st.proteinTargetG, intake: training, steps: st.stepsTargetOwn ?? stepsTarget(data.daily, t) }) };
+      ring: todayRing(data, t, sc, { checkInTimes: st.checkInTimes, water: st.waterTargetMl ? st.waterTargetMl + waterBoost : st.waterTargetMl, protein: st.proteinTargetG, intake: training, steps: st.stepsTargetOwn ?? stepsTarget(data.daily, t) }) };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenMin, meds, doses, checkIns, body, daily, workouts, own, fam, ss]);
+  }, [tenMin, meds, doses, checkIns, body, daily, workouts, own, fam, ss, waterBoost]);
   // A tapped reminder notification opens Log dose for that medication.
   useEffect(() => onLogRequest((id) => {
     const m = medMap.get(id);
@@ -348,7 +350,7 @@ export function Today() {
         const sup = settings.peptideTools && supplies ? supplyAlerts(supplies, meds, doses) : [];
         const items = [
           ...refills.map((r) => ({ key: `refill-${r.med.id}`, label: `${shownName(r.med)} ${r.runningOut || r.low ? 'running low' : r.scriptExpiring ? 'script' : 'bottle expiring'}`, node: <RefillCards alerts={[r]} settings={settings} now={now} /> })),
-          ...vials.map(({ m, v }) => ({ key: `vial-${m.id}`, label: `${shownName(m)} ${isPen(m) ? 'pen' : 'vial'} ${v.expired ? 'past use-by' : v.dosesLeft === 0 ? 'empty' : 'nearly empty'}`, node: <VialAlerts meds={[m]} doses={doses} now={now} /> })),
+          ...vials.map(({ m, v }) => ({ key: `vial-${m.id}`, label: (() => { const kind = isPen(m) ? 'pen' : 'vial'; const next = (m.vials ?? []).some((x) => x.status === 'stock'); return `${shownName(m)}: ${v.expired ? `${kind} past use-by` : v.dosesLeft === 0 ? (next ? (isPen(m) ? 'start the next pen' : 'mix the next vial') : `${kind} used up`) : `${kind} nearly used up`}`; })(), node: <VialAlerts meds={[m]} doses={doses} now={now} /> })),
           ...(sup.length ? [{ key: 'supplies', label: sup.length === 1 ? `${SUPPLY_LABELS[sup[0].supply.kind].name} low` : 'Supplies low', node: <SupplyAlerts alerts={sup} /> }] : []),
           ...(settings.pendingTags.length ? [{ key: 'tags', label: `${settings.pendingTags.length} tag${settings.pendingTags.length === 1 ? '' : 's'} to link`, node: (
             <Card className="flex items-center gap-3">
@@ -365,7 +367,7 @@ export function Today() {
       {HAS_TRAINING && settings.trainingTools && !fam.everyone && daily && (() => {
         const mineDaily = daily.filter((d) => !d.deletedAt && personOf(d) === fam.personId);
         const today = format(now, 'yyyy-MM-dd');
-        return <IntakeCard personId={fam.personId} today={today} day={mineDaily.find((d) => d.date === today)} proteinTarget={settings.proteinTargetG} waterTarget={settings.waterTargetMl ? settings.waterTargetMl + (todayData?.waterBoost ?? 0) : settings.waterTargetMl}
+        return <IntakeCard personId={fam.personId} today={today} day={mineDaily.find((d) => d.date === today)} proteinTarget={settings.proteinTargetG} waterTarget={settings.waterTargetMl ? settings.waterTargetMl + waterBoost : settings.waterTargetMl}
           ready={null} amounts={settings.intakeAmounts} />;
       })()}
 

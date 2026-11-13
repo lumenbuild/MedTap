@@ -8,7 +8,6 @@ import { ScaleCard } from '../../components/ScaleCard';
 import { ScaleInsights } from '../../components/ScaleInsights';
 import { go } from '../../app/router';
 import { medIsFor, personOf } from '../../db/repos/people';
-import { MuscleWatchCard } from '../../components/Fitness';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { fmtLength, fmtWeight, MEASUREMENTS } from '../../logic/units';
 import { Card } from '../../components/ui/Card';
@@ -126,7 +125,7 @@ export function Body() {
           <Button variant="secondary" className="w-full" onClick={() => setSheet({ kind: 'measure' })}>Add measurements or body fat</Button>
         </>} />
 
-      {entries.some((e) => e.bodyFatPct !== undefined || e.leanKg !== undefined) && <MuscleWatchCard body={entries} units={units} med={peptide} doses={doses} now={now} />}
+      {/* Fat against lean since the loss began is the scale card's "What you've lost": said once, there. */}
 
       <VitalsCard personId={fam.personId} {...common} />
       {labs && vitals && <MarkersCard personId={fam.personId} heightCm={fam.people.find((p) => p.id === fam.personId)?.heightCm} labs={labs.filter((l) => personOf(l) === fam.personId)}

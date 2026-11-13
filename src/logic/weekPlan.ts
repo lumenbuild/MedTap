@@ -3,6 +3,7 @@
 // Pure.
 import type { Drivers, Driver } from './drivers';
 import type { Lever } from './aheadSmarts';
+import { LESS, MORE } from './drivers';
 
 export interface WeekCause { topic: string; result: string; label: string; days: number; usual: number; text: string; helps: boolean }
 export interface NextLever { title: string; why: string; kind: 'more' | 'less' | 'lever' }
@@ -10,13 +11,13 @@ export interface NextLever { title: string; why: string; kind: 'more' | 'less' |
 const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 // Only habits are levers. Medicines never are (doses are for the prescriber), and healthy habits are never something
 // to do less of, whatever a few weeks of data say.
-const LESS = new Set(['late-caffeine', 'alcohol', 'late-meal', 'salty']);
-const MORE = new Set(['steps', 'workout', 'mindful', 'protein']);
 const isMed = (key: string) => key.startsWith('med-');
 
 /** For each result, the drivers that ran well off their usual last week (Monday `from` to Sunday `to`, inclusive keys). */
 export function weekCauses(all: Drivers[], from: string, to: string, windowDays = 90): WeekCause[] {
-  const out: WeekCause[] = [];
+  // One line per thing, with everything it goes with: "Caffeine after 2 pm: 8 days (usually about 2), which goes with
+  // 0.4 lower focus and 1.7 bpm higher resting heart rate", not a line for each.
+  const by = new Map<string, WeekCause & { size: number; parts: string[]; helpsAll: boolean[] }>();
   for (const d of all) for (const x of d.drivers) {
     if (isMed(x.key)) continue;
     const days = x.on.filter((k) => k >= from && k <= to).length;
@@ -24,9 +25,15 @@ export function weekCauses(all: Drivers[], from: string, to: string, windowDays 
     if (Math.abs(days - usual) < 1.5) continue;
     // More of something that hurts, or less of something that helps, explains a worse week; the reverse a better one.
     const worse = (days > usual) !== x.helps;
-    out.push({ topic: d.topic, result: d.label, label: x.label, days, usual, helps: !worse,
-      text: `${x.label}: ${days} day${days === 1 ? '' : 's'} (usually about ${Math.round(usual)}), which goes with ${x.text} ${lower(d.label)}` });
+    const e = by.get(x.key) ?? { topic: d.topic, result: d.label, label: x.label, days, usual, helps: !worse, text: '', size: Math.abs(days - usual), parts: [], helpsAll: [] };
+    e.parts.push(`${x.text} ${lower(d.label)}`);
+    e.helpsAll.push(!worse);
+    by.set(x.key, e);
   }
+  const out: WeekCause[] = [...by.values()].map(({ size: _s, parts, helpsAll, ...c }) => ({
+    ...c, helps: helpsAll.every(Boolean),
+    text: `${c.label}: ${c.days} day${c.days === 1 ? '' : 's'} (usually about ${Math.round(c.usual)}), which goes with ${parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts[0]}`,
+  }));
   return out.sort((a, b) => Math.abs(b.days - b.usual) - Math.abs(a.days - a.usual)).slice(0, 5);
 }
 

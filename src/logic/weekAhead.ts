@@ -16,6 +16,7 @@ import { currentVial, stockVials, vialStatus } from './peptide';
 import { doseDecision } from './decisions';
 import { stackShop } from './stackSmart';
 import { fmtAmount } from './format';
+import { fmtLitres } from './format';
 
 const DAY = 86_400_000, HOUR = 3_600_000;
 const live = <T extends { deletedAt?: string }>(x: T) => !x.deletedAt;
@@ -151,7 +152,7 @@ export function weekAhead(d: AheadData, st: AheadSettings, now: number, s: Sched
     if (day.appetite === 'high') day.advice.push({ key: 'appetite-high', kind: 'food', text: 'A planned protein snack mid-afternoon, and high-volume meals', why: 'appetite usually back' });
     if (day.sleepDelta !== undefined && day.sleepDelta <= -20) day.advice.push({ key: 'sleep', kind: 'sleep', text: `Bed 30 minutes earlier; caffeine done by ${st.caffeineCutoff ?? '12 pm'}`, why: `sleep usually ${Math.abs(day.sleepDelta)} min shorter` });
     day.waterBoost = Math.min(1000, day.waterBoost); day.fibreBoost = Math.min(10, day.fibreBoost);
-    if (day.waterBoost && st.waterTargetMl) day.advice.push({ key: 'water', kind: 'water', text: `Water target ${r1((st.waterTargetMl + day.waterBoost) / 1000)} L`, why: `${day.waterBoost} mL more than usual` });
+    if (day.waterBoost && st.waterTargetMl) day.advice.push({ key: 'water', kind: 'water', text: `Water target ${fmtLitres(st.waterTargetMl + day.waterBoost)}`, why: `${day.waterBoost} mL more than usual` });
   }
   // Training: the hardest and easiest days, from heart rate, sleep and side effects.
   const strain = days.map((x) => (x.hrDelta ?? 0) / 2 + Math.max(0, -(x.sleepDelta ?? 0)) / 15 + x.effects.length * 1.5);
@@ -187,7 +188,7 @@ export function weekRisks(d: AheadData, st: AheadSettings, days: DayAhead[], now
   if (glp.length) {
     const alcoholDays = new Set(d.checkIns.filter((c) => live(c) && c.chips.some((x) => /alcohol/i.test(x)) && Date.parse(c.at) > now - 56 * DAY).map((c) => new Date(c.at).getDay()));
     const risky = days.filter((x) => alcoholDays.has(new Date(x.start + 12 * HOUR).getDay()) && (x.effects.some((e) => /nausea|reflux/i.test(e.chip)) || x.appetite === 'low'));
-    if (risky.length) out.push({ key: 'alcohol', level: 'watch', when: risky[0].start, title: `You usually have a drink ${on(risky[0].start + 12 * HOUR)}, when nausea or low appetite is likely`,
+    if (risky.length) out.push({ key: 'alcohol', level: 'watch', when: risky[0].start, title: (() => { const n = on(risky[0].start + 12 * HOUR); const day = n === 'today' || n === 'tomorrow' ? n : n.replace(/^on /, ''); return `Drinking ${day} could hit harder: nausea or low appetite is likely ${n === 'today' || n === 'tomorrow' ? 'then' : 'that day'}`; })(),
       detail: 'On a GLP-1, alcohol hits harder and on an empty stomach can bring on nausea and low blood sugar. Food with it, and water alongside.' });
   }
   // Dehydration: stomach side effects forecast, with water already under target lately.
@@ -195,7 +196,7 @@ export function weekRisks(d: AheadData, st: AheadSettings, days: DayAhead[], now
   const gi = days.filter((x) => x.effects.some((e) => /diarrh|nausea|vomit/i.test(e.chip)));
   if (gi.length && st.waterTargetMl && recentWater.length >= 3 && mean(recentWater) < st.waterTargetMl * 0.8)
     out.push({ key: 'dehydration', level: 'watch', when: gi[0].start, title: `Dehydration risk ${dayName(gi[0].start + 12 * HOUR)}`.replace(/ (Mon|Tue|Wed|Thu|Fri|Sat|Sun)/, ' on $1'),
-      detail: `Water has averaged ${r1(mean(recentWater) / 1000)} L against ${r1(st.waterTargetMl / 1000)} L, and stomach side effects are likely then. Start that day with water and electrolytes.` });
+      detail: `Water has averaged ${fmtLitres(mean(recentWater))} a day against your ${fmtLitres(st.waterTargetMl)} target, and stomach side effects are likely then${gi[0].waterBoost ? `, so that day's target is ${fmtLitres(st.waterTargetMl + gi[0].waterBoost)}` : ''}. Start the day with water and electrolytes.` });
   // Hard training on the strain day.
   const easy = days.find((x) => x.trainDay === 'easy');
   const trainsThen = easy && d.workouts.filter((w) => live(w) && Date.parse(w.startedAt) > now - 56 * DAY && new Date(w.startedAt).getDay() === new Date(easy.start + 12 * HOUR).getDay()).length >= 3;

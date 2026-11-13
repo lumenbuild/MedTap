@@ -134,12 +134,16 @@ export function WeeklyChangeChart({ entries, units, goalKg, now, weeks = 12 }: {
   );
 }
 
-/** The latest value, and how far it moved over the range shown ("−2.9 kg in 30 days"). */
+/** The latest value, and how far it moved over the range shown ("−2.9 kg in 30 days"), from the first and last few points. */
 export function trendHeadline(pts: Pt[], show: (v: number) => string, unit: string, start: number, end: number): Headline | null {
   if (!pts.length) return null;
   const last = pts[pts.length - 1], first = pts[0];
   const days = Math.max(1, Math.round((Math.min(end, last.t) - Math.max(start, first.t)) / DAY));
-  const diff = Number(show(last.v)) - Number(show(first.v));
+  // With enough points, the first and last few averaged: one odd reading at either end shouldn't flip the direction
+  // and contradict the trend cards below.
+  const ends = pts.length >= 6 ? 3 : 1;
+  const avg = (xs: Pt[]) => xs.reduce((a, p) => a + p.v, 0) / xs.length;
+  const diff = Number(show(avg(pts.slice(-ends)))) - Number(show(avg(pts.slice(0, ends))));
   if (pts.length < 2) return { value: show(last.v), unit };
   const r = Math.round(Math.abs(diff) * 10) / 10;
   return { value: show(last.v), unit, dir: r === 0 ? 'flat' : diff < 0 ? 'down' : 'up', delta: r === 0 ? `same as ${days} days ago` : `${diff < 0 ? '−' : '+'}${r} ${unit} in ${days} day${days === 1 ? '' : 's'}` };

@@ -24,12 +24,11 @@ import { getDayBounds, getExpectedAmount, getRecentDose } from '../logic/schedul
 import { logDose } from '../db/repos/doses';
 import { liveSnoozes, planReminders, snoozeOf, withoutSnoozed } from '../logic/notify';
 import { planTrainingReminders } from '../logic/trainingPlan';
-import { trainingVsPeptide } from '../logic/training';
+import { readiness, trainingVsPeptide } from '../logic/training';
 import { nextSession } from '../logic/coach';
 import { allExercises } from '../logic/exercises';
 import { wearOffToday } from '../logic/wearOff';
 import { isStimulant, secondDose, stimulantHours } from '../logic/stimulant';
-import { mindReadiness } from '../logic/biohack';
 import { cravingForecast } from '../logic/aheadSmarts';
 import { sickForecast, sickHeadline } from '../logic/sickness';
 import { stackShop } from '../logic/stackSmart';
@@ -249,7 +248,8 @@ async function syncExtras() {
         const w = wearOffToday(m, live, cis, dy, now, s);
         return w && w.at > now ? { name: shownName(m), from: w.dosedAt, to: w.at } : null;
       }).filter((x): x is NonNullable<typeof x> => !!x).sort((a, b) => b.to - a.to)[0];
-      const r = mindReadiness({ daily: dy, checkIns: cis, doses: live, meds: mine }, now, s);
+      // The same readiness as the app (Health, Today's rings), so the watch never shows a different number.
+      const r = readiness(dy, cis, now, s);
       return { ring, readiness: r?.score, chips: ['Nausea', 'Headache', 'Anxious', 'Wearing off', 'Heart racing', 'Tired'] };
     })() : undefined;
     // The watch app: today's doses, its own reminders, sleep, drinks and the heart-rate checks after a stimulant dose.

@@ -127,8 +127,8 @@ export function GoalRings() {
       {chips.length > 0 && (
         <ul className="flex flex-wrap gap-1.5">
           {chips.map((c) => (
-            <li key={c.label}><a href={c.href} className="inline-flex items-center gap-1.5 min-h-[36px] px-3 rounded-full bg-surface-2 text-[13px] tnum">
-              <span className="text-muted">{c.label}</span><span className={`font-semibold ${c.tone === 'good' ? 'text-success' : c.tone === 'watch' ? 'text-caution' : ''}`}>{c.value}</span></a></li>
+            <li key={c.label}><a href={c.href} className={`inline-flex items-center gap-1.5 min-h-[36px] px-3 rounded-full text-[13px] tnum ${c.tone === 'watch' ? 'bg-caution-soft' : 'bg-surface-2'}`}>
+              <span className="text-muted">{c.label}</span><span className={`font-semibold ${c.tone === 'good' ? 'text-success' : ''}`}>{c.value}</span></a></li>
           ))}
         </ul>
       )}
@@ -219,7 +219,7 @@ function SickRow({ item, f, settings, personId }: { item: PlanItem; f: SickForec
   );
 }
 
-export function SickBody({ f, settings, personId, compact = true }: { f: SickForecast; settings: AppSettings; personId: string; compact?: boolean }) {
+export function SickBody({ f, settings, personId, compact = true, readings = true }: { f: SickForecast; settings: AppSettings; personId: string; compact?: boolean; /** Each reading against usual (off on Health, where they're listed once above). */ readings?: boolean }) {
   const toast = useToast();
   const answered = settings.sickFeedback[f.date];
   const answer = async (v: 'sick' | 'fine') => {
@@ -242,7 +242,7 @@ export function SickBody({ f, settings, personId, compact = true }: { f: SickFor
           <p className="text-[11px] text-muted flex justify-between"><span>2 weeks ago</span><span>Last night</span></p>
         </div>
       )}
-      {!compact && f.all.length > 0 && (
+      {!compact && readings && f.all.length > 0 && (
         <ul className="grid grid-cols-2 gap-2">
           {f.all.map((x) => (
             <li key={x.key} className="rounded-btn bg-surface-2 p-2.5">
@@ -268,7 +268,8 @@ export function SickBody({ f, settings, personId, compact = true }: { f: SickFor
   );
 }
 
-/** Health: the sickness watch, always on show (clear or not), with every signal against usual. */
+/** Health: the sickness watch, always on show (clear or not): the score, the last two weeks, and what's off. The
+ *  readings themselves are listed once, in "Against your usual" above it. */
 export function SickCard() {
   const t = useToday();
   if (!t?.sick) return null;
@@ -282,7 +283,8 @@ export function SickCard() {
           <p className="text-[15px]">{f.level === 'clear' ? 'Nothing off together last night.' : f.level === 'likely' ? 'Your body may be fighting something.' : 'Early signs your body is under strain.'}</p>
         </div>
       </div>
-      <SickBody f={f} settings={t.settings} personId={t.personId} compact={false} />
+      {f.off.length > 0 && <p className="text-[14px]">Off together: {f.off.map((x) => `${x.label} ${x.text}`).join(' · ')}</p>}
+      <SickBody f={f} settings={t.settings} personId={t.personId} compact={false} readings={false} />
       <p className="text-[12px] text-muted flex items-center gap-1"><HeartPulse size={12} aria-hidden="true" />From your watch's overnight readings, against your own usual. A nudge, not a diagnosis.</p>
     </section>
   );
