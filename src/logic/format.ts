@@ -70,7 +70,9 @@ export function fmtCountdownLong(ms: number): string {
 
 /** "10 mg", "1.5 tablets" */
 export function fmtAmount(amount: number, unit: string): string {
-  const n = Number(amount.toFixed(3)).toString();
+  // As precise as is useful: whole numbers from 100 (149 mcg, not 149.254), one place from 10, up to three below.
+  const a = Math.abs(amount);
+  const n = Number(amount.toFixed(a >= 100 ? 0 : a >= 10 ? 1 : 3)).toString();
   if (unit === 'tablet') return `${n} tablet${amount === 1 ? '' : 's'}`;
   return `${n} ${unit}`;
 }

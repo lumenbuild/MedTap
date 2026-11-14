@@ -43,7 +43,7 @@ import { MedPatterns } from '../../components/Smart';
 import { HowToTakeCard } from '../../components/HowToTake';
 import { CountButton, countsFromPhoto } from '../../components/CountSheet';
 import { DrawGuide, syringeSizes } from '../../components/Syringe';
-import { SYRINGES } from '../../logic/peptide';
+import { SYRINGES, bottleSprays, liquidForSprays, sprayFor } from '../../logic/peptide';
 import type { LabelDetails } from '../../logic/label';
 import { HAS_PEPTIDES } from '../../edition';
 import { MedHero, MedBodyEffects } from '../../components/MedHero';
@@ -54,7 +54,7 @@ import { fmtAmount, fmtSchedule } from '../../logic/format';
 import { GuideFound, MedGuideCard } from '../../components/MedGuide';
 
 const UNITS = ['mg', 'mcg', 'mL', 'units', 'tablet'];
-const FORMS = ['tablet', 'capsule', 'liquid', 'patch', 'injection', 'other'];
+const FORMS = ['tablet', 'capsule', 'liquid', 'patch', 'injection', 'nasal spray', 'other'];
 
 interface Form extends ScheduleForm {
   name: string; strength: string; unit: string; form: string;
@@ -62,7 +62,9 @@ interface Form extends ScheduleForm {
   repeatsLeft: string; scriptExpiry: string;
   instructions: string; instructionsBy: string; nickname: string; privateView: '' | 'show' | 'cover' | 'hide'; coverName: string;
   /** Mixed from a powder vial (peptide tools). */
-  mixed: boolean; kind: 'vial' | 'pen'; waterMl: string; syringe: SyringeType; syringeUnits: string; useWithinDays: string;
+  mixed: boolean; kind: 'vial' | 'pen' | 'nasal'; waterMl: string; syringe: SyringeType; syringeUnits: string; useWithinDays: string;
+  /** Nasal spray: mL a spray, and sprays used priming a new bottle. */
+  sprayMl: string; primeSprays: string;
   amountPerClick: string; blend: { name: string; amount: string; unit: string }[]; halfLife: string; halfLifeUnit: 'hours' | 'days';
   /** Who takes it ('' until the family list loads). */
   personId: string;
@@ -75,7 +77,7 @@ const blank: Form = {
   name: '', strength: '', unit: 'mg', form: 'tablet',
   color: MED_COLOURS[0].value, icon: 'pill', stockCount: '', lowStockAt: '', scriptNotes: '',
   repeatsLeft: '', scriptExpiry: '', instructions: '', instructionsBy: '', nickname: '', privateView: '', coverName: '', personId: '',
-  mixed: false, kind: 'vial', waterMl: '', syringe: 'U-100', syringeUnits: '50', useWithinDays: '',
+  mixed: false, kind: 'vial', waterMl: '', syringe: 'U-100', syringeUnits: '50', useWithinDays: '', sprayMl: '0.1', primeSprays: '5',
   amountPerClick: '', blend: [], halfLife: '', halfLifeUnit: 'days', ingredients: '', cost: '',
 };
 
@@ -92,6 +94,7 @@ function fromMed(m: Medication): Form {
     personId: m.shared ? 'shared' : personOf(m),
     mixed: !!m.peptide, kind: m.peptide?.kind ?? 'vial', waterMl: str(m.peptide?.waterMl), syringe: m.peptide?.syringe ?? 'U-100',
     syringeUnits: str(m.peptide?.syringeUnits) || '50', useWithinDays: str(m.peptide?.useWithinDays),
+    sprayMl: str(m.peptide?.sprayMl) || '0.1', primeSprays: str(m.peptide?.primeSprays ?? 5),
     amountPerClick: str(m.peptide?.amountPerClick), blend: (m.peptide?.blend ?? []).map((b) => ({ ...b, amount: String(b.amount) })),
     // Half-lives of a day or more read better in days.
     halfLife: !m.peptide?.halfLifeHours ? '' : m.peptide.halfLifeHours >= 24 ? str(Math.round((m.peptide.halfLifeHours / 24) * 100) / 100) : str(m.peptide.halfLifeHours),
@@ -113,7 +116,8 @@ function toInput(f: Form, before?: Medication): MedInput {
     instructions, instructionsBy: instructions ? f.instructionsBy.trim() || undefined : undefined,
     peptide: f.mixed ? {
       kind: f.kind,
-      waterMl: f.kind === 'vial' ? Number(f.waterMl) : 0, syringe: f.syringe, syringeUnits: Number(f.syringeUnits) || 50,
+      waterMl: f.kind !== 'pen' ? Number(f.waterMl) : 0, syringe: f.syringe, syringeUnits: Number(f.syringeUnits) || 50,
+      ...(f.kind === 'nasal' ? { sprayMl: Number(f.sprayMl) > 0 ? Number(f.sprayMl) : 0.1, primeSprays: Number(f.primeSprays) >= 0 && f.primeSprays.trim() !== '' ? Number(f.primeSprays) : 5 } : {}),
       useWithinDays: num(f.useWithinDays), mixedAt: before?.peptide?.mixedAt,
       amountPerClick: f.kind === 'pen' ? num(f.amountPerClick) : undefined,
       blend: f.kind === 'vial' ? f.blend.filter((b) => b.name.trim() && Number(b.amount) > 0).map((b) => ({ name: b.name.trim(), amount: Number(b.amount), unit: b.unit })) : undefined,
@@ -136,6 +140,8 @@ function validate(f: Form): Errors {
   if (f.mixed) {
     if (!(Number(f.strength) > 0)) e.strength = 'Enter the amount in each vial.';
     if (f.kind === 'vial' && !(Number(f.waterMl) > 0)) e.waterMl = 'Enter the water you add, in mL.';
+    if (f.kind === 'nasal' && !(Number(f.waterMl) > 0)) e.waterMl = 'Enter the liquid you add to the bottle, in mL.';
+    if (f.kind === 'nasal' && !(Number(f.sprayMl) > 0 && Number(f.sprayMl) <= 1)) e.sprayMl = 'mL a spray: usually 0.1 (check the pump).';
     if (f.amountPerClick.trim() && !(Number(f.amountPerClick) > 0)) e.amountPerClick = 'Enter a number above 0, or leave it blank.';
     if (f.halfLife.trim() && !(Number(f.halfLife) > 0)) e.halfLife = 'Enter a number above 0, or leave it blank.';
     if (f.useWithinDays.trim() && !(Number(f.useWithinDays) >= 1)) e.useWithinDays = 'Enter a number of days, or leave it blank.';
@@ -191,6 +197,14 @@ function fromGuide(p: Form, g: GuideEntry, keepName?: string, split = false): Fo
   const m = guideMed(g, Date.now(), split, savedVial(g.id));
   const filled = fromMed({ ...m, id: '', createdAt: '', updatedAt: '', archived: false, color: p.color, icon: 'syringe' });
   return { ...filled, name: keepName ?? filled.name, personId: p.personId };
+}
+
+/** A peptide from the guide made up as a nasal spray instead of injected: liquid chosen so the usual dose is 2 sprays
+ *  at 0.1 mL a spray (between 2 and 15 mL), priming 5 sprays. */
+function asNasal(p: Form): Form {
+  const amount = Number(p.strength), dose = Number(p.defaultAmount);
+  const ml = amount > 0 && dose > 0 ? Math.min(15, Math.max(2, Math.round(liquidForSprays(dose, amount, 2, 0.1) * 10) / 10)) : 5;
+  return { ...p, form: 'nasal spray', mixed: true, kind: 'nasal', waterMl: String(ml), sprayMl: '0.1', primeSprays: '5', icon: 'pill' };
 }
 
 export type MedView = 'overview' | 'plan' | 'stock' | 'patterns' | 'details';
@@ -372,6 +386,11 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
             <p>Filled in from the <a href={`#/guide/${g.id}`} className="underline underline-offset-4 font-medium">{g.name} guide</a>: {savedVial(g.id) ? 'your' : 'a'} {fmtDose(Number(f.strength) || g.vials[0].amount, g.unit)} vial with {f.waterMl || g.vials[0].waterMl} mL of water, U-100 syringes and its usual schedule.{savedVial(g.id) ? '' : ' Check the vial size against your label.'}</p>
             <p className="text-sm">The dose is set to {fmtDose(split ? g.setup.defaultAmount / 2 : g.setup.defaultAmount, g.unit)}{split ? ' a shot' : ''}, {split ? 'half the usual weekly starting dose' : 'the usual starting dose'}. Change anything to match your vial and your plan.</p>
             {canSplit(g) && <Switch label="Two shots a week" checked={split} onChange={(v) => { setSplit(v); setF((p) => fromGuide(p, g, p.name, v)); }}>Half the weekly amount, 3 and 4 days apart, for a steadier level.</Switch>}
+            {/nose|nasal/i.test(g.route) && (
+              <Switch label="As a nasal spray" checked={f.kind === 'nasal'} onChange={(v) => setF((p) => (v ? asNasal(p) : fromGuide(p, g, p.name)))}>
+                Made up in a pump spray bottle: the liquid is set so your dose is 2 sprays (1 in each nostril).
+              </Switch>
+            )}
             {(g.steps || g.lowest) && (
               <div className="space-y-1.5 pt-1">
                 <Segmented label="Stepping up" value={stepMode} onChange={setStepMode}
@@ -412,7 +431,7 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
         <h2 className="text-sm font-medium text-muted">Medication</h2>
         <TextInput label="Name" value={f.name} onChange={(e) => set('name', e.target.value)} error={errors.name} autoComplete="off" autoFocus={!id} />
         <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
-          <TextInput label={f.mixed ? (f.kind === 'pen' ? 'Amount in each pen' : 'Amount in each vial') : 'Strength'} type="number" inputMode="decimal" min="0" step="any" value={f.strength} onChange={(e) => set('strength', e.target.value)} error={errors.strength} />
+          <TextInput label={f.mixed ? (f.kind === 'pen' ? 'Amount in each pen' : f.kind === 'nasal' ? 'Powder in each bottle (vial)' : 'Amount in each vial') : 'Strength'} type="number" inputMode="decimal" min="0" step="any" value={f.strength} onChange={(e) => set('strength', e.target.value)} error={errors.strength} />
           <Select label="Unit" value={f.unit} onChange={(e) => set('unit', e.target.value)}>
             {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
           </Select>
@@ -420,7 +439,7 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
         <Select label="Form" value={f.form} onChange={(e) => set('form', e.target.value)}>
           {FORMS.map((x) => <option key={x} value={x}>{x[0].toUpperCase() + x.slice(1)}</option>)}
         </Select>
-        {HAS_PEPTIDES && (f.mixed || (settings?.peptideTools && f.form === 'injection')) && <MixedVialFields f={f} set={set} errors={errors} vials={existing?.vials} />}
+        {HAS_PEPTIDES && (f.mixed || (settings?.peptideTools && (f.form === 'injection' || f.form === 'nasal spray'))) && <MixedVialFields f={f} set={set} errors={errors} vials={existing?.vials} />}
         {fam?.many && (
           <Select label="Who is this for?" value={f.personId || fam.personId} onChange={(e) => set('personId', e.target.value)}
             help={f.personId === 'shared' ? 'One stock for everyone' : undefined}>
@@ -629,7 +648,7 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
   );
 }
 
-/** Injections (peptide tools): a vial mixed with water, or a pre-filled pen. */
+/** Peptide tools: a vial mixed with water, a pre-filled pen, or a powder made up into a nasal spray. */
 function MixedVialFields({ f, set, errors, vials }: { f: Form; set: <K extends keyof Form>(k: K, v: Form[K]) => void; errors: Errors; vials?: Medication['vials'] }) {
   const sizes = syringeSizes(f.syringe);
   const preview = {
@@ -639,15 +658,45 @@ function MixedVialFields({ f, set, errors, vials }: { f: Form; set: <K extends k
   };
   return (
     <div className="rounded-btn bg-surface-2 p-3 space-y-3">
-      <Select label="How is it injected?" value={f.mixed ? f.kind : 'neither'} onChange={(e) => {
-        const v = e.target.value;
-        set('mixed', v !== 'neither');
-        if (v !== 'neither') set('kind', v as 'vial' | 'pen');
-      }}>
-        <option value="neither">Something else</option>
-        <option value="vial">A vial I mix with water</option>
-        <option value="pen">A pre-filled pen</option>
-      </Select>
+      {f.form === 'nasal spray' || f.kind === 'nasal' ? (
+        <Select label="How is it made?" value={f.mixed ? 'nasal' : 'neither'} onChange={(e) => {
+          const v = e.target.value;
+          set('mixed', v === 'nasal');
+          if (v === 'nasal') { set('kind', 'nasal'); if (!f.waterMl) set('waterMl', '5'); }
+        }}>
+          <option value="neither">A ready-made spray</option>
+          <option value="nasal">A powder I mix into a spray bottle</option>
+        </Select>
+      ) : (
+        <Select label="How is it injected?" value={f.mixed ? f.kind : 'neither'} onChange={(e) => {
+          const v = e.target.value;
+          set('mixed', v !== 'neither');
+          if (v !== 'neither') set('kind', v as 'vial' | 'pen');
+        }}>
+          <option value="neither">Something else</option>
+          <option value="vial">A vial I mix with water</option>
+          <option value="pen">A pre-filled pen</option>
+        </Select>
+      )}
+      {f.mixed && f.kind === 'nasal' && (
+        <>
+          <TextInput label="Liquid added to a bottle (mL)" type="number" inputMode="decimal" min="0" step="any" value={f.waterMl}
+            help="Bacteriostatic water or saline, as you make it up." onChange={(e) => set('waterMl', e.target.value)} error={errors.waterMl} />
+          <div className="grid grid-cols-2 gap-3 items-start">
+            <TextInput label="mL per spray" type="number" inputMode="decimal" min="0" step="any" value={f.sprayMl}
+              help="Most pumps 0.1" onChange={(e) => set('sprayMl', e.target.value)} error={errors.sprayMl} />
+            <TextInput label="Priming sprays" type="number" inputMode="numeric" min="0" step="1" value={f.primeSprays}
+              help="Wasted on a new pump" onChange={(e) => set('primeSprays', e.target.value)} />
+          </div>
+          {(() => {
+            const amt = Number(f.strength), liq = Number(f.waterMl), ml = Number(f.sprayMl) || 0.1, dose = Number(f.defaultAmount);
+            if (!(amt > 0) || !(liq > 0) || !(dose > 0)) return null;
+            const sp = sprayFor(dose, amt, liq, ml);
+            const n = bottleSprays(liq, ml, Number(f.primeSprays) || 0);
+            return <p className="text-[15px] tnum rounded-btn bg-surface p-3">{fmtAmount(sp.perSpray, f.unit)} a spray · your dose is <strong>{sp.sprays} spray{sp.sprays === 1 ? '' : 's'}</strong> ({sp.split}) · about {Math.floor(n / sp.sprays)} doses a bottle</p>;
+          })()}
+        </>
+      )}
       {f.mixed && f.kind === 'vial' && (
         <>
           <TextInput label="Water usually added to a vial (mL)" type="number" inputMode="decimal" min="0" step="any" value={f.waterMl}
@@ -669,7 +718,7 @@ function MixedVialFields({ f, set, errors, vials }: { f: Form; set: <K extends k
       )}
       {f.mixed && (
         <>
-          <TextInput label={f.kind === 'pen' ? 'Use a pen within (days of first use, optional)' : 'Use a mixed vial within (days, optional)'}
+          <TextInput label={f.kind === 'pen' ? 'Use a pen within (days of first use, optional)' : f.kind === 'nasal' ? 'Use a made-up bottle within (days, optional)' : 'Use a mixed vial within (days, optional)'}
             type="number" inputMode="numeric" min="1" step="1" value={f.useWithinDays} onChange={(e) => set('useWithinDays', e.target.value)} error={errors.useWithinDays} />
           <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
             <TextInput label="Half-life (optional)"

@@ -10,7 +10,7 @@ import { useNow } from '../../app/useNow';
 import { go } from '../../app/router';
 import { getExpectedAmount, getNextDue, getStatus, type ScheduleSettings } from '../../logic/schedule';
 import { fmtAmount, fmtTime, fmtWhen } from '../../logic/format';
-import { guideText, isPen, stockVials, SUPPLY_LABELS, vialStatus } from '../../logic/peptide';
+import { guideText, isPen, stockVials, SUPPLY_LABELS, vialStatus, containerWord, isNasal, startedWord } from '../../logic/peptide';
 import { DEFAULT_LEAD_DAYS, lotStats, stockPlan, supplyPlans } from '../../logic/protocol';
 import { appetiteCurve, bestShotDay, changeFlags, lateShots, sideEffectForecast, vialRest, weekFindings, weekRecords, weightPath } from '../../logic/predict';
 import type { Units } from '../../db/repos/settings';
@@ -155,13 +155,15 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
   const missed = missedShot(med, doses, now, s);
   const vial = vialStatus(med, doses, now);
   const rest = vialRest(med, doses, now, s);
-  const restText = rest ? vialRestText(rest, med.unit, pen) : '';
+  const restText = rest ? vialRestText(rest, med.unit, containerWord(med)) : '';
   // What the vial or pen means for the next shot: the one thing to do, if anything.
-  const word = pen ? 'pen' : 'vial';
+  const word = containerWord(med);
+  const nasal = isNasal(med);
+  const shot = nasal ? 'dose' : 'shot';
   const problem = !vial ? `No ${word} in use`
     : vial.expired ? `This ${word} is past its use-by`
-    : vial.left + 1e-9 < nextAmount ? `Not enough left in this ${word} for the next shot`
-    : vial.useBy !== undefined && next !== null && next > vial.useBy ? `This ${word} passes its use-by before the next shot` : null;
+    : vial.left + 1e-9 < nextAmount ? `Not enough left in this ${word} for the next ${shot}`
+    : vial.useBy !== undefined && next !== null && next > vial.useBy ? `This ${word} passes its use-by before the next ${shot}` : null;
   // Predictions and look-backs, from this person's own records.
   const flags = changeFlags(med, doses, checkIns, HAS_BODY ? body : [], now);
   const fc = sideEffectForecast(med, doses, checkIns, now, s);
@@ -186,7 +188,7 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
     <>
       {showOverview && <>
       {/* 1. The next shot: when, how much, what to draw, and the vial or pen it comes from. */}
-      <section aria-label={`${shownName(med)}: next shot`} className="hero pep space-y-4">
+      <section aria-label={`${shownName(med)}: next ${isNasal(med) ? 'dose' : 'shot'}`} className="hero pep space-y-4">
         {part === 'all' && (
           <a href={`#/meds/${med.id}`} className="flex items-center gap-2.5">
             <MedBadge color={shownColour(med)} icon={med.icon} size={30} />
@@ -195,9 +197,9 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
           </a>
         )}
         <div>
-          <p className="hero-label">Next shot</p>
+          <p className="hero-label">{nasal ? 'Next dose' : 'Next shot'}</p>
           <p className="mt-1 text-[34px] leading-[38px] font-bold tracking-[-0.02em] tnum">{when}</p>
-          {nextAmount > 0 && <p className="text-[17px] tnum mt-1">{fmtAmount(nextAmount, med.unit)}{guide ? <> · <span className="font-semibold">{pen ? guide : `draw ${guide}`}</span></> : null}</p>}
+          {nextAmount > 0 && <p className="text-[17px] tnum mt-1">{fmtAmount(nextAmount, med.unit)}{guide ? <> · <span className="font-semibold">{pen || nasal ? guide : `draw ${guide}`}</span></> : null}</p>}
           {plan && <p className="text-sm text-muted mt-1">{plan}</p>}
           {missed && <p className={`text-sm mt-2 rounded-btn p-2.5 ${missed.take ? 'bg-caution-soft' : 'bg-surface-2'}`}>{missed.text}</p>}
           <CourseBar med={med} now={now} s={s} />
@@ -207,14 +209,14 @@ function PeptideSection({ med, doses, s, now, body, checkIns, units, busy, goal,
           {problem ? <p className="font-medium flex items-center gap-2"><AlertTriangle size={18} aria-hidden="true" className="shrink-0" />{problem}</p> : (
             <p className="tnum"><span className="font-medium">{vial!.dosesLeft} dose{vial!.dosesLeft === 1 ? '' : 's'} left</span> in this {word}{vial!.useBy ? <span className="text-muted"> · use by {day(vial!.useBy)}</span> : null}</p>
           )}
-          {vial && <p className="text-sm text-muted tnum">{pen ? 'Started' : 'Mixed'} {day(vial.startedAt)}{problem ? ` · ${vial.dosesLeft} dose${vial.dosesLeft === 1 ? '' : 's'} left` : ''}</p>}
+          {vial && <p className="text-sm text-muted tnum">{startedWord(med)} {day(vial.startedAt)}{problem ? ` · ${vial.dosesLeft} dose${vial.dosesLeft === 1 ? '' : 's'} left` : ''}</p>}
           {/* With a problem shown, the vial's own "not enough for the next dose" would only say it again. */}
           {restText && !problem && <p className={`text-sm tnum ${rest?.ends === 'use-by' && rest.leftover > 0 ? 'text-caution' : 'text-muted'}`}>{restText}</p>}
         </div>
         <div className="grid grid-cols-2 gap-2">
           {problem
-            ? <><Button className="min-h-[52px] hero-btn" onClick={() => setSheet('start')}>{pen ? 'Start a new pen' : 'Mix a new vial'}</Button><Button variant="secondary" className="min-h-[52px]" onClick={() => setSheet('log')}>Log shot</Button></>
-            : <><Button className="min-h-[52px] hero-btn" onClick={() => setSheet('log')}>Log shot</Button>{!pen ? <Button variant="secondary" className="min-h-[52px]" onClick={() => go('/calc')}>Calculator</Button> : <Button variant="secondary" className="min-h-[52px]" onClick={() => go(`/meds/${med.id}`)}>Pen details</Button>}</>}
+            ? <><Button className="min-h-[52px] hero-btn" onClick={() => setSheet('start')}>{pen ? 'Start a new pen' : nasal ? 'Make up a new bottle' : 'Mix a new vial'}</Button><Button variant="secondary" className="min-h-[52px]" onClick={() => setSheet('log')}>{nasal ? 'Log dose' : 'Log shot'}</Button></>
+            : <><Button className="min-h-[52px] hero-btn" onClick={() => setSheet('log')}>{nasal ? 'Log dose' : 'Log shot'}</Button>{!pen ? <Button variant="secondary" className="min-h-[52px]" onClick={() => go(`/calc/${med.id}`)}>Calculator</Button> : <Button variant="secondary" className="min-h-[52px]" onClick={() => go(`/meds/${med.id}`)}>Pen details</Button>}</>}
         </div>
       </section>
 

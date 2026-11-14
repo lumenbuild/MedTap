@@ -28,7 +28,7 @@ export interface StrengthChange { vial: PeptideVial; was: number; now: number; u
 /** The vial in use is a different strength (mg per mL) from the one before it: the same dose is a different number of
  *  units. Until it's confirmed (`checkedAt`), every dose says so. Pens and unchanged strengths: null. */
 export function strengthChange(med: Medication, dose = med.defaultAmount): StrengthChange | null {
-  if (!med.peptide || med.peptide.kind === 'pen' || !(dose > 0)) return null;
+  if (!med.peptide || med.peptide.kind === 'pen' || med.peptide.kind === 'nasal' || !(dose > 0)) return null;
   const cur = currentVial(med);
   if (!cur?.waterMl || !cur.startedAt) return null;
   const prev = vialsOf(med).filter((v) => v.status === 'finished' && v.waterMl && v.startedAt && v.startedAt < cur.startedAt!)

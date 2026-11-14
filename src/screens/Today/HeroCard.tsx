@@ -9,7 +9,7 @@ import { fmtAmount, fmtCountdownLong, fmtHHmm, fmtSchedule, fmtTime, fmtWhen } f
 import { nextPlannedChange } from '../../logic/plans';
 import { dayKey } from '../../logic/stats';
 import { stockUnitsFor } from '../../logic/stock';
-import { doseGuide, fmtUnits, isPen, vialStatus } from '../../logic/peptide';
+import { doseGuide, fmtUnits, isPen, vialStatus, containerWord, startedWord } from '../../logic/peptide';
 import { Button } from '../../components/ui/Button';
 import { MedBadge } from '../../components/MedBadge';
 
@@ -104,6 +104,11 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer, pe
               <p className="text-2xl font-medium tnum">Draw to {fmtUnits(guide.draw.units)}</p>
               <p className="text-[15px] text-muted tnum">{fmtAmount(nextAmount, med.unit)} · {guide.syringe} syringe · {guide.waterMl} mL in the vial</p>
             </>
+          ) : guide.kind === 'spray' ? (
+            <>
+              <p className="text-2xl font-medium tnum">{guide.spray.sprays} spray{guide.spray.sprays === 1 ? '' : 's'}</p>
+              <p className="text-[15px] text-muted tnum">{guide.spray.split} · {fmtAmount(guide.spray.delivered, med.unit)}</p>
+            </>
           ) : (
             <>
               <p className="text-2xl font-medium tnum">{guide.clicks !== undefined ? `Dial ${guide.clicks} click${guide.clicks === 1 ? '' : 's'}` : `Dial ${fmtAmount(nextAmount, med.unit)}`}</p>
@@ -112,7 +117,7 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer, pe
           )}
           {vial && (
             <p className={`text-[15px] tnum ${vial.expired || vial.dosesLeft <= 1 ? 'text-caution font-medium' : 'text-muted'}`}>
-              {pen ? 'Pen' : 'Vial'} {pen ? 'started' : 'mixed'} {fmtDay(vial.startedAt)} · {vial.dosesLeft} dose{vial.dosesLeft === 1 ? '' : 's'} left
+              {containerWord(med).replace(/^./, (c) => c.toUpperCase())} {startedWord(med).toLowerCase()} {fmtDay(vial.startedAt)} · {vial.dosesLeft} dose{vial.dosesLeft === 1 ? '' : 's'} left
               {vial.useBy ? ` · ${vial.expired ? 'past use-by' : 'use by'} ${fmtDay(vial.useBy)}` : ''}
             </p>
           )}
@@ -134,7 +139,7 @@ export function HeroCard({ med, doses, s, now, onLog, className = '', footer, pe
 /** "10 mg · 1 tablet" or "Draw to 25 units" for one dose. */
 function doseText(med: Medication, amount: number): string {
   const guide = med.peptide && amount > 0 ? doseGuide(med, amount) : undefined;
-  if (guide) return guide.kind === 'draw' ? `Draw to ${fmtUnits(guide.draw.units)} · ${fmtAmount(amount, med.unit)}` : guide.clicks !== undefined ? `Dial ${guide.clicks} clicks · ${fmtAmount(amount, med.unit)}` : fmtAmount(amount, med.unit);
+  if (guide) return guide.kind === 'draw' ? `Draw to ${fmtUnits(guide.draw.units)} · ${fmtAmount(amount, med.unit)}` : guide.kind === 'spray' ? `${guide.spray.sprays} spray${guide.spray.sprays === 1 ? '' : 's'} · ${fmtAmount(amount, med.unit)}` : guide.clicks !== undefined ? `Dial ${guide.clicks} clicks · ${fmtAmount(amount, med.unit)}` : fmtAmount(amount, med.unit);
   const units = amount > 0 && med.strength > 0 && med.unit !== 'tablet' ? stockUnitsFor(med, amount) : null;
   const how = units !== null ? `${units} ${med.form === 'other' ? 'units' : `${med.form}${units === 1 ? '' : 's'}`}` : null;
   return [amount > 0 ? fmtAmount(amount, med.unit) : null, how].filter(Boolean).join(' · ');

@@ -13,7 +13,7 @@ import { logDose, removeDose, type NewDose } from '../db/repos/doses';
 import { FIXED_MATCH_MS, getContextNotes, getExpectedAmount, getFixedSlots, getLastDose, getRecentDose, unloggedSlots, type ContextNote, type ScheduleSettings } from '../logic/schedule';
 import { stockUnitsFor } from '../logic/stock';
 import { doseCheck } from '../logic/doseCheck';
-import { currentVial, doseForUnits, drawFor, vialForTag } from '../logic/peptide';
+import { currentVial, doseForUnits, drawFor, vialForTag, sprayFor, DEFAULT_SPRAY_ML } from '../logic/peptide';
 import { DrawGuide } from './Syringe';
 import { MedInstructions } from './MedInstructions';
 import { fmtAgo, fmtAmount, fmtDuration, fmtHHmm, fmtTime, fmtWhen, fromLocalInput, toLocalInput } from '../logic/format';
@@ -65,7 +65,7 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, vialId, onLog
   // The amount follows the plan for this dose (e.g. 20, 20, then 10 mg) until the person changes it.
   const [amountEdit, setAmountEdit] = useState<number | null>(null);
   // Peptide tools: syringe units for mixed vials.
-  // Units come from the vial in use (its own amount and water); pens are dialled, not drawn.
+  // Units come from the vial in use (its own amount and water); pens are dialled, not drawn; nasal sprays are counted in sprays.
   const inUse = med.peptide ? vialForTag(med, vialId).vial ?? currentVial(med) : undefined;
   const vialAmount = inUse?.amount ?? med.strength;
   const vialWater = inUse?.waterMl ?? med.peptide?.waterMl ?? 0;
@@ -247,17 +247,20 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, vialId, onLog
       )}
       <div className="space-y-1.5">
         <span className="block text-sm font-medium">Amount</span>
-        {vial && inUnits ? (
+        {vial && inUnits && vial.kind === 'nasal' ? (() => {
+          const per = sprayFor(1, vialAmount, vial.waterMl, vial.sprayMl ?? DEFAULT_SPRAY_ML).perSpray;
+          return <Stepper label="Sprays" value={Math.round(amount / per)} onChange={(n) => setAmountEdit(Number.isFinite(n) ? Math.round(n) * per : NaN)} step={1} suffix="sprays" />;
+        })() : vial && inUnits ? (
           <Stepper label="Syringe units" value={drawFor(amount, vialAmount, vial.waterMl, vial.syringe).units}
             onChange={(u) => setAmountEdit(Number.isFinite(u) ? doseForUnits(u, vialAmount, vial.waterMl, vial.syringe) : NaN)} step={1} suffix="units" />
         ) : (
           <Stepper label="Amount" value={amount} onChange={setAmountEdit}
-            step={vial ? doseForUnits(1, vialAmount, vial.waterMl, vial.syringe) : med.strength > 0 && med.unit !== 'tablet' ? med.strength : 1}
+            step={vial ? (vial.kind === 'nasal' ? sprayFor(1, vialAmount, vial.waterMl, vial.sprayMl ?? DEFAULT_SPRAY_ML).perSpray : doseForUnits(1, vialAmount, vial.waterMl, vial.syringe)) : med.strength > 0 && med.unit !== 'tablet' ? med.strength : 1}
             suffix={med.unit === 'tablet' ? 'tablets' : med.unit} />
         )}
         {vial && (
           <button type="button" onClick={() => setInUnits(!inUnits)} className="min-h-[44px] text-sm text-primary font-semibold">
-            {inUnits ? `Enter in ${med.unit}` : 'Enter in syringe units'}
+            {inUnits ? `Enter in ${med.unit}` : vial.kind === 'nasal' ? 'Enter in sprays' : 'Enter in syringe units'}
           </button>
         )}
         {vial ? <p className="text-sm tnum">{inUnits && amount > 0 ? `= ${fmtAmount(amount, med.unit)}` : ''}</p>
