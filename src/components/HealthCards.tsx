@@ -103,15 +103,16 @@ export function LoadCard({ load, vo2 }: { load: TrainingLoad | null; vo2: Return
 }
 
 /** Calories in against calories out, and what that means for weight. */
-export function EnergyCard({ e }: { e: EnergyBalance }) {
+/** Calories in and out, on Food. The usual burn is the app's one figure (usualBurn); where the weight is heading is on Body. */
+export function EnergyCard({ e, usual }: { e: EnergyBalance; usual?: { kcal: number; from: string } | null }) {
   const max = Math.max(1, ...e.days.flatMap((d) => [d.burned ?? 0, d.eaten ?? 0]));
   return (
     <section className="box space-y-3" aria-labelledby="en-h">
       <h2 id="en-h" className="text-sm font-medium text-muted flex items-center gap-1.5"><Flame size={16} aria-hidden="true" />Energy in and out</h2>
       <dl className="grid grid-cols-3 gap-2 tnum">
-        <div className="rounded-card bg-surface-2 p-3"><dt className="text-[12px] text-muted">Burned today</dt><dd className="text-[20px] font-bold">{e.today.burned !== undefined ? n0(e.today.burned) : '–'}</dd></div>
+        <div className="rounded-card bg-surface-2 p-3"><dt className="text-[12px] text-muted">Burned today (watch)</dt><dd className="text-[20px] font-bold">{e.today.burned !== undefined ? n0(e.today.burned) : '–'}</dd></div>
         <div className="rounded-card bg-surface-2 p-3"><dt className="text-[12px] text-muted">Eaten today</dt><dd className="text-[20px] font-bold">{e.today.eaten !== undefined ? n0(e.today.eaten) : '–'}</dd></div>
-        <div className="rounded-card bg-surface-2 p-3"><dt className="text-[12px] text-muted">Usual burn</dt><dd className="text-[20px] font-bold">{e.watchMaintenance ? n0(e.watchMaintenance) : '–'}</dd></div>
+        <div className="rounded-card bg-surface-2 p-3"><dt className="text-[12px] text-muted">Usual burn</dt><dd className="text-[20px] font-bold">{usual ? n0(usual.kcal) : e.watchMaintenance ? n0(e.watchMaintenance) : '–'}</dd></div>
       </dl>
       <div role="img" aria-label={`Last 2 weeks, burned and eaten each day: ${e.days.map((d) => `${d.date.slice(5)} ${d.burned ?? '–'} / ${d.eaten ?? '–'}`).join(', ')}`}>
         <div className="flex items-end gap-1 h-20" aria-hidden="true">
@@ -127,9 +128,9 @@ export function EnergyCard({ e }: { e: EnergyBalance }) {
           <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: 'var(--c-body)' }} />Eaten</span>
         </p>
       </div>
-      {e.avgBalance !== undefined ? (
-        <p className="text-[15px] tnum">Over {e.balanceDays} logged days: <strong>{signed(e.avgBalance)} kcal a day</strong> ({e.avgBalance < 0 ? 'a deficit' : 'a surplus'}). Kept up, that's about <strong>{signed(e.kgIn4Weeks ?? 0, 1)} kg in 4 weeks</strong>.</p>
-      ) : <p className="text-sm text-muted">Log food (here or in another app) on 5+ days to see your balance and where your weight is heading.</p>}
+      {e.avgEaten !== undefined && usual ? (
+        <p className="text-[15px] tnum">Over {e.balanceDays} logged days you ate about <strong>{n0(e.avgEaten)} Cal</strong> a day against a usual burn of {n0(usual.kcal)} ({usual.from === 'watch' ? 'from the watch' : 'from your food logs and weigh-ins'}): <strong>{n0(Math.abs(usual.kcal - e.avgEaten))} Cal {usual.kcal >= e.avgEaten ? 'under' : 'over'}</strong>.</p>
+      ) : <p className="text-sm text-muted">Log food (here or in another app) on 5+ days to see your balance.</p>}
     </section>
   );
 }

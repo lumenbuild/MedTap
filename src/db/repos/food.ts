@@ -10,6 +10,7 @@ import { storedPerson } from './people';
 import { CAFFEINE } from '../../logic/lifestyle';
 import { scaleNutrients } from '../../logic/nutrition';
 import { drinkMl } from '../../logic/caffeine';
+import { SAME_TIME_MS, sameTap } from '../../logic/duplicate';
 
 const nowIso = () => new Date().toISOString();
 
@@ -68,22 +69,33 @@ export function waterFromLog(name: string, servings: number, food?: Pick<Food, '
 }
 
 /** Log something eaten. Returns the entry, for undo. */
-export async function logFood(x: LogInput): Promise<FoodLog> {
-  const now = nowIso();
-  const personId = storedPerson(x.personId);
-  const protein = x.nutrients.protein && x.nutrients.protein > 0 ? x.nutrients.protein : undefined;
-  if (protein) await addIntake(x.personId, x.date, 'proteinG', protein);
-  const caffeine = (x.nutrients.caffeine ?? 0) >= 1 ? await addCheckIn({ at: x.at, chips: [CAFFEINE], note: x.name, personId, caffeineMg: Math.round(x.nutrients.caffeine!) }, { water: false }) : undefined;
-  const food = x.foodId ? await db.foods.get(x.foodId) : undefined;
-  const water = waterFromLog(x.name, x.servings, food, x.nutrients.caffeine);
-  if (water) await addIntake(x.personId, x.date, 'waterMl', water);
-  const log: FoodLog = {
-    id: crypto.randomUUID(), at: x.at, name: x.name, foodId: x.foodId, servings: x.servings, nutrients: x.nutrients,
-    proteinPosted: protein, caffeineCheckInId: caffeine?.id, waterPosted: water, hunger: x.hunger, why: x.why, personId, createdAt: now, updatedAt: now,
-  };
-  await db.foodLogs.add(log);
-  if (x.foodId) await db.foods.update(x.foodId, { lastUsedAt: now });
-  return log;
+export async function logFood(x: LogInput, opts: { again?: boolean } = {}): Promise<FoodLog & { duplicate?: boolean }> {
+  // In one transaction, so two quick taps run one after the other and the second finds the first.
+  return db.transaction('rw', [db.foodLogs, db.foods, db.checkIns, db.daily], async () => {
+    const now = nowIso();
+    const personId = storedPerson(x.personId);
+    // The same food tapped again within a minute is the same meal: the first comes back, marked `duplicate`.
+    if (!opts.again) {
+      const t = Date.parse(x.at);
+      const near = await db.foodLogs.where('at').between(new Date(t - SAME_TIME_MS).toISOString(), new Date(t + SAME_TIME_MS).toISOString(), true, true).toArray();
+      const same = (l: { name: string; foodId?: string; servings: number; personId?: string }) => `${l.name}|${l.foodId ?? ''}|${l.servings}|${l.personId ?? ''}`;
+      const first = sameTap(near, { name: x.name, foodId: x.foodId, servings: x.servings, personId }, x.at, (l) => l.at, same);
+      if (first) return { ...first, duplicate: true };
+    }
+    const protein = x.nutrients.protein && x.nutrients.protein > 0 ? x.nutrients.protein : undefined;
+    if (protein) await addIntake(x.personId, x.date, 'proteinG', protein);
+    const caffeine = (x.nutrients.caffeine ?? 0) >= 1 ? await addCheckIn({ at: x.at, chips: [CAFFEINE], note: x.name, personId, caffeineMg: Math.round(x.nutrients.caffeine!) }, { water: false, again: true }) : undefined;
+    const food = x.foodId ? await db.foods.get(x.foodId) : undefined;
+    const water = waterFromLog(x.name, x.servings, food, x.nutrients.caffeine);
+    if (water) await addIntake(x.personId, x.date, 'waterMl', water);
+    const log: FoodLog = {
+      id: crypto.randomUUID(), at: x.at, name: x.name, foodId: x.foodId, servings: x.servings, nutrients: x.nutrients,
+      proteinPosted: protein, caffeineCheckInId: caffeine?.id, waterPosted: water, hunger: x.hunger, why: x.why, personId, createdAt: now, updatedAt: now,
+    };
+    await db.foodLogs.add(log);
+    if (x.foodId) await db.foods.update(x.foodId, { lastUsedAt: now });
+    return log;
+  });
 }
 
 /** Change how much was eaten (the nutrients scale with it, and the protein total follows). */

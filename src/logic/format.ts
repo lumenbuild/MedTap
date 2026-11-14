@@ -145,3 +145,6 @@ export function toLocalInput(ms: number): string {
 export function fromLocalInput(v: string): number {
   return new Date(v).getTime();
 }
+
+/** Litres to two places at most, trailing zeros dropped: 3050 mL → "3.05 L", 2000 → "2 L". One way of writing water everywhere. */
+export const fmtLitres = (ml: number) => `${Math.round(ml / 10) / 100} L`;

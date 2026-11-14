@@ -18,9 +18,18 @@ export function rangeStart(range: Range, now: number, earliest: number | null): 
 }
 
 /** The user's day (respecting dayStartsAt) as YYYY-MM-DD. */
+const keyCache = new Map<string, string>();
 export function dayKey(ms: number, s: ScheduleSettings): string {
-  const p = zonedParts(getDayBounds(ms, s.dayStartsAt, s.tz).start, s.tz);
-  return `${p.y}-${String(p.m).padStart(2, '0')}-${String(p.d).padStart(2, '0')}`;
+  const start = getDayBounds(ms, s.dayStartsAt, s.tz).start;
+  const ck = `${s.tz}|${start}`;
+  let k = keyCache.get(ck);
+  if (k === undefined) {
+    const p = zonedParts(start, s.tz);
+    k = `${p.y}-${String(p.m).padStart(2, '0')}-${String(p.d).padStart(2, '0')}`;
+    if (keyCache.size > 20_000) keyCache.clear();
+    keyCache.set(ck, k);
+  }
+  return k;
 }
 
 /** Noon on a local YYYY-MM-DD, as ms: a stable x position for a calendar date. */

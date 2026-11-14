@@ -1,16 +1,17 @@
 // The insights on screen, all in one design: an icon, a headline, what it rests on, one thing to do, and "Not now".
 // Today's plan shows the top few among everything else for the day; Progress shows every one (InsightFeed). Acting on one that changes a
 // setting also notes it, so the app can check back a few weeks later on what happened.
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Activity, ArrowDownRight, ClipboardList, Pill, Brain, Thermometer, TrendingDown, TrendingUp, BatteryLow, CalendarDays, CalendarX, Clock, Footprints, Moon, Scale, Coffee, Droplet, Dumbbell, FileText, HeartPulse, Layers, Lightbulb, SearchCheck, Sparkles, Target, Utensils, X, Zap, type LucideIcon } from 'lucide-react';
 import { certainty, insights, type Insight, type InsightKind } from '../logic/insights';
 import { fmtTime } from '../logic/format';
 import { oddRecords } from '../logic/records';
 import { setSetting, type AppSettings } from '../db/repos/settings';
 import { dosesForPerson, medIsFor, personOf } from '../db/repos/people';
-import { db } from '../db/db';
-import { useLive } from '../db/live';
-import { useAppointments, useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings, useVitals, useWorkouts } from '../app/data';
+import { memoLast } from '../db/live';
+import type { ScheduleSettings } from '../logic/schedule';
+import type { Appointment, BodyEntry, CheckIn, DailyHealth, Dose, FoodLog, MedEvent, Medication, Person, Vital, Workout } from '../db/schema';
+import { useAppointments, useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useFoodLogs, useMedEvents, useMeds, useScheduleSettings, useVitals, useWorkouts } from '../app/data';
 import { useNow } from '../app/useNow';
 import { useToast } from '../app/toast';
 import { HAS_BODY, HAS_FOOD, HAS_MEDS, HAS_PEPTIDES, HAS_TRAINING } from '../edition';
@@ -34,28 +35,30 @@ const AREA: Partial<Record<InsightKind, string>> = {
   wearoff: 'mind', second: 'mind', bestdose: 'mind', crash: 'mind', rebound: 'mind', load: 'mind', tolerance: 'mind', creep: 'mind', review: 'mind',
 };
 
-/** Every insight for the person shown, worked out once a minute (or when the records change). */
+const computeInsights = memoLast((minute: number, meds: Medication[], doses: Dose[], checkIns: CheckIn[], daily: DailyHealth[], body: BodyEntry[], vitals: Vital[],
+  workouts: Workout[], events: MedEvent[], appointments: Appointment[], allFood: FoodLog[], settings: AppSettings, s: ScheduleSettings, who: string, people: Person[]) => {
+  const me = <T extends { personId?: string; deletedAt?: string }>(r: T) => personOf(r) === who;
+  const pm = meds.filter((m) => medIsFor(m, who));
+  const ids = new Set(pm.map((m) => m.id));
+  const since = new Date(minute * 60_000 - 70 * 86_400_000).toISOString();
+  const list = insights({
+    meds: pm, doses: dosesForPerson(doses.filter((d) => ids.has(d.medicationId)), pm, who), checkIns: checkIns.filter(me), daily: daily.filter(me),
+    body: HAS_BODY ? body.filter(me) : [], vitals: vitals.filter(me), workouts: workouts.filter(me), events, foodLogs: allFood.filter((f) => f.at >= since && me(f)),
+    appointments: appointments.filter(me), goals: people.find((p) => p.id === who)?.goals ?? [], settings, units: settings.units,
+    has: { body: HAS_BODY, food: HAS_FOOD && settings.foodTracking, training: HAS_TRAINING && settings.trainingTools, meds: HAS_MEDS, biohack: HAS_PEPTIDES && settings.biohackTools },
+  }, minute * 60_000, s);
+  return { list, settings };
+});
+
+/** Every insight for the person shown, worked out once a minute (or when the records change), once for the whole app. */
 export function useInsights(): { list: Insight[]; settings: AppSettings } | null {
   const meds = useMeds(); const doses = useDoses(); const checkIns = useCheckIns(); const daily = useDaily(); const body = useBodyEntries();
   const vitals = useVitals(); const workouts = useWorkouts(); const events = useMedEvents(); const appointments = useAppointments();
-  const foodLogs = useLive(() => db.foodLogs.where('at').aboveOrEqual(new Date(Date.now() - 70 * 86_400_000).toISOString()).toArray(), []);
+  const foodLogs = useFoodLogs();
   const ss = useScheduleSettings(); const fam = useFamily();
   const minute = Math.floor(useNow(60_000) / 60_000);
-  return useMemo(() => {
-    if (!meds || !doses || !checkIns || !daily || !body || !vitals || !workouts || !events || !appointments || !foodLogs || !ss || !fam || fam.everyone) return null;
-    const [settings, s] = ss;
-    const who = fam.personId;
-    const me = <T extends { personId?: string; deletedAt?: string }>(r: T) => personOf(r) === who;
-    const pm = meds.filter((m) => medIsFor(m, who));
-    const ids = new Set(pm.map((m) => m.id));
-    const list = insights({
-      meds: pm, doses: dosesForPerson(doses.filter((d) => ids.has(d.medicationId)), pm, who), checkIns: checkIns.filter(me), daily: daily.filter(me),
-      body: HAS_BODY ? body.filter(me) : [], vitals: vitals.filter(me), workouts: workouts.filter(me), events, foodLogs: foodLogs.filter(me),
-      appointments: appointments.filter(me), goals: fam.people.find((p) => p.id === who)?.goals ?? [], settings, units: settings.units,
-      has: { body: HAS_BODY, food: HAS_FOOD && settings.foodTracking, training: HAS_TRAINING && settings.trainingTools, meds: HAS_MEDS, biohack: HAS_PEPTIDES && settings.biohackTools },
-    }, minute * 60_000, s);
-    return { list, settings };
-  }, [minute, meds, doses, checkIns, daily, body, vitals, workouts, events, appointments, foodLogs, ss, fam]);
+  if (!meds || !doses || !checkIns || !daily || !body || !vitals || !workouts || !events || !appointments || !foodLogs || !ss || !fam || fam.everyone) return null;
+  return computeInsights(minute, meds, doses, checkIns, daily, body, vitals, workouts, events, appointments, foodLogs, ss[0], ss[1], fam.personId, fam.people);
 }
 
 /** One insight: icon, headline, evidence, its action and Not now. */

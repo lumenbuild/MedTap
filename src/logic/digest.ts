@@ -19,7 +19,11 @@ const r1 = (n: number) => Math.round(n * 10) / 10;
 export interface DigestLine { key: string; label: string; text: string; tone: 'good' | 'watch' | 'plain' }
 /** wins: what went well, first (personal bests, doses on track, steps towards a goal, better sleep or mood, more
  *  sessions, milestones), each a short line. */
-export interface Digest { weekStart: number; weekEnd: number; headline: string; lines: DigestLine[]; wins: string[] }
+export interface Digest { weekStart: number; weekEnd: number; headline: string; lines: DigestLine[]; wins: string[];
+  /** Lines that are also a win: shown once, as the line, marked as a win (so the same result isn't said twice). */
+  wonKeys: string[];
+  /** Wins that aren't one of the lines (milestones): shown above them. */
+  otherWins: string[] }
 
 export interface DigestData {
   meds: Medication[]; doses: Dose[]; checkIns: CheckIn[]; body: BodyEntry[]; workouts: Workout[]; daily: DailyHealth[]; defs: ExerciseDef[];
@@ -48,6 +52,9 @@ export function periodReview(d: DigestData, start: number, end: number, s: Sched
   const prevStart = start - (end - start);
   const lines: DigestLine[] = [];
   const wins: string[] = [];
+  const wonKeys = new Set<string>();
+  const tied = new Set<string>();
+  const winFor = (key: string, text: string) => { wins.push(text); wonKeys.add(key); tied.add(text); };
   const inR = (t: number, a: number, b: number) => t >= a && t < b;
 
   // Doses on schedule (set-time medications).
@@ -59,7 +66,7 @@ export function periodReview(d: DigestData, start: number, end: number, s: Sched
     return want ? { got, want, pct: Math.round((got / want) * 100) } : null;
   };
   const dn = rate(start, end), dp = rate(prevStart, start);
-  if (dn && (dn.pct >= 90 || (dp && dn.pct - dp.pct >= 10))) wins.push(dn.pct === 100 ? `Every dose logged (${dn.want})` : dn.pct >= 90 ? `${dn.pct}% of doses logged` : `Doses up to ${dn.pct}% from ${dp!.pct}%`);
+  if (dn && (dn.pct >= 90 || (dp && dn.pct - dp.pct >= 10))) winFor('doses', dn.pct === 100 ? `Every dose logged (${dn.want})` : dn.pct >= 90 ? `${dn.pct}% of doses logged` : `Doses up to ${dn.pct}% from ${dp!.pct}%`);
   if (dn) lines.push({ key: 'doses', label: 'Doses', text: `${dn.got} of ${dn.want} logged (${dn.pct}%)${dp ? `, ${dn.pct === dp.pct ? 'same as' : dn.pct > dp.pct ? `up from ${dp.pct}%` : `down from ${dp.pct}%`}${dn.pct === dp.pct ? ` ${before}` : ''}` : ''}`, tone: dn.pct >= 90 ? 'good' : dn.pct < 70 ? 'watch' : 'plain' });
 
   // Weight: the week's average against the week before.
@@ -68,7 +75,7 @@ export function periodReview(d: DigestData, start: number, end: number, s: Sched
     const wn = w(start, end), wp = w(prevStart, start);
     if (wn !== null && wp !== null) {
       const diff = wn - wp;
-      if (opts.goalDir && diff * opts.goalDir >= 0.2) wins.push(`${diff < 0 ? 'Down' : 'Up'} ${kgTo(Math.abs(diff), opts.units)} ${weightUnit(opts.units)} towards your goal`);
+      if (opts.goalDir && diff * opts.goalDir >= 0.2) winFor('weight', `${diff < 0 ? 'Down' : 'Up'} ${kgTo(Math.abs(diff), opts.units)} ${weightUnit(opts.units)} towards your goal`);
       lines.push({ key: 'weight', label: 'Weight', text: `${Math.abs(diff) < 0.05 ? 'about the same' : `${diff < 0 ? 'down' : 'up'} ${kgTo(Math.abs(diff), opts.units)} ${weightUnit(opts.units)}`} (average ${kgTo(wn, opts.units)} ${weightUnit(opts.units)})`, tone: 'plain' });
     }
   }
@@ -81,8 +88,8 @@ export function periodReview(d: DigestData, start: number, end: number, s: Sched
     const byLift = new Map<string, string>();
     for (const w of ws.filter((x) => working(x.sets).length)) for (const p of newPBs(w, d.workouts, d.defs, opts.units)) if (!byLift.has(p.exerciseId)) byLift.set(p.exerciseId, `${d.defs.find((x) => x.id === p.exerciseId)?.name}: ${p.text}`);
     const pbs = [...byLift.values()];
-    if (pbs.length) wins.unshift(`${pbs.length === 1 ? 'A personal best' : `${pbs.length} personal bests`}: ${pbs[0]}`);
-    if (ws.length && ws.length > prevN) wins.push(`${ws.length} session${ws.length === 1 ? '' : 's'}, ${prevN ? `${ws.length - prevN} more than ${before}` : `after none ${before}`}`);
+    if (pbs.length) { const t = `${pbs.length === 1 ? 'A personal best' : `${pbs.length} personal bests`}: ${pbs[0]}`; wins.unshift(t); tied.add(t); wonKeys.add('training'); }
+    if (ws.length && ws.length > prevN) winFor('training', `${ws.length} session${ws.length === 1 ? '' : 's'}, ${prevN ? `${ws.length - prevN} more than ${before}` : `after none ${before}`}`);
     if (ws.length || prevN) lines.push({ key: 'training', label: 'Training', text: `${ws.length} session${ws.length === 1 ? '' : 's'}${prevN !== ws.length ? ` (${prevN} ${before})` : ''}${pbs.length ? `, ${pbs.length} personal best${pbs.length === 1 ? '' : 's'}: ${pbs.slice(0, 2).join('; ')}` : ''}`, tone: pbs.length ? 'good' : ws.length < prevN ? 'watch' : 'plain' });
     const pr = (a: number, b: number) => avg(d.daily.filter((x) => !x.deletedAt && x.proteinG && inR(ymdToMs(x.date), a, b)).map((x) => x.proteinG!));
     const pn = pr(start, end);
@@ -95,26 +102,26 @@ export function periodReview(d: DigestData, start: number, end: number, s: Sched
     return avg(imp.length ? imp : d.checkIns.filter((c) => !c.deletedAt && c.sleepHours && inR(Date.parse(c.at), a, b)).map((c) => c.sleepHours!));
   };
   const sn = sleep(start, end), sp = sleep(prevStart, start);
-  if (sn !== null && sp !== null && sn - sp >= 0.3) wins.push(`Sleep up to ${r1(sn)} h a night`);
+  if (sn !== null && sp !== null && sn - sp >= 0.3) winFor('sleep', `Sleep up to ${r1(sn)} h a night`);
   if (sn !== null) lines.push({ key: 'sleep', label: 'Sleep', text: `${r1(sn)} h a night${sp !== null && Math.abs(sn - sp) >= 0.2 ? `, ${sn > sp ? 'up' : 'down'} from ${r1(sp)} h` : ''}`, tone: sp !== null && sn < sp - 0.5 ? 'watch' : 'plain' });
 
   // Mood from check-ins.
   const mood = (a: number, b: number) => avg(d.checkIns.filter((c) => !c.deletedAt && c.mood && inR(Date.parse(c.at), a, b)).map((c) => c.mood!));
   const mn = mood(start, end), mp = mood(prevStart, start);
-  if (mn !== null && mp !== null && mn - mp >= 0.3) wins.push(`Mood up to ${r1(mn)} of 5`);
+  if (mn !== null && mp !== null && mn - mp >= 0.3) winFor('mood', `Mood up to ${r1(mn)} of 5`);
   if (mn !== null) lines.push({ key: 'mood', label: 'Mood', text: `${r1(mn)} of 5${mp !== null && Math.abs(mn - mp) >= 0.2 ? `, ${mn > mp ? 'up' : 'down'} from ${r1(mp)}` : ''}`, tone: mp !== null && mn < mp - 0.4 ? 'watch' : 'plain' });
 
   // Stress from check-ins (when asked).
   const stress = (a: number, b: number) => avg(d.checkIns.filter((c) => !c.deletedAt && c.stress && inR(Date.parse(c.at), a, b)).map((c) => c.stress!));
   const xn = stress(start, end), xp = stress(prevStart, start);
-  if (xn !== null && xp !== null && xp - xn >= 0.4) wins.push(`Stress down to ${r1(xn)} of 5`);
+  if (xn !== null && xp !== null && xp - xn >= 0.4) winFor('stress', `Stress down to ${r1(xn)} of 5`);
   if (xn !== null) lines.push({ key: 'stress', label: 'Stress', text: `${r1(xn)} of 5${xp !== null && Math.abs(xn - xp) >= 0.2 ? `, ${xn < xp ? 'down' : 'up'} from ${r1(xp)}` : ''}`, tone: xp !== null && xn > xp + 0.5 ? 'watch' : 'plain' });
 
   // Side effects, for injections (the weekly review is also the injection's week: Protocol links here).
   if (d.meds.some((m) => m.peptide && !m.archived)) {
     const fx = (a: number, b: number) => { const cs = d.checkIns.filter((c) => !c.deletedAt && inR(Date.parse(c.at), a, b) && (c.mood !== undefined || c.chips.length)); return cs.length >= 3 ? Math.round((cs.filter((c) => c.chips.some((x) => EFFECT_CHIPS.includes(x))).length / cs.length) * 100) : null; };
     const en = fx(start, end), ep = fx(prevStart, start);
-    if (en !== null && ep !== null && ep - en >= 15) wins.push(`Side effects down to ${en}% of check-ins`);
+    if (en !== null && ep !== null && ep - en >= 15) winFor('effects', `Side effects down to ${en}% of check-ins`);
     if (en !== null) lines.push({ key: 'effects', label: 'Side effects', text: `In ${en}% of check-ins${ep !== null && Math.abs(en - ep) >= 5 ? `, ${en < ep ? 'down' : 'up'} from ${ep}%` : ''}`, tone: ep !== null && en > ep + 15 ? 'watch' : 'plain' });
   }
 
@@ -122,7 +129,7 @@ export function periodReview(d: DigestData, start: number, end: number, s: Sched
   if (!lines.length && !wins.length) return null;
   const good = lines.find((l) => l.tone === 'good'), watch = lines.find((l) => l.tone === 'watch');
   const headline = wins.length ? wins[0] : good ? `${good.label}: ${good.text}` : watch ? `Worth a look: ${watch.label.toLowerCase()} ${watch.text}` : `${lines[0].label}: ${lines[0].text}`;
-  return { weekStart: start, weekEnd: end, headline, lines, wins: [...new Set(wins)].slice(0, 3) };
+  return { weekStart: start, weekEnd: end, headline, lines, wins: [...new Set(wins)].slice(0, 3), wonKeys: [...wonKeys], otherWins: [...new Set(wins)].filter((w) => !tied.has(w)) };
 }
 
 export interface Glance {

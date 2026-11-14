@@ -153,9 +153,21 @@ export function eveningCrash(meds: Medication[], doses: Dose[], checkIns: CheckI
     const k = dayKey(Date.parse(d.takenAt), s);
     byDay.set(k, [...(byDay.get(k) ?? []), Date.parse(d.takenAt)]);
   }
+  // Evening check-ins (4–10 pm) by day, worked out once rather than once per day.
+  const evenings = new Map<string, CheckIn[]>();
+  for (const c of checkIns) {
+    if (c.deletedAt) continue;
+    const t = Date.parse(c.at);
+    if (t <= now - 61 * DAY) continue;
+    const h = hourOf(t, s);
+    if (h < 16 || h >= 22) continue;
+    const k = dayKey(t, s);
+    const list = evenings.get(k);
+    if (list) list.push(c); else evenings.set(k, [c]);
+  }
   const days: { crash: boolean; last: number; n: number }[] = [];
   for (const [k, ts] of byDay) {
-    const evening = checkIns.filter((c) => !c.deletedAt && dayKey(Date.parse(c.at), s) === k && hourOf(Date.parse(c.at), s) >= 16 && hourOf(Date.parse(c.at), s) < 22);
+    const evening = evenings.get(k) ?? [];
     if (!evening.length) continue;
     const crash = evening.some((c) => (c.mood !== undefined && c.mood <= 2) || (c.energy !== undefined && c.energy <= 2) || c.chips.some((x) => CRASH_CHIPS.includes(x)));
     days.push({ crash, last: hourOf(Math.max(...ts), s), n: ts.length });

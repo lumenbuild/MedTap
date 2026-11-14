@@ -22,12 +22,13 @@ export function DayStrip({ ring, streaks, milestones, bare = false, news }: { ri
       <button type="button" onClick={() => setOpen(true)} className="w-full flex items-center gap-4 text-left min-h-[64px]">
         {ring && (
           <MiniRing value={Math.round(ring.value * 100)} max={100} size={60} tone={all ? 'good' : 'primary'} label={`${ring.done} of ${ring.parts.length} done today`}>
-            {all ? <Check size={22} aria-hidden="true" /> : `${Math.round(ring.value * 100)}%`}
+            {all ? <Check size={22} aria-hidden="true" /> : `${ring.done}/${ring.parts.length}`}
           </MiniRing>
         )}
         <span className="flex-1 min-w-0">
           {ring && <span className="block font-medium">{all ? 'All done for today' : `${ring.done} of ${ring.parts.length} done today`}</span>}
-          {ring && <span className="block text-sm text-muted tnum truncate">{ring.parts.map((p) => `${p.label} ${p.got >= p.want ? '✓' : p.text.replace(/^./, (c) => c.toLowerCase())}`).join(' · ')}</span>}
+          {/* What's left, by name: the numbers are on their own cards below (water, protein, steps), said once. */}
+          {ring && !all && <span className="block text-sm text-muted truncate">Left: {ring.parts.filter((p) => p.got < p.want).map((p) => p.label.toLowerCase()).join(', ')}</span>}
           {top && (
             <span className="flex items-center gap-1.5 text-sm mt-0.5 tnum">
               <Flame size={16} aria-hidden="true" className={top.todayDone ? 'text-caution' : 'text-muted'} />

@@ -20,6 +20,7 @@ import { costsOf, lower, MEANINGFUL, OUTCOMES, selfTestable, shortActing, type O
 import { bedtimeOf, caffeineDays, findCutoff, intakesOf } from './caffeine';
 import { fmtTime } from './format';
 import { cravingForecast, fmtHour, muscleWarning, plateauAhead, shortNightEating } from './aheadSmarts';
+import { LESS, MORE } from './drivers';
 
 const DAY = 86_400_000;
 const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
@@ -118,6 +119,8 @@ export function whatsWorking(d: AllData, now: number, s: ScheduleSettings): What
     const z = se > 0 ? Math.abs(diff / se) : 0;
     const p = 2 * (1 - phi(z));
     const helps = OUTCOMES[o].higherBetter ? diff > 0 : diff < 0;
+    // Late caffeine "helping" sleep, or a workout "hurting" focus: something else on the same days (see drivers.ts).
+    if ((LESS.has(f.key) && helps) || (MORE.has(f.key) && !helps)) continue;
     found.push({ key: f.key, label: f.label, outcome: o, withIt: mean(b), without: mean(a), nWith: b.length, nWithout: a.length, effect: Math.abs(effect), p, helps, controllable: f.controllable, med: f.med });
   }
   const clear = found.filter((x) => x.effect >= 0.35 && x.p < 0.2).sort((x, y) => x.p - y.p || y.effect - x.effect);

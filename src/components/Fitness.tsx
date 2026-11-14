@@ -128,8 +128,9 @@ export function GoalTimeline({ bodyGoals, fitnessGoals, body, workouts, defs, un
 }
 
 /** Today: protein and water, one tap each, with the day's total against your own target. */
-export function IntakeCard({ personId, today, day, proteinTarget, waterTarget, ready, amounts }: {
+export function IntakeCard({ personId, today, day, proteinTarget, waterTarget, ready, amounts, bare = false, only }: {
   personId: string; today: string; day?: DailyHealth; proteinTarget: number | null; waterTarget: number | null; ready: Readiness | null; amounts: AppSettings['intakeAmounts'];
+  /** In a sheet (no card around it), and just one of the two. */ bare?: boolean; only?: 'proteinG' | 'waterMl';
 }) {
   const toast = useToast();
   const [other, setOther] = useState<IntakeField | null>(null);
@@ -159,10 +160,10 @@ export function IntakeCard({ personId, today, day, proteinTarget, waterTarget, r
     );
   };
   return (
-    <section className="box space-y-4" aria-label="Protein, water and readiness">
+    <section className={bare ? 'space-y-4' : 'box space-y-4'} aria-label="Protein, water and readiness">
       {ready && <div className="pb-4 border-b border-border"><ReadinessBlock r={ready} compact /></div>}
-      {row('Protein', Beef, 'proteinG', 'g', proteinTarget)}
-      {row('Water', GlassWater, 'waterMl', 'mL', waterTarget)}
+      {only !== 'waterMl' && row('Protein', Beef, 'proteinG', 'g', proteinTarget)}
+      {only !== 'proteinG' && row('Water', GlassWater, 'waterMl', 'mL', waterTarget)}
       {other && <OtherAmount field={other} total={day?.[other] ?? 0} amounts={amounts} onClose={() => setOther(null)}
         onAdd={(n, keep) => { setOther(null); void add(other, n, other === 'waterMl' ? 'mL' : 'g').then(() => { if (keep) void setSetting('intakeAmounts', { ...amounts, [other]: keepAmount(amounts[other], n) }); }); }}
         onSet={async (n) => { const field = other, before = day?.[field] ?? 0, unit = field === 'waterMl' ? 'mL' : 'g'; setOther(null);

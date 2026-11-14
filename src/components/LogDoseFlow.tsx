@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useToast } from '../app/toast';
+import { sayLogged } from '../app/logged';
 import { strengthChange } from '../logic/stackSmart';
 import { updateVial } from '../db/repos/meds';
 import { AlertTriangle, Clock, Info } from 'lucide-react';
@@ -7,7 +9,7 @@ import { doseOwner, personOf, storedPerson } from '../db/repos/people';
 import { useMeds } from '../app/data';
 import { combinedTotals } from '../logic/ingredients';
 import { PersonBadge } from './PersonSwitcher';
-import { logDose } from '../db/repos/doses';
+import { logDose, removeDose, type NewDose } from '../db/repos/doses';
 import { FIXED_MATCH_MS, getContextNotes, getExpectedAmount, getFixedSlots, getLastDose, getRecentDose, unloggedSlots, type ContextNote, type ScheduleSettings } from '../logic/schedule';
 import { stockUnitsFor } from '../logic/stock';
 import { doseCheck } from '../logic/doseCheck';
@@ -80,6 +82,9 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, vialId, onLog
   const [when, setWhen] = useState(() => toLocalInput(now - 30 * 60_000));
   const [override, setOverride] = useState(false);
   const [saving, setSaving] = useState(false);
+  const toast = useToast();
+  // One save at a time: a second tap while the first is saving does nothing (state alone can miss a quick double tap).
+  const busy = useRef(false);
   const [skipping, setSkipping] = useState(false);
   const [reason, setReason] = useState('');
   const [skipNote, setSkipNote] = useState('');
@@ -140,11 +145,23 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, vialId, onLog
     ? combinedTotals(med, amount, allMeds.filter((m) => !m.archived), allDoses, takenAt, (d) => doseOwner(d, medById.get(d.medicationId)) === owner) : [];
   const last = getLastDose(doses, med.id, now);
 
+  const save = async (input: NewDose) => {
+    const dose = await logDose(input);
+    if (dose.duplicate) {
+      // Tapped twice: the first one stands. Say so, rather than a second "Logged" whose Undo would take the first away.
+      sayLogged(toast, dose, '', undefined, async () => { const d = await logDose(input, { again: true }); toast(`Logged again at ${fmtTime(Date.parse(d.takenAt))}`, { onAction: () => removeDose(d.id) }); });
+      onCancel();
+      return;
+    }
+    onLogged(dose);
+  };
+
   const submit = async () => {
-    if (timeError || amountError || saving) return;
+    if (timeError || amountError || saving || busy.current) return;
+    busy.current = true;
     setSaving(true);
     try {
-      const dose = await logDose({
+      await save({
         medicationId: med.id,
         takenAt: new Date(takenAt).toISOString(),
         amount,
@@ -155,14 +172,15 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, vialId, onLog
       });
       if (canVibrate) navigator.vibrate(30);
       navigator.storage?.persist?.().catch(() => {}); // ask the browser to keep data once there's something worth keeping
-      onLogged(dose);
     } finally {
+      busy.current = false;
       setSaving(false);
     }
   };
 
   const skip = async () => {
-    if (timeError || saving) return;
+    if (timeError || saving || busy.current) return;
+    busy.current = true;
     setSaving(true);
     try {
       // A skip belongs to the set time it replaces (so the countdown moves on), otherwise to the chosen time.
@@ -171,13 +189,13 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, vialId, onLog
         const open = getFixedSlots(med, doses, takenAt, s).find((x) => !x.dose && x.at - FIXED_MATCH_MS <= takenAt);
         if (open) at = open.at;
       }
-      const dose = await logDose({
+      await save({
         medicationId: med.id, takenAt: new Date(at).toISOString(), amount: amount > 0 ? amount : med.defaultAmount,
         source: earlier ? 'backdated' : 'manual', tagId, skipped: true, personId: choosing && who ? storedPerson(who) : undefined,
         skipReason: [reason, skipNote.trim()].filter(Boolean).join(': ') || undefined,
       });
-      onLogged(dose);
     } finally {
+      busy.current = false;
       setSaving(false);
     }
   };

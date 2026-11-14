@@ -21,6 +21,7 @@ import { isAndroid, isStandalone } from '../../platform';
 import { APP_NAME } from '../../config';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { sayLogged } from '../../app/logged';
 
 /** After a dose, or at a daily check-in time: one tap on a face starts a check-in with that mood. */
 export function CheckInPrompt({ ask, med, now, onCheckIn }: { ask: CheckInAsk; med?: Medication; now: number; onCheckIn: (mood?: number) => void }) {
@@ -64,7 +65,7 @@ export function FocusQuick({ med, dose, now, personId }: { med: Medication; dose
           <button key={v} type="button" aria-label={`Focus ${v} of 5`} onClick={async () => {
             const c = await addCheckIn({ at: new Date().toISOString(), focus: v, chips: [], relatedDoseId: dose.id, personId });
             done();
-            toast(`Focus ${v} noted`, { onAction: () => removeCheckIn(c.id) });
+            sayLogged(toast, c, `Focus ${v} noted`, () => removeCheckIn(c.id));
           }} className="min-h-[56px] rounded-card bg-surface-2 text-[20px] font-semibold tnum active:scale-95 transition-transform">{v}</button>
         ))}
       </div>

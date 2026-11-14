@@ -4,6 +4,7 @@
 // it varies a lot between people). Estimates, not measurements. Pure.
 import type { CheckIn, DailyHealth, FoodLog } from '../db/schema';
 import { getDayBounds, timeInDay, type ScheduleSettings } from './schedule';
+import { zonedParts } from './tz';
 
 export const CAFFEINE = 'Caffeine';
 const HOUR = 3_600_000;
@@ -181,7 +182,7 @@ export function caffeineDays(intakes: Intake[], checkIns: CheckIn[], daily: Dail
 }
 
 const hhmm = (v: string) => { const [h, m] = v.split(':').map(Number); return h + m / 60; };
-const ymd = (t: number, s: ScheduleSettings) => new Intl.DateTimeFormat('en-CA', { timeZone: s.tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(t);
+const ymd = (t: number, s: ScheduleSettings) => { const p = zonedParts(t, s.tz); return `${p.y}-${String(p.m).padStart(2, '0')}-${String(p.d).padStart(2, '0')}`; };
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : undefined);
 
 export interface FinderBand { label: string; from: number; to: number; nights: number; hours?: number; quality?: number; edgyPct?: number; worse: boolean }

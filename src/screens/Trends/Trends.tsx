@@ -1,12 +1,10 @@
 import { useState, type ReactNode } from 'react';
 import { Brain, CalendarRange, ChevronDown, FileText, FlaskConical, NotebookPen, Pill, Scale, Smile, TestTube } from 'lucide-react';
-import { useWorkouts, useAppointments, useDaily, useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings, useVitals } from '../../app/data';
+import { useWorkouts, useAppointments, useDaily, useBodyEntries, useCheckIns, useDoses, useFamily, useMedEvents, useMeds, useScheduleSettings, useVitals, useFoodLogs } from '../../app/data';
 import { CheckInForecastBlock, EffectWindowCards } from '../../components/Smart';
 import { HeartAfterCards, LinksSection, OnOffCards } from '../../components/Lifestyle';
 import { DailyHabitsCard, NoticedBlock } from '../../components/TrendSections';
 import { dailyHabits } from '../../logic/dailyHabits';
-import { db } from '../../db/db';
-import { useLive } from '../../db/live';
 import { MedBadge } from '../../components/MedBadge';
 import { shownColour } from '../../logic/privacy';
 import { checkInForecast, sleepImpact } from '../../logic/habits';
@@ -45,7 +43,7 @@ export function Trends() {
   const fam = useFamily();
   const ss = useScheduleSettings();
   const now = useNow(60_000);
-  const allFood = useLive(() => db.foodLogs.toArray(), []);
+  const allFood = useFoodLogs();
   const [medPick, setMedPick] = useState<string | null>(() => { try { return localStorage.getItem('trendsMed'); } catch { return null; } });
   const pickMed = (id: string) => { setMedPick(id); try { localStorage.setItem('trendsMed', id); } catch { /* per-device preference only */ } };
   const [range, setRange] = useState<Range | 'appt'>(() => {

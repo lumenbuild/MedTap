@@ -72,6 +72,12 @@ function factorsOf(d: DriverData, s: ScheduleSettings, days: string[]): FactorDe
 }
 
 /** What goes with a better or worse result, for one topic. */
+/** Things to have less of, and more of. A link in the other direction (late caffeine going with longer sleep, more
+ *  steps with worse focus) is almost always something else happening on the same days, and would contradict what the
+ *  rest of the app says about them (the caffeine cut-off, the levers), so it isn't shown. */
+export const LESS = new Set(['late-caffeine', 'alcohol', 'late-meal', 'salty']);
+export const MORE = new Set(['steps', 'workout', 'mindful', 'protein']);
+
 export function driversFor(topic: Topic, d: DriverData, now: number, s: ScheduleSettings, days = 90): Drivers {
   const keys: string[] = [];
   for (let t = now - days * DAY; t < now - DAY / 2; t += DAY) keys.push(dayKey(t, s));
@@ -110,6 +116,7 @@ export function driversFor(topic: Topic, d: DriverData, now: number, s: Schedule
     const z = se > 0 ? Math.abs(diff / se) : 0;
     if (z < 1.3) continue;
     const helps = T.higherBetter ? diff > 0 : diff < 0;
+    if ((LESS.has(f.key) && helps) || (MORE.has(f.key) && !helps)) continue;
     found.push({ key: f.key, label: f.label, withIt: mean(b), without: mean(a), diff, text: T.fmt(diff), nWith: b.length, nWithout: a.length, helps, sure: z >= 2 ? 'clear' : 'likely', on: keys.filter((k) => f.on.has(k)), z });
   }
   found.sort((x, y) => y.z * Math.abs(y.diff) - x.z * Math.abs(x.diff));

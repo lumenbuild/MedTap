@@ -7,6 +7,7 @@
 import type { BodyEntry, CardioActivity, CardioEntry, DailyHealth, Vital, Workout } from '../db/schema';
 import type { HealthData } from '../nfc/native';
 import { mergeBlocks } from './watchHr';
+import { zonedParts } from './tz';
 
 export interface HealthPlan {
   daily: DailyHealth[]; body: { date: string; kg: number }[]; vitals: { at: string; systolic: number; diastolic: number }[];
@@ -30,7 +31,7 @@ const EXTRA = ['spo2Avg', 'spo2Min', 'respRate', 'skinTempDelta', 'vo2max', 'kca
 /** Walks shorter than this are everyday walking a watch picked up, not a session. */
 const MIN_WALK = 10;
 
-const ymdIn = (t: number, tz: string) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(t);
+const ymdIn = (t: number, tz: string) => { const p = zonedParts(t, tz); return `${p.y}-${String(p.m).padStart(2, '0')}-${String(p.d).padStart(2, '0')}`; };
 
 export function planHealthImport(data: HealthData, existing: { daily: DailyHealth[]; body: BodyEntry[]; vitals: Vital[]; workouts?: Workout[] }, personId: string | undefined, tz: string, nowIso: string): HealthPlan {
   const mine = <T extends { personId?: string; deletedAt?: string }>(r: T) => (r.personId ?? undefined) === personId && !r.deletedAt;

@@ -43,19 +43,22 @@ export function useWeekReview(): { d: Digest; seen: number; notify: boolean } | 
   }, [hour, meds, doses, checkIns, body, workouts, daily, own, fam, ss]);
 }
 
-/** A review's wins and lines (the weekly review; the summary since the last appointment). */
+/** A review's lines, each result once: a line that was also a win is marked with a trophy, and wins that aren't a line
+ *  (milestones) come first. Used by the weekly review and the summary since the last appointment. */
 export function ReviewLines({ d }: { d: Digest }) {
+  const won = new Set(d.wonKeys ?? []);
+  const other = d.otherWins ?? d.wins;
   return (
     <>
-      {d.wins.length > 0 && <ul className="tnum mt-1" aria-label="Wins">{d.wins.map((w) => <li key={w}><IconRow Icon={Trophy} tone="good">{w}</IconRow></li>)}</ul>}
+      {other.length > 0 && <ul className="tnum mt-1" aria-label="Wins">{other.map((w) => <li key={w}><IconRow Icon={Trophy} tone="good">{w}</IconRow></li>)}</ul>}
       <ul className="tnum mt-1">
-        {d.lines.map((l) => <li key={l.key}><IconRow Icon={ICON[l.key] ?? Smile} tone={l.tone === 'good' ? 'good' : l.tone === 'watch' ? 'watch' : 'plain'}>{l.text}</IconRow></li>)}
+        {d.lines.map((l) => <li key={l.key}><IconRow Icon={won.has(l.key) ? Trophy : ICON[l.key] ?? Smile} tone={won.has(l.key) || l.tone === 'good' ? 'good' : l.tone === 'watch' ? 'watch' : 'plain'}>{won.has(l.key) && <span className="sr-only">Win: </span>}{l.text}</IconRow></li>)}
       </ul>
     </>
   );
 }
 
-/** Progress: the week, wins first. */
+/** Insights: last week's headline, opening the weekly review. */
 export function WeekReviewSection() {
   const r = useWeekReview();
   const toast = useToast();
@@ -63,9 +66,12 @@ export function WeekReviewSection() {
   const { d } = r;
   return (
     <section aria-labelledby="week-h" id="week">
-      <h2 id="week-h" className="text-sm font-medium text-muted">Last week · {format(d.weekStart, 'd MMM')} – {format(d.weekEnd - 1, 'd MMM')}</h2>
-      <ReviewLines d={d} />
-      <a href="#/week" className="min-h-[44px] flex items-center text-sm font-medium underline underline-offset-4">What drove it, and next week's levers</a>
+      <h2 id="week-h" className="text-sm font-medium text-muted">Last week · {format(d.weekStart, 'd MMM')} – {format(d.weekEnd - 43_200_000, 'd MMM')}</h2>
+      {/* The headline only: the week in full (results, what drove them, next week's levers) is one tap away, said once there. */}
+      <a href="#/week" className="mt-1 flex items-center gap-3 rounded-btn bg-surface-2 p-3 min-h-[56px]">
+        <Trophy size={20} aria-hidden="true" className="text-success shrink-0" />
+        <span className="flex-1 min-w-0"><span className="block font-medium leading-snug">{d.headline}</span><span className="block text-sm text-muted">Results, what drove them, and next week's levers</span></span>
+      </a>
       {isNative && !r.notify && (
         <button type="button" className="min-h-[44px] text-sm text-muted underline underline-offset-4" onClick={async () => {
           const on = await setDigestNotify(true);

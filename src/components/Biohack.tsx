@@ -10,11 +10,10 @@ import { setBreaks } from '../db/repos/meds';
 import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useMeds, useScheduleSettings, useSettings, useWorkouts } from '../app/data';
 import { useNow } from '../app/useNow';
 import { useToast } from '../app/toast';
-import { afterBreak, doseCreep, eveningTestDue, focusByHour, illnessWarning, mindReadiness, recoveryTimes, tolerance } from '../logic/biohack';
+import { afterBreak, doseCreep, eveningTestDue, tolerance } from '../logic/biohack';
 import { appetiteAhead, fluids, gutByShotDay, muscleScore } from '../logic/bodyhack';
 import { isStimulant } from '../logic/stimulant';
 import { isGlpLike } from '../logic/peptideGuide';
-import { fmtHHmm } from '../logic/format';
 import { HAS_PEPTIDES } from '../edition';
 import { MiniRing } from './ui/Visual';
 import { Sheet, SheetActions } from './ui/Sheet';
@@ -24,47 +23,21 @@ import { TextInput } from './ui/Field';
 const useOn = () => { const st = useSettings(); return HAS_PEPTIDES && !!st?.biohackTools; };
 const fmtL = (ml: number) => `${Math.round(ml / 100) / 10} L`;
 
-/** Today, with the biohacking tools: readiness and its plan for the day, how long recovery usually takes, and an
- *  evening test. (The daily brief's lines and getting sick are in Today's plan.) */
+/** Today, with the biohacking tools: the evening test when it's due. (Readiness is one score, on Health and in Today's
+ *  rings; the daily brief's lines and getting sick are in Today's plan.) */
 export function DailyBrief() {
   const on = useOn();
   const daily = useDaily(); const checkIns = useCheckIns(); const doses = useDoses(); const meds = useMeds(); const workouts = useWorkouts(); const fam = useFamily(); const ss = useScheduleSettings();
   const now = useNow(300_000);
-  const [more, setMore] = useState(false);
   if (!daily || !checkIns || !doses || !meds || !workouts || !fam || !ss || fam.everyone) return null;
-  const [st, s] = ss;
+  const s = ss[1];
   const me = <T extends { personId?: string }>(x: T) => personOf(x) === fam.personId;
   const mine = { daily: daily.filter(me), checkIns: checkIns.filter(me), doses, meds: meds.filter((m) => medIsFor(m, fam.personId)), workouts: workouts.filter(me) };
-  const best = on ? focusByHour(mine.checkIns, now, s)?.best : undefined;
-  const r = on ? mindReadiness(mine, now, s, { illness: !!illnessWarning(mine.daily, now, s), bestHours: best, bedtime: fmtHHmm(st.bedtime) }) : null;
-  const rec = on ? recoveryTimes(mine, now, s) : [];
   const evening = on && eveningTestDue(mine.meds, doses, mine.checkIns, now, s);
-  if (!r && !evening) return null;
+  if (!evening) return null;
   return (
-    <section aria-labelledby="ready-h" className="box space-y-3">
-      <h2 id="ready-h" className="text-sm font-medium text-muted">Readiness</h2>
-      {r && (
-        <div className="flex items-start gap-3">
-          <MiniRing value={r.score} max={100} size={52} tone={r.score >= 75 ? 'good' : r.score >= 55 ? 'primary' : 'watch'} label={`Readiness ${r.score} of 100`}>{r.score}</MiniRing>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold">Readiness: {r.label}</p>
-            <ul className="text-sm leading-snug mt-0.5 space-y-0.5">{r.plan.map((p) => <li key={p}>{p}</li>)}</ul>
-          </div>
-        </div>
-      )}
-      {evening && <a href="#/brain" className="flex items-center gap-2 text-sm font-medium min-h-[44px]"><Brain size={18} aria-hidden="true" className="text-primary" />Quick evening test: is there a dip as it wears off?</a>}
-      {r && (
-        <>
-          <button type="button" aria-expanded={more} onClick={() => setMore((x) => !x)} className="text-sm text-muted underline underline-offset-4 min-h-[44px]">{more ? 'Less' : 'What it’s from'}</button>
-          {more && (
-            <div className="space-y-2">
-              <ul className="text-sm space-y-1">{r.parts.map((p) => <li key={p.what} className="flex justify-between gap-3"><span>{p.what}</span><span className={`tnum ${p.good ? '' : 'text-caution'}`}>{p.text}</span></li>)}</ul>
-              {rec.length > 0 && <p className="text-sm text-muted">HRV takes {rec.map((x) => `${x.days} day${x.days === 1 ? '' : 's'} ${x.label.toLowerCase().replace('after ', 'after ')}`).join('; ')} to come back.</p>}
-              <a href="#/brain" className="text-sm font-medium underline underline-offset-4">Brain test</a>
-            </div>
-          )}
-        </>
-      )}
+    <section aria-label="Evening test" className="box">
+      <a href="#/brain" className="flex items-center gap-2 text-[15px] font-medium min-h-[44px]"><Brain size={18} aria-hidden="true" className="text-primary" />Quick evening test: is there a dip as it wears off?</a>
     </section>
   );
 }

@@ -14,6 +14,7 @@ import { Sheet, SheetActions } from './ui/Sheet';
 import { Button } from './ui/Button';
 import { TextInput } from './ui/Field';
 import { Bar } from './ui/Visual';
+import { sayLogged } from '../app/logged';
 
 const HOUR = 3_600_000;
 
@@ -45,7 +46,9 @@ export function CaffeineCard({ intakes, prefs, now, s, onLog }: { intakes: Intak
   const checkDay = prefs.checkFrom ? Math.floor((now - prefs.checkFrom) / (24 * HOUR)) + 1 : 0;
   const again = async () => {
     if (!last) return;
-    const c = await addCheckIn({ at: new Date().toISOString(), chips: [CAFFEINE], note: last.name, caffeineMg: last.mg, personId: last.personId });
+    const input = { at: new Date().toISOString(), chips: [CAFFEINE], note: last.name, caffeineMg: last.mg, personId: last.personId };
+    const c = await addCheckIn(input);
+    if (c.duplicate) { sayLogged(toast, c, '', undefined, async () => { const d = await addCheckIn(input, { again: true }); toast('Logged again', { onAction: () => removeCheckIn(d.id) }); }); return; }
     toast(`${last.name ?? 'Caffeine'} · ${last.mg} mg${c.waterMl ? ` · +${c.waterMl} mL water` : ''}: ${afterLog(intakes, { id: c.id, t: Date.parse(c.at), mg: last.mg }, prefs, s)}`, { onAction: () => removeCheckIn(c.id) });
   };
   return (
@@ -83,7 +86,9 @@ export function UsualCard({ asks, personId, now, s, onNotToday }: { asks: UsualH
   if (!asks.length) return null;
   const start = getDayBounds(now, s.dayStartsAt, s.tz).start;
   const yes = async (h: UsualHabit) => {
-    const c = await addCheckIn({ at: new Date(Math.min(h.at, Date.now())).toISOString(), chips: [CAFFEINE], note: h.name, caffeineMg: h.mg, personId });
+    const input = { at: new Date(Math.min(h.at, Date.now())).toISOString(), chips: [CAFFEINE], note: h.name, caffeineMg: h.mg, personId };
+    const c = await addCheckIn(input);
+    if (c.duplicate) { sayLogged(toast, c, '', undefined, async () => { const d = await addCheckIn(input, { again: true }); toast('Logged again', { onAction: () => removeCheckIn(d.id) }); }); return; }
     toast(`${h.name} logged at ${fmtTime(h.at)}${c.waterMl ? ` · +${c.waterMl} mL water` : ''}`, { onAction: () => removeCheckIn(c.id) });
   };
   return (
@@ -119,6 +124,7 @@ export function SleepAsk({ checkIns, daily, personId, checkFrom, now, s }: {
   if (checkIns.some((c) => !c.deletedAt && Date.parse(c.at) >= start - 2 * HOUR && (c.sleepQuality !== undefined || c.sleepHours !== undefined))) return null;
   const answer = async (q: number) => {
     const c = await addCheckIn({ at: new Date().toISOString(), chips: [], sleepQuality: q, personId });
+    if (c.duplicate) return;
     toast('Sleep noted for your caffeine check', { onAction: () => removeCheckIn(c.id) });
   };
   return (
@@ -193,8 +199,10 @@ function NewDrink({ intakes, prefs, s, personId, onClose }: { intakes: Intake[];
   const usual = usualDrinks(intakes, now);
   const log = async (drink: string, amount: number) => {
     const t = earlier && when ? Math.min(Date.now(), new Date(when).getTime()) : Date.now();
-    const c = await addCheckIn({ at: new Date(t).toISOString(), chips: [CAFFEINE], note: drink, caffeineMg: Math.round(amount), personId });
+    const input = { at: new Date(t).toISOString(), chips: [CAFFEINE], note: drink, caffeineMg: Math.round(amount), personId };
+    const c = await addCheckIn(input);
     onClose();
+    if (c.duplicate) { sayLogged(toast, c, '', undefined, async () => { const d = await addCheckIn(input, { again: true }); toast('Logged again', { onAction: () => removeCheckIn(d.id) }); }); return; }
     toast(`${drink} · ${Math.round(amount)} mg${c.waterMl ? ` · +${c.waterMl} mL water` : ''}: ${afterLog(intakes, { id: c.id, t, mg: amount }, prefs, s)}`, { onAction: () => removeCheckIn(c.id) });
   };
   const DrinkButton = ({ d }: { d: { name: string; mg: number } }) => (

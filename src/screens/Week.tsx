@@ -34,7 +34,7 @@ export function Week() {
   const { data, s, settings } = dd;
   const start = r?.d.weekStart, end = r?.d.weekEnd;
   // Without a review yet (a first week), the last 7 days.
-  const from = ymd(start ?? now - 7 * 86_400_000), to = ymd((end ?? now) - 1);
+  const from = ymd(start ?? now - 7 * 86_400_000), to = ymd((end ?? now) - 43_200_000);
   const topics: Topic[] = ['sleep', 'rhr', 'focus', ...(HAS_BODY ? ['weight' as const] : [])];
   const all = topics.map((t) => driversFor(t, { ...data, proteinTarget: settings.proteinTargetG }, now, s));
   const causes = weekCauses(all, from, to);

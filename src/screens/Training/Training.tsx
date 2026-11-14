@@ -121,7 +121,6 @@ export function Training({ start = false }: { start?: boolean }) {
         </section>
       )}
 
-      {ready && <section className="box"><ReadinessBlock r={ready} /></section>}
       {(load || vo2) && <LoadCard load={load} vo2={vo2} />}
 
       <section className="box" aria-labelledby="wk-h">

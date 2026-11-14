@@ -7,8 +7,6 @@ import { useNow } from '../app/useNow';
 import { driversFor, type Drivers, type Topic as TopicId } from '../logic/drivers';
 import { fmtHM } from '../logic/sleep';
 import { comps, muscleEvidence } from '../logic/scaleInsights';
-import { weightTrend } from '../logic/bodyModel';
-import { personalLevers } from '../logic/aheadSmarts';
 import { rhrExplained } from '../logic/healthChecks';
 import { fmtWeight, kgTo } from '../logic/units';
 import { useToday } from '../components/TodayPlan';
@@ -56,18 +54,10 @@ export function Topic({ id }: { id: string }) {
   const drivers = id === 'lean' ? null : driversFor(id as TopicId, ddata, now, s);
   const related = (today?.plan ?? []).filter((x) => x.thread === THREAD[id]).slice(0, 3);
 
-  // Extra, per topic: the weight levers (a month of each), what protects muscle, what explains resting heart rate.
+  // Extra, per topic: what protects muscle, what explains resting heart rate.
   let extra: ReactNode = null;
-  if (id === 'weight') {
-    const tr = weightTrend({ body: data.body, foodLogs: data.foodLogs, workouts: data.workouts, checkIns: data.checkIns, daily: data.daily, doses: data.doses, meds: data.meds }, now);
-    const levers = personalLevers({ trend: tr, daily: data.daily, foodLogs: data.foodLogs, target: settings.energyTargetKcal }, now, s);
-    if (levers.length) extra = (
-      <section className="box space-y-2" aria-labelledby="lev-h">
-        <h2 id="lev-h" className="text-sm font-medium text-muted">A month of each brings the goal closer by</h2>
-        <ul className="space-y-1.5">{levers.map((l) => <li key={l.what} className="flex items-baseline justify-between gap-3"><span>{l.what}</span><span className="font-semibold tnum shrink-0">{l.days.toLocaleString('en-AU')} days</span></li>)}</ul>
-      </section>
-    );
-  } else if (id === 'lean') {
+  // The weight levers (a month of each) are on Body, with the rest of the weight model: said once, there.
+  if (id === 'lean') {
     const ev = muscleEvidence({ body: data.body, daily: data.daily, workouts: data.workouts, proteinTarget: settings.proteinTargetG }, now);
     if (ev) extra = (
       <section className="box space-y-2" aria-labelledby="ev2-h">
@@ -127,7 +117,7 @@ export function DriversCard({ d, title }: { d: Drivers; title?: string }) {
                 <div className="flex justify-end">{!x.helps && <div className="h-2 rounded-l-full" style={{ width: `${(Math.abs(x.diff) / max) * 100}%`, background: 'var(--caution)' }} />}</div>
                 <div>{x.helps && <div className="h-2 rounded-r-full" style={{ width: `${(Math.abs(x.diff) / max) * 100}%`, background: 'var(--success)' }} />}</div>
               </div>
-              <p className="text-[12px] text-muted mt-0.5 tnum">{x.sure === 'clear' ? 'Clear' : 'Likely'} · {x.nWith} days with, {x.nWithout} without{x.key.startsWith('med-') ? ' · worth mentioning to your prescriber' : ''}</p>
+              <p className="text-[12px] text-muted mt-0.5 tnum">{x.sure === 'clear' ? 'Clear' : 'Likely'} · {x.nWith} days with, {x.nWithout} without{x.key.startsWith('med-') && !x.helps ? ' · worth mentioning to your prescriber' : ''}</p>
             </li>
           ))}
         </ul>

@@ -9,7 +9,7 @@ import { Barcode, Plus, Star, Trash2 } from 'lucide-react';
 import type { BodyEntry, Food, FoodLog, Nutrients } from '../db/schema';
 import { useLive } from '../db/live';
 import { db } from '../db/db';
-import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useMeds, useSettings } from '../app/data';
+import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useMeds, useSettings, useFoods, useFoodLogs } from '../app/data';
 import { cravingForecast, hungerWeek, shortNightEating } from '../logic/aheadSmarts';
 import { CravingCard, HungerWeekCard, ShortNightBanner } from '../components/AheadCards';
 import { medIsFor } from '../db/repos/people';
@@ -39,7 +39,7 @@ import { EnergyCard } from '../components/HealthCards';
 import { DayHero, ProteinGapCard, RecipesCard, UsualCard, WeekCard } from '../components/food/FoodHub';
 import { usualFoods } from '../logic/usualFoods';
 import { proteinGap } from '../logic/dailySmarts';
-import { energyBalance } from '../logic/energy';
+import { usualBurn, energyBalance } from '../logic/energy';
 
 const frac = (f: number) => (f === 0.5 ? '½' : f === 1.5 ? '1½' : f === 0.75 ? '¾' : f === 1.25 ? '1¼' : String(f));
 
@@ -47,8 +47,8 @@ export function FoodScreen() {
   const settings = useSettings();
   const fam = useFamily();
   const now = useNow(60_000);
-  const logs = useLive(() => db.foodLogs.toArray(), []);
-  const foods = useLive(() => db.foods.toArray(), []);
+  const logs = useFoodLogs();
+  const foods = useFoods();
   const body = useBodyEntries();
   const daily = useDaily();
   const checkIns = useCheckIns(); const doses = useDoses(); const meds = useMeds();
@@ -120,8 +120,9 @@ export function FoodScreen() {
       </Card>
       {(() => {
         // With the watch: calories burned against eaten, and where that takes your weight.
-        const e = daily ? energyBalance(daily.filter((d) => personOf(d) === fam.personId), mine, now, scheduleSettings(settings)) : null;
-        return e ? <EnergyCard e={e} /> : null;
+        const myDaily = daily ? daily.filter((d) => personOf(d) === fam.personId) : [];
+        const e = daily ? energyBalance(myDaily, mine, now, scheduleSettings(settings)) : null;
+        return e ? <EnergyCard e={e} usual={usualBurn(mine, (body ?? []).filter((b) => personOf(b) === fam.personId), myDaily, now, scheduleSettings(settings))} /> : null;
       })()}
 
       {(() => {

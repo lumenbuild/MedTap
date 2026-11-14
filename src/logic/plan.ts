@@ -82,20 +82,23 @@ export function todayPlan(d: PlanInput): PlanItem[] {
   }
   // The stack: a vial at a new strength, a vial near its date, an order to place, a course just ended.
   for (const x of d.stack ?? []) out.push({ key: `stack:${x.key}`, thread: x.thread ?? 'meds', tone: x.tone, impact: x.impact, title: x.title, detail: x.detail,
-    because: [{ label: x.href === '#/ahead' ? 'Week ahead' : 'Stock', href: x.href }] });
+    because: [{ label: x.href === '#/ahead' ? 'Week ahead' : x.key.startsWith('new-med:') ? 'What to know' : 'Stock', href: x.href }] });
   for (const w of d.warnings) {
     const m = WARN[w.key] ?? { thread: 'recovery' as Thread, because: [L.trends] };
     out.push({ key: `warn:${w.key}`, thread: m.thread, tone: 'watch', impact: 85, title: w.title, detail: `${w.detail} ${w.action}`.trim(), because: m.because });
   }
   for (const c of d.calls) {
+    // When the next dose is due is the top card's job (Today's hero): the plan keeps a second-dose call only when it
+    // flags something (a late dose against sleep), not when it repeats the time.
+    if (c.key === 'second-dose' && c.tone !== 'stop' && c.tone !== 'easy') continue;
     const m = CALL[c.key];
     // Two "ahead" calls (a short night, cravings) are both kept.
     out.push({ key: `call:${c.key}:${out.filter((x) => x.key.startsWith(`call:${c.key}`)).length}`, thread: m.thread, tone: c.tone, impact: m.impact, title: c.title, detail: c.detail, because: m.because });
   }
   for (const b of d.brief) {
     const [kind] = b.key.split(':');
-    // Said already by today's calls.
-    if (kind === 'second' && has('call:second-dose')) continue;
+    // Said already by today's calls, or by the top card (the next dose or shot, and when).
+    if (kind === 'first' || kind === 'second' || kind === 'shot') continue;
     if (kind === 'water' && has('warn:hydration')) continue;
     const m: Record<string, { thread: Thread; impact: number; because: Because[] }> = {
       first: { thread: 'meds', impact: 88, because: [L.doses, L.sleep] },
@@ -111,7 +114,7 @@ export function todayPlan(d: PlanInput): PlanItem[] {
   }
   for (const x of d.insights) {
     // Said already: a second dose, appetite, water, getting sick.
-    if (x.kind === 'second' && (has('call:second-dose') || has('brief:second'))) continue;
+    if (x.kind === 'second') continue; // the next dose, and when, is the top card's
     if (x.kind === 'appetite' && has('brief:appetite')) continue;
     if (x.kind === 'fluids' && (has('brief:water') || has('warn:hydration'))) continue;
     if (x.kind === 'illness' && has('sick')) continue;

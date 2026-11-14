@@ -59,16 +59,18 @@ const Travel = screen(() => import('../screens/Travel'), 'Travel');
 const Protocol = screen(() => import('../screens/Protocol/Protocol'), 'Protocol');
 const Progress = screen(() => import('../screens/Progress'), 'Progress');
 
-/** A peptide guide entry's name for the header, once the guide (a large module) has loaded. */
-function useGuideName(id: string | undefined): string | undefined {
+/** A peptide or medicine guide entry's name for the header, once its guide (a large module) has loaded. */
+function useGuideName(id: string | undefined, kind: 'peptide' | 'medicine' = 'peptide'): string | undefined {
   const [names, setNames] = useState<Record<string, string>>({});
   useEffect(() => {
-    if (!id || names[id] !== undefined) return;
+    if (!id || names[`${kind}:${id}`] !== undefined) return;
     let live = true;
-    void import('../logic/peptideGuide').then((m) => { if (live) setNames((n) => ({ ...n, [id]: m.guideById(id)?.name ?? '' })); });
+    const key = `${kind}:${id}`;
+    if (kind === 'medicine') void import('../logic/medGuide').then((m) => { if (live) setNames((n) => ({ ...n, [key]: m.guideMedById(id)?.name ?? '' })); });
+    else void import('../logic/peptideGuide').then((m) => { if (live) setNames((n) => ({ ...n, [key]: m.guideById(id)?.name ?? '' })); });
     return () => { live = false; };
-  }, [id, names]);
-  return id ? names[id] || undefined : undefined;
+  }, [id, names, kind]);
+  return id ? names[`${kind}:${id}`] || undefined : undefined;
 }
 
 // Charts are the heaviest code; load them only when Trends or the report is opened, so tag taps stay fast.
@@ -84,6 +86,7 @@ const FoodScreen = lazy(() => import('../screens/Food').then((m) => ({ default: 
 const Sleep = lazy(() => import('../screens/Sleep').then((m) => ({ default: m.Sleep })));
 const Health = lazy(() => import('../screens/Health').then((m) => ({ default: m.Health })));
 const TopicScreen = lazy(() => import('../screens/Topic').then((m) => ({ default: m.Topic })));
+const MedicineGuideScreen = lazy(() => import('../screens/MedicineGuide').then((m) => ({ default: m.MedicineGuide })));
 const AheadScreen = lazy(() => import('../screens/Ahead').then((m) => ({ default: m.Ahead })));
 const WeekScreen = lazy(() => import('../screens/Week').then((m) => ({ default: m.Week })));
 const DayScreen = lazy(() => import('../screens/Day').then((m) => ({ default: m.Day })));
@@ -140,6 +143,7 @@ function title(r: Route, peptides = HAS_PEPTIDES, guideName?: string): string {
     case 'day': return 'Your day';
     case 'week': return 'Your week';
     case 'ahead': return 'Week ahead';
+    case 'medicines': return guideName || 'Medicine guide';
     case 'travel': return HAS_VISITS ? 'Plan a trip' : 'Today';
     default: return '';
   }
@@ -156,6 +160,7 @@ function backTo(r: Route, protocol: boolean, foodTab = false): string | undefine
     case 'food': return FOCUS === 'weight' || foodTab ? undefined : '#/today'; // a tab in TapWeigh, and in MedTap when food is on
     case 'caffeine': return '#/today';
     case 'topic': case 'day': case 'week': case 'ahead': return '#/today';
+    case 'medicines': return r.id ? '#/medicines' : '#/meds';
     case 'labs': return HAS_VISITS ? '#/appointments' : protocol ? '#/progress' : '#/trends';
     case 'settings': return r.section ? '#/settings' : '#/today';
     case 'medNew': return r.guideId ? `#/guide/${r.guideId}` : '#/meds';
@@ -218,6 +223,7 @@ function Screen({ r }: { r: Route }) {
     case 'day': return <Suspense fallback={<ChartsLoading />}><DayScreen key={r.date ?? 'today'} date={r.date} /></Suspense>;
     case 'week': return <Suspense fallback={<ChartsLoading />}><WeekScreen /></Suspense>;
     case 'ahead': return <Suspense fallback={<ChartsLoading />}><AheadScreen /></Suspense>;
+    case 'medicines': return HAS_MEDS ? <Suspense fallback={<ChartsLoading />}><MedicineGuideScreen key={r.id ?? 'list'} id={r.id} /></Suspense> : <Today />;
     case 'travel': return HAS_VISITS ? <Travel /> : <Today />;
     default: return <Today />;
   }
@@ -237,7 +243,9 @@ export function App() {
   const now = useNow(60_000);
   const showTabs = !back && r.name !== 'tag';
   // A medicine's page is titled with its name.
-  const guideName = useGuideName(r.name === 'guide' && HAS_PEPTIDES ? r.id : undefined);
+  const pepName = useGuideName(r.name === 'guide' && HAS_PEPTIDES ? r.id : undefined);
+  const medName = useGuideName(r.name === 'medicines' ? r.id : undefined, 'medicine');
+  const guideName = r.name === 'medicines' ? medName : pepName;
   const pageMed = r.name === 'med' ? meds?.find((m) => m.id === r.id) : undefined;
   const heading = pageMed ? shownName(pageMed) : r.name === 'sleep' && settings && !settings.sleepTools ? 'Today'
     // MedTap: Sleep and Training are sections of Health.

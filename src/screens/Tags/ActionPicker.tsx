@@ -2,11 +2,9 @@
 // food, blood pressure or a check-in. Used when a new tag is tapped and from the Tags screen.
 import { useState } from 'react';
 import type { CardioActivity, TagAction } from '../../db/schema';
-import { useExercises, useFamily, useRoutines, useSettings } from '../../app/data';
+import { useExercises, useFamily, useRoutines, useSettings, useFoods } from '../../app/data';
 import { personOf } from '../../db/repos/people';
 import { ACTION_KINDS } from '../../logic/tagActions';
-import { db } from '../../db/db';
-import { useLive } from '../../db/live';
 import { HAS_BODY, HAS_TRAINING, HAS_FOOD, FOCUS } from '../../edition';
 import { Sheet, SheetActions } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
@@ -33,7 +31,7 @@ export function ActionPicker({ onPicked }: { onPicked: (a: TagAction, label: str
   const [step, setStep] = useState<TagAction['kind'] | null>(null);
   const [amount, setAmount] = useState('');
   const mine = routines.filter((r) => !r.deletedAt && personOf(r) === fam?.personId);
-  const foods = (useLive(() => db.foods.toArray(), []) ?? []).filter((f) => !f.deletedAt).sort((a, b) => (b.lastUsedAt ?? '').localeCompare(a.lastUsedAt ?? ''));
+  const foods = (useFoods() ?? []).filter((f) => !f.deletedAt).sort((a, b) => (b.lastUsedAt ?? '').localeCompare(a.lastUsedAt ?? ''));
   const pick = (k: TagAction['kind']) => {
     if (k === 'weight' || k === 'bp' || k === 'checkin' || k === 'measure') { onPicked({ kind: k } as TagAction, ACTION_KINDS.find((x) => x.kind === k)!.name); return; }
     setAmount(k === 'water' ? '500' : k === 'protein' ? '25' : '');
