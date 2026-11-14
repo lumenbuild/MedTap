@@ -21,6 +21,7 @@ import { SickCard } from '../components/TodayPlan';
 import { TopicLinks } from '../components/TopicLinks';
 import { HAS_BODY, HAS_TRAINING } from '../edition';
 import { GlucoseCard, IllnessCard, LoadCard, NightVitalsCard } from '../components/HealthCards';
+import { StartWatchCards } from '../components/RealUse';
 
 const DAY = 86_400_000;
 const n0 = (v: number) => Math.round(v).toLocaleString('en-AU');
@@ -54,7 +55,7 @@ export function Health() {
   const nothing = !r && !vitals && !load && !energy && !vo2;
   // Cross-checks with the scale, blood pressure, medicines and check-ins.
   const bands = usualBands({ daily: d.daily, body: d.body, vitals: d.vitals }, now);
-  const osa = apnoeaCheck({ daily: d.daily, body: d.body, vitals: d.vitals, checkIns: d.checkIns, meds: d.meds, about: d.about }, now);
+  const osa = apnoeaCheck({ daily: d.daily, body: d.body, vitals: d.vitals, checkIns: d.checkIns, meds: d.meds, about: d.about, noSnoring: d.settings?.noSnoring }, now);
   const bp = bpWithWeight({ vitals: d.vitals, body: d.body, checkIns: d.checkIns, meds: d.meds }, now);
   const fit = fitnessAge(d.daily, d.body, d.about, d.goalKg, now);
   const hours = (t: number) => d.workouts.filter((w) => { const s = Date.parse(w.startedAt); return s <= t && s > t - 7 * DAY; })
@@ -85,6 +86,7 @@ export function Health() {
           <p className="mt-2 text-[13px] text-muted">From last night against your usual, below, and this week's training.</p>
         </section>
       )}
+      <StartWatchCards />
       {/* Last night's readings against your own usual: the one list of them (readiness and the sickness watch read the same). */}
       <UsualBandsCard bands={bands} />
       {vitals && !bands.some((b) => ['hrvMs', 'restingHr', 'spo2Avg', 'respRate', 'skinTempDelta'].includes(b.key)) && <NightVitalsCard stats={vitals.stats} />}

@@ -65,6 +65,9 @@ import { useOnce } from '../../app/useOnce';
 import { sayLogged } from '../../app/logged';
 import { foodLogging } from '../../logic/nutrition';
 import { testDayFor } from '../../logic/experiments';
+import { RoughDayCard, StartWatchCards, WalkIcon } from '../../components/RealUse';
+import { walkingToday } from '../../logic/realUse';
+import { maxHeartRate } from '../../logic/trainingLoad';
 
 const FoodToday = lazy(() => import('../Food').then((m) => ({ default: m.FoodToday })));
 
@@ -266,6 +269,8 @@ export function Today() {
       {up.meds.length > 1 && up.at !== null
         ? <HeroGroup meds={up.meds} doses={viewDoses} s={s} now={now} at={up.at} due={up.due} onLog={setLogFor} onLogAll={logAll} whose={fam.many ? whose : undefined} testOf={(m) => testDayFor(m, (experiments ?? []).filter((e) => personOf(e) === fam.personId), format(now, 'yyyy-MM-dd'))} />
         : headline && hero(headline)}
+      {!fam.everyone && <StartWatchCards onLogBp={() => setVitalSheet({})} />}
+      {!fam.everyone && <RoughDayCard />}
       {/* A set time that passed with nothing logged: was it taken? (one person at a time, so a shared medicine's dose is theirs) */}
       {!fam.everyone && <UnloggedCard personId={storedPerson(fam.personId)}
         items={scheduled.flatMap((m) => unloggedSlots(m, viewDoses, Math.floor(now / 60_000) * 60_000, s).map((x) => ({ med: m, ...x })))} />}
@@ -289,6 +294,7 @@ export function Today() {
         const top = motivation?.streaks.filter((x) => x.length > 1).sort((a, b) => b.length * (b.unit === 'week' ? 7 : 1) - a.length * (a.unit === 'week' ? 7 : 1))[0];
         const L = (ml: number) => `${Math.round(ml / 100) / 10}`;
         const logging = foodLogging((foodLogs ?? []).filter((l) => personOf(l) === fam.personId), now);
+        const walk = walkingToday((workouts ?? []).filter((w) => personOf(w) === fam.personId), now, s, maxHeartRate(workouts ?? [], now));
         const tiles: DayTileData[] = [
           { key: 'water', label: 'Water', Icon: GlassWater, colour: 'var(--c-body)', value: L(water), of: waterTarget ? `/ ${L(waterTarget)} L` : 'L', frac: waterTarget ? water / waterTarget : undefined,
             sub: waterBoost ? `+${waterBoost} mL today for side effects` : undefined, onOpen: () => setIntake('waterMl'), onAdd: () => void addWater(), addLabel: `Add ${settings.intakeAmounts.waterMl[0] ?? 250} mL of water` },
@@ -301,6 +307,8 @@ export function Today() {
             sub: inYou >= 5 ? `${inYou} mg in you now` : undefined, href: '#/caffeine', onAdd: () => setDrink({}), addLabel: 'Log a drink' },
           ...(row?.steps !== undefined ? [{ key: 'steps', label: 'Steps', Icon: Footprints, colour: 'var(--c-heart)', value: row.steps.toLocaleString('en-AU'), of: stepsGoal ? `/ ${(Math.round(stepsGoal / 100) / 10).toLocaleString('en-AU')}k` : undefined,
             frac: stepsGoal ? row.steps / stepsGoal : undefined, href: '#/health' }] : []),
+          ...(walk ? [{ key: 'walk', label: 'Walking', Icon: WalkIcon, colour: 'var(--c-heart)', value: String(walk.minutes), of: 'min',
+            sub: `${walk.walks} walk${walk.walks === 1 ? '' : 's'}${walk.zones && walk.zones.steady + walk.zones.harder ? ` · ${walk.zones.steady + walk.zones.harder} min brisk` : ''}`, href: '#/training' }] : []),
           ...(row?.sleepMin !== undefined ? [{ key: 'sleep', label: 'Sleep', Icon: Moon, colour: 'var(--c-sleep)', value: `${Math.floor(row.sleepMin / 60)}h ${String(Math.round(row.sleepMin % 60)).padStart(2, '0')}`, of: `/ ${settings.sleepTargetH} h`,
             frac: row.sleepMin / sleepGoal, href: HAS_PEPTIDES && settings.sleepTools ? '#/sleep' : '#/health' }] : []),
         ];
@@ -322,7 +330,7 @@ export function Today() {
                 <button type="button" onClick={streakNews.onDone} className="min-h-[44px] px-2 font-medium">Nice</button>
               </p>
             )}
-            {dayMeds.length > 1 && <ul aria-label="Today's doses">{dayMeds.map((m) => <TodayRow key={m.id} med={m} doses={viewDoses} s={s} now={now} person={whose(m)} onLog={() => setLogFor(m)} test={testDayFor(m, (experiments ?? []).filter((e) => personOf(e) === fam.personId), todayKey) ?? undefined} />)}</ul>}
+            {dayMeds.length > 1 && <ul aria-label="Today's doses">{dayMeds.map((m) => <TodayRow key={m.id} med={m} doses={viewDoses} s={s} now={now} person={whose(m)} onLog={() => setLogFor(m)} test={isScheduledDay(m, now, s) ? testDayFor(m, (experiments ?? []).filter((e) => personOf(e) === fam.personId), todayKey) ?? undefined : undefined} />)}</ul>}
             {prn.length > 0 && <div aria-label="As needed">{prn.map((m) => <PrnCard key={m.id} med={m} doses={viewDoses} s={s} now={now} onLog={() => setLogFor(m)} person={whose(m)} limits={!(fam.everyone && m.shared)} />)}</div>}
           </YourDay>
         );

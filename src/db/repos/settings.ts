@@ -86,6 +86,8 @@ export interface AppSettings {
   oddDismissed: string[];
   /** Reminder-time suggestions answered "keep it" (`medId|HH:mm`). */
   driftDismissed: string[];
+  /** Answered "no" to snoring in the sleep apnoea check. */
+  noSnoring?: boolean;
   /** Health Connect / Apple Health import: on, and when it last ran (this phone). */
   healthImport: boolean;
   healthLastImport: string | null;

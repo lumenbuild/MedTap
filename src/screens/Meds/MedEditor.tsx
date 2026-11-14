@@ -17,7 +17,7 @@ import { disguise, privateRule } from '../../logic/privateView';
 import { getSettings, setSetting } from '../../db/repos/settings';
 import { personOf, storedPerson } from '../../db/repos/people';
 import { DEFAULT_PERSON } from '../../db/schema';
-import { addBottle, addVials, createMed, deleteMedForever, setArchived, startVial, updateMed, updateVial, type MedInput } from '../../db/repos/meds';
+import { addBottle, addVials, createMed, deleteMedForever, setArchived, startVial, updateMed, updateVial, type MedInput, rescaleDoses } from '../../db/repos/meds';
 import { linkTag } from '../../db/repos/tags';
 import { go, replace } from '../../app/router';
 import { useToast } from '../../app/toast';
@@ -54,6 +54,7 @@ import { fmtAmount, fmtSchedule } from '../../logic/format';
 import { GuideFound, MedGuideCard } from '../../components/MedGuide';
 import { ReminderDriftCard, StartedOnCard, StrengthCheckCard } from '../../components/StartedOn';
 import { strengthCheck } from '../../logic/supplements';
+import { StartedWithLine } from '../../components/RealUse';
 
 const UNITS = ['mg', 'mcg', 'mL', 'units', 'tablet'];
 const FORMS = ['tablet', 'capsule', 'liquid', 'patch', 'injection', 'nasal spray', 'other'];
@@ -305,7 +306,14 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
         before: { strength: existing.strength, unit: existing.unit, defaultAmount: existing.defaultAmount, schedule: existing.schedule },
         after: { strength: input.strength, unit: input.unit, defaultAmount: input.defaultAmount, schedule: input.schedule },
       } : undefined);
-      toast(`Saved ${shownName(input)}`);
+      // The strength per tablet corrected (same unit, a tablet or capsule): past doses can keep their number of
+      // tablets (2.4 mg at a mistyped 1.2 mg was 2 tablets).
+      const perUnit = ['tablet', 'capsule'].includes(input.form) && !input.peptide && existing.unit === input.unit && existing.strength > 0 && input.strength > 0 && existing.strength !== input.strength;
+      if (perUnit) {
+        const from = existing.strength, to = input.strength;
+        toast(`Saved ${shownName(input)}. Past doses are still in ${from} ${input.unit} tablets.`, { actionLabel: 'Update them', duration: 10_000,
+          onAction: async () => { const n = await rescaleDoses(existing.id, from, to); toast(`${n} past dose${n === 1 ? '' : 's'} updated to ${to} ${input.unit} tablets`); } });
+      } else toast(`Saved ${shownName(input)}`);
       go('/meds');
     } else {
       const g = fromGuideId ? guideById(fromGuideId) : undefined;
@@ -420,8 +428,8 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
         </div>
       )}
       {existing && !existing.archived && tab === 'overview' && (onProtocol && !priv
-        ? <><PeptidePart med={existing} part="overview" /><ReminderDriftCard med={existing} /><StartedOnCard med={existing} /><MedVerdict med={existing} /><HowToTakeCard med={existing} onPeptidePage /><MedBodyEffects med={existing} /></>
-        : <><MedHero med={existing} /><StrengthCheckCard med={existing} /><MedGuideCard med={existing} /><ReminderDriftCard med={existing} />{!priv && <StartedOnCard med={existing} />}{!priv && <MedVerdict med={existing} />}<HowToTakeCard med={existing} />{!priv && <DosePlanCard med={existing} />}<MedBodyEffects med={existing} /></>)}
+        ? <><PeptidePart med={existing} part="overview" /><ReminderDriftCard med={existing} /><StartedOnCard med={existing} /><StartedWithLine med={existing} /><MedVerdict med={existing} /><HowToTakeCard med={existing} onPeptidePage /><MedBodyEffects med={existing} /></>
+        : <><MedHero med={existing} /><StrengthCheckCard med={existing} /><MedGuideCard med={existing} /><ReminderDriftCard med={existing} />{!priv && <StartedOnCard med={existing} />}{!priv && <StartedWithLine med={existing} />}{!priv && <MedVerdict med={existing} />}<HowToTakeCard med={existing} />{!priv && <DosePlanCard med={existing} />}<MedBodyEffects med={existing} /></>)}
       {existing && !existing.archived && tab === 'plan' && !priv && <><PeptidePart med={existing} part="plan" /><PeptideInsights med={existing} /></>}
       {existing && !existing.archived && tab === 'stock' && (onProtocol
         ? <><VialCard med={existing} /><VialExtras med={existing} />{!priv && <PeptidePart med={existing} part="stock" />}</>
