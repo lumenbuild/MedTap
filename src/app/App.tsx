@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState, type ComponentType } from 'react';
 import { Settings as Gear, ArrowLeft } from 'lucide-react';
 import { goBack, parseRoute, replace, useHashRoute, type Route } from './router';
 import { ToastProvider } from './toast';
@@ -7,36 +7,71 @@ import { viewMode } from './viewMode';
 import { useMeds, useSettings } from './data';
 import { TabBar } from '../components/TabBar';
 import { HealthNav } from '../components/HealthNav';
-import { SECTION_TITLE, Settings, type SettingsSection } from '../screens/Settings';
-import { Today } from '../screens/Today/Today';
-import { TagLanding } from '../screens/TagLanding/TagLanding';
-import { MedsList } from '../screens/Meds/MedsList';
-import { MedEditor } from '../screens/Meds/MedEditor';
-import { Body } from '../screens/Body/Body';
-import { Backup } from '../screens/Backup/Backup';
-import { Help, helpTitle } from '../screens/Help/Help';
-import { Onboarding } from '../screens/Onboarding/Onboarding';
-import { JoinSync, Sync } from '../screens/Sync';
-import { PeptideCalc } from '../screens/PeptideCalc';
-import { PeptideGuide } from '../screens/PeptideGuide';
-import { guideMedById } from '../logic/medGuide';
-import { Brain } from '../screens/Brain';
-import { Journal } from '../screens/Journal';
-import { YearReview } from '../screens/YearReview';
-import { Experiments } from '../screens/Experiments';
-import { guideById } from '../logic/peptideGuide';
+import { SECTION_TITLE, type SettingsSection } from '../screens/settingsSections';
+import { helpTitle } from '../screens/Help/topics';
 import { shownName } from '../logic/privacy';
-import { Supplies } from '../screens/Supplies';
-import { Appointments, AppointmentSummary, Labs } from '../screens/Visits';
-import { Travel } from '../screens/Travel';
 import { UpdatePrompt } from './UpdatePrompt';
-import { useMaintenance } from './maintenance';
+import { useMaintenance } from './useMaintenance';
 import { ScanTagButton } from '../components/ScanTagButton';
 import { isNativeIOS } from '../platform';
 import { HAS_MEDS, HAS_BODY, HAS_TRAINING, HAS_FOOD, FOCUS, HAS_PEPTIDES, HAS_VISITS } from '../edition';
 import { useNow } from './useNow';
-import { Protocol } from '../screens/Protocol/Protocol';
-import { Progress } from '../screens/Progress';
+
+/** A screen loaded on first use. Only the shell above loads up front, so a tag tap fetches just the tag screen, and
+ *  each screen's code (and the charts, the peptide guide, food data …) arrives only when it's opened. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const screen = <K extends string>(load: () => Promise<Record<K, ComponentType<any>>>, name: K) =>
+  lazy(() => load().then((m) => ({ default: m[name] })));
+
+const loadToday = () => import('../screens/Today/Today');
+const loadTagLanding = () => import('../screens/TagLanding/TagLanding');
+const Today = screen(loadToday, 'Today');
+const TagLanding = screen(loadTagLanding, 'TagLanding');
+
+/** Start loading the first screen's code at boot, alongside main.tsx's start-up work, rather than after the first
+ *  render: otherwise the shell and the screen load one after the other. A tag tap fetches the tag screen; opening
+ *  the app, Today. (The browser keeps the module, so the screen's own lazy() gets it straight away.) */
+export function preloadFirstScreen(hash: string) {
+  const name = parseRoute(hash.replace(/^#/, '') || '/today').name;
+  const load = name === 'tag' ? loadTagLanding : name === 'today' ? loadToday : undefined;
+  load?.().catch(() => {}); // a failure shows when the screen itself loads
+}
+const Settings = screen(() => import('../screens/Settings'), 'Settings');
+const MedsList = screen(() => import('../screens/Meds/MedsList'), 'MedsList');
+const MedEditor = screen(() => import('../screens/Meds/MedEditor'), 'MedEditor');
+const Body = screen(() => import('../screens/Body/Body'), 'Body');
+const Backup = screen(() => import('../screens/Backup/Backup'), 'Backup');
+const Help = screen(() => import('../screens/Help/Help'), 'Help');
+const Onboarding = screen(() => import('../screens/Onboarding/Onboarding'), 'Onboarding');
+const Sync = screen(() => import('../screens/Sync'), 'Sync');
+const JoinSync = screen(() => import('../screens/Sync'), 'JoinSync');
+const PeptideCalc = screen(() => import('../screens/PeptideCalc'), 'PeptideCalc');
+const PeptideGuide = screen(() => import('../screens/PeptideGuide'), 'PeptideGuide');
+const Brain = screen(() => import('../screens/Brain'), 'Brain');
+const Journal = screen(() => import('../screens/Journal'), 'Journal');
+const YearReview = screen(() => import('../screens/YearReview'), 'YearReview');
+const Experiments = screen(() => import('../screens/Experiments'), 'Experiments');
+const Supplies = screen(() => import('../screens/Supplies'), 'Supplies');
+const Appointments = screen(() => import('../screens/Visits'), 'Appointments');
+const AppointmentSummary = screen(() => import('../screens/Visits'), 'AppointmentSummary');
+const Labs = screen(() => import('../screens/Visits'), 'Labs');
+const Travel = screen(() => import('../screens/Travel'), 'Travel');
+const Protocol = screen(() => import('../screens/Protocol/Protocol'), 'Protocol');
+const Progress = screen(() => import('../screens/Progress'), 'Progress');
+
+/** A peptide or medicine guide entry's name for the header, once its guide (a large module) has loaded. */
+function useGuideName(id: string | undefined, kind: 'peptide' | 'medicine' = 'peptide'): string | undefined {
+  const [names, setNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!id || names[`${kind}:${id}`] !== undefined) return;
+    let live = true;
+    const key = `${kind}:${id}`;
+    if (kind === 'medicine') void import('../logic/medGuide').then((m) => { if (live) setNames((n) => ({ ...n, [key]: m.guideMedById(id)?.name ?? '' })); });
+    else void import('../logic/peptideGuide').then((m) => { if (live) setNames((n) => ({ ...n, [key]: m.guideById(id)?.name ?? '' })); });
+    return () => { live = false; };
+  }, [id, names, kind]);
+  return id ? names[`${kind}:${id}`] || undefined : undefined;
+}
 
 // Charts are the heaviest code; load them only when Trends or the report is opened, so tag taps stay fast.
 const CaffeineFinder = lazy(() => import('../screens/CaffeineFinder').then((m) => ({ default: m.CaffeineFinder })));
@@ -60,11 +95,13 @@ const Working = lazy(() => import('../screens/Working').then((m) => ({ default: 
 /** MedTap's layout: Today, Stack, Insights (and Training, Sleep). The other apps keep their own tabs. */
 const STACK = HAS_PEPTIDES;
 const ProtocolReport = lazy(() => import('../screens/Protocol/ProtocolReport').then((m) => ({ default: m.ProtocolReport })));
+/** Shown for the moment a screen's code takes to load (it's on the phone, so usually a frame or two). */
+const ScreenLoading = () => <div aria-busy="true" aria-label="Loading" className="min-h-[50vh]" />;
 const ChartsLoading = () => <div className="space-y-4" aria-busy="true" aria-label="Loading">{[0, 1].map((i) => <div key={i} className="h-60 rounded-card bg-surface-2 animate-pulse" />)}</div>;
 
 const DATE_LINE = new Intl.DateTimeFormat('en-AU', { weekday: 'long', day: 'numeric', month: 'long' });
 
-function title(r: Route, peptides = HAS_PEPTIDES): string {
+function title(r: Route, peptides = HAS_PEPTIDES, guideName?: string): string {
   switch (r.name) {
     case 'today': return 'Today';
     case 'trends': return 'Trends';
@@ -83,7 +120,7 @@ function title(r: Route, peptides = HAS_PEPTIDES): string {
     case 'sync': return 'Family sync';
     case 'join': return 'Join family sync';
     case 'calc': return peptides ? 'Peptide calculator' : 'Today';
-    case 'guide': return peptides ? (r.id && guideById(r.id)?.name) || 'Peptide guide' : 'Today';
+    case 'guide': return peptides ? guideName || 'Peptide guide' : 'Today';
     case 'brain': return 'Brain test';
     case 'journal': return 'Journal';
     case 'year': return 'Year in review';
@@ -106,7 +143,7 @@ function title(r: Route, peptides = HAS_PEPTIDES): string {
     case 'day': return 'Your day';
     case 'week': return 'Your week';
     case 'ahead': return 'Week ahead';
-    case 'medicines': return (r.id && guideMedById(r.id)?.name) || 'Medicine guide';
+    case 'medicines': return guideName || 'Medicine guide';
     case 'travel': return HAS_VISITS ? 'Plan a trip' : 'Today';
     default: return '';
   }
@@ -206,10 +243,13 @@ export function App() {
   const now = useNow(60_000);
   const showTabs = !back && r.name !== 'tag';
   // A medicine's page is titled with its name.
+  const pepName = useGuideName(r.name === 'guide' && HAS_PEPTIDES ? r.id : undefined);
+  const medName = useGuideName(r.name === 'medicines' ? r.id : undefined, 'medicine');
+  const guideName = r.name === 'medicines' ? medName : pepName;
   const pageMed = r.name === 'med' ? meds?.find((m) => m.id === r.id) : undefined;
   const heading = pageMed ? shownName(pageMed) : r.name === 'sleep' && settings && !settings.sleepTools ? 'Today'
     // MedTap: Sleep and Training are sections of Health.
-    : STACK && ['sleep', 'training'].includes(r.name) ? 'Health' : title(r, protocol);
+    : STACK && ['sleep', 'training'].includes(r.name) ? 'Health' : title(r, protocol, guideName);
   // Progress is Trends and Body together, for the peptide layout. Without it they're separate tabs, so a link to
   // Progress opens the matching one.
   const loose = r.name === 'progress' && settings !== undefined && !STACK;
@@ -229,7 +269,7 @@ export function App() {
     <ToastProvider raised={showTabs && !onboarding}>
       <LockGate>
         <div className={`mx-auto max-w-[560px] px-6 ${showTabs && !onboarding ? 'pb-28' : 'pb-6'}`} style={{ paddingTop: onboarding ? undefined : 'env(safe-area-inset-top)' }}>
-          {onboarding ? <Onboarding again={r.name === 'welcome'} /> : (
+          {onboarding ? <Suspense fallback={<ScreenLoading />}><Onboarding again={r.name === 'welcome'} /></Suspense> : (
             <>
               {r.name !== 'tag' && (back ? (
                 <header className="app-header flex items-center gap-1 h-14">
@@ -254,7 +294,7 @@ export function App() {
               ))}
               <main>
                 {STACK && ['health', 'sleep', 'training'].includes(r.name) && <HealthNav route={'/' + r.name} overview={healthTab} sleep={sleepTab} training={training} />}
-                <Screen r={r} />
+                <Suspense fallback={<ScreenLoading />}><Screen r={r} /></Suspense>
               </main>
               {showTabs && <TabBar route={'/' + r.name} stack={STACK} training={training} sleep={sleepTab} health={healthTab} food={foodTab} />}
             </>

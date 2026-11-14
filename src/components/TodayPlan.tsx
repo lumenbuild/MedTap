@@ -7,7 +7,7 @@ import type { Insight } from '../logic/insights';
 import { format } from 'date-fns';
 import { Activity, ChevronDown, ChevronRight, ChevronUp, Footprints, HeartPulse, Moon, Pill, Scale, Thermometer, Utensils, X, type LucideIcon } from 'lucide-react';
 import { useDecisionData } from '../app/useDecisions';
-import { useInsights, InsightRow, BecauseChips } from './InsightList';
+import { useInsights, InsightRow, BecauseChips, MoreText } from './InsightList';
 import { useNow } from '../app/useNow';
 import { useToast } from '../app/toast';
 import { HAS_PEPTIDES } from '../edition';
@@ -236,7 +236,7 @@ function PlanRow({ x, settings }: { x: PlanItem; settings: AppSettings }) {
       </span>
       <div className="flex-1 min-w-0">
         <p className="text-[15px] font-medium leading-snug">{x.title}</p>
-        {x.detail && <p className="text-sm text-muted leading-snug mt-0.5">{x.detail}</p>}
+        {x.detail && <MoreText text={x.detail} compact />}
         {x.because.length > 0 && <BecauseChips items={x.because} />}
       </div>
       <button type="button" onClick={hide} aria-label={`Not now: ${x.title}`} className="w-11 h-11 -mr-2 -mt-1.5 rounded-full flex items-center justify-center text-muted shrink-0"><X size={18} aria-hidden="true" /></button>

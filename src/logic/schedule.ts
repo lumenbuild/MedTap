@@ -227,6 +227,19 @@ export function getFixedSlots(med: Medication, doses: Dose[], now: number, s: Sc
   });
 }
 
+/** Today's set times whose window (±60 min) has closed with nothing logged, taken or skipped: usually a dose that was
+ *  taken but not tapped. Only times after the medicine was added, and none once the day's doses are all in. A record
+ *  question ("was it taken?"), never a prompt to take it now. */
+export function unloggedSlots(med: Medication, doses: Dose[], now: number, s: ScheduleSettings): { at: number; amount: number }[] {
+  if (med.archived || med.schedule.type !== 'fixed') return [];
+  const target = getDailyTarget(med, now, s);
+  if (target && getDosesToday(doses, med.id, now, s).length >= target) return [];
+  const added = Date.parse(med.createdAt);
+  return getFixedSlots(med, doses, now, s)
+    .filter((x) => !x.dose && x.at + FIXED_MATCH_MS <= now && !(x.at < added))
+    .map(({ at: t, amount }) => ({ at: t, amount }));
+}
+
 /** Today's next set time still open (not logged, window not closed). */
 function openSlotToday(med: Medication, doses: Dose[], now: number, s: ScheduleSettings) {
   return getFixedSlots(med, doses, now, s).find((x) => !x.dose && x.at + FIXED_MATCH_MS > now);

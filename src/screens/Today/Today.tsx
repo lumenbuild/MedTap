@@ -13,7 +13,7 @@ import { useNow } from '../../app/useNow';
 import { useToast } from '../../app/toast';
 import { go } from '../../app/router';
 import { addToCalendar } from '../../app/calendar';
-import { byUrgency, getLastDose, getNextDue, getStatus, isScheduledDay, nextUp } from '../../logic/schedule';
+import { byUrgency, getLastDose, getNextDue, getStatus, isScheduledDay, nextUp, unloggedSlots } from '../../logic/schedule';
 import { checkInDue, needsBackup, refillAlerts } from '../../logic/reminders';
 import { RefillCards } from '../../components/Refill';
 import { VialAlerts, vialAlerts } from '../Meds/VialCard';
@@ -48,7 +48,7 @@ import { DoseEditSheet } from './DoseEditSheet';
 import { planRecords, RestartCard, StepPrompt } from '../../components/DosePlan';
 import { restartPrompt, stepStatus } from '../../logic/dosePlan';
 import { TrainingHero, WeightHero } from './FocusHero';
-import { AutoBackupPermission, BackupReminder, CheckInAutoOpen, CheckInPrompt, FocusQuick, InstallCard, NeedsAttention, UpdateCard } from './PromptCards';
+import { AutoBackupPermission, BackupReminder, CheckInAutoOpen, CheckInPrompt, FocusQuick, InstallCard, NeedsAttention, UnloggedCard, UpdateCard } from './PromptCards';
 import { focusAsk } from '../../logic/stimulant';
 import { DailyBrief } from '../../components/Biohack';
 import { GoalRings, TodayPlan, useToday } from '../../components/TodayPlan';
@@ -263,6 +263,9 @@ export function Today() {
       {up.meds.length > 1 && up.at !== null
         ? <HeroGroup meds={up.meds} doses={viewDoses} s={s} now={now} at={up.at} due={up.due} onLog={setLogFor} onLogAll={logAll} whose={fam.many ? whose : undefined} />
         : headline && hero(headline)}
+      {/* A set time that passed with nothing logged: was it taken? (one person at a time, so a shared medicine's dose is theirs) */}
+      {!fam.everyone && <UnloggedCard personId={storedPerson(fam.personId)}
+        items={scheduled.flatMap((m) => unloggedSlots(m, viewDoses, Math.floor(now / 60_000) * 60_000, s).map((x) => ({ med: m, ...x })))} />}
       {fam.everyone && <p className="text-sm text-muted text-center px-4">Pick a person above to log for them.</p>}
 
       {/* Your day: the doses, every number for the day as the same kind of tile, and the rest to log. */}

@@ -99,5 +99,10 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    // Screens load on demand (see App.tsx); merge the tiny shared pieces that splitting leaves behind, so opening a
+    // screen is a few files rather than dozens (each file costs a request and a module to set up).
+    rollupOptions: { output: { experimentalMinChunkSize: Number(process.env.MIN_CHUNK ?? 60_000) } },
+  },
   test: { environment: 'node', include: ['tests/**/*.test.ts'] },
 });

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { isPrivate, shownColour, shownName } from '../../logic/privacy';
 import { X } from 'lucide-react';
 import type { Dose } from '../../db/schema';
@@ -23,9 +23,11 @@ import { format } from 'date-fns';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Success } from './Success';
-import { UnknownTag } from './UnknownTag';
-import { ArchivedTag } from './ArchivedTag';
-import { ActionTag } from './ActionTag';
+// Medicine tags are the usual tap, so only their screen loads with this one. The others (a new tag, an archived
+// medicine, or a tag for food, water, training, scales …) load when one is tapped.
+const UnknownTag = lazy(() => import('./UnknownTag').then((m) => ({ default: m.UnknownTag })));
+const ArchivedTag = lazy(() => import('./ArchivedTag').then((m) => ({ default: m.ArchivedTag })));
+const ActionTag = lazy(() => import('./ActionTag').then((m) => ({ default: m.ActionTag })));
 import { useViewMode } from '../../app/viewMode';
 
 /** Opened by tapping a tag (https://APP_DOMAIN/?t=ID is rewritten to #/tag/ID on boot). */
@@ -53,7 +55,7 @@ export function TagLanding({ id }: { id: string }) {
         <span className="font-semibold text-muted">{APP_NAME}</span>
         <button onClick={close} aria-label="Close" className="w-12 h-12 -mr-3 flex items-center justify-center"><X aria-hidden="true" /></button>
       </header>
-      <div className="flex-1 flex flex-col justify-center pb-6">{children}</div>
+      <div className="flex-1 flex flex-col justify-center pb-6"><Suspense fallback={null}>{children}</Suspense></div>
       {isAndroid && !isNative && id && (
         // The Android app keeps its own data. Older tags open the browser; this hands the tap to the app instead.
         <p className="text-sm text-muted text-center pb-[max(16px,env(safe-area-inset-bottom))]">

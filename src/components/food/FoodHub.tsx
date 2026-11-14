@@ -1,6 +1,7 @@
 // The Food tab's cards: the day as rings, the usual foods one tap away, closing the protein gap, the week, and your
 // recipes (imported or your own) with where they came from.
 import { format } from 'date-fns';
+import { useState } from 'react';
 import { ChevronLeft, ChevronRight, CookingPot, Link2, Plus, Repeat, Target } from 'lucide-react';
 import { logFood, removeFoodLog } from '../../db/repos/food';
 import type { Food, FoodLog, Nutrients } from '../../db/schema';
@@ -115,47 +116,112 @@ export function ProteinGapCard({ g, foods, energy, personId }: { g: ProteinGap; 
   );
 }
 
-/** The last 7 days: calories as bars against the target line (today still filling in), the average of the full days,
- *  and how many of them hit protein. */
+/** The last 7 days, as one chart with a switch: calories or protein as bars against the target line (over it, amber;
+ *  today grey until it's done), or each day's energy split into protein, carbs and fat. Tap a day to read it. */
+type WeekView = 'energy' | 'protein' | 'macros';
+const MACROS = [
+  { key: 'protein', label: 'Protein', kcalPerG: 4, colour: 'var(--med-1)' },
+  { key: 'carbs', label: 'Carbs', kcalPerG: 4, colour: 'var(--med-2)' },
+  { key: 'fat', label: 'Fat', kcalPerG: 9, colour: 'var(--med-3)' },
+] as const;
+
 export function WeekCard({ logs, target, proteinTarget, energy, now }: { logs: FoodLog[]; target: number | null; proteinTarget: number | null; energy: EnergyUnit; now: number }) {
+  const [view, setView] = useState<WeekView>(() => { try { return (localStorage.getItem('foodWeekView') as WeekView) || 'energy'; } catch { return 'energy'; } });
+  const [picked, setPicked] = useState<number | null>(null);
   const days = dailyTotals(logs, now, 7);
   const full = days.slice(0, -1).filter((d) => d.logged);
   if (full.length < 2) return null;
-  const avg = Math.round(full.reduce((a, d) => a + (d.n.kcal ?? 0), 0) / full.length);
-  const hit = proteinTarget ? full.filter((d) => (d.n.protein ?? 0) >= proteinTarget * 0.9).length : null;
+  const choose = (v: WeekView) => { setView(v); setPicked(null); try { localStorage.setItem('foodWeekView', v); } catch { /* per-device preference only */ } };
   const k = (v: number) => (energy === 'kJ' ? Math.round(v * 4.184) : Math.round(v));
-  const top = Math.max(...days.map((d) => d.n.kcal ?? 0), (target ?? 0) * 1.15, 1);
-  const H = 96;
   const unit = energy === 'kJ' ? 'kJ' : 'Cal';
+  const avgOf = (f: (n: (typeof days)[number]['n']) => number) => full.reduce((a, d) => a + f(d.n), 0) / full.length;
+  const hit = proteinTarget ? full.filter((d) => (d.n.protein ?? 0) >= proteinTarget * 0.9).length : null;
+  const H = 96;
+  const dayName = (i: number) => `${format(days[i].start, 'EEEE')}${i === days.length - 1 ? ' (so far)' : ''}`;
+  const macroKcal = (n: (typeof days)[number]['n']) => MACROS.map((m) => (n[m.key] ?? 0) * m.kcalPerG);
+
+  // Bars against a target: calories or protein.
+  const bars = view !== 'macros';
+  const val = (n: (typeof days)[number]['n']) => (view === 'protein' ? n.protein ?? 0 : n.kcal ?? 0);
+  const line = view === 'protein' ? proteinTarget : target;
+  const top = Math.max(...days.map((d) => val(d.n)), (line ?? 0) * 1.15, 1);
+  const show = (v: number) => (view === 'protein' ? `${Math.round(v)} g` : `${k(v).toLocaleString('en-AU')} ${unit}`);
+  const head = view === 'macros'
+    ? null
+    : { value: view === 'protein' ? `${Math.round(avgOf((n) => n.protein ?? 0))} g` : k(avgOf((n) => n.kcal ?? 0)).toLocaleString('en-AU'),
+      sub: view === 'protein' ? `protein a day${proteinTarget ? `, target ${proteinTarget} g` : ''}` : `${unit} a day${target ? `, target ${k(target).toLocaleString('en-AU')}` : ''}` };
+  const macroAvg = MACROS.map((m) => avgOf((n) => n[m.key] ?? 0));
+  const macroShare = (() => { const kc = MACROS.map((m, i) => macroAvg[i] * m.kcalPerG); const t = kc.reduce((a, b) => a + b, 0) || 1; return kc.map((x) => Math.round((x / t) * 100)); })();
+  const readout = picked === null ? null : !days[picked].logged ? `${dayName(picked)}: nothing logged`
+    : view === 'macros' ? `${dayName(picked)}: ${MACROS.map((m) => `${m.label.toLowerCase()} ${Math.round(days[picked].n[m.key] ?? 0)} g`).join(', ')}`
+      : `${dayName(picked)}: ${show(val(days[picked].n))}`;
+
   return (
     <Card className="space-y-3">
-      <h2 className="text-sm font-medium text-muted">Last 7 days</h2>
-      <div className="flex gap-6 tnum">
-        <div><p className="text-[22px] font-semibold">{k(avg).toLocaleString('en-AU')}</p><p className="text-[12px] text-muted">{unit} a day{target ? `, target ${k(target).toLocaleString('en-AU')}` : ''}</p></div>
-        {hit !== null && <div><p className="text-[22px] font-semibold">{hit} of {full.length}</p><p className="text-[12px] text-muted">days protein hit</p></div>}
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-sm font-medium text-muted">Last 7 days</h2>
+        <div role="group" aria-label="Show" className="flex gap-1">
+          {(['energy', 'protein', 'macros'] as const).map((v) => (
+            <button key={v} type="button" aria-pressed={view === v} onClick={() => choose(v)}
+              className={`min-h-[32px] px-2.5 rounded-full text-[13px] font-medium ${view === v ? 'bg-text text-bg' : 'bg-surface-2'}`}>
+              {v === 'energy' ? (energy === 'kJ' ? 'kJ' : 'Calories') : v === 'protein' ? 'Protein' : 'Macros'}
+            </button>
+          ))}
+        </div>
       </div>
-      <div role="img" aria-label={days.map((d, i) => `${format(d.start, 'EEEE')}${i === days.length - 1 ? ' (so far)' : ''}: ${d.logged ? `${k(d.n.kcal ?? 0)} ${unit}` : 'nothing logged'}`).join(', ')}>
+      {head ? (
+        <div className="flex gap-6 tnum">
+          <div><p className="text-[22px] font-semibold">{head.value}</p><p className="text-[12px] text-muted">{head.sub}</p></div>
+          {hit !== null && <div><p className="text-[22px] font-semibold">{hit} of {full.length}</p><p className="text-[12px] text-muted">days protein hit</p></div>}
+        </div>
+      ) : (
+        <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] tnum" aria-label="Average day">
+          {MACROS.map((m, i) => (
+            <li key={m.key} className="inline-flex items-center gap-1.5">
+              <span aria-hidden="true" className="w-3 h-3 rounded-[3px]" style={{ background: m.colour }} />
+              <span>{m.label} <strong>{Math.round(macroAvg[i])} g</strong> <span className="text-muted">· {macroShare[i]}%</span></span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="text-[13px] min-h-[18px] tnum" aria-live="polite">{readout ?? ''}</p>
+      <div role="img" aria-label={days.map((d, i) => `${dayName(i)}: ${!d.logged ? 'nothing logged' : view === 'macros' ? MACROS.map((m) => `${m.label} ${Math.round(d.n[m.key] ?? 0)} g`).join(', ') : show(val(d.n))}`).join('; ')}>
         <div className="relative flex items-end gap-1.5" style={{ height: H + 6 }} aria-hidden="true">
-          {target ? <div className="absolute left-0 right-0 border-t-2 border-dashed border-primary pointer-events-none" style={{ bottom: (target / top) * H }} /> : null}
+          {bars && line ? <div className="absolute left-0 right-0 border-t-2 border-dashed border-primary pointer-events-none" style={{ bottom: (line / top) * H }} /> : null}
           {days.map((d, i) => {
-            const v = d.n.kcal ?? 0;
-            const over = target !== null && v > target * 1.05;
             const today = i === days.length - 1;
+            const on = picked === i;
             return (
-              <div key={d.start} className="flex-1 flex flex-col items-center justify-end min-w-0 h-full">
-                <div className="w-full max-w-[34px] rounded-t-[4px] flex justify-center pt-1" style={{ height: d.logged ? Math.max(3, (v / top) * H) : 0,
-                  background: over ? 'var(--caution)' : today ? 'var(--border-strong)' : 'var(--text)' }}>
-                  {d.logged && (v / top) * H >= 22 && <span className="text-[10px] font-semibold tnum leading-none" style={{ color: today ? 'var(--text)' : 'var(--bg)' }}>{(k(v) / 1000).toFixed(1)}k</span>}
-                </div>
-              </div>
+              <button key={d.start} type="button" tabIndex={-1} onClick={() => setPicked(on ? null : i)} onPointerEnter={(e) => { if (e.pointerType === 'mouse') setPicked(i); }}
+                className={`flex-1 flex flex-col items-center justify-end min-w-0 h-full rounded-[6px] ${on ? 'bg-surface-2' : ''}`}>
+                {bars ? (() => {
+                  const v = val(d.n);
+                  const over = view === 'energy' && line !== null && v > line * 1.05; // over a protein target is fine, so only calories go amber
+                  return (
+                    <div className="w-full max-w-[34px] rounded-t-[4px] flex justify-center pt-1" style={{ height: d.logged ? Math.max(3, (v / top) * H) : 0,
+                      background: over ? 'var(--caution)' : today ? 'var(--border-strong)' : 'var(--text)' }}>
+                      {d.logged && (v / top) * H >= 22 && <span className="text-[10px] font-semibold tnum leading-none" style={{ color: today ? 'var(--text)' : 'var(--bg)' }}>{view === 'protein' ? Math.round(v) : `${(k(v) / 1000).toFixed(1)}k`}</span>}
+                    </div>
+                  );
+                })() : (() => {
+                  // Each day as a full-height bar split by share of energy (2px gaps between the parts).
+                  const kc = macroKcal(d.n); const t = kc.reduce((a, b) => a + b, 0);
+                  if (!d.logged || t <= 0) return null;
+                  return (
+                    <div className="w-full max-w-[34px] flex flex-col-reverse gap-[2px]" style={{ height: H, opacity: today ? 0.55 : 1 }}>
+                      {MACROS.map((m, j) => <div key={m.key} className={j === MACROS.length - 1 ? 'rounded-t-[4px]' : ''} style={{ height: `calc(${(kc[j] / t) * 100}% - 2px)`, background: m.colour }} />)}
+                    </div>
+                  );
+                })()}
+              </button>
             );
           })}
         </div>
         <div className="flex gap-1.5 mt-1 border-t border-border pt-1" aria-hidden="true">
-          {days.map((d, i) => <span key={d.start} className={`flex-1 text-center text-[12px] ${i === days.length - 1 ? 'font-semibold' : 'text-muted'}`}>{format(d.start, 'EEEEE')}</span>)}
+          {days.map((d, i) => <span key={d.start} className={`flex-1 text-center text-[12px] ${i === days.length - 1 || picked === i ? 'font-semibold' : 'text-muted'}`}>{format(d.start, 'EEEEE')}</span>)}
         </div>
       </div>
-      <p className="text-[12px] text-muted">{target ? 'Dashed line: your target. Over it shows amber. ' : ''}Today is grey until it's done.</p>
+      <p className="text-[12px] text-muted">{view === 'macros' ? 'Each day’s energy from protein, carbs and fat. ' : line ? `Dashed line: your target.${view === 'energy' ? ' Over it shows amber.' : ''} ` : ''}Today is {view === 'macros' ? 'faded' : 'grey'} until it's done. Tap a day to read it.</p>
     </Card>
   );
 }

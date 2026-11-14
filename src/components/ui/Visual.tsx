@@ -1,7 +1,8 @@
 // Small visual pieces used across screens so numbers read at a glance instead of as sentences: a mini ring, a bar,
 // an icon row (one short line with a coloured icon), an action tile, a stat tile, a sparkline, side-by-side bars, a
 // shaded table and bars around zero.
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { rollingAverage } from '../../logic/stats';
 import type { LucideIcon } from 'lucide-react';
 
 export type Tone = 'primary' | 'good' | 'watch' | 'bad' | 'plain';
@@ -189,6 +190,55 @@ export function ZeroBars({ items, fmt, height = 56 }: { items: { label: string; 
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** A reading over the last weeks against the person's own usual range: the range as a grey band, each day as a light
+ *  dot, the 7-day average as the line, and the latest reading marked (in caution when it's outside the range in the
+ *  unhelpful direction). Touch or hover reads out a day. One series, one axis; the numbers are also in the row above. */
+export function BandChart({ points, lo, hi, fmt, label, bad, height = 64 }: {
+  points: { t: number; v: number }[]; lo: number; hi: number; fmt: (v: number) => string; label: string; bad?: boolean; height?: number;
+}) {
+  const [at, setAt] = useState<number | null>(null);
+  if (points.length < 3) return null;
+  const W = 300, H = height, padX = 4, padY = 6;
+  const t0 = points[0].t, t1 = points[points.length - 1].t;
+  // Room above and below the usual range, so the band reads as a strip and a reading outside it shows as outside.
+  const room = Math.max(hi - lo, 1e-6) * 0.6;
+  const vs = [...points.map((p) => p.v), lo - room, hi + room];
+  const min = Math.min(...vs), max = Math.max(...vs), span = Math.max(1e-9, max - min);
+  const x = (t: number) => padX + ((t - t0) / Math.max(1, t1 - t0)) * (W - 2 * padX);
+  const y = (v: number) => padY + (1 - (v - min) / span) * (H - 2 * padY);
+  const avg = rollingAverage(points, 7);
+  const line = avg.map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`).join('');
+  const last = points[points.length - 1];
+  const ink = bad ? 'var(--caution)' : 'var(--text)';
+  const pick = (clientX: number, el: SVGSVGElement) => {
+    const r = el.getBoundingClientRect();
+    const tx = t0 + ((clientX - r.left) / r.width) * (t1 - t0);
+    let best = 0;
+    points.forEach((p, i) => { if (Math.abs(p.t - tx) < Math.abs(points[best].t - tx)) best = i; });
+    setAt(best);
+  };
+  const shown = at !== null ? points[at] : null;
+  const day = (t: number) => new Date(t).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+  return (
+    <div className="relative mt-1">
+      <svg role="img" aria-label={`${label}: last ${Math.round((t1 - t0) / 86_400_000) + 1} days, now ${fmt(last.v)}, your usual ${fmt(lo)} to ${fmt(hi)}`}
+        viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="w-full block touch-pan-y" style={{ height: H }}
+        onPointerMove={(e) => pick(e.clientX, e.currentTarget)} onPointerDown={(e) => pick(e.clientX, e.currentTarget)} onPointerLeave={(e) => { if (e.pointerType === 'mouse') setAt(null); }}>
+        <rect x={0} width={W} y={y(hi)} height={Math.max(1, y(lo) - y(hi))} rx={3} fill="var(--border-strong)" opacity={0.45} />
+        {points.map((p) => <circle key={p.t} cx={x(p.t)} cy={y(p.v)} r={1.6} fill="var(--text-muted)" opacity={0.55} vectorEffect="non-scaling-stroke" />)}
+        {avg.length > 1 && <path d={line} fill="none" stroke="var(--text)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />}
+        {shown && <line x1={x(shown.t)} x2={x(shown.t)} y1={0} y2={H} stroke="var(--text-muted)" strokeWidth={1} vectorEffect="non-scaling-stroke" />}
+        <circle cx={x(last.t)} cy={y(last.v)} r={3.5} fill={ink} stroke="var(--surface)" strokeWidth={2} vectorEffect="non-scaling-stroke" />
+      </svg>
+      {shown && (
+        <p className="absolute -top-6 right-0 text-[12px] tnum bg-surface rounded px-1.5 py-0.5 shadow-sm pointer-events-none" aria-hidden="true">
+          {day(shown.t)} · <span className="font-semibold">{fmt(shown.v)}</span>
+        </p>
+      )}
     </div>
   );
 }

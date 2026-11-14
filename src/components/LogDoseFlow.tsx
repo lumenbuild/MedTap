@@ -10,7 +10,7 @@ import { useMeds } from '../app/data';
 import { combinedTotals } from '../logic/ingredients';
 import { PersonBadge } from './PersonSwitcher';
 import { logDose, removeDose, type NewDose } from '../db/repos/doses';
-import { FIXED_MATCH_MS, getContextNotes, getExpectedAmount, getFixedSlots, getLastDose, getRecentDose, type ContextNote, type ScheduleSettings } from '../logic/schedule';
+import { FIXED_MATCH_MS, getContextNotes, getExpectedAmount, getFixedSlots, getLastDose, getRecentDose, unloggedSlots, type ContextNote, type ScheduleSettings } from '../logic/schedule';
 import { stockUnitsFor } from '../logic/stock';
 import { doseCheck } from '../logic/doseCheck';
 import { currentVial, doseForUnits, drawFor, vialForTag } from '../logic/peptide';
@@ -284,7 +284,18 @@ export function LogDoseFlow({ med, doses: allDoses, s, now, tagId, vialId, onLog
               <Clock size={18} aria-hidden="true" /> Taken earlier?
             </button>
           </div>
-        ) : (
+        ) : null}
+        {!earlier && (() => {
+          // Logging late for a set time that passed with nothing logged (taken, but the tag wasn't tapped): its time in one tap.
+          const missed = unloggedSlots(med, doses, now, s).pop();
+          return missed ? (
+            <button type="button" onClick={() => { setWhen(toLocalInput(missed.at)); setEarlier(true); }}
+              className="min-h-[44px] px-4 rounded-full bg-surface-2 font-medium tnum">
+              Taken at {fmtTime(missed.at)} (its time)
+            </button>
+          ) : null;
+        })()}
+        {earlier && (
           <div className="space-y-1.5">
             <div className="flex gap-2">
               <input
