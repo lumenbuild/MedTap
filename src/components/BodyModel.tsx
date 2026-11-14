@@ -6,6 +6,7 @@ import { useDecisionData } from '../app/useDecisions';
 import { useNow } from '../app/useNow';
 import { landing, landingPlan, leanForecast, weightTrend } from '../logic/bodyModel';
 import { usualBurn } from '../logic/energy';
+import { goalView } from '../screens/Body/Goals';
 import { fmtWeight } from '../logic/units';
 import type { Units } from '../db/repos/settings';
 import { MiniRing } from './ui/Visual';
@@ -25,6 +26,8 @@ export function BodyModelCards({ units }: { units: Units }) {
   const w = (kg: number) => fmtWeight(kg, units);
   const burn = usualBurn(data.foodLogs, data.body, data.daily, now, s)?.kcal;
   const land = landing(tr, burn, goalKg, now);
+  const goalF = dd.weightGoal ? goalView(dd.weightGoal, data.body, now).f : undefined;
+  const burnFromSteps = data.daily.some((d) => d.kcalEstimated);
   const lean = leanForecast(data.body, data.workouts, data.daily, tr.perWeek, settings.proteinTargetG, now);
   const plan = landingPlan(tr, land, { daily: data.daily, workouts: data.workouts, checkIns: data.checkIns }, now);
   const rate = Math.abs(tr.perWeek);
@@ -50,11 +53,12 @@ export function BodyModelCards({ units }: { units: Units }) {
 
       <section className="box space-y-2" aria-labelledby="head-h">
         <h2 id="head-h" className="text-sm font-medium text-muted flex items-center gap-1.5"><TrendingDown size={15} aria-hidden="true" />Where you're heading</h2>
-        <p className="text-[17px] font-semibold tnum">On today's habits you'd level off around {w(land.plateauKg)}</p>
-        <p className="text-[15px] text-muted tnum">You burn about {land.burn.toLocaleString('en-AU')} Cal a day{land.burnEstimated ? ' (a rough estimate from your weight until there’s a watch or two weeks of food logs)' : ''} and, from your weight change, eat about {land.intake.toLocaleString('en-AU')}. Each kg lighter burns about 22 Cal less, so loss slows as you go.</p>
-        {land.goal && (land.goal.reachable && land.goal.date
-          ? <p className="text-[15px] tnum"><Flag size={14} aria-hidden="true" className="inline -mt-0.5 mr-1" />{w(land.goal.kg)} around <strong>{month(land.goal.date)}</strong>{land.goal.early && land.goal.late ? ` (likely ${month(land.goal.early)} to ${month(land.goal.late)})` : ''}.</p>
-          : <p className="text-[15px]"><Flag size={14} aria-hidden="true" className="inline -mt-0.5 mr-1" />{w(land.goal.kg)} isn't on this path: the plateau comes first.</p>)}
+        {/* The goal date is the goal forecast's (the same on Today, the goal card and Training); the level-off point
+            only when it comes before the goal, since a body loses more slowly the lighter it gets. */}
+        {goalF?.eta ? <p className="text-[17px] font-semibold tnum"><Flag size={16} aria-hidden="true" className="inline -mt-1 mr-1" />{w(goalKg!)} around {month(goalF.eta)}{goalF.etaEarly && goalF.etaLate && month(goalF.etaEarly) !== month(goalF.etaLate) ? <span className="font-normal text-muted text-[15px]"> · likely {month(goalF.etaEarly)} to {month(goalF.etaLate)}</span> : null}</p>
+          : goalKg && land.plateauKg > goalKg ? <p className="text-[17px] font-semibold tnum">On today's habits you'd level off around {w(land.plateauKg)}, above your {w(goalKg)} goal</p>
+          : !goalKg ? <p className="text-[17px] font-semibold tnum">On today's habits you'd level off around {w(land.plateauKg)}</p> : null}
+        <p className="text-[15px] text-muted tnum">You burn about {land.burn.toLocaleString('en-AU')} Cal a day{land.burnEstimated ? ' (a rough estimate from your weight until there’s a watch or two weeks of food logs)' : burnFromSteps ? ' (your watch’s resting figure plus your steps)' : ''} and, from your weight change, eat about {land.intake.toLocaleString('en-AU')}. Each kg lighter burns about 22 Cal less, so loss slows as you go.</p>
         {land.plan && <p className="text-[15px] tnum">To reach {w(land.goal!.kg)} in about {land.plan.months} months: about <strong>{land.plan.kcal.toLocaleString('en-AU')} Cal a day</strong> on average (or the same gap from more movement).</p>}
         {land.pace !== 'unknown' && <p className="text-[13px] text-muted">{land.pace === 'expected' ? 'The slowdown so far is what a lighter body burning less explains.'
           : land.pace === 'slower-than-expected' ? 'Slower than a lighter body explains on its own: likely eating a little more, or water held (a new food, salt, a hard week of training).'

@@ -11,6 +11,7 @@ import type { BodyEntry, CheckIn, DailyHealth, Dose, FoodLog, Medication, Workou
 import { leanOf } from './bodyComp';
 import { robustFit } from './forecast';
 import { inGroup } from './interactions';
+import { isStrengthSession } from './training';
 
 const DAY = 86_400_000;
 const KCAL_PER_KG = 7700;
@@ -84,7 +85,7 @@ function causesFor(d: TrendData, date: string, off: number): string[] {
     if (y.length && (na >= 3000 || (naUsual !== undefined && na >= naUsual + 800))) out.push(`a salty day yesterday (${Math.round(na).toLocaleString('en-AU')} mg sodium)`);
     const carbs = sum(y, 'carbs'), cUsual = usualOf('carbs');
     if (y.length && cUsual !== undefined && carbs >= cUsual + 60) out.push(`more carbs than usual yesterday (${Math.round(carbs)} g; carbs hold water)`);
-    const lifted = d.workouts.some((w) => live(w) && w.sets.some((s) => s.done) && Date.parse(w.startedAt) > day - 2 * DAY && Date.parse(w.startedAt) <= day + 12 * 3_600_000);
+    const lifted = d.workouts.some((w) => live(w) && isStrengthSession(w) && Date.parse(w.startedAt) > day - 2 * DAY && Date.parse(w.startedAt) <= day + 12 * 3_600_000);
     if (lifted) out.push('a strength session (muscles hold water while they repair)');
     if (chipsWithin(/alcohol|drink/i, 36)) out.push('alcohol yesterday');
     if (chipsWithin(/constipat/i, 72)) out.push('constipation');
@@ -177,7 +178,7 @@ export function leanForecast(body: BodyEntry[], workouts: Workout[], daily: Dail
   if (!last) return null;
   const W = last.weightKg!, fatKg = r1((W * last.bodyFatPct!) / 100);
   const base = 10.4 / (10.4 + fatKg);
-  const sessions = workouts.filter((w) => live(w) && w.sets.some((s) => s.done) && Date.parse(w.startedAt) > now - 28 * DAY).length / 4;
+  const sessions = workouts.filter((w) => live(w) && isStrengthSession(w) && Date.parse(w.startedAt) > now - 28 * DAY).length / 4;
   const prot = daily.filter((x) => live(x) && x.proteinG && ms(x.date) > now - 14 * DAY).map((x) => x.proteinG!);
   const protPerKg = prot.length >= 4 ? mean(prot) / W : undefined;
   const fast = perWeek < 0 && -perWeek / W > 0.01;
@@ -221,7 +222,7 @@ export function landingPlan(trend: WeightTrend, land: Landing, d: { daily: Daily
   const avg = (from: number, to: number, f: (x: DailyHealth) => number | undefined) => { const xs = d.daily.filter((x) => live(x) && ms(x.date) > now - from * DAY && ms(x.date) <= now - to * DAY).map(f).filter((v): v is number => typeof v === 'number'); return xs.length >= 5 ? mean(xs) : undefined; };
   const sNow = avg(14, 0, (x) => x.steps), sBefore = avg(42, 14, (x) => x.steps);
   if (sNow !== undefined && sBefore !== undefined && sNow < sBefore * 0.85) why.push('steps down');
-  const lifts = (from: number, to: number) => d.workouts.filter((w) => live(w) && w.sets.some((s) => s.done) && Date.parse(w.startedAt) > now - from * DAY && Date.parse(w.startedAt) <= now - to * DAY).length;
+  const lifts = (from: number, to: number) => d.workouts.filter((w) => live(w) && isStrengthSession(w) && Date.parse(w.startedAt) > now - from * DAY && Date.parse(w.startedAt) <= now - to * DAY).length;
   if (lifts(28, 0) < lifts(56, 28)) why.push('fewer strength sessions');
   const hunger = (from: number, to: number) => d.checkIns.filter((c) => live(c) && Date.parse(c.at) > now - from * DAY && Date.parse(c.at) <= now - to * DAY && c.chips.some((x) => /hungry|craving|food noise/i.test(x))).length;
   if (hunger(14, 0) > hunger(28, 14) + 2) why.push('more hunger and cravings');

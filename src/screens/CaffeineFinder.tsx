@@ -116,11 +116,11 @@ function Bands({ bands, metric }: { bands: FinderBand[]; metric: 'sleep' | 'edge
               <span className="font-medium flex-1">{b.label}</span>
               <span className="text-muted tnum">{b.nights} {metric === 'sleep' ? 'night' : 'day'}{b.nights === 1 ? '' : 's'}</span>
             </div>
-            <div className="h-2.5 rounded-full bg-surface-2 overflow-hidden" role="img" aria-label={`${b.label}: ${thin ? 'too few to compare' : text}${b.worse ? ', worse' : ''}`}>
+            <div className="h-2.5 rounded-full bg-surface-2 overflow-hidden" role="img" aria-label={`${b.label}: ${thin ? 'too few to compare' : text}${b.worse ? `, ${b.worseWhat ?? 'worse'}` : ''}`}>
               {!thin && <div className="h-full rounded-full" style={{ width: `${Math.max(4, value * 100)}%`, background: b.worse ? 'var(--caution)' : 'var(--primary)' }} />}
             </div>
             <p className={`text-xs tnum flex items-center gap-1 ${b.worse ? 'text-caution' : 'text-muted'}`}>
-              {b.worse && <AlertTriangle size={12} aria-hidden="true" />}{thin ? 'Too few to compare yet' : text}{b.worse ? ' · worse' : ''}
+              {b.worse && <AlertTriangle size={12} aria-hidden="true" />}{thin ? 'Too few to compare yet' : text}{b.worse ? ` · ${b.worseWhat ?? 'worse'}` : ''}
             </p>
           </li>
         );

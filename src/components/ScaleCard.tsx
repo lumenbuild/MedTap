@@ -10,6 +10,7 @@ import type { Units } from '../db/repos/settings';
 import { readText } from '../app/ocr';
 import { saveScaleReadings } from '../app/scale';
 import { useToast } from '../app/toast';
+import { useScaleChange } from '../app/data';
 import { parseScaleCsv, parseScaleScreen, SCALE_LABEL, type ScaleField, type ScaleReading } from '../logic/scaleImport';
 import { visceralPath } from '../logic/healthChecks';
 import { fmtWeight } from '../logic/units';
@@ -36,6 +37,7 @@ export function ScaleCard({ entries, units, personId, age }: { entries: BodyEntr
   // A screenshot shared to the app: shown here to check before saving.
   useEffect(() => onScaleReview((r) => { setReview(r); clearScaleReview(); }), []);
   const now = Date.now();
+  const changedOn = useScaleChange();
   const rows = entries.filter((e) => !e.deletedAt).sort((a, b) => b.date.localeCompare(a.date));
   const fmt = (k: Key, v: number) => (['leanKg', 'muscleKg', 'boneKg'].includes(k) ? fmtWeight(v, units) : k === 'bmrKcal' ? `${v.toLocaleString('en-AU')} Cal` : k === 'visceralFat' || k === 'metabolicAge' ? String(v) : `${v}%`);
   // The latest of each measure (within 3 weeks), and its value about a month before.
@@ -76,6 +78,9 @@ export function ScaleCard({ entries, units, personId, age }: { entries: BodyEntr
   return (
     <section className="box space-y-3" aria-labelledby="scale-h">
       <h2 id="scale-h" className="text-sm font-medium text-muted flex items-center gap-1.5"><Scale size={15} aria-hidden="true" />Smart scale{tiles[0] ? ` · ${format(ms(tiles[0].date), 'd MMM')}` : ''}</h2>
+      {changedOn && ms(changedOn) > now - 90 * DAY && (
+        <p className="text-[14px] leading-snug rounded-btn bg-surface-2 p-2.5">Your scale changed how it measures on {format(ms(changedOn), 'd MMM')}. Body make-up counts from then, so the switch doesn’t read as fat lost.</p>
+      )}
       {tiles.length > 0 ? (
         <ul className="grid grid-cols-3 gap-1.5">
           {tiles.map((t) => (

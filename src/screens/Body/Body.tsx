@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useLabs, useMedEvents, useMeds, useScheduleSettings, useVitals, useWorkouts } from '../../app/data';
+import { useBodyEntries, useRawBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useLabs, useMedEvents, useMeds, useScheduleSettings, useVitals, useWorkouts } from '../../app/data';
 import { MarkersCard } from '../../components/MarkersCard';
 import { MuscleCard } from '../../components/Biohack';
 import { BodyModelCards } from '../../components/BodyModel';
@@ -37,6 +37,7 @@ const RANGES: { value: Range; label: string }[] = [{ value: '7d', label: '7D' },
 export function Body() {
   const ss = useScheduleSettings();
   const all = useBodyEntries();
+  const raw = useRawBodyEntries();
   const fam = useFamily();
   const meds = useMeds();
   const doses = useDoses();
@@ -139,7 +140,7 @@ export function Body() {
           <details className="group">
             <summary className="min-h-[44px] flex items-center gap-1.5 text-sm font-medium text-muted cursor-pointer list-none">Every entry ({entries.length}) <ChevronDown size={16} className="transition-transform group-open:rotate-180" aria-hidden="true" /></summary>
             <ul className="mt-1 -mx-2">
-              {entries.slice(0, 120).map((e) => {
+              {(raw ?? entries).filter((b) => !b.deletedAt && personOf(b) === fam.personId).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 120).map((e) => {
                 const n = MEASUREMENTS.filter((m) => e[m.key] !== undefined).length + (e.bodyFatPct !== undefined || e.leanKg !== undefined || e.muscleKg !== undefined ? 1 : 0);
                 return (
                   <li key={e.id}>

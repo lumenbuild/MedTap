@@ -185,7 +185,9 @@ const hhmm = (v: string) => { const [h, m] = v.split(':').map(Number); return h 
 const ymd = (t: number, s: ScheduleSettings) => { const p = zonedParts(t, s.tz); return `${p.y}-${String(p.m).padStart(2, '0')}-${String(p.d).padStart(2, '0')}`; };
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : undefined);
 
-export interface FinderBand { label: string; from: number; to: number; nights: number; hours?: number; quality?: number; edgyPct?: number; worse: boolean }
+export interface FinderBand { label: string; from: number; to: number; nights: number; hours?: number; quality?: number; edgyPct?: number; worse: boolean;
+  /** What was worse, in words ("sleep quality lower"), so a band that slept longer but rated lower says so. */
+  worseWhat?: string }
 export interface Finding {
   bands: FinderBand[];
   /** found: the bands show where it starts to matter; clear: no difference up to the latest or most you've had;
@@ -201,6 +203,13 @@ const slept = (x: CaffeineDay) => x.hours !== undefined || x.quality !== undefin
 /** Clearly worse sleep than the baseline: 25+ minutes less, or half a point lower on quality. */
 const worseSleep = (b: { hours?: number; quality?: number }, base: { hours?: number; quality?: number }) =>
   (b.hours !== undefined && base.hours !== undefined && base.hours - b.hours >= 0.4) || (b.quality !== undefined && base.quality !== undefined && base.quality - b.quality >= 0.5);
+
+/** Which part of the sleep was worse, in words. */
+function worseWhat(b: { hours?: number; quality?: number }, base: { hours?: number; quality?: number }): string {
+  const shorter = b.hours !== undefined && base.hours !== undefined && base.hours - b.hours >= 0.4;
+  const lower = b.quality !== undefined && base.quality !== undefined && base.quality - b.quality >= 0.5;
+  return shorter && lower ? 'shorter and lower-quality sleep' : shorter ? 'shorter sleep' : 'sleep quality lower';
+}
 
 /** The earliest band (with 3+ nights) that's worse, when every later band with enough is worse too. */
 function firstWorse(bands: FinderBand[]): FinderBand | undefined {
@@ -219,7 +228,8 @@ export function findCutoff(days: CaffeineDay[]): Finding {
   const bands = defs.map((d, i) => {
     const xs = withSleep.filter((x) => inBand(x, d));
     const sl = sleepOf(xs);
-    return { ...d, nights: xs.length, ...sl, worse: i > 0 && xs.length >= 3 && worseSleep(sl, base) };
+    const worse = i > 0 && xs.length >= 3 && worseSleep(sl, base);
+    return { ...d, nights: xs.length, ...sl, worse, worseWhat: worse ? worseWhat(sl, base) : undefined };
   });
   const known = bands.filter((b) => b.nights >= 3);
   if (withSleep.length < 10 || bands[0].nights < 3 || known.length < 2) return { bands, status: 'more', nights: withSleep.length };
@@ -245,6 +255,7 @@ export function findLimit(days: CaffeineDay[]): Finding {
     ...b,
     worse: b !== baseBand && b.from > baseBand.from && b.nights >= 3
       && ((b.edgyPct !== undefined && baseBand.edgyPct !== undefined && b.edgyPct - baseBand.edgyPct >= 25) || worseSleep(b, baseBand)),
+    worseWhat: b.edgyPct !== undefined && baseBand.edgyPct !== undefined && b.edgyPct - baseBand.edgyPct >= 25 ? 'on edge more often' : worseSleep(b, baseBand) ? worseWhat(b, baseBand) : undefined,
   }));
   const known = bands.filter((b) => b.nights >= 3);
   if (known.length < 2) return { bands, status: 'more', nights: useful.length };

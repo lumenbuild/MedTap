@@ -6,7 +6,7 @@ import type { ScheduleSettings } from './schedule';
 import { getDayBounds, weekdayOf } from './schedule';
 import { adherenceByDay, daysBetween, ymdToMs } from './stats';
 import { dayStartOffset } from './protocol';
-import { newPBs, working } from './training';
+import { countsAsSession, newPBs, working } from './training';
 import type { ExerciseDef } from './exercises';
 import { kgTo, weightUnit } from './units';
 import { EFFECT_CHIPS } from './predict';
@@ -82,8 +82,9 @@ export function periodReview(d: DigestData, start: number, end: number, s: Sched
 
   // Training: sessions and personal bests.
   if (opts.training) {
-    const ws = d.workouts.filter((w) => !w.deletedAt && inR(Date.parse(w.startedAt), start, end));
-    const prevN = d.workouts.filter((w) => !w.deletedAt && inR(Date.parse(w.startedAt), prevStart, start)).length;
+    // Sessions as Training counts them: everyday walks the watch picks up are steps, not sessions.
+    const ws = d.workouts.filter((w) => !w.deletedAt && countsAsSession(w) && inR(Date.parse(w.startedAt), start, end));
+    const prevN = d.workouts.filter((w) => !w.deletedAt && countsAsSession(w) && inR(Date.parse(w.startedAt), prevStart, start)).length;
     // One best per lift (its headline one), so a single big session doesn't read as five records.
     const byLift = new Map<string, string>();
     for (const w of ws.filter((x) => working(x.sets).length)) for (const p of newPBs(w, d.workouts, d.defs, opts.units)) if (!byLift.has(p.exerciseId)) byLift.set(p.exerciseId, `${d.defs.find((x) => x.id === p.exerciseId)?.name}: ${p.text}`);

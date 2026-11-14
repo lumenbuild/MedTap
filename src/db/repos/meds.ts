@@ -27,6 +27,19 @@ export async function createMed(input: MedInput): Promise<Medication> {
   return med;
 }
 
+/** When it was really started (undefined: when it was added). Moves its "Started" event to match, for timelines. */
+export async function setStartedOn(id: string, ymd: string | undefined) {
+  await db.transaction('rw', db.medications, db.medEvents, async () => {
+    const med = await db.medications.get(id);
+    if (!med) return;
+    await db.medications.update(id, { startedOn: ymd, updatedAt: nowIso() });
+    const at = ymd ? new Date(`${ymd}T09:00`).toISOString() : med.createdAt;
+    const ev = (await db.medEvents.where('medicationId').equals(id).toArray()).find((e) => e.kind === 'started');
+    if (ev) await db.medEvents.update(ev.id, { at });
+    else await addEvent(id, 'started', `Started ${med.name}`, at);
+  });
+}
+
 /** Save edits. Pass `change` to record a dated medication event (for chart markers). */
 export async function updateMed(id: string, input: MedInput, change?: { at: string; summary: string; before: unknown; after: unknown }) {
   await db.transaction('rw', db.medications, db.medEvents, async () => {

@@ -79,13 +79,15 @@ export function whatsWorking(d: AllData, now: number, s: ScheduleSettings): What
   const from = now - 60 * DAY;
   const days: string[] = [];
   for (let t = from; t < now - DAY / 2; t += DAY) days.push(dayKey(t, s));
-  const factors: { key: string; label: string; on: Set<string>; controllable: boolean; med?: Medication }[] = [];
+  const factors: { key: string; label: string; on: Set<string>; controllable: boolean; med?: Medication; known?: Set<string> }[] = [];
   for (const m of d.meds.filter((x) => !x.archived)) {
     const on = new Set(d.doses.filter((x) => x.medicationId === m.id && live(x) && !x.skipped).map((x) => dayKey(Date.parse(x.takenAt), s)));
+    // Only days since it was added: before that, a day without a logged dose isn't a day without it.
+    const known = new Set(days.filter((k) => !m.createdAt || k >= dayKey(Date.parse(m.createdAt), s)));
     const inWindow = days.filter((k) => on.has(k)).length;
     // A long-acting one (a weekly shot) is in the body every day: its days are shot days, not on and off.
     const short = shortActing(m);
-    if (inWindow >= 6 && days.length - inWindow >= 6) factors.push({ key: `med-${m.id}`, label: short ? `Taking ${m.nickname?.trim() || m.name}` : `${m.nickname?.trim() || m.name} shot day`, on, controllable: short && selfTestable(m), med: m });
+    if (inWindow >= 6 && known.size - inWindow >= 6) factors.push({ key: `med-${m.id}`, label: short ? `Taking ${m.nickname?.trim() || m.name}` : `${m.nickname?.trim() || m.name} shot day`, on, controllable: short && selfTestable(m), med: m, known });
   }
   const chipDays = (re: RegExp, after?: number) => new Set(d.checkIns.filter((c) => live(c) && c.chips.some((x) => re.test(x)) && (after === undefined || new Date(c.at).getHours() >= after)).map((c) => dayKey(Date.parse(c.at), s)));
   factors.push({ key: 'late-caffeine', label: 'Caffeine after 2 pm', on: chipDays(/caffeine|coffee/i, 14), controllable: true });
@@ -110,7 +112,7 @@ export function whatsWorking(d: AllData, now: number, s: ScheduleSettings): What
   for (const f of factors) for (const { o, get } of outcomes) {
     if (f.key === 'workout' && o === 'recovery') continue; // a hard day lowers HRV that night by design
     const a: number[] = [], b: number[] = [];
-    for (const k of days) { const v = get(k); if (v === undefined) continue; (f.on.has(k) ? b : a).push(v); }
+    for (const k of days) { if (f.known && !f.known.has(k)) continue; const v = get(k); if (v === undefined) continue; (f.on.has(k) ? b : a).push(v); }
     if (a.length < 6 || b.length < 6) continue;
     const diff = mean(b) - mean(a), pooled = Math.sqrt((variance(a) + variance(b)) / 2);
     if (pooled <= 0 || Math.abs(diff) < MEANINGFUL[o]) continue;

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import type { BodyEntry } from '../db/schema';
 import type { Units } from '../db/repos/settings';
-import { removeBody, restoreBody, saveBody, undoBody, upsertBody, type BodyFields } from '../db/repos/body';
+import { editBody, removeBody, restoreBody, saveBody, undoBody, upsertBody, type BodyFields } from '../db/repos/body';
 import { cmTo, kgTo, lengthUnit, MEASUREMENTS, toCm, toKg, weightUnit, fmtWeight } from '../logic/units';
 import { useToast } from '../app/toast';
 import { Sheet, SheetActions, useFreshKey } from './ui/Sheet';
@@ -65,10 +65,8 @@ function BodyForm({ state, onClose, units, personId }: { state: NonNullable<Body
     if (invalid || future) return;
     const fields = toFields();
     if (state.kind === 'edit' && state.entry) {
-      const e = state.entry;
-      const cleared: BodyEntry = { id: e.id, date, createdAt: e.createdAt, updatedAt: e.updatedAt, note: e.note, personId: e.personId, ...fields };
-      await saveBody(cleared);
-      toast('Saved changes', { onAction: () => saveBody(e) });
+      const before = await editBody(state.entry.id, date, keys, fields);
+      if (before) toast('Saved changes', { onAction: () => saveBody(before) });
     } else {
       if (!any) return;
       const r = await upsertBody(date, fields, personId);

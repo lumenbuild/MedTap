@@ -9,6 +9,7 @@ import { appetiteCurve } from './predict';
 import { getDayBounds, type ScheduleSettings } from './schedule';
 import { dayKey } from './stats';
 import { brainScore, brainTests } from './biohack';
+import { isStrengthSession } from './training';
 
 const DAY = 86_400_000, WEEK = 7 * DAY;
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN);
@@ -64,7 +65,7 @@ export function muscleScore(body: BodyEntry[], daily: DailyHealth[], workouts: W
   const parts: MuscleScore['parts'] = [];
   let score = 0, max = 0;
   if (prot.length >= 3) { const p = Math.min(1, mean(prot) / target); score += 40 * p; max += 40; parts.push({ what: 'Protein', text: `${Math.round(mean(prot))} of ${target} g a day`, points: Math.round(40 * p), of: 40 }); }
-  const strength = workouts.filter((w) => live(w) && !w.cardio && w.sets.some((x) => x.done) && Date.parse(w.startedAt) > now - 14 * DAY).length;
+  const strength = workouts.filter((w) => live(w) && isStrengthSession(w) && Date.parse(w.startedAt) > now - 14 * DAY).length;
   { const p = Math.min(1, strength / 4); score += 30 * p; max += 30; parts.push({ what: 'Strength training', text: `${strength} session${strength === 1 ? '' : 's'} in 2 weeks`, points: Math.round(30 * p), of: 30 }); }
   const span = (recent[recent.length - 1].t - recent[0].t) / WEEK;
   if (span >= 1) {
