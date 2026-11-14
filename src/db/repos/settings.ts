@@ -84,6 +84,8 @@ export interface AppSettings {
   lateNudges: boolean;
   /** Odd records the person said are fine (ids), so they aren't raised again. */
   oddDismissed: string[];
+  /** Reminder-time suggestions answered "keep it" (`medId|HH:mm`). */
+  driftDismissed: string[];
   /** Health Connect / Apple Health import: on, and when it last ran (this phone). */
   healthImport: boolean;
   healthLastImport: string | null;
@@ -236,6 +238,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   busyDays: [],
   lateNudges: true,
   oddDismissed: [],
+  driftDismissed: [],
   healthImport: false,
   healthLastImport: null,
   healthPersonId: 'me',

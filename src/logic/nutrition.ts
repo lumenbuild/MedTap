@@ -239,3 +239,10 @@ export function fmtPortions(p: Portions): string {
   const w = (v: number, one: string, many: string) => (v ? `${v} ${v === 1 ? one : many}` : '');
   return [w(p.palm, 'palm', 'palms'), w(p.cupped, 'cupped hand', 'cupped hands'), w(p.fist, 'fist', 'fists'), w(p.thumb, 'thumb', 'thumbs')].filter(Boolean).join(', ') || 'Nothing yet';
 }
+
+/** Is food being logged these days? Something logged today, or on any of the last 3 days. When not, a day's totals are
+ *  "not logged", never "0 Cal eaten", and nothing nudges a catch-up snack on the strength of an empty log. */
+export function foodLogging(foodLogs: { at: string; deletedAt?: string }[], now: number): boolean {
+  const from = now - 4 * 86_400_000;
+  return foodLogs.some((l) => !l.deletedAt && Date.parse(l.at) >= from && Date.parse(l.at) <= now);
+}

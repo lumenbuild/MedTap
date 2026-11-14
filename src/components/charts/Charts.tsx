@@ -17,6 +17,7 @@ import { shownColour, shownMedName, shownName } from '../../logic/privacy';
 import { ChartCard, type Headline } from './ChartCard';
 import { TrendChart, type TrendSeries } from './TrendChart';
 import { baseOptions, timeAxis, useChartTheme, type ChartTheme } from './setup';
+import { chartEvents } from '../../logic/changes';
 
 const DAY = 86_400_000;
 /** `realNames` shows real medication names instead of nicknames (the doctor report can choose). */
@@ -322,7 +323,7 @@ export function FeelingsChart({ checkIns, events, meds, start, end, s, prevStart
   const th = useChartTheme();
   const nameOf = nameFor(realNames);
   const fields = [['mood', 'Mood'], ['energy', 'Energy'], ['focus', 'Focus'], ['appetite', 'Appetite']] as const;
-  const marks = events.filter((e) => Date.parse(e.at) >= start && Date.parse(e.at) <= end).sort((a, b) => a.at.localeCompare(b.at));
+  const marks = chartEvents(events, meds).filter((e) => Date.parse(e.at) >= start && Date.parse(e.at) <= end).sort((a, b) => a.at.localeCompare(b.at));
   const periodDays = prevStart === null ? null : Math.round((end - start) / DAY);
   const medName = (id: string) => { const m = meds.find((x) => x.id === id); return m ? nameOf(m) : 'Medication'; };
   // Started/stopped summaries were written with the real name, so rebuild them with the name being shown.

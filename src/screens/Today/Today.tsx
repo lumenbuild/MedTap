@@ -5,7 +5,7 @@ import { Beef, Footprints, Moon, CalendarPlus, ChevronRight, Coffee, Dumbbell, G
 import { addIntake } from '../../db/repos/training';
 import { Tile } from '../../components/ui/Visual';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
-import { useBodyEntries, useCheckIns, useDaily, useDoses, useExercises, useWorkouts, useFamily, useMeds, useScheduleSettings, useSupplies, useTags, useVitals, useFoodLogs } from '../../app/data';
+import { useBodyEntries, useCheckIns, useDaily, useDoses, useExercises, useWorkouts, useFamily, useMeds, useScheduleSettings, useSupplies, useTags, useVitals, useFoodLogs , useExperiments } from '../../app/data';
 import { VitalsSheet, type VitalsSheetState } from '../../components/VitalsSheet';
 import { dosesForPerson, medIsFor, personOf, storedPerson } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
@@ -63,6 +63,8 @@ import { GettingStartedCard } from '../../components/GettingStarted';
 import { readiness } from '../../logic/training';
 import { useOnce } from '../../app/useOnce';
 import { sayLogged } from '../../app/logged';
+import { foodLogging } from '../../logic/nutrition';
+import { testDayFor } from '../../logic/experiments';
 
 const FoodToday = lazy(() => import('../Food').then((m) => ({ default: m.FoodToday })));
 
@@ -74,6 +76,7 @@ export function Today() {
   const checkIns = useCheckIns();
   const tags = useTags();
   const body = useBodyEntries();
+  const experiments = useExperiments();
   const vitals = useVitals();
   const supplies = useSupplies();
   const daily = useDaily();
@@ -261,7 +264,7 @@ export function Today() {
       {FOCUS === 'training' && !fam.everyone && workouts && <TrainingHero workouts={workouts.filter((w) => personOf(w) === fam.personId)} tags={tags ?? []} now={now}
         ready={readiness((daily ?? []).filter((d) => !d.deletedAt && personOf(d) === fam.personId), viewCheckIns, now, s)} />}
       {up.meds.length > 1 && up.at !== null
-        ? <HeroGroup meds={up.meds} doses={viewDoses} s={s} now={now} at={up.at} due={up.due} onLog={setLogFor} onLogAll={logAll} whose={fam.many ? whose : undefined} />
+        ? <HeroGroup meds={up.meds} doses={viewDoses} s={s} now={now} at={up.at} due={up.due} onLog={setLogFor} onLogAll={logAll} whose={fam.many ? whose : undefined} testOf={(m) => testDayFor(m, (experiments ?? []).filter((e) => personOf(e) === fam.personId), format(now, 'yyyy-MM-dd'))} />
         : headline && hero(headline)}
       {/* A set time that passed with nothing logged: was it taken? (one person at a time, so a shared medicine's dose is theirs) */}
       {!fam.everyone && <UnloggedCard personId={storedPerson(fam.personId)}
@@ -285,12 +288,13 @@ export function Today() {
         const sleepGoal = settings.sleepTargetH * 60;
         const top = motivation?.streaks.filter((x) => x.length > 1).sort((a, b) => b.length * (b.unit === 'week' ? 7 : 1) - a.length * (a.unit === 'week' ? 7 : 1))[0];
         const L = (ml: number) => `${Math.round(ml / 100) / 10}`;
+        const logging = foodLogging((foodLogs ?? []).filter((l) => personOf(l) === fam.personId), now);
         const tiles: DayTileData[] = [
           { key: 'water', label: 'Water', Icon: GlassWater, colour: 'var(--c-body)', value: L(water), of: waterTarget ? `/ ${L(waterTarget)} L` : 'L', frac: waterTarget ? water / waterTarget : undefined,
             sub: waterBoost ? `+${waterBoost} mL today for side effects` : undefined, onOpen: () => setIntake('waterMl'), onAdd: () => void addWater(), addLabel: `Add ${settings.intakeAmounts.waterMl[0] ?? 250} mL of water` },
           ...(training || food ? [{ key: 'protein', label: 'Protein', Icon: Beef, colour: 'var(--c-act)', value: String(Math.round(row?.proteinG ?? 0)), of: settings.proteinTargetG ? `/ ${settings.proteinTargetG} g` : 'g',
             frac: settings.proteinTargetG ? (row?.proteinG ?? 0) / settings.proteinTargetG : undefined, onOpen: () => setIntake('proteinG'), onAdd: () => setIntake('proteinG'), addLabel: 'Add protein' }] : []),
-          ...(food ? [{ key: 'food', label: 'Food', Icon: Utensils, colour: 'var(--c-pep)', value: Math.round(kcal).toLocaleString('en-AU'), of: settings.energyTargetKcal ? `/ ${settings.energyTargetKcal.toLocaleString('en-AU')} Cal` : 'Cal',
+          ...(food ? [{ key: 'food', label: 'Food', Icon: Utensils, colour: 'var(--c-pep)', value: kcal > 0 || logging ? Math.round(kcal).toLocaleString('en-AU') : '–', of: kcal > 0 || logging ? (settings.energyTargetKcal ? `/ ${settings.energyTargetKcal.toLocaleString('en-AU')} Cal` : 'Cal') : 'not logged',
             frac: settings.energyTargetKcal ? kcal / settings.energyTargetKcal : undefined, tone: settings.energyTargetKcal && kcal > settings.energyTargetKcal * 1.05 ? 'watch' as const : undefined, href: '#/food', onAdd: () => setFoodOpen(true), addLabel: 'Log food' }] : []),
           { key: 'caffeine', label: 'Caffeine', Icon: Coffee, colour: 'var(--c-mind)', value: String(Math.round(caf)), of: settings.caffeineLimitMg ? `/ ${settings.caffeineLimitMg} mg` : 'mg',
             frac: settings.caffeineLimitMg ? caf / settings.caffeineLimitMg : undefined, tone: settings.caffeineLimitMg && caf > settings.caffeineLimitMg ? 'watch' as const : undefined,
@@ -318,7 +322,7 @@ export function Today() {
                 <button type="button" onClick={streakNews.onDone} className="min-h-[44px] px-2 font-medium">Nice</button>
               </p>
             )}
-            {dayMeds.length > 1 && <ul aria-label="Today's doses">{dayMeds.map((m) => <TodayRow key={m.id} med={m} doses={viewDoses} s={s} now={now} person={whose(m)} onLog={() => setLogFor(m)} />)}</ul>}
+            {dayMeds.length > 1 && <ul aria-label="Today's doses">{dayMeds.map((m) => <TodayRow key={m.id} med={m} doses={viewDoses} s={s} now={now} person={whose(m)} onLog={() => setLogFor(m)} test={testDayFor(m, (experiments ?? []).filter((e) => personOf(e) === fam.personId), todayKey) ?? undefined} />)}</ul>}
             {prn.length > 0 && <div aria-label="As needed">{prn.map((m) => <PrnCard key={m.id} med={m} doses={viewDoses} s={s} now={now} onLog={() => setLogFor(m)} person={whose(m)} limits={!(fam.everyone && m.shared)} />)}</div>}
           </YourDay>
         );

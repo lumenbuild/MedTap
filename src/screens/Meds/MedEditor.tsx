@@ -52,7 +52,7 @@ import { canSplit, guideById, guideFor, guideMed, lowestPlan, savedVial, stepCha
 import { Switch } from '../../components/ui/Switch';
 import { fmtAmount, fmtSchedule } from '../../logic/format';
 import { GuideFound, MedGuideCard } from '../../components/MedGuide';
-import { StartedOnCard, StrengthCheckCard } from '../../components/StartedOn';
+import { ReminderDriftCard, StartedOnCard, StrengthCheckCard } from '../../components/StartedOn';
 import { strengthCheck } from '../../logic/supplements';
 
 const UNITS = ['mg', 'mcg', 'mL', 'units', 'tablet'];
@@ -420,8 +420,8 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
         </div>
       )}
       {existing && !existing.archived && tab === 'overview' && (onProtocol && !priv
-        ? <><PeptidePart med={existing} part="overview" /><StartedOnCard med={existing} /><MedVerdict med={existing} /><HowToTakeCard med={existing} onPeptidePage /><MedBodyEffects med={existing} /></>
-        : <><MedHero med={existing} /><StrengthCheckCard med={existing} /><MedGuideCard med={existing} />{!priv && <StartedOnCard med={existing} />}{!priv && <MedVerdict med={existing} />}<HowToTakeCard med={existing} />{!priv && <DosePlanCard med={existing} />}<MedBodyEffects med={existing} /></>)}
+        ? <><PeptidePart med={existing} part="overview" /><ReminderDriftCard med={existing} /><StartedOnCard med={existing} /><MedVerdict med={existing} /><HowToTakeCard med={existing} onPeptidePage /><MedBodyEffects med={existing} /></>
+        : <><MedHero med={existing} /><StrengthCheckCard med={existing} /><MedGuideCard med={existing} /><ReminderDriftCard med={existing} />{!priv && <StartedOnCard med={existing} />}{!priv && <MedVerdict med={existing} />}<HowToTakeCard med={existing} />{!priv && <DosePlanCard med={existing} />}<MedBodyEffects med={existing} /></>)}
       {existing && !existing.archived && tab === 'plan' && !priv && <><PeptidePart med={existing} part="plan" /><PeptideInsights med={existing} /></>}
       {existing && !existing.archived && tab === 'stock' && (onProtocol
         ? <><VialCard med={existing} /><VialExtras med={existing} />{!priv && <PeptidePart med={existing} part="stock" />}</>

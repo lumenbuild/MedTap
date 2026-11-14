@@ -40,6 +40,18 @@ export async function setStartedOn(id: string, ymd: string | undefined) {
   });
 }
 
+/** Move a single-time medicine's reminder (the dose and amount stay as they are). */
+export async function setReminderTime(id: string, time: string) {
+  await db.transaction('rw', db.medications, db.medEvents, async () => {
+    const med = await db.medications.get(id);
+    const slots = med?.schedule.slots ?? (med?.schedule.times ?? []).map((t) => ({ time: t }));
+    if (!med || slots.length !== 1) return;
+    const before = slots[0].time;
+    await db.medications.update(id, { schedule: { ...med.schedule, slots: [{ ...slots[0], time }], times: undefined }, updatedAt: nowIso() });
+    await addEvent(id, 'changed', `Reminder ${before} → ${time}`);
+  });
+}
+
 /** Save edits. Pass `change` to record a dated medication event (for chart markers). */
 export async function updateMed(id: string, input: MedInput, change?: { at: string; summary: string; before: unknown; after: unknown }) {
   await db.transaction('rw', db.medications, db.medEvents, async () => {

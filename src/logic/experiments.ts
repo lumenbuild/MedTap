@@ -126,3 +126,21 @@ export function analyse(e: Experiment, d: { checkIns: CheckIn[]; daily: DailyHea
   res.verdict = res.p < 0.05 ? (better === 'a' ? 'a-better' : 'b-better') : res.p < 0.2 ? (better === 'a' ? 'leaning-a' : 'leaning-b') : 'no-difference';
   return res;
 }
+
+/** Today's side of a running test for this medicine ("DSIP" against "No DSIP"): on or off, so its row on Today can say
+ *  "Test: off day". Null when no running test names it. */
+export function testDayFor(med: { name: string; nickname?: string }, experiments: Experiment[], ymd: string): { on: boolean; title: string } | null {
+  const names = [med.name, med.nickname].filter(Boolean).map((n) => n!.trim().toLowerCase());
+  const has = (label: string) => names.some((n) => label.toLowerCase().includes(n));
+  const isNo = (label: string) => /^(no|without|off)\b/i.test(label.trim());
+  for (const e of experiments) {
+    if (e.deletedAt || (e.ended && e.ended <= ymd)) continue;
+    const c = conditionOn(e, ymd);
+    if (!c) continue;
+    const today = c.arm === 'a' ? e.a : e.b, other = c.arm === 'a' ? e.b : e.a;
+    if (!has(today) && !has(other)) continue;
+    const on = has(today) && has(other) ? !isNo(today) : has(today) && !isNo(today);
+    return { on, title: e.title };
+  }
+  return null;
+}

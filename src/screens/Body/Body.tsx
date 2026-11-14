@@ -28,6 +28,7 @@ import { RANGE_DAYS, rangeStart, type Range } from '../../logic/stats';
 import { weightPath } from '../../logic/predict';
 import { weightStall } from '../../logic/stall';
 import { shownName } from '../../logic/privacy';
+import { chartEvents } from '../../logic/changes';
 
 const fmtYmd = (ymd: string) => (ymd === todayYmd() ? 'Today' : fmtYmdDay(ymd));
 
@@ -84,8 +85,9 @@ export function Body() {
   const myDoses = doses.filter((d) => myMeds.some((m) => m.id === d.medicationId));
   // The weight chart: dose changes of injected medicines marked, the goal, and where it's heading (through the dose
   // plan when there is one, else towards the goal).
-  const marks = events.filter((e) => e.kind === 'changed' && peptideMeds.some((m) => m.id === e.medicationId))
-    .map((e) => ({ at: Date.parse(e.at), text: `${shownName(peptideMeds.find((m) => m.id === e.medicationId)!)}: ${e.summary}` }));
+  // Every medicine's start, stop and dose change (schedule edits and set-up corrections left out).
+  const marks = chartEvents(events.filter((e) => myMeds.some((m) => m.id === e.medicationId)), myMeds)
+    .map((e) => { const m = myMeds.find((x) => x.id === e.medicationId)!; return { at: Date.parse(e.at), text: e.kind === 'changed' ? `${shownName(m)}: ${e.summary}` : `${e.kind === 'stopped' ? 'Stopped' : 'Started'} ${shownName(m)}` }; });
   const wGoal = goals.find((g) => g.metric === 'weightKg');
   const path = peptideMeds[0] ? weightPath(peptideMeds[0], myDoses, entries, now, 12, wGoal?.target) : null;
   const gv = wGoal ? goalView(wGoal, entries, now) : null;
