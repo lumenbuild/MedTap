@@ -18,7 +18,7 @@ import { isAndroid, isNative } from '../../platform';
 import { appIntentUrl } from '../../nfc/url';
 import { LogDoseFlow } from '../../components/LogDoseFlow';
 import { MedBadge } from '../../components/MedBadge';
-import { isPen, vialForTag, vialStatus } from '../../logic/peptide';
+import { isPen, vialForTag, vialStatus, containerWord, startedWord } from '../../logic/peptide';
 import { format } from 'date-fns';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -129,7 +129,7 @@ export function TagLanding({ id }: { id: string }) {
         {med.strength > 0 && !isPrivate(med) && <p className="mt-2 text-[17px]">{fmtAmount(med.strength, med.unit)} {med.form}</p>}
         {vs && (
           <p className={`mt-1 text-[15px] tnum ${vs.expired ? 'text-caution font-medium' : 'text-muted'}`}>
-            {isPen(med) ? 'Pen' : 'Vial'} {isPen(med) ? 'started' : 'mixed'} {format(vs.startedAt, 'EEE d MMM')} · {vs.dosesLeft} dose{vs.dosesLeft === 1 ? '' : 's'} left
+            {containerWord(med).replace(/^./, (c) => c.toUpperCase())} {startedWord(med).toLowerCase()} {format(vs.startedAt, 'EEE d MMM')} · {vs.dosesLeft} dose{vs.dosesLeft === 1 ? '' : 's'} left
             {vs.useBy ? ` · ${vs.expired ? 'past use-by' : 'use by'} ${format(vs.useBy, 'EEE d MMM')}` : ''}
           </p>
         )}

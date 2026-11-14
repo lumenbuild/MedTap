@@ -99,8 +99,7 @@ export function AppetiteStrip({ c }: { c: AppetiteCurve }) {
 }
 
 /** "Last full dose Tue 10 Nov; 1.5 mg left over." */
-export function vialRestText(v: VialRest, unit: string, pen: boolean): string {
-  const it = pen ? 'pen' : 'vial';
+export function vialRestText(v: VialRest, unit: string, it: string): string {
   if (v.ends === 'no-plan') return v.doses ? `${v.doses} more planned dose${v.doses === 1 ? '' : 's'} from this ${it}` : '';
   const last = v.lastFullAt ? `Last full dose ${day(v.lastFullAt)}` : `Not enough for the next dose`;
   if (v.ends === 'use-by') return `${last}; ${fmtAmount(v.leftover, unit)} will be past use-by on ${day(v.useBy!)}`;
@@ -118,7 +117,7 @@ export function WeeklySummaryBlock({ w, med, units, title = 'Last 7 days', onPro
         {onProtocol && <a href="#/progress/trends" className="text-sm font-medium underline underline-offset-4 min-h-[44px] inline-flex items-center">Your week</a>}
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <Stat Icon={Syringe} label={med.schedule.type === 'fixed' && w.planned ? `Shots · ${w.onTime} on time` : 'Shots'} value={w.planned ? `${w.shots}/${w.planned}` : w.shots}
+        <Stat Icon={Syringe} label={(() => { const k = med.peptide?.kind === 'nasal' ? 'Doses' : 'Shots'; return med.schedule.type === 'fixed' && w.planned ? `${k} · ${w.onTime} on time` : k; })()} value={w.planned ? `${w.shots}/${w.planned}` : w.shots}
           tone={w.planned && w.shots >= w.planned ? 'good' : 'watch'}>
           {w.planned ? <Bar value={w.shots} max={w.planned} tone={w.shots >= w.planned ? 'good' : 'watch'} label={`${w.shots} of ${w.planned} shots`} /> : null}
         </Stat>

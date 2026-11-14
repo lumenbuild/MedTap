@@ -149,9 +149,14 @@ export interface BlendPart { name: string; amount: number; unit: string }
 /** Injected from a vial mixed with water ('vial', the default) or a pre-filled pen (peptide tools).
  *  `strength` is the amount in each vial or pen. */
 export interface PeptideSetup {
-  kind?: 'vial' | 'pen';
-  /** Usual water added to a vial, mL (each vial records its own). */
+  /** vial: mixed with water and drawn into a syringe. pen: pre-filled. nasal: mixed into a nasal spray bottle. */
+  kind?: 'vial' | 'pen' | 'nasal';
+  /** Usual water added to a vial (or liquid to a spray bottle), mL (each vial records its own). */
   waterMl: number;
+  /** Nasal spray: mL each spray delivers (most pumps 0.1; check the bottle). */
+  sprayMl?: number;
+  /** Nasal spray: sprays used to prime a new bottle (wasted). */
+  primeSprays?: number;
   syringe: SyringeType;
   /** Syringe capacity in units (30, 50 or 100 on a U-100 syringe). */
   syringeUnits: number;

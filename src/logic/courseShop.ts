@@ -70,11 +70,13 @@ export function courseShop(med: Medication, doses: Dose[], now: number, s: Sched
     }
   });
   const isVial = med.peptide.kind !== 'pen';
+  const nasal = med.peptide.kind === 'nasal';
   return {
     span: p.span, days: p.days, shots: shotsN, total,
     inVial: r3(v && !v.expired ? v.left : 0), unopened: stock.length, unopenedAmount: r3(stock.reduce((a, x) => a + x.amount, 0)),
     vials: bought, vialSize, waterMl: isVial && bought ? r3(bought * med.peptide.waterMl) : undefined,
-    syringes: isVial ? shotsN : 0, swabs: shotsN * (isVial ? 2 : 1), runsOutAt,
+    // A nasal spray: no syringes or skin swabs, just one swab for each vial's stopper.
+    syringes: isVial && !nasal ? shotsN : 0, swabs: nasal ? bought : shotsN * (isVial ? 2 : 1), runsOutAt,
   };
 }
 

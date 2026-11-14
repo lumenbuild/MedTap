@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { AlertTriangle, Minus, Plus, Syringe as SyringeIcon } from 'lucide-react';
 import type { Medication, SyringeType } from '../db/schema';
-import { concentration, convert, doseForUnits, drawFor, drawWarnings, fmtMl, SYRINGES, unitsPerMl, waterForUnits } from '../logic/peptide';
+import { bottleSprays, concentration, convert, doseForUnits, drawFor, drawWarnings, fmtMl, liquidForSprays, sprayFor, SYRINGES, unitsPerMl, waterForUnits } from '../logic/peptide';
 import { useDoses, useFamily, useMeds } from '../app/data';
 import { currentVial, needsNewVial, stockVials, vialStatus } from '../logic/peptide';
 import { db } from '../db/db';
 import { useToast } from '../app/toast';
 import { medIsFor } from '../db/repos/people';
 import { shownName } from '../logic/privacy';
-import { SyringeGauge, syringeSizes, WARN_TEXT } from '../components/Syringe';
+import { SprayDots, SyringeGauge, syringeSizes, WARN_TEXT } from '../components/Syringe';
 import { Segmented } from '../components/ui/Field';
 
 type Unit = 'mg' | 'mcg';
@@ -61,7 +61,7 @@ function Stepper({ label, value, unit, onChange, onUnit, active = false }: { lab
 
 /** Reconstitution calculator: vial + water + dose → syringe units, the reverse, and the water for an easy draw.
  *  Your own peptides are one tap away. Uses only the numbers entered. */
-export function PeptideCalc({ medId }: { medId?: string }) {
+function InjectionCalc({ medId }: { medId?: string }) {
   const meds = useMeds(); const fam = useFamily(); const doses = useDoses();
   const toast = useToast();
   const [p] = useState(preset);
@@ -77,7 +77,7 @@ export function PeptideCalc({ medId }: { medId?: string }) {
   const [mode, setMode] = useState<Mode>('draw');
   const [picked, setPicked] = useState<string>('custom');
 
-  const mine = (meds ?? []).filter((m) => !m.archived && m.peptide && m.peptide.kind !== 'pen' && m.strength > 0 && (!fam || medIsFor(m, fam.personId)));
+  const mine = (meds ?? []).filter((m) => !m.archived && m.peptide && m.peptide.kind !== 'pen' && m.peptide.kind !== 'nasal' && m.strength > 0 && (!fam || medIsFor(m, fam.personId)));
   /** Your peptide's numbers: the vial in use (or the next one, once it's used up), its water and your usual dose. */
   const pick = (m: Medication) => {
     setPicked(m.id);
@@ -194,6 +194,142 @@ export function PeptideCalc({ medId }: { medId?: string }) {
           {sizes.map((x) => <button key={x.ml} type="button" aria-pressed={sizeMl === String(x.ml)} onClick={() => setSizeMl(String(x.ml))}
             className={`min-h-[36px] px-3 rounded-full text-sm font-medium ${sizeMl === String(x.ml) ? 'bg-primary text-on-primary' : ''}`} style={sizeMl === String(x.ml) ? undefined : { background: 'var(--fill)' }}>{x.ml} mL</button>)}
         </span>
+      </div>
+    </div>
+  );
+}
+
+/** Reconstitution calculator: injections (vial, water and syringe units) or nasal sprays (powder, liquid and sprays). */
+export function PeptideCalc({ medId }: { medId?: string }) {
+  const meds = useMeds();
+  const start = medId && meds?.find((m) => m.id === medId)?.peptide?.kind === 'nasal' ? 'nasal' : 'injection';
+  const [kind, setKind] = useState<'injection' | 'nasal' | null>(null);
+  const k = kind ?? start;
+  return (
+    <div className="space-y-3">
+      <Segmented<'injection' | 'nasal'> label="Calculator" value={k} onChange={setKind} options={[{ value: 'injection', label: 'Injection' }, { value: 'nasal', label: 'Nasal spray' }]} />
+      {k === 'injection' ? <InjectionCalc medId={medId} /> : <NasalCalc medId={medId} />}
+    </div>
+  );
+}
+
+const SPRAY_SIZES = [0.05, 0.1, 0.14];
+
+/** Nasal spray: a powder made up in a pump bottle. Powder + liquid + spray size + dose → whole sprays (split between the
+ *  nostrils), what they deliver, and how many doses a bottle gives; or the liquid that makes a whole number of sprays exact. */
+function NasalCalc({ medId }: { medId?: string }) {
+  const meds = useMeds(); const fam = useFamily(); const doses = useDoses();
+  const toast = useToast();
+  const [powder, setPowder] = useState('10');
+  const [powderUnit, setPowderUnit] = useState<Unit>('mg');
+  const [liquid, setLiquid] = useState('5');
+  const [sprayMl, setSprayMl] = useState('0.1');
+  const [prime, setPrime] = useState('5');
+  const [dose, setDose] = useState('300');
+  const [doseUnit, setDoseUnit] = useState<Unit>('mcg');
+  const [want, setWant] = useState('2');
+  const [mode, setMode] = useState<'sprays' | 'liquid'>('sprays');
+  const [picked, setPicked] = useState('custom');
+  const mine = (meds ?? []).filter((m) => !m.archived && m.peptide?.kind === 'nasal' && (!fam || medIsFor(m, fam.personId)));
+  const pick = (m: Medication) => {
+    setPicked(m.id);
+    const u: Unit = m.unit === 'mcg' ? 'mcg' : 'mg';
+    const st = doses ? vialStatus(m, doses, Date.now()) : undefined;
+    const using = st && !needsNewVial(st, m.defaultAmount) ? currentVial(m) : stockVials(m)[0];
+    const amt = using?.amount ?? m.strength;
+    if (u === 'mcg' && amt >= 1000) { setPowder(String(amt / 1000)); setPowderUnit('mg'); } else { setPowder(String(amt)); setPowderUnit(u); }
+    setLiquid(String(using?.waterMl ?? m.peptide?.waterMl ?? 5));
+    setSprayMl(String(m.peptide?.sprayMl ?? 0.1)); setPrime(String(m.peptide?.primeSprays ?? 5));
+    setDose(String(m.defaultAmount)); setDoseUnit(u);
+  };
+  const [auto, setAuto] = useState(false);
+  if (!auto && medId && meds) { const m = meds.find((x) => x.id === medId && x.peptide?.kind === 'nasal'); setAuto(true); if (m) pick(m); }
+  const pickedMed = mine.find((m) => m.id === picked);
+
+  const amount = convert(num(powder), powderUnit, doseUnit) ?? NaN;
+  const ml = num(sprayMl) > 0 ? num(sprayMl) : 0.1;
+  const ok = amount > 0 && num(liquid) > 0 && num(dose) > 0;
+  const sp = ok ? sprayFor(num(dose), amount, num(liquid), ml) : null;
+  const total = ok ? bottleSprays(num(liquid), ml, Number.isFinite(num(prime)) ? num(prime) : 0) : NaN;
+  const perBottle = sp ? Math.floor(total / sp.sprays) : NaN;
+  const exactLiquid = amount > 0 && num(dose) > 0 && num(want) > 0 ? liquidForSprays(num(dose), amount, Math.round(num(want)), ml) : NaN;
+  const swap = (u: Unit) => (u === 'mg' ? 'mcg' : 'mg');
+  const fmt = (v: number) => `${r(v, v < 10 ? 2 : 0)} ${doseUnit}`;
+  const shownSprays = mode === 'liquid' ? Math.round(num(want)) : sp?.sprays ?? 0;
+  const saveLiquid = async (v: number) => {
+    if (!pickedMed?.peptide) return;
+    const before = pickedMed.peptide.waterMl;
+    await db.medications.update(pickedMed.id, { peptide: { ...pickedMed.peptide, waterMl: v }, updatedAt: new Date().toISOString() });
+    setLiquid(String(v));
+    toast(`${shownName(pickedMed)}: new bottles made up with ${v} mL`, { onAction: () => db.medications.update(pickedMed.id, { peptide: { ...pickedMed.peptide!, waterMl: before } }) });
+  };
+
+  return (
+    <div className="space-y-3 pb-8">
+      {mine.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1" role="group" aria-label="Fill in from">
+          {mine.map((m) => (
+            <button key={m.id} type="button" aria-pressed={picked === m.id} onClick={() => pick(m)}
+              className={`shrink-0 min-h-[44px] px-4 rounded-full font-semibold ${picked === m.id ? 'bg-primary text-on-primary' : ''}`} style={picked === m.id ? undefined : { background: 'var(--fill)' }}>{shownName(m)}</button>
+          ))}
+          <button type="button" aria-pressed={picked === 'custom'} onClick={() => setPicked('custom')}
+            className={`shrink-0 min-h-[44px] px-4 rounded-full font-semibold ${picked === 'custom' ? 'bg-primary text-on-primary' : ''}`} style={picked === 'custom' ? undefined : { background: 'var(--fill)' }}>Custom</button>
+        </div>
+      )}
+      <div className="grid grid-cols-3 gap-2">
+        <Stepper label="Powder" value={powder} unit={powderUnit} onChange={(v) => { setPowder(v); setPicked('custom'); }} onUnit={() => setPowderUnit(swap(powderUnit))} />
+        <Stepper label="Liquid" value={liquid} unit="mL" onChange={setLiquid} active={mode === 'liquid'} />
+        {mode === 'liquid'
+          ? <Stepper label="Sprays" value={want} unit="a dose" onChange={setWant} active />
+          : <Stepper label="Dose" value={dose} unit={doseUnit} onChange={(v) => { setDose(v); setPicked('custom'); }} onUnit={() => setDoseUnit(swap(doseUnit))} active />}
+      </div>
+      {mode === 'liquid' && <div className="grid grid-cols-3 gap-2"><div className="col-start-3"><Stepper label="Dose" value={dose} unit={doseUnit} onChange={setDose} onUnit={() => setDoseUnit(swap(doseUnit))} /></div></div>}
+
+      <section className="hero pep" aria-live="polite" aria-label="Result">
+        {mode === 'sprays' ? <>
+          <p className="hero-label">Spray</p>
+          <p className="mt-1 tnum"><span className="text-[64px] leading-[64px] font-bold tracking-[-0.03em]">{sp ? sp.sprays : '–'}</span><span className="text-[24px] font-semibold ml-2 text-muted">spray{sp?.sprays === 1 ? '' : 's'}</span></p>
+          {sp && <p className="text-[17px] font-medium">{sp.split}</p>}
+          {sp && Math.abs(sp.off) >= 0.1 && <p className="mt-1 text-[15px]">Whole sprays give {fmt(sp.delivered)}: {Math.round(Math.abs(sp.off) * 100)}% {sp.off > 0 ? 'over' : 'under'}. “Liquid” works out the amount that makes it exact.</p>}
+        </> : <>
+          <p className="hero-label">Add</p>
+          <p className="mt-1 tnum"><span className="text-[52px] leading-[56px] font-bold tracking-[-0.03em]">{r(exactLiquid, 2)}</span><span className="text-[24px] font-semibold ml-2 text-muted">mL of liquid</span></p>
+          <p className="text-muted text-[15px]">so {Math.round(num(want))} spray{Math.round(num(want)) === 1 ? '' : 's'} give exactly {fmt(num(dose))}</p>
+        </>}
+        <div className="mt-2"><SprayDots n={shownSprays} onHero /></div>
+        <dl className="mt-3 pt-3 grid grid-cols-3 gap-2 tnum" style={{ borderTop: '1px solid color-mix(in srgb, var(--hero-ink) 22%, transparent)' }}>
+          <div><dd className="text-[19px] font-bold">{mode === 'liquid' && exactLiquid > 0 ? fmt(num(dose) / Math.round(num(want))) : sp ? fmt(sp.perSpray) : '–'}</dd><dt className="text-[13px] text-muted">a spray</dt></div>
+          <div><dd className="text-[19px] font-bold">{mode === 'liquid' && exactLiquid > 0 ? Math.floor(bottleSprays(exactLiquid, ml, num(prime) || 0) / Math.round(num(want))) : Number.isFinite(perBottle) ? perBottle : '–'}</dd><dt className="text-[13px] text-muted">doses / bottle</dt></div>
+          <div><dd className="text-[19px] font-bold">{mode === 'liquid' && exactLiquid > 0 ? bottleSprays(exactLiquid, ml, num(prime) || 0) : Number.isFinite(total) ? total : '–'}</dd><dt className="text-[13px] text-muted">sprays after priming</dt></div>
+        </dl>
+      </section>
+
+      {(() => {
+        const v = mode === 'liquid' ? Math.round(exactLiquid * 100) / 100 : num(liquid);
+        if (!pickedMed || !(v > 0) || v === pickedMed.peptide?.waterMl) return null;
+        return (
+          <div className="box flex items-center gap-3">
+            <p className="flex-1 text-[15px]">Make up your next {shownName(pickedMed)} bottles with <strong>{r(v, 2)} mL</strong>? (Now {pickedMed.peptide?.waterMl} mL.)</p>
+            <button type="button" onClick={() => saveLiquid(v)} className="min-h-[44px] px-4 rounded-btn bg-primary text-on-primary font-semibold shrink-0">Save</button>
+          </div>
+        );
+      })()}
+
+      <Segmented<'sprays' | 'liquid'> label="Work out" value={mode} onChange={setMode} options={[{ value: 'sprays', label: 'Dose → sprays' }, { value: 'liquid', label: 'Liquid for exact sprays' }]} />
+
+      <div className="box space-y-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span className="text-[15px] text-muted">mL per spray</span>
+          <span className="flex gap-1.5" role="group" aria-label="mL per spray">
+            {SPRAY_SIZES.map((x) => <button key={x} type="button" aria-pressed={num(sprayMl) === x} onClick={() => setSprayMl(String(x))}
+              className={`min-h-[36px] px-3 rounded-full text-sm font-medium ${num(sprayMl) === x ? 'bg-primary text-on-primary' : ''}`} style={num(sprayMl) === x ? undefined : { background: 'var(--fill)' }}>{x}</button>)}
+          </span>
+          <input type="number" inputMode="decimal" min="0" step="any" value={sprayMl} onChange={(e) => setSprayMl(e.target.value)} aria-label="mL per spray (other)"
+            className="w-20 min-h-[36px] rounded-btn bg-surface-2 px-2 tnum" />
+        </div>
+        <label className="flex items-center gap-3"><span className="text-[15px] text-muted flex-1">Priming sprays (a new pump)</span>
+          <input type="number" inputMode="numeric" min="0" step="1" value={prime} onChange={(e) => setPrime(e.target.value)} className="w-20 min-h-[36px] rounded-btn bg-surface-2 px-2 tnum" /></label>
+        <p className="text-[13px] text-muted">Most nasal pumps give 0.1 mL a spray; the bottle or its maker says. To check one: weigh the bottle, spray 10 times into a tissue, weigh it again. The grams lost ÷ 10 is about the mL per spray (1 g of liquid is about 1 mL).</p>
       </div>
     </div>
   );

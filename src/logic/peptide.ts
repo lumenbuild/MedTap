@@ -62,6 +62,63 @@ export const fmtMl = (ml: number) => `${r(ml, ml < 0.1 ? 3 : 2)} mL`;
 
 type VialMed = Pick<Medication, 'id' | 'strength' | 'defaultAmount' | 'peptide' | 'vials'>;
 export const isPen = (m: Pick<Medication, 'peptide'>) => m.peptide?.kind === 'pen';
+export const isNasal = (m: Pick<Medication, 'peptide'>) => m.peptide?.kind === 'nasal';
+/** What one is called: "pen", "spray bottle" or "vial". */
+export const containerWord = (m: Pick<Medication, 'peptide'>) => (isPen(m) ? 'pen' : isNasal(m) ? 'spray bottle' : 'vial');
+/** What starting one is called: "Started" (pen), "Made up" (spray bottle) or "Mixed" (vial). */
+export const startedWord = (m: Pick<Medication, 'peptide'>) => (isPen(m) ? 'Started' : isNasal(m) ? 'Made up' : 'Mixed');
+
+// ── Nasal sprays ────────────────────────────────────────────────────────────────────────────────────
+// A peptide powder dissolved in a set volume of liquid in a pump spray bottle: each press delivers a fixed volume, so
+// each spray carries (amount ÷ liquid) × volume. Doses come in whole sprays, so the dose actually given is the nearest
+// whole number of sprays. A new pump is primed a few times first, which uses some of the bottle.
+
+/** mL per spray when the bottle doesn't say: most nasal pumps deliver 0.1 mL. */
+export const DEFAULT_SPRAY_ML = 0.1;
+/** Sprays used priming a new pump. */
+export const DEFAULT_PRIME_SPRAYS = 5;
+
+export interface Spray {
+  /** Amount in each spray (the dose's unit). */
+  perSpray: number;
+  /** Sprays for the dose, exactly (can be fractional). */
+  exact: number;
+  /** Whole sprays to use (at least 1). */
+  sprays: number;
+  /** What those whole sprays deliver. */
+  delivered: number;
+  /** How far that is from the dose wanted, as a share (0.1 = 10% over). */
+  off: number;
+  /** "1 in each nostril". */
+  split: string;
+}
+
+/** Whole sprays per nostril, alternating. */
+export function nostrilSplit(sprays: number): string {
+  if (sprays <= 0) return '';
+  if (sprays === 1) return 'one nostril';
+  const a = Math.ceil(sprays / 2), b = Math.floor(sprays / 2);
+  return a === b ? `${a} in each nostril` : `${a} in one nostril, ${b} in the other`;
+}
+
+/** The sprays for a dose from a bottle of `amount` dissolved in `liquidMl`, at `sprayMl` a spray. */
+export function sprayFor(dose: number, amount: number, liquidMl: number, sprayMl = DEFAULT_SPRAY_ML): Spray {
+  const perSpray = (amount / liquidMl) * sprayMl;
+  const exact = dose / perSpray;
+  const sprays = Math.max(1, Math.round(exact));
+  const delivered = sprays * perSpray;
+  return { perSpray: r(perSpray, 4), exact: r(exact, 2), sprays, delivered: r(delivered, 4), off: r(delivered / dose - 1, 3), split: nostrilSplit(sprays) };
+}
+
+/** Sprays a bottle gives after priming, and doses of `sprays` each. */
+export function bottleSprays(liquidMl: number, sprayMl = DEFAULT_SPRAY_ML, prime = DEFAULT_PRIME_SPRAYS): number {
+  return Math.max(0, Math.floor(liquidMl / sprayMl + 1e-9) - prime);
+}
+
+/** The liquid to add so that `sprays` whole sprays give exactly `dose`. */
+export function liquidForSprays(dose: number, amount: number, sprays: number, sprayMl = DEFAULT_SPRAY_ML): number {
+  return r((amount * sprayMl * sprays) / dose, 3);
+}
 
 /** The medication's vials/pens, including the one recorded before vial records existed. */
 export function vialsOf(med: VialMed): PeptideVial[] {
@@ -113,7 +170,11 @@ export function vialStatus(med: VialMed, doses: Dose[], now: number, vial = curr
   if (!vial?.startedAt || !(vial.amount > 0)) return undefined;
   const startedAt = Date.parse(vial.startedAt);
   const used = dosesFromVial(vial, med.id, doses).reduce((n, d) => n + d.amount, 0);
-  const left = Math.max(0, r(vial.amount - used, 4));
+  // A nasal pump primed when the bottle was made up: those sprays are gone too.
+  const p = med.peptide;
+  const liquid = vial.waterMl ?? p?.waterMl;
+  const primed = p?.kind === 'nasal' && liquid ? (vial.amount / liquid) * (p.sprayMl ?? DEFAULT_SPRAY_ML) * (p.primeSprays ?? DEFAULT_PRIME_SPRAYS) : 0;
+  const left = Math.max(0, r(vial.amount - used - primed, 4));
   const days = med.peptide?.useWithinDays;
   const useBy = days ? startedAt + days * 86_400_000 : undefined;
   return {
@@ -163,7 +224,8 @@ export function vialYield(med: Medication, doses: Dose[]): VialYield | null {
 
 /** What to draw (vials) or dial (pens) for a dose, from the vial or pen in use. */
 export type Guide = { kind: 'draw'; draw: Draw; capacity: number; syringe: SyringeType; waterMl: number; amount: number }
-  | { kind: 'pen'; clicks?: number };
+  | { kind: 'pen'; clicks?: number }
+  | { kind: 'spray'; spray: Spray; waterMl: number; amount: number; sprayMl: number };
 
 export function doseGuide(med: Pick<Medication, 'strength' | 'peptide' | 'vials' | 'id' | 'defaultAmount'>, dose: number): Guide | undefined {
   const p = med.peptide;
@@ -173,6 +235,7 @@ export function doseGuide(med: Pick<Medication, 'strength' | 'peptide' | 'vials'
   const amount = v?.amount ?? med.strength;
   const waterMl = v?.waterMl ?? p.waterMl;
   if (!(amount > 0) || !(waterMl > 0)) return undefined;
+  if (p.kind === 'nasal') { const sprayMl = p.sprayMl ?? DEFAULT_SPRAY_ML; return { kind: 'spray', spray: sprayFor(dose, amount, waterMl, sprayMl), waterMl, amount, sprayMl }; }
   return { kind: 'draw', draw: drawFor(dose, amount, waterMl, p.syringe), capacity: p.syringeUnits, syringe: p.syringe, waterMl, amount };
 }
 
@@ -271,7 +334,7 @@ export function supplyCount(sup: Pick<Supply, 'kind' | 'base'>, meds: Medication
   }
   const kind = new Map(meds.filter((m) => m.peptide).map((m) => [m.id, m.peptide!.kind ?? 'vial']));
   const uses = doses.filter((d) => !d.skipped && !d.deletedAt && d.createdAt > since && kind.has(d.medicationId))
-    .filter((d) => sup.kind === 'swabs' || sup.kind === 'sharps' || (sup.kind === 'syringes' ? kind.get(d.medicationId) === 'vial' : kind.get(d.medicationId) === 'pen'))
+    .filter((d) => kind.get(d.medicationId) !== 'nasal' && (sup.kind === 'swabs' || sup.kind === 'sharps' || (sup.kind === 'syringes' ? kind.get(d.medicationId) === 'vial' : kind.get(d.medicationId) === 'pen')))
     .length;
   return sup.kind === 'sharps' ? sup.base.count + uses : Math.max(0, sup.base.count - uses);
 }
@@ -330,10 +393,11 @@ export function scheduleAtDose(sc: Schedule): Schedule {
 
 export const isMixedVial = (m: Pick<Medication, 'peptide'>): m is { peptide: PeptideSetup } => !!m.peptide;
 
-/** "10 units" or "18.5 clicks", for a dose of a vial or pen medication (undefined otherwise). */
+/** "10 units", "18.5 clicks" or "2 sprays (1 in each nostril)", for a dose of a vial, pen or nasal spray (undefined otherwise). */
 export function guideText(med: Pick<Medication, 'strength' | 'peptide' | 'vials' | 'id' | 'defaultAmount'>, dose: number): string | undefined {
   const g = doseGuide(med, dose);
   if (!g) return undefined;
   if (g.kind === 'draw') return fmtUnits(g.draw.units);
+  if (g.kind === 'spray') return `${g.spray.sprays} spray${g.spray.sprays === 1 ? '' : 's'} (${g.spray.split})`;
   return g.clicks !== undefined ? `${g.clicks} click${g.clicks === 1 ? '' : 's'}` : undefined;
 }

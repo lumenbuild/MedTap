@@ -104,7 +104,7 @@ export function widgetsPayload(d: WidgetsInput, now: number, s: ScheduleSettings
       days: weekStrip(pep, d.doses, now, s).map((x) => ({ label: x.label, state: x.state, today: x.isToday })),
       next: fmtWhen(next, now),
       feel: [todayFc?.likely[0] ? `${todayFc.likely[0].chip} likely` : null, curve?.todayAppetite !== undefined ? `appetite ${curve.todayAppetite}` : null].filter(Boolean).join(' · ') || undefined,
-      left: vs ? `${vs.dosesLeft} dose${vs.dosesLeft === 1 ? '' : 's'} left in the ${pep.peptide?.kind === 'pen' ? 'pen' : 'vial'}` : undefined,
+      left: vs ? `${vs.dosesLeft} dose${vs.dosesLeft === 1 ? '' : 's'} left in the ${pep.peptide?.kind === 'pen' ? 'pen' : pep.peptide?.kind === 'nasal' ? 'bottle' : 'vial'}` : undefined,
     };
   }
 

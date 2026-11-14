@@ -16,7 +16,7 @@ import { useNow } from '../../app/useNow';
 import { useToast } from '../../app/toast';
 import { fmtAmount } from '../../logic/format';
 import { shownName } from '../../logic/privacy';
-import { currentVial, dosesFromVial, drawFor, isPen, needsNewVial, stockVials, vialsOf, vialStatus } from '../../logic/peptide';
+import { containerWord, currentVial, DEFAULT_SPRAY_ML, dosesFromVial, drawFor, isNasal, isPen, needsNewVial, sprayFor, startedWord, stockVials, vialsOf, vialStatus } from '../../logic/peptide';
 import { useTags } from '../../app/data';
 import { moveVialTags, restoreTag } from '../../db/repos/tags';
 import { LinkTagSheet } from './LinkTagSheet';
@@ -60,11 +60,11 @@ export function VialCard({ med }: { med: Medication }) {
 
   return (
     <Card className="space-y-3">
-      <h2 className="text-sm font-medium text-muted flex items-center gap-2"><FlaskConical size={20} className="text-primary" aria-hidden="true" /> {pen ? 'Pen' : 'Vial'} in use</h2>
+      <h2 className="text-sm font-medium text-muted flex items-center gap-2"><FlaskConical size={20} className="text-primary" aria-hidden="true" /> {pen ? 'Pen' : isNasal(med) ? 'Spray bottle' : 'Vial'} in use</h2>
       {v && !done ? (
         <button onClick={() => setDetails(v.vial)} className="w-full text-left rounded-btn bg-surface-2 p-3 flex items-start gap-2">
           <ul className="flex-1 space-y-0.5 tnum">
-            <li>{pen ? 'Started' : 'Mixed'} {fmtDay(v.startedAt)}{!pen && v.vial.waterMl ? ` with ${v.vial.waterMl} mL` : ''}</li>
+            <li>{startedWord(med)} {fmtDay(v.startedAt)}{!pen && v.vial.waterMl ? ` with ${v.vial.waterMl} mL` : ''}</li>
             <li>About <strong>{fmtAmount(v.left, med.unit)}</strong> left{med.defaultAmount > 0 ? ` · ${v.dosesLeft} dose${v.dosesLeft === 1 ? '' : 's'} of ${fmtAmount(med.defaultAmount, med.unit)}` : ''}</li>
             {v.useBy && <li>Use by {fmtDay(v.useBy)}</li>}
             {batchLine(v.vial) && <li className="text-sm text-muted">{batchLine(v.vial)}</li>}
@@ -85,7 +85,7 @@ export function VialCard({ med }: { med: Medication }) {
       {v && !done && <VialTagRow med={med} vialId={v.vial.id} onLink={() => setLinking(true)} onLabel={() => setLabel(true)} />}
       {!v && !stock.length
         ? <Button className="w-full" onClick={() => setAdding(true)}>Add {word}s</Button>
-        : <Button className="w-full" variant={v && !done ? 'secondary' : 'primary'} onClick={() => setStarting(true)}>{v && !done ? (pen ? "I've started a new pen" : "I've mixed a new vial") : pen ? 'Start the next pen' : 'Mix the next vial'}</Button>}
+        : <Button className="w-full" variant={v && !done ? 'secondary' : 'primary'} onClick={() => setStarting(true)}>{v && !done ? (pen ? "I've started a new pen" : isNasal(med) ? "I've made up a new bottle" : "I've mixed a new vial") : pen ? 'Start the next pen' : isNasal(med) ? 'Make up the next bottle' : 'Mix the next vial'}</Button>}
 
       <div className="pt-1">
         <div className="flex items-center justify-between">
@@ -204,7 +204,7 @@ function StartSheet({ med, stock, onClose, onStarted }: { med: Medication; stock
     onClose();
   };
   return (
-    <Sheet open onClose={onClose} title={pen ? 'Start a new pen' : 'Mix a new vial'}>
+    <Sheet open onClose={onClose} title={pen ? 'Start a new pen' : isNasal(med) ? 'Make up a new spray bottle' : 'Mix a new vial'}>
       <div className="space-y-4">
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium mb-1">Which {pen ? 'pen' : 'vial'}?</legend>
@@ -224,12 +224,16 @@ function StartSheet({ med, stock, onClose, onStarted }: { med: Medication; stock
           <TextInput label={`Amount in it (${med.unit})`} type="number" inputMode="decimal" min="0" step="any" value={amount} onChange={(e) => setAmount(e.target.value)} />
         )}
         {!pen && (
-          <TextInput label="Water added (mL)" type="number" inputMode="decimal" min="0" step="any"
-            value={water} onChange={(e) => setWater(e.target.value)} error={waterOk ? undefined : 'Enter the water you added.'} />
+          <TextInput label={isNasal(med) ? 'Liquid added to the bottle (mL)' : 'Water added (mL)'} type="number" inputMode="decimal" min="0" step="any"
+            value={water} onChange={(e) => setWater(e.target.value)} error={waterOk ? undefined : isNasal(med) ? 'Enter the liquid you added.' : 'Enter the water you added.'} />
         )}
         {!pen && waterOk && med.defaultAmount > 0 && (() => {
           // What each usual dose will be, mixed like this: the number to draw, before mixing.
           const amt = picked?.amount ?? (Number(amount) || med.strength);
+          if (isNasal(med)) {
+            const sp = sprayFor(med.defaultAmount, amt, Number(water), med.peptide?.sprayMl ?? DEFAULT_SPRAY_ML);
+            return <p className="text-[15px] rounded-btn bg-primary-soft p-3 tnum">Each {fmtAmount(med.defaultAmount, med.unit)} dose: <strong>{sp.sprays} spray{sp.sprays === 1 ? '' : 's'}</strong> ({sp.split}), {fmtAmount(sp.perSpray, med.unit)} a spray. <a href={`#/calc/${med.id}`} className="underline underline-offset-4">Calculator</a></p>;
+          }
           const d = drawFor(med.defaultAmount, amt, Number(water), med.peptide?.syringe ?? 'U-100');
           return <p className="text-[15px] rounded-btn bg-primary-soft p-3 tnum">Each {fmtAmount(med.defaultAmount, med.unit)} dose: draw to <strong>{Math.round(d.units * 10) / 10} units</strong> ({Math.round(d.ml * 100) / 100} mL). <a href={`#/calc/${med.id}`} className="underline underline-offset-4">Calculator</a></p>;
         })()}
@@ -245,7 +249,7 @@ function StartSheet({ med, stock, onClose, onStarted }: { med: Medication; stock
         )}
         <p className="text-sm text-muted">The {pen ? 'pen' : 'vial'} in use now is marked finished.</p>
         <SheetActions>
-          <Button className="w-full min-h-[56px]" disabled={!waterOk} onClick={start}>{pen ? 'Start this pen' : 'Mixed'}</Button>
+          <Button className="w-full min-h-[56px]" disabled={!waterOk} onClick={start}>{pen ? 'Start this pen' : isNasal(med) ? 'Made up' : 'Mixed'}</Button>
         </SheetActions>
       </div>
     </Sheet>
@@ -336,7 +340,7 @@ function DetailsSheet({ med, vial, doses, onClose }: { med: Medication; vial: Pe
   return (
     <Sheet open onClose={onClose} title={`${status}: ${shownName(med)}`}>
       <div className="space-y-4">
-        {vial.startedAt && <p className="text-sm text-muted tnum">{isPen(med) ? 'Started' : 'Mixed'} {fmtDay(Date.parse(vial.startedAt))}{vial.waterMl ? ` with ${vial.waterMl} mL` : ''} · {used.length} dose{used.length === 1 ? '' : 's'} logged from it</p>}
+        {vial.startedAt && <p className="text-sm text-muted tnum">{startedWord(med)} {fmtDay(Date.parse(vial.startedAt))}{vial.waterMl ? ` with ${vial.waterMl} mL` : ''} · {used.length} dose{used.length === 1 ? '' : 's'} logged from it</p>}
         <BatchFields v={v} set={(k, x) => setV((p) => ({ ...p, [k]: x }))} unit={med.unit} />
         <div>
           <p className="text-sm font-medium mb-2">Photos (label, certificate of analysis)</p>
@@ -386,11 +390,11 @@ export function VialAlerts({ meds, doses, now }: { meds: Medication[]; doses: Do
   return (
     <>
       {alerts.map(({ m, v }) => {
-        const word = isPen(m) ? 'pen' : 'vial';
+        const word = containerWord(m);
         return (
           <Card key={m.id}>
             <IconRow Icon={FlaskConical} tone={v.expired || v.dosesLeft === 0 ? 'watch' : 'plain'}
-              action={<Button variant="secondary" onClick={() => { location.hash = `#/meds/${m.id}`; }}>{isPen(m) ? 'New pen' : 'Mix new'}</Button>}>
+              action={<Button variant="secondary" onClick={() => { location.hash = `#/meds/${m.id}`; }}>{isPen(m) ? 'New pen' : isNasal(m) ? 'Make up new' : 'Mix new'}</Button>}>
               <span className="font-medium">{shownName(m)} {word}</span>
               <span className="block text-sm text-muted">{v.expired ? 'Past use-by' : v.dosesLeft === 0 ? 'Empty' : '1 dose left'} · {stockVials(m).length} in stock</span>
             </IconRow>

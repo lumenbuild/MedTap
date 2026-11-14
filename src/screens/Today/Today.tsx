@@ -19,7 +19,7 @@ import { RefillCards } from '../../components/Refill';
 import { VialAlerts, vialAlerts } from '../Meds/VialCard';
 import { GoalLines } from '../Body/Goals';
 import { SupplyAlerts } from '../Supplies';
-import { isPen, SUPPLY_LABELS, supplyAlerts } from '../../logic/peptide';
+import { isPen, SUPPLY_LABELS, supplyAlerts, containerWord, isNasal } from '../../logic/peptide';
 import { fmtAgo, fmtAmount, fmtTime, fmtWhen } from '../../logic/format';
 import { logDose, removeDose } from '../../db/repos/doses';
 import { Card } from '../../components/ui/Card';
@@ -363,7 +363,7 @@ export function Today() {
         const sup = settings.peptideTools && supplies ? supplyAlerts(supplies, meds, doses) : [];
         const items = [
           ...refills.map((r) => ({ key: `refill-${r.med.id}`, label: `${shownName(r.med)} ${r.runningOut || r.low ? 'running low' : r.scriptExpiring ? 'script' : 'bottle expiring'}`, node: <RefillCards alerts={[r]} settings={settings} now={now} /> })),
-          ...vials.map(({ m, v }) => ({ key: `vial-${m.id}`, label: (() => { const kind = isPen(m) ? 'pen' : 'vial'; const next = (m.vials ?? []).some((x) => x.status === 'stock'); return `${shownName(m)}: ${v.expired ? `${kind} past use-by` : v.dosesLeft === 0 ? (next ? (isPen(m) ? 'start the next pen' : 'mix the next vial') : `${kind} used up`) : `${kind} nearly used up`}`; })(), node: <VialAlerts meds={[m]} doses={doses} now={now} /> })),
+          ...vials.map(({ m, v }) => ({ key: `vial-${m.id}`, label: (() => { const kind = containerWord(m); const next = (m.vials ?? []).some((x) => x.status === 'stock'); return `${shownName(m)}: ${v.expired ? `${kind} past use-by` : v.dosesLeft === 0 ? (next ? (isPen(m) ? 'start the next pen' : isNasal(m) ? 'make up the next bottle' : 'mix the next vial') : `${kind} used up`) : `${kind} nearly used up`}`; })(), node: <VialAlerts meds={[m]} doses={doses} now={now} /> })),
           ...(sup.length ? [{ key: 'supplies', label: sup.length === 1 ? `${SUPPLY_LABELS[sup[0].supply.kind].name} low` : 'Supplies low', node: <SupplyAlerts alerts={sup} /> }] : []),
           ...(settings.pendingTags.length ? [{ key: 'tags', label: `${settings.pendingTags.length} tag${settings.pendingTags.length === 1 ? '' : 's'} to link`, node: (
             <Card className="flex items-center gap-3">

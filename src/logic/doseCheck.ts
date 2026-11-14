@@ -47,7 +47,7 @@ export function doseCheck(med: Medication, amount: number, doses: Dose[], now: n
   // More than is left in the vial or pen in use.
   if (med.peptide) {
     const v = vialStatus(med, doses, now);
-    if (v && !v.expired && amount > v.left + 1e-9) out.push({ kind: 'vial', text: v.left > 0 ? `Only about ${fmtAmount(v.left, med.unit)} is left in this ${med.peptide.kind === 'pen' ? 'pen' : 'vial'}: the rest comes from the next one.` : `This ${med.peptide.kind === 'pen' ? 'pen' : 'vial'} should be empty: time to start a new one.` });
+    if (v && !v.expired && amount > v.left + 1e-9) out.push({ kind: 'vial', text: v.left > 0 ? `Only about ${fmtAmount(v.left, med.unit)} is left in this ${med.peptide.kind === 'pen' ? 'pen' : med.peptide.kind === 'nasal' ? 'bottle' : 'vial'}: the rest comes from the next one.` : `This ${med.peptide.kind === 'pen' ? 'pen' : med.peptide.kind === 'nasal' ? 'bottle' : 'vial'} should be empty: time to start a new one.` });
   }
   return out;
 }

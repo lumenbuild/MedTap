@@ -1,6 +1,6 @@
 import { AlertTriangle } from 'lucide-react';
 import type { Medication, SyringeType } from '../db/schema';
-import { blendAmounts, doseGuide, drawWarnings, fmtMl, fmtUnits, unitsPerMl, type Draw, type DrawWarning } from '../logic/peptide';
+import { blendAmounts, doseGuide, drawWarnings, fmtMl, fmtUnits, unitsPerMl, type Draw, type DrawWarning, type Spray } from '../logic/peptide';
 import { fmtAmount } from '../logic/format';
 
 export const WARN_TEXT: Record<DrawWarning, string> = {
@@ -75,6 +75,7 @@ export function DrawGuide({ med, amount }: { med: Pick<Medication, 'id' | 'stren
       </div>
     );
   }
+  if (g.kind === 'spray') return <SprayResult spray={g.spray} unit={med.unit} amount={g.amount} waterMl={g.waterMl} sprayMl={g.sprayMl} dose={amount} />;
   return (
     <div className="rounded-btn bg-primary-soft p-3 space-y-1">
       <p className="text-sm font-medium">Draw to</p>
@@ -83,6 +84,35 @@ export function DrawGuide({ med, amount }: { med: Pick<Medication, 'id' | 'stren
       <p className="text-xs text-muted">From {fmtAmount(g.amount, med.unit)} mixed with {g.waterMl} mL.</p>
     </div>
   );
+}
+
+/** A nasal spray dose: whole sprays, split between the nostrils, and what they give against the dose wanted. */
+export function SprayResult({ spray, unit, amount, waterMl, sprayMl, dose }: { spray: Spray; unit: string; amount: number; waterMl: number; sprayMl: number; dose: number }) {
+  return (
+    <div className="rounded-btn bg-primary-soft p-3 space-y-1.5" aria-live="polite">
+      <p className="text-sm font-medium">Spray</p>
+      <p><span className="text-2xl font-semibold tnum">{spray.sprays} spray{spray.sprays === 1 ? '' : 's'}</span> <span className="text-muted">· {spray.split}</span></p>
+      <SprayDots n={spray.sprays} />
+      <p className="text-sm tnum">{fmtAmount(spray.perSpray, unit)} a spray · {fmtAmount(spray.delivered, unit)} in all</p>
+      {Math.abs(spray.off) >= 0.1 && (
+        <p className="text-sm rounded-btn bg-caution-soft p-2.5 flex gap-2"><AlertTriangle size={16} className="shrink-0 mt-0.5" aria-hidden="true" />
+          Whole sprays give {fmtAmount(spray.delivered, unit)}, {Math.round(Math.abs(spray.off) * 100)}% {spray.off > 0 ? 'over' : 'under'} {fmtAmount(dose, unit)}. The calculator shows the liquid that makes it exact.</p>
+      )}
+      <p className="text-xs text-muted">From {fmtAmount(amount, unit)} in {waterMl} mL, {sprayMl} mL a spray.</p>
+    </div>
+  );
+}
+
+/** One dot per spray, left and right nostril alternating. */
+export function SprayDots({ n, onHero = false }: { n: number; onHero?: boolean }) {
+  const left = Math.ceil(n / 2), right = Math.floor(n / 2);
+  const side = (k: number, label: string) => (
+    <span className="flex flex-col items-center gap-1">
+      <span className="flex gap-1">{Array.from({ length: Math.max(k, 0) }, (_, i) => <span key={i} className="w-3.5 h-3.5 rounded-full" style={{ background: onHero ? 'var(--hero-ink)' : 'var(--c-pep)' }} />)}{k === 0 && <span className="w-3.5 h-3.5 rounded-full border" style={{ borderColor: 'var(--border-strong)' }} />}</span>
+      <span className={`text-[11px] ${onHero ? '' : 'text-muted'}`}>{label}</span>
+    </span>
+  );
+  return <div className="flex gap-8 py-1" role="img" aria-label={`${left} in one nostril, ${right} in the other`}>{side(left, n === 1 ? 'One nostril' : 'Left')}{n > 1 && side(right, 'Right')}</div>;
 }
 
 /** Syringe sizes in mL and their capacity in units for a syringe type. */
