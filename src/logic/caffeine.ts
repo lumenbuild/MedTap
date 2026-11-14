@@ -296,12 +296,13 @@ export function usualHabits(intakes: Intake[], now: number, s: ScheduleSettings)
   return out.sort((a, b) => a.at - b.at);
 }
 
-/** The usual drinks to ask about now: their time was 45+ minutes ago today, none logged since an hour and a half
- *  before it, and not answered "not today". */
+/** The usual drinks to ask about now: their time was 45+ minutes ago today but no more than 4 hours ago (by evening a
+ *  morning drink is no longer a question), no drink with caffeine logged since an hour and a half before it (a
+ *  different one had instead counts), and not answered "not today". */
 export function usualToAsk(habits: UsualHabit[], intakes: Intake[], now: number, dismissed: string[], s: ScheduleSettings): UsualHabit[] {
   const today = getDayBounds(now, s.dayStartsAt, s.tz).start;
-  return habits.filter((h) => now >= h.at + 45 * 60_000 && !dismissed.includes(usualKey(h, today))
-    && !intakes.some((x) => x.name === h.name && x.t >= Math.max(today, h.at - 1.5 * HOUR) && x.t <= now));
+  return habits.filter((h) => now >= h.at + 45 * 60_000 && now <= h.at + 4 * HOUR && !dismissed.includes(usualKey(h, today))
+    && !intakes.some((x) => (x.name === h.name || x.mg > 0) && x.t >= Math.max(today, h.at - 1.5 * HOUR) && x.t <= now));
 }
 
 export const usualKey = (h: { name: string }, dayStart: number) => `${Math.round(dayStart / 60_000)}|${h.name}`;

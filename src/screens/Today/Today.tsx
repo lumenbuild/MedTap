@@ -5,7 +5,7 @@ import { Beef, Footprints, Moon, CalendarPlus, ChevronRight, Coffee, Dumbbell, G
 import { addIntake } from '../../db/repos/training';
 import { Tile } from '../../components/ui/Visual';
 import type { BodyEntry, CheckIn, Dose, Medication } from '../../db/schema';
-import { useBodyEntries, useCheckIns, useDaily, useDoses, useExercises, useWorkouts, useFamily, useMeds, useScheduleSettings, useSupplies, useTags, useVitals, useFoodLogs } from '../../app/data';
+import { useBodyEntries, useCheckIns, useDaily, useDoses, useExercises, useWorkouts, useFamily, useMeds, useScheduleSettings, useSupplies, useTags, useVitals, useFoodLogs , useExperiments } from '../../app/data';
 import { VitalsSheet, type VitalsSheetState } from '../../components/VitalsSheet';
 import { dosesForPerson, medIsFor, personOf, storedPerson } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
@@ -63,6 +63,12 @@ import { GettingStartedCard } from '../../components/GettingStarted';
 import { readiness } from '../../logic/training';
 import { useOnce } from '../../app/useOnce';
 import { sayLogged } from '../../app/logged';
+import { foodLogging } from '../../logic/nutrition';
+import { testDayFor } from '../../logic/experiments';
+import { RoughDayCard, StartWatchCards, WalkIcon } from '../../components/RealUse';
+import { walkingToday } from '../../logic/realUse';
+import { maxHeartRate } from '../../logic/trainingLoad';
+import { DayClockCard } from '../../components/Graphics';
 
 const FoodToday = lazy(() => import('../Food').then((m) => ({ default: m.FoodToday })));
 
@@ -74,6 +80,7 @@ export function Today() {
   const checkIns = useCheckIns();
   const tags = useTags();
   const body = useBodyEntries();
+  const experiments = useExperiments();
   const vitals = useVitals();
   const supplies = useSupplies();
   const daily = useDaily();
@@ -261,8 +268,10 @@ export function Today() {
       {FOCUS === 'training' && !fam.everyone && workouts && <TrainingHero workouts={workouts.filter((w) => personOf(w) === fam.personId)} tags={tags ?? []} now={now}
         ready={readiness((daily ?? []).filter((d) => !d.deletedAt && personOf(d) === fam.personId), viewCheckIns, now, s)} />}
       {up.meds.length > 1 && up.at !== null
-        ? <HeroGroup meds={up.meds} doses={viewDoses} s={s} now={now} at={up.at} due={up.due} onLog={setLogFor} onLogAll={logAll} whose={fam.many ? whose : undefined} />
+        ? <HeroGroup meds={up.meds} doses={viewDoses} s={s} now={now} at={up.at} due={up.due} onLog={setLogFor} onLogAll={logAll} whose={fam.many ? whose : undefined} testOf={(m) => testDayFor(m, (experiments ?? []).filter((e) => personOf(e) === fam.personId), format(now, 'yyyy-MM-dd'))} />
         : headline && hero(headline)}
+      {!fam.everyone && <StartWatchCards onLogBp={() => setVitalSheet({})} />}
+      {!fam.everyone && <RoughDayCard />}
       {/* A set time that passed with nothing logged: was it taken? (one person at a time, so a shared medicine's dose is theirs) */}
       {!fam.everyone && <UnloggedCard personId={storedPerson(fam.personId)}
         items={scheduled.flatMap((m) => unloggedSlots(m, viewDoses, Math.floor(now / 60_000) * 60_000, s).map((x) => ({ med: m, ...x })))} />}
@@ -285,18 +294,22 @@ export function Today() {
         const sleepGoal = settings.sleepTargetH * 60;
         const top = motivation?.streaks.filter((x) => x.length > 1).sort((a, b) => b.length * (b.unit === 'week' ? 7 : 1) - a.length * (a.unit === 'week' ? 7 : 1))[0];
         const L = (ml: number) => `${Math.round(ml / 100) / 10}`;
+        const logging = foodLogging((foodLogs ?? []).filter((l) => personOf(l) === fam.personId), now);
+        const walk = walkingToday((workouts ?? []).filter((w) => personOf(w) === fam.personId), now, s, maxHeartRate(workouts ?? [], now));
         const tiles: DayTileData[] = [
           { key: 'water', label: 'Water', Icon: GlassWater, colour: 'var(--c-body)', value: L(water), of: waterTarget ? `/ ${L(waterTarget)} L` : 'L', frac: waterTarget ? water / waterTarget : undefined,
             sub: waterBoost ? `+${waterBoost} mL today for side effects` : undefined, onOpen: () => setIntake('waterMl'), onAdd: () => void addWater(), addLabel: `Add ${settings.intakeAmounts.waterMl[0] ?? 250} mL of water` },
           ...(training || food ? [{ key: 'protein', label: 'Protein', Icon: Beef, colour: 'var(--c-act)', value: String(Math.round(row?.proteinG ?? 0)), of: settings.proteinTargetG ? `/ ${settings.proteinTargetG} g` : 'g',
             frac: settings.proteinTargetG ? (row?.proteinG ?? 0) / settings.proteinTargetG : undefined, onOpen: () => setIntake('proteinG'), onAdd: () => setIntake('proteinG'), addLabel: 'Add protein' }] : []),
-          ...(food ? [{ key: 'food', label: 'Food', Icon: Utensils, colour: 'var(--c-pep)', value: Math.round(kcal).toLocaleString('en-AU'), of: settings.energyTargetKcal ? `/ ${settings.energyTargetKcal.toLocaleString('en-AU')} Cal` : 'Cal',
+          ...(food ? [{ key: 'food', label: 'Food', Icon: Utensils, colour: 'var(--c-pep)', value: kcal > 0 || logging ? Math.round(kcal).toLocaleString('en-AU') : '–', of: kcal > 0 || logging ? (settings.energyTargetKcal ? `/ ${settings.energyTargetKcal.toLocaleString('en-AU')} Cal` : 'Cal') : 'not logged',
             frac: settings.energyTargetKcal ? kcal / settings.energyTargetKcal : undefined, tone: settings.energyTargetKcal && kcal > settings.energyTargetKcal * 1.05 ? 'watch' as const : undefined, href: '#/food', onAdd: () => setFoodOpen(true), addLabel: 'Log food' }] : []),
           { key: 'caffeine', label: 'Caffeine', Icon: Coffee, colour: 'var(--c-mind)', value: String(Math.round(caf)), of: settings.caffeineLimitMg ? `/ ${settings.caffeineLimitMg} mg` : 'mg',
             frac: settings.caffeineLimitMg ? caf / settings.caffeineLimitMg : undefined, tone: settings.caffeineLimitMg && caf > settings.caffeineLimitMg ? 'watch' as const : undefined,
             sub: inYou >= 5 ? `${inYou} mg in you now` : undefined, href: '#/caffeine', onAdd: () => setDrink({}), addLabel: 'Log a drink' },
           ...(row?.steps !== undefined ? [{ key: 'steps', label: 'Steps', Icon: Footprints, colour: 'var(--c-heart)', value: row.steps.toLocaleString('en-AU'), of: stepsGoal ? `/ ${(Math.round(stepsGoal / 100) / 10).toLocaleString('en-AU')}k` : undefined,
             frac: stepsGoal ? row.steps / stepsGoal : undefined, href: '#/health' }] : []),
+          ...(walk ? [{ key: 'walk', label: 'Walking', Icon: WalkIcon, colour: 'var(--c-heart)', value: String(walk.minutes), of: 'min',
+            sub: `${walk.walks} walk${walk.walks === 1 ? '' : 's'}${walk.zones && walk.zones.steady + walk.zones.harder ? ` · ${walk.zones.steady + walk.zones.harder} min brisk` : ''}`, href: '#/training' }] : []),
           ...(row?.sleepMin !== undefined ? [{ key: 'sleep', label: 'Sleep', Icon: Moon, colour: 'var(--c-sleep)', value: `${Math.floor(row.sleepMin / 60)}h ${String(Math.round(row.sleepMin % 60)).padStart(2, '0')}`, of: `/ ${settings.sleepTargetH} h`,
             frac: row.sleepMin / sleepGoal, href: HAS_PEPTIDES && settings.sleepTools ? '#/sleep' : '#/health' }] : []),
         ];
@@ -318,7 +331,7 @@ export function Today() {
                 <button type="button" onClick={streakNews.onDone} className="min-h-[44px] px-2 font-medium">Nice</button>
               </p>
             )}
-            {dayMeds.length > 1 && <ul aria-label="Today's doses">{dayMeds.map((m) => <TodayRow key={m.id} med={m} doses={viewDoses} s={s} now={now} person={whose(m)} onLog={() => setLogFor(m)} />)}</ul>}
+            {dayMeds.length > 1 && <ul aria-label="Today's doses">{dayMeds.map((m) => <TodayRow key={m.id} med={m} doses={viewDoses} s={s} now={now} person={whose(m)} onLog={() => setLogFor(m)} test={isScheduledDay(m, now, s) ? testDayFor(m, (experiments ?? []).filter((e) => personOf(e) === fam.personId), todayKey) ?? undefined : undefined} />)}</ul>}
             {prn.length > 0 && <div aria-label="As needed">{prn.map((m) => <PrnCard key={m.id} med={m} doses={viewDoses} s={s} now={now} onLog={() => setLogFor(m)} person={whose(m)} limits={!(fam.everyone && m.shared)} />)}</div>}
           </YourDay>
         );
@@ -388,6 +401,8 @@ export function Today() {
 
       <Timeline doses={viewDoses} checkIns={viewCheckIns} body={HAS_BODY ? viewBody : []} vitals={viewVitals} onVital={(v) => setVitalSheet({ editing: v })} meds={viewMedMap} s={s} units={settings.units} now={now} personLabel={fam.everyone ? whose : undefined}
         onDose={setEditing} onCheckIn={(c: CheckIn) => (isDrink(c) ? setDrink({ editing: c }) : setCheckIn({ editing: c }))} onBody={(b: BodyEntry) => setBodySheet({ kind: 'edit', entry: b })} />
+
+      {!fam.everyone && <DayClockCard />}
 
       <a href="#/backup" className="flex flex-wrap items-center justify-center gap-x-2 min-h-[48px] text-sm text-muted tnum">
         <span className="flex items-center gap-2"><Lock size={16} aria-hidden="true" /> Saved on this device</span>

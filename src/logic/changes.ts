@@ -123,3 +123,16 @@ export function whatChanged(d: ChangeData, now: number): Change[] {
 
 export const fmtChangeValue = (c: Pick<Change, 'unit' | 'dp'>, v: number) =>
   `${c.unit === '' && v >= 1000 ? Math.round(v).toLocaleString('en-AU') : (Math.round(v * 10 ** c.dp) / 10 ** c.dp).toString()}${c.unit && c.unit !== '%' ? ` ${c.unit}` : c.unit}`;
+
+/** The medicine events worth marking on a chart: starts, stops and dose changes. Schedule edits aren't changes in what
+ *  the body gets, and a correction made within two days of adding the medicine ("200 mg → 0.2 mg") is setting it up. */
+export function chartEvents<E extends { medicationId: string; at: string; kind: 'started' | 'changed' | 'stopped'; summary: string }>(
+  events: E[], meds: { id: string; createdAt: string }[]): E[] {
+  const added = new Map(meds.map((m) => [m.id, Date.parse(m.createdAt)]));
+  return events.filter((e) => {
+    if (e.kind !== 'changed') return true;
+    if (!/^dose\b/i.test(e.summary)) return false;
+    const a = added.get(e.medicationId);
+    return a === undefined || Date.parse(e.at) - a > 2 * 86_400_000;
+  });
+}

@@ -147,16 +147,19 @@ function doseText(med: Medication, amount: number): string {
 
 /** The headline when several medicines are due at the same time: the time once, each medicine with what to take and
  *  its own Log, and Log all (each at its planned amount, now). */
-export function HeroGroup({ meds, doses, s, now, at, due, onLog, onLogAll, whose }: {
+export function HeroGroup({ meds, doses, s, now, at, due, onLog, onLogAll, whose, testOf }: {
   meds: Medication[]; doses: Dose[]; s: ScheduleSettings; now: number; at: number; due: boolean;
   onLog: (m: Medication) => void; onLogAll: (items: { med: Medication; amount: number }[]) => void;
   whose?: (m: Medication) => string | undefined;
+  /** Today's side of a running test for each medicine ("Test: off day"). */
+  testOf?: (m: Medication) => { on: boolean } | null;
 }) {
   const items = meds.map((m) => ({ med: m, amount: getExpectedAmount(m, doses, due ? now : at, s) }));
   const [hm, ap] = format(at, 'h:mm a').split(' ');
   const sameDay = at < getDayBounds(now, s.dayStartsAt, s.tz).end;
   const label = due ? 'Due now' : sameDay ? 'Next' : `Next · ${fmtDay(at)}`;
-  const all = items.filter((x) => !x.med.shared);
+  // Log all leaves out a medicine on its test's off day.
+  const all = items.filter((x) => !x.med.shared && testOf?.(x.med)?.on !== false);
   return (
     <article aria-label={`${label}: ${meds.map((m) => shownName(m)).join(', ')}`} className="hero">
       <p className="text-sm font-medium text-muted">{label}</p>
@@ -171,6 +174,7 @@ export function HeroGroup({ meds, doses, s, now, at, due, onLog, onLogAll, whose
             <span className="flex-1 min-w-0">
               <span className="block text-[17px] font-medium truncate">{shownMedName(med)}</span>
               <span className="block text-[15px] text-muted tnum">{[doseText(med, amount), whose?.(med)].filter(Boolean).join(' · ')}</span>
+              {testOf?.(med) && <span className="inline-flex mt-1 px-2 py-0.5 rounded-full text-[12px] font-semibold bg-surface text-text">Test: {testOf(med)!.on ? 'on day' : 'off day'}</span>}
             </span>
             <Button variant="secondary" onClick={() => onLog(med)} aria-label={`Log ${shownName(med)}`}>Log</Button>
           </li>

@@ -7,8 +7,10 @@ import { planShort } from '../../logic/dosePlan';
 import { CourseBar, courseProgress } from '../../components/CourseBar';
 
 /** One scheduled medicine on Today (B2): a dot (filled when today's doses are done), its name, and where it's at. */
-export function TodayRow({ med, doses, s, now, onLog, person }: {
+export function TodayRow({ med, doses, s, now, onLog, person, test }: {
   med: Medication; doses: Dose[]; s: ScheduleSettings; now: number; onLog: () => void; person?: string;
+  /** Today's side of a running test that names this medicine. */
+  test?: { on: boolean; title: string };
 }) {
   const status = getStatus(med, doses, now, s);
   const next = getNextDue(med, doses, now, s);
@@ -27,6 +29,7 @@ export function TodayRow({ med, doses, s, now, onLog, person }: {
         <span className="flex-1 min-w-0">
           <span className="block truncate">{shownMedName(med)}</span>
           {person && <span className="block text-xs text-muted">{person}</span>}
+          {test && <span className="inline-flex mt-0.5 px-2 py-0.5 rounded-full text-[12px] font-semibold" style={test.on ? { background: 'var(--primary-soft)', color: 'var(--primary)' } : { background: 'var(--caution-soft)', color: 'var(--caution)' }}>Test: {test.on ? 'on day' : 'off day'}</span>}
           {(() => { const c = courseProgress(med, now, s); return c?.phase === 'on' ? <span className="block text-xs text-muted tnum">{c.label}<CourseBar med={med} now={now} s={s} compact /></span> : null; })()}
         </span>
         <span className={`text-[15px] tnum ${status === 'due' ? 'font-semibold' : 'text-muted'}`}>{right}</span>

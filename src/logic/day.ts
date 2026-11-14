@@ -64,6 +64,12 @@ export function dayView(d: DayData, date: string, opts: { halfLifeH?: number; pr
       detail: [mins ? `${mins} min` : null, sets ? `${sets} sets` : null, w.cardio?.distanceKm ? `${w.cardio.distanceKm} km` : null, hr ? `average ${hr} bpm` : null].filter(Boolean).join(' · ') || undefined, href: w.cardio ? undefined : `#/training/workout/${w.id}` });
   }
   for (const v of d.vitals.filter((x) => live(x) && inDay(Date.parse(x.at)))) {
+    // A heart rate the watch took by itself after a dose goes on that dose's line, not a line of its own.
+    if (v.heartRate && !v.systolic && /\(automatic\)/.test(v.note ?? '')) {
+      const t = Date.parse(v.at);
+      const dose = events.filter((e) => e.lane === 'meds' && e.t <= t && t - e.t <= 3 * 3_600_000).sort((a, b) => b.t - a.t)[0];
+      if (dose) { dose.detail = [dose.detail, `${v.heartRate} bpm ${Math.round((t - dose.t) / 60_000)} min after`].filter(Boolean).join(' · '); continue; }
+    }
     events.push({ id: `v-${v.id}`, t: Date.parse(v.at), lane: 'body', title: v.systolic ? 'Blood pressure' : 'Heart rate', detail: [v.systolic ? `${v.systolic}/${v.diastolic}` : null, v.heartRate ? `${v.heartRate} bpm` : null].filter(Boolean).join(' · ') });
   }
   const row = d.daily.filter((x) => live(x) && x.date === date).sort((a, b) => (b.hr5?.length ?? 0) - (a.hr5?.length ?? 0))[0];

@@ -3,11 +3,14 @@
 // there are records from well before it was added; otherwise one quiet line to change it.
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { AlertTriangle, CalendarClock } from 'lucide-react';
+import { AlarmClock, AlertTriangle, CalendarClock } from 'lucide-react';
 import { strengthCheck } from '../logic/supplements';
 import type { Medication } from '../db/schema';
-import { setStartedOn } from '../db/repos/meds';
-import { useBodyEntries, useDaily, useMeds } from '../app/data';
+import { setReminderTime, setStartedOn } from '../db/repos/meds';
+import { setSetting } from '../db/repos/settings';
+import { reminderDrift } from '../logic/drift';
+import { fmtTime } from '../logic/format';
+import { useBodyEntries, useDaily, useDoses, useMeds, useScheduleSettings } from '../app/data';
 import { useToast } from '../app/toast';
 
 const ymd = (iso: string) => format(new Date(iso), 'yyyy-MM-dd');
@@ -64,5 +67,26 @@ export function StrengthCheckCard({ med }: { med: Medication }) {
       <AlertTriangle size={18} aria-hidden="true" className="shrink-0 mt-0.5" style={{ color: 'var(--caution)' }} />
       <span className="text-[14px] leading-snug flex-1"><span className="font-semibold">Check the strength. </span>{c.text}</span>
     </a>
+  );
+}
+
+/** The reminder and the time it's actually logged have drifted apart: offer to move the reminder (only the reminder). */
+export function ReminderDriftCard({ med }: { med: Medication }) {
+  const doses = useDoses(); const ss = useScheduleSettings();
+  const toast = useToast();
+  if (!doses || !ss) return null;
+  const [settings, s] = ss;
+  const d = reminderDrift(med, doses, s.tz);
+  if (!d || settings.driftDismissed.includes(`${med.id}|${d.usual}`)) return null;
+  const t = (hm: string) => { const [h, m] = hm.split(':').map(Number); return fmtTime(new Date(2000, 0, 1, h, m).getTime()); };
+  return (
+    <section className="box space-y-2.5" aria-labelledby={`drift-${med.id}`}>
+      <h2 id={`drift-${med.id}`} className="font-semibold text-[17px] flex items-center gap-2"><AlarmClock size={18} aria-hidden="true" className="text-primary" />Reminder at {t(d.slot)}</h2>
+      <p className="text-[15px] leading-snug text-muted">You’ve logged it around {t(d.usual)} on {d.n} of the last 5 times. The reminder can follow that; it doesn’t change the dose.</p>
+      <div className="grid grid-cols-2 gap-2">
+        <button type="button" onClick={async () => { await setReminderTime(med.id, d.usual); toast(`Reminder moved to ${t(d.usual)}`); }} className="min-h-[48px] rounded-btn bg-primary text-on-primary font-semibold">Move to {t(d.usual)}</button>
+        <button type="button" onClick={() => void setSetting('driftDismissed', [...settings.driftDismissed, `${med.id}|${d.usual}`])} className="min-h-[48px] rounded-btn bg-surface-2 font-medium">Keep {t(d.slot)}</button>
+      </div>
+    </section>
   );
 }

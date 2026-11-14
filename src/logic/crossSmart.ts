@@ -6,6 +6,7 @@ import { isStimulant } from './stimulant';
 import { getDayBounds, type ScheduleSettings } from './schedule';
 import { dayKey } from './stats';
 import { totalsFor } from './nutrition';
+import { foodLogging } from './nutrition';
 
 const DAY = 86_400_000;
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN);
@@ -68,7 +69,8 @@ export function underEating(meds: Medication[], doses: Dose[], foodLogs: FoodLog
   const start = getDayBounds(now, s.dayStartsAt, s.tz).start;
   const out: UnderEating = {};
   const hour = (now - start) / 3_600_000;
-  if (hour >= 11 && glpOn(start) && stimOn(start, now)) {
+  // Only when food is being logged: an empty log on a day nothing was logged isn't eating nothing.
+  if (hour >= 11 && glpOn(start) && stimOn(start, now) && foodLogging(logs, now)) {
     const t = totalsFor(logs, start, now);
     const kcal = t.kcal ?? 0, protein = t.protein ?? 0;
     const lowK = targets.kcal ? kcal < targets.kcal / 3 : false, lowP = targets.protein ? protein < targets.protein * 0.4 : false;

@@ -1,6 +1,6 @@
 // What's working: a verdict for everything taken, the supplements worth a second look, early warnings, and what went
 // with better or worse over the last 2 months, with one thing to try next.
-import { FlaskConical } from 'lucide-react';
+import { ChevronRight, ClipboardCheck, FlaskConical } from 'lucide-react';
 import { useDecisionData } from '../app/useDecisions';
 import { useNow } from '../app/useNow';
 import { useToast } from '../app/toast';
@@ -8,6 +8,8 @@ import { verdicts, supplementAudit, type Verdict } from '../logic/verdict';
 import { doseDecision, earlyWarnings, whatsWorking } from '../logic/decisions';
 import { setArchived } from '../db/repos/meds';
 import { ExperimentOffer, setJudgeBy, VerdictCard, WarningRow, WhatsWorkingCard } from '../components/Verdicts';
+import { StartClustersCard } from '../components/RealUse';
+import { HardDaysCard, MonthRecapCard } from '../components/Graphics';
 
 export function Working() {
   const dd = useDecisionData();
@@ -33,6 +35,10 @@ export function Working() {
         <p className="mt-3 text-muted text-[15px]">Each judged by what it's for, from your own data: on/off tests first, then days on against off, then before against since starting.</p>
       </section>
 
+      <MonthRecapCard />
+      <StartClustersCard />
+      <HardDaysCard />
+      <a href="#/datacheck" className="box flex items-center gap-3 min-h-[56px]"><ClipboardCheck size={18} aria-hidden="true" className="text-primary" /><span className="flex-1 font-medium">Check my records</span><ChevronRight size={18} aria-hidden="true" className="text-muted" /></a>
       {warnings.length > 0 && <section className="space-y-2" aria-label="Early warnings">{warnings.map((w) => <WarningRow key={w.key} w={w} />)}</section>}
 
       {shown.map((v) => <VerdictCard key={v.med.id} v={v} personId={personId} dose={doseDecision(v.med, data, now, s)} onJudgeBy={(o) => setJudgeBy(v.med, o)} />)}

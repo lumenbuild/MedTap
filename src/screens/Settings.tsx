@@ -2,7 +2,7 @@ import { setOwnTarget } from '../app/targets';
 import { Targets } from './Targets';
 import { isAuto, TARGET_KEYS } from '../logic/targets';
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
-import { Bell, Moon, Brain, Calculator, CalendarCheck, CalendarRange, FlaskConical, NotebookPen, Tablet, Check, ChevronRight, Clock, Coffee, Download, Dumbbell, EyeOff, HardDriveDownload, HeartPulse, HelpCircle, Info, Lock, Nfc, Package, Palette, Pill, Plane, RefreshCw, Smile, Syringe, Target, Timer, Users, Utensils, Watch, X, type LucideIcon } from 'lucide-react';
+import { Bell, ClipboardCheck, Moon, Brain, Calculator, CalendarCheck, CalendarRange, FlaskConical, NotebookPen, Tablet, Check, ChevronRight, Clock, Coffee, Download, Dumbbell, EyeOff, HardDriveDownload, HeartPulse, HelpCircle, Info, Lock, Nfc, Package, Palette, Pill, Plane, RefreshCw, Smile, Syringe, Target, Timer, Users, Utensils, Watch, X, type LucideIcon } from 'lucide-react';
 import { IconRow } from '../components/ui/Visual';
 import { useSyncConfig } from '../app/sync';
 import { allowCheckInNotes, allowExactReminders, checkInNoteStatus, setCheckInNotify, setDigestNotify, setRemindersEnabled, setTrainingReminders, syncReminders, testCheckInNote, type CheckInNoteStatus } from '../app/native';
@@ -392,6 +392,7 @@ export function Settings({ section }: { section?: string }) {
         <div className="box divide-y divide-border" style={{ paddingTop: 4, paddingBottom: 4 }}>
         <Row href="#/settings/people" Icon={Users} title="People and sync" value={`${fam?.people.length ?? 1} ${fam && fam.people.length > 1 ? 'people' : 'person'} · sync ${sync ? 'on' : 'off'}`} />
         <Row href="#/backup" Icon={HardDriveDownload} title="Backup and restore" value={last ? fmtAgo(now - last) : 'None yet'} />
+        <Row href="#/datacheck" Icon={ClipboardCheck} title="Check my records" value="Things that would make a number wrong" />
         </div>
       </section>
       <section aria-labelledby="set-help">

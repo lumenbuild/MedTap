@@ -28,6 +28,8 @@ import { RANGE_DAYS, rangeStart, type Range } from '../../logic/stats';
 import { weightPath } from '../../logic/predict';
 import { weightStall } from '../../logic/stall';
 import { shownName } from '../../logic/privacy';
+import { chartEvents } from '../../logic/changes';
+import { format } from 'date-fns';
 
 const fmtYmd = (ymd: string) => (ymd === todayYmd() ? 'Today' : fmtYmdDay(ymd));
 
@@ -84,8 +86,20 @@ export function Body() {
   const myDoses = doses.filter((d) => myMeds.some((m) => m.id === d.medicationId));
   // The weight chart: dose changes of injected medicines marked, the goal, and where it's heading (through the dose
   // plan when there is one, else towards the goal).
-  const marks = events.filter((e) => e.kind === 'changed' && peptideMeds.some((m) => m.id === e.medicationId))
-    .map((e) => ({ at: Date.parse(e.at), text: `${shownName(peptideMeds.find((m) => m.id === e.medicationId)!)}: ${e.summary}` }));
+  // Every medicine's start, stop and dose change (schedule edits and set-up corrections left out).
+  // Same-day changes share one mark ("Started Ritalin, Retatrutide").
+  const byDay = new Map<string, { at: number; parts: string[] }>();
+  for (const e of chartEvents(events.filter((e) => myMeds.some((m) => m.id === e.medicationId)), myMeds).sort((a, b) => a.at.localeCompare(b.at))) {
+    const m = myMeds.find((x) => x.id === e.medicationId)!;
+    const k = format(Date.parse(e.at), 'yyyy-MM-dd');
+    const g = byDay.get(k) ?? { at: Date.parse(e.at), parts: [] };
+    g.parts.push(e.kind === 'changed' ? `${shownName(m)}: ${e.summary}` : `${e.kind === 'stopped' ? 'Stopped' : 'Started'} ${shownName(m)}`);
+    byDay.set(k, g);
+  }
+  const marks = [...byDay.values()].map((g) => {
+    const starts = g.parts.filter((x) => x.startsWith('Started ')), rest = g.parts.filter((x) => !x.startsWith('Started '));
+    return { at: g.at, text: [starts.length ? `Started ${starts.map((x) => x.slice(8)).join(', ')}` : null, ...rest].filter(Boolean).join('; ') };
+  });
   const wGoal = goals.find((g) => g.metric === 'weightKg');
   const path = peptideMeds[0] ? weightPath(peptideMeds[0], myDoses, entries, now, 12, wGoal?.target) : null;
   const gv = wGoal ? goalView(wGoal, entries, now) : null;
