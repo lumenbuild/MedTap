@@ -4,7 +4,7 @@
 // one is working on Insights: each thing has one home.
 import { Brain, Flame, Footprints, Mountain } from 'lucide-react';
 import type { DailyHealth, FoodLog } from '../db/schema';
-import { useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useMeds, useScheduleSettings, useVitals, useWorkouts, useFoodLogs } from '../app/data';
+import { useLabs, useBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useMeds, useScheduleSettings, useVitals, useWorkouts, useFoodLogs } from '../app/data';
 import { apnoeaCheck, bodyClock, bpWithWeight, fitnessAge, rhrExplained, usualBands } from '../logic/healthChecks';
 import { ApnoeaCard, BodyClockCard, BpWeightCard, FitnessAgeCard, RhrCard, UsualBandsCard } from '../components/HealthChecks';
 import { useNow } from '../app/useNow';
@@ -23,6 +23,8 @@ import { HAS_BODY, HAS_TRAINING } from '../edition';
 import { GlucoseCard, IllnessCard, LoadCard, NightVitalsCard } from '../components/HealthCards';
 import { StartWatchCards } from '../components/RealUse';
 import { HrHeatmapCard, TodayUsualCard } from '../components/Graphics';
+import { VitalsCard } from './Body/VitalsCard';
+import { MarkersCard } from '../components/MarkersCard';
 
 const DAY = 86_400_000;
 const n0 = (v: number) => Math.round(v).toLocaleString('en-AU');
@@ -43,6 +45,7 @@ function useMine() {
 
 export function Health() {
   const d = useMine();
+  const labs = useLabs();
   const now = useNow(300_000);
   if (!d) return <div className="h-60 rounded-card bg-surface-2 animate-pulse" aria-busy="true" aria-label="Loading" />;
   const r = readiness(d.daily, d.checkIns, now, d.s);
@@ -88,10 +91,10 @@ export function Health() {
         </section>
       )}
       <StartWatchCards />
-      <TodayUsualCard />
-      <HrHeatmapCard />
       {/* Last night's readings against your own usual: the one list of them (readiness and the sickness watch read the same). */}
       <UsualBandsCard bands={bands} />
+      <TodayUsualCard />
+      <HrHeatmapCard />
       {vitals && !bands.some((b) => ['hrvMs', 'restingHr', 'spo2Avg', 'respRate', 'skinTempDelta'].includes(b.key)) && <NightVitalsCard stats={vitals.stats} />}
       {/* Getting sick: learned from your own nights and past illnesses (the simpler watch when there isn't enough yet). */}
       <SickCard />
@@ -101,6 +104,9 @@ export function Health() {
       {osa && <ApnoeaCard a={osa} personId={d.personId} need={need('height', 'birthYear', 'sex')} />}
       {fit && <FitnessAgeCard f={fit} personId={d.personId} need={need('birthYear', 'sex')} />}
       {rhr && rhr.parts.length > 0 && <RhrCard r={rhr} />}
+      {/* Blood pressure, heart rate readings and health markers live here (moved from Body). */}
+      <VitalsCard personId={d.personId} start={now - 90 * 86_400_000} end={now} s={d.s} />
+      {labs && <MarkersCard skip={['rhr']} personId={d.personId} heightCm={d.about.heightCm} labs={labs.filter((l) => personOf(l) === d.personId)} vitals={d.vitals} body={d.body} daily={d.daily} units={d.settings.units} now={now} />}
       {clock && <BodyClockCard c={clock} />}
       {/* Training load lives in the Training section when it's on. */}
       {(load || vo2) && !(HAS_TRAINING && d.settings.trainingTools) && <LoadCard load={load} vo2={vo2} />}

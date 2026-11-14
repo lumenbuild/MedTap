@@ -220,3 +220,34 @@ export function UnfilledStrengthCard() {
 
 export const WalkIcon = Footprints;
 export const RangeIcon = CalendarRange;
+
+// ── Walking this week ──────────────────────────────────────────────────────────────────────────────
+
+export function WalkingWeekCard() {
+  const workouts = useWorkouts(); const fam = useFamily();
+  const now = useNow(3_600_000);
+  if (!workouts || !fam) return null;
+  const walks = workouts.filter((w) => personOf(w) === fam.personId && !w.deletedAt && w.cardio?.activity === 'walk');
+  const dayStart = (t: number) => new Date(new Date(t).setHours(0, 0, 0, 0)).getTime();
+  const today = dayStart(now);
+  const days = Array.from({ length: 7 }, (_, i) => today - (6 - i) * DAY).map((t) => ({ t, min: Math.round(walks.filter((w) => dayStart(Date.parse(w.startedAt)) === t).reduce((a, w) => a + (w.cardio?.durationMin ?? 0), 0)) }));
+  const week = days.reduce((a, x) => a + x.min, 0);
+  const prior = walks.filter((w) => Date.parse(w.startedAt) >= today - 34 * DAY && Date.parse(w.startedAt) < today - 6 * DAY).reduce((a, w) => a + (w.cardio?.durationMin ?? 0), 0) / 4;
+  if (!week && !prior) return null;
+  const max = Math.max(30, ...days.map((x) => x.min));
+  return (
+    <section className="box space-y-3" aria-labelledby="walkwk-h">
+      <H id="walkwk-h" Icon={Footprints} right={<span className="text-[13px] text-muted tnum">usual {Math.round(prior)} min a week</span>}>Walking, last 7 days</H>
+      <p className="text-[34px] leading-none font-bold tnum">{Math.floor(week / 60)}h {String(week % 60).padStart(2, '0')}<span className="text-[15px] font-normal text-muted"> · {week >= prior ? 'more than' : 'less than'} usual</span></p>
+      <div className="grid grid-cols-7 gap-1.5 items-end h-24" role="img" aria-label={days.map((x) => `${format(x.t, 'EEE')} ${x.min} min`).join(', ')}>
+        {days.map((x) => (
+          <div key={x.t} className="flex flex-col items-center gap-1 h-full justify-end">
+            <span className="text-[11px] tnum text-muted">{x.min || ''}</span>
+            <span className="w-full rounded-t-md" style={{ height: `${Math.max(3, (x.min / max) * 70)}%`, background: x.t === today ? 'var(--c-heart, #e34948)' : 'color-mix(in srgb, var(--c-heart, #e34948) 55%, transparent)' }} />
+            <span className="text-[11px] text-muted">{format(x.t, 'EEEEE')}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}

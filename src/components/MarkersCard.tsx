@@ -13,12 +13,13 @@ import { Button } from './ui/Button';
 
 const TONE = { good: 'var(--success)', watch: 'var(--caution)', plain: 'var(--text-muted)' };
 
-export function MarkersCard({ personId, heightCm, labs, vitals, body, daily, units, now }: {
+export function MarkersCard({ personId, heightCm, labs, vitals, body, daily, units, now, skip = [] }: {
   personId: string; heightCm?: number; labs: LabResult[]; vitals: Vital[]; body: BodyEntry[]; daily: DailyHealth[]; units: Units; now: number;
+  /** Markers already shown on the same page (resting heart rate on Health). */ skip?: string[];
 }) {
   const toast = useToast();
   const [h, setH] = useState('');
-  const list = healthMarkers({ labs, vitals, body, daily }, heightCm, now);
+  const list = healthMarkers({ labs, vitals, body, daily }, heightCm, now).filter((m) => !skip.includes(m.key));
   const imperial = units === 'imperial';
   if (!list.length && heightCm) return null;
   return (
