@@ -68,6 +68,7 @@ import { testDayFor } from '../../logic/experiments';
 import { RoughDayCard, StartWatchCards, WalkIcon } from '../../components/RealUse';
 import { walkingToday } from '../../logic/realUse';
 import { maxHeartRate } from '../../logic/trainingLoad';
+import { DayClockCard } from '../../components/Graphics';
 
 const FoodToday = lazy(() => import('../Food').then((m) => ({ default: m.FoodToday })));
 
@@ -400,6 +401,8 @@ export function Today() {
 
       <Timeline doses={viewDoses} checkIns={viewCheckIns} body={HAS_BODY ? viewBody : []} vitals={viewVitals} onVital={(v) => setVitalSheet({ editing: v })} meds={viewMedMap} s={s} units={settings.units} now={now} personLabel={fam.everyone ? whose : undefined}
         onDose={setEditing} onCheckIn={(c: CheckIn) => (isDrink(c) ? setDrink({ editing: c }) : setCheckIn({ editing: c }))} onBody={(b: BodyEntry) => setBodySheet({ kind: 'edit', entry: b })} />
+
+      {!fam.everyone && <DayClockCard />}
 
       <a href="#/backup" className="flex flex-wrap items-center justify-center gap-x-2 min-h-[48px] text-sm text-muted tnum">
         <span className="flex items-center gap-2"><Lock size={16} aria-hidden="true" /> Saved on this device</span>

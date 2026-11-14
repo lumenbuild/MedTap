@@ -45,7 +45,9 @@ export function WeightChart({ entries, start, end, units, marks = [], goalKg, go
   const to = fc ? Math.max(end, fc.points[fc.points.length - 1].t) : end;
   const series: TrendSeries[] = [
     { label: 'Weigh-ins', style: 'dots', points: pts.map((p) => ({ t: p.t, v: k(p.v) })) },
-    { label: '7-day average', style: 'line', points: avg.map((p) => ({ t: p.t, v: k(p.v) })) },
+    { label: '7-day average', style: 'line', points: avg.map((p) => ({ t: p.t, v: k(p.v) })),
+      // How much of each weigh-in's move is body water (from the scale's water %, against its recent usual).
+      band: waterBand(entries, avg).filter((b) => b.t >= start - DAY / 2 && b.t <= end + DAY / 2).map((b) => ({ t: b.t, low: k(b.low), high: k(b.high) })), bandLabel: 'Body water swing' },
     ...(fc ? [{ label: 'Forecast', style: 'forecast' as const, noTable: true, points: fc.points.map((p) => ({ t: p.t, v: k(p.v) })),
       band: fc.points.filter((p) => p.low !== undefined && p.high !== undefined).map((p) => ({ t: p.t, low: k(p.low!), high: k(p.high!) })) }] : []),
     ...(goalKg !== undefined ? [{ label: 'Goal', style: 'goal' as const, points: [{ t: start, v: k(goalKg) }, { t: to, v: k(goalKg) }] }] : []),
@@ -75,6 +77,25 @@ export function WeightChart({ entries, start, end, units, marks = [], goalKg, go
   return <TrendChart title="Weight" series={series} start={start} end={to} unit={u} marks={marks} summary={fc?.text ?? null} extra={extra} actions={actions} headline={headline}
     extreme={down ? 'min' : 'max'} tags={tags.slice(-4)} goalFlag={flag}
     empty={pts.length ? null : 'No weigh-ins in this range.'} />;
+}
+
+/** Each weigh-in with a body water % beside it: how many kg of its move from the scale's recent usual is water
+ *  (water % × weight), drawn as a light band off the 7-day average. */
+function waterBand(entries: BodyEntry[], avg: Pt[]): { t: number; low: number; high: number }[] {
+  const rows = entries.filter((e) => !e.deletedAt && typeof e.waterPct === 'number' && typeof e.weightKg === 'number').sort((a, b) => a.date.localeCompare(b.date));
+  const out: { t: number; low: number; high: number }[] = [];
+  rows.forEach((e, i) => {
+    const prev = rows.slice(Math.max(0, i - 7), i).map((x) => x.waterPct!);
+    if (prev.length < 3) return;
+    const usual = [...prev].sort((a, b) => a - b)[prev.length >> 1];
+    const t = new Date(`${e.date}T08:00`).getTime();
+    const a = avg.find((p) => Math.abs(p.t - t) < DAY / 2) ?? avg.filter((p) => p.t <= t).pop();
+    if (!a) return;
+    const kg = ((e.waterPct! - usual) / 100) * e.weightKg!;
+    if (Math.abs(kg) < 0.1) return;
+    out.push({ t, low: Math.min(a.v, a.v + kg), high: Math.max(a.v, a.v + kg) });
+  });
+  return out;
 }
 
 /** Week by week: how much the weekly average moved, one column a week (toward the goal in green, away from it in

@@ -22,6 +22,7 @@ import { TopicLinks } from '../components/TopicLinks';
 import { HAS_BODY, HAS_TRAINING } from '../edition';
 import { GlucoseCard, IllnessCard, LoadCard, NightVitalsCard } from '../components/HealthCards';
 import { StartWatchCards } from '../components/RealUse';
+import { HrHeatmapCard, TodayUsualCard } from '../components/Graphics';
 
 const DAY = 86_400_000;
 const n0 = (v: number) => Math.round(v).toLocaleString('en-AU');
@@ -87,6 +88,8 @@ export function Health() {
         </section>
       )}
       <StartWatchCards />
+      <TodayUsualCard />
+      <HrHeatmapCard />
       {/* Last night's readings against your own usual: the one list of them (readiness and the sickness watch read the same). */}
       <UsualBandsCard bands={bands} />
       {vitals && !bands.some((b) => ['hrvMs', 'restingHr', 'spo2Avg', 'respRate', 'skinTempDelta'].includes(b.key)) && <NightVitalsCard stats={vitals.stats} />}
