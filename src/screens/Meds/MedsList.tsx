@@ -1,6 +1,6 @@
 import { SupplementsSection } from '../../components/HowToTake';
 import { StackToday } from '../../components/StackSmart';
-import { BookOpen, Calculator, Camera, CalendarClock, CalendarRange, CalendarX, ChevronRight, FileText, Link2, Nfc, Package, Plane, Plus, Wallet, X, type LucideIcon } from 'lucide-react';
+import { BookOpen, Pill, Calculator, Camera, CalendarClock, CalendarRange, CalendarX, ChevronRight, FileText, Link2, Nfc, Package, Plane, Plus, Wallet, X, type LucideIcon } from 'lucide-react';
 import { HAS_PEPTIDES, HAS_VISITS } from '../../edition';
 
 const DAY = 86_400_000;
@@ -131,7 +131,8 @@ export function MedsList() {
       <section aria-labelledby="tools-h" className="box">
         <h2 id="tools-h" className="text-sm font-medium text-muted mb-2">Tools</h2>
         <div className="grid grid-cols-3 gap-2">
-          {peptidesOn && <Tile Icon={BookOpen} label="Guide" name="Peptide guide" href="#/guide" />}
+          <Tile Icon={Pill} label="Medicines" name="Medicine guide: what to know, side effects and interactions" href="#/medicines" />
+          {peptidesOn && <Tile Icon={BookOpen} label="Peptides" name="Peptide guide" href="#/guide" />}
           {peptidesOn && <Tile Icon={Calculator} label="Calculator" name="Peptide calculator" href="#/calc" />}
           {peptidesOn && <Tile Icon={Package} label="Supplies" href="#/supplies" />}
           {peptidesOn && <Tile Icon={CalendarRange} label="Enough until" name="Enough until: stock for a trip or a date" onClick={() => setNeeds(true)} />}

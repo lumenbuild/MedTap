@@ -51,6 +51,7 @@ import { MedVerdict } from '../../components/Decisions';
 import { canSplit, guideById, guideFor, guideMed, lowestPlan, savedVial, stepChanges, fmtDose, type GuideEntry } from '../../logic/peptideGuide';
 import { Switch } from '../../components/ui/Switch';
 import { fmtAmount, fmtSchedule } from '../../logic/format';
+import { GuideFound, MedGuideCard } from '../../components/MedGuide';
 
 const UNITS = ['mg', 'mcg', 'mL', 'units', 'tablet'];
 const FORMS = ['tablet', 'capsule', 'liquid', 'patch', 'injection', 'other'];
@@ -399,7 +400,7 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
       )}
       {existing && !existing.archived && tab === 'overview' && (onProtocol && !priv
         ? <><PeptidePart med={existing} part="overview" /><MedVerdict med={existing} /><HowToTakeCard med={existing} onPeptidePage /><MedBodyEffects med={existing} /></>
-        : <><MedHero med={existing} />{!priv && <MedVerdict med={existing} />}<HowToTakeCard med={existing} />{!priv && <DosePlanCard med={existing} />}<MedBodyEffects med={existing} /></>)}
+        : <><MedHero med={existing} /><MedGuideCard med={existing} />{!priv && <MedVerdict med={existing} />}<HowToTakeCard med={existing} />{!priv && <DosePlanCard med={existing} />}<MedBodyEffects med={existing} /></>)}
       {existing && !existing.archived && tab === 'plan' && !priv && <><PeptidePart med={existing} part="plan" /><PeptideInsights med={existing} /></>}
       {existing && !existing.archived && tab === 'stock' && (onProtocol
         ? <><VialCard med={existing} /><VialExtras med={existing} />{!priv && <PeptidePart med={existing} part="stock" />}</>
@@ -461,6 +462,7 @@ export function MedEditor({ id, tagId, guideId, section }: { id?: string; tagId?
               help={detected.length && !f.ingredients.trim() ? `Found: ${ingredientsText(detected)}` : undefined} />
           );
         })()}
+        {!existing && <GuideFound med={{ name: f.name, strength: Number(f.strength) || 0, unit: f.unit, ingredients: f.ingredients.trim() ? parseIngredients(f.ingredients) : undefined }} />}
         {(() => {
           // Pairs with this person's other medicines that are worth raising with a pharmacist (as typed, before saving).
           const draft: Medication = { ...(existing ?? { id: '__new', color: '', icon: 'pill', schedule: { type: 'prn' }, defaultAmount: 0, createdAt: '', updatedAt: '' }),

@@ -3,6 +3,7 @@
 // of common Australian brands) or what the person entered. Facts from labels, not advice: always "check with your
 // pharmacist". Pure.
 import type { Dose, Medication } from '../db/schema';
+import { MED_NAMES } from './medNames';
 
 export interface Ingredient { name: string; mg?: number }
 export type DrugClass = 'nsaid' | 'glp1';
@@ -90,6 +91,8 @@ const KNOWN: [string, Ingredient[]][] = [
   ['wolverine', [{ name: 'bpc-157' }, { name: 'tb-500' }]], ['glow blend', [{ name: 'ghk-cu' }, { name: 'bpc-157' }, { name: 'tb-500' }]],
   ['thymosin', [{ name: 'tb-500' }]], ['ghk', [{ name: 'ghk-cu' }]], ['aod 9604', [{ name: 'aod-9604' }]], ['melanotan', [{ name: 'melanotan' }]],
   ['epitalon', [{ name: 'epitalon' }]], ['epithalon', [{ name: 'epitalon' }]], ['epithilian', [{ name: 'epitalon' }]], ['dsip', [{ name: 'dsip' }]], ['delta sleep', [{ name: 'dsip' }]], ['bpc157', [{ name: 'bpc-157' }]], ['selank', [{ name: 'selank' }]], ['semax', [{ name: 'semax' }]], ['kpv', [{ name: 'kpv' }]], ['mots c', [{ name: 'mots-c' }]],
+  // The medicine guide's names (src/logic/medNames.ts).
+  ...MED_NAMES.map(([k, g]) => [k, [{ name: g }]] as [string, Ingredient[]]),
 ].sort((a, b) => b[0].length - a[0].length) as [string, Ingredient[]][];
 
 const MASS = new Set(['mg', 'mcg', 'g']);

@@ -7,6 +7,7 @@ import type { BodyEntry, CheckIn, DailyHealth, Dose, Experiment, Medication } fr
 import { dayKey } from './stats';
 import type { ScheduleSettings } from './schedule';
 import { isStimulant } from './stimulant';
+import { medGuideFor } from './medGuide';
 import { guideFor, isGlpLike } from './peptideGuide';
 import { supplementsOf } from './supplements';
 import { analyse, METRICS } from './experiments';
@@ -53,7 +54,7 @@ const SUPPLEMENT_GOAL: Record<string, Outcome> = {
 };
 const GUIDE_GOAL: Record<string, Outcome> = { weight: 'weight', sleep: 'deep', focus: 'focus', healing: 'soreness', longevity: 'recovery', gh: 'deep' };
 
-/** What a medicine is judged by: the person's choice, else its goal (a stimulant: focus; a GLP-1: weight; a peptide:
+/** What a medicine is judged by: the person's choice, else its goal (a stimulant or other ADHD medicine: focus; an antidepressant: mood; a GLP-1: weight; a peptide:
  *  its guide's first goal; a supplement: what it's usually for). Undefined when nothing here measures it. */
 export function goalOf(med: Medication): Outcome | undefined {
   if (med.judgeBy) return med.judgeBy as Outcome;
@@ -62,6 +63,11 @@ export function goalOf(med: Medication): Outcome | undefined {
   const g = guideFor(med.name);
   for (const x of g?.goals ?? []) if (GUIDE_GOAL[x]) return GUIDE_GOAL[x];
   for (const s of supplementsOf(med)) if (SUPPLEMENT_GOAL[s.key]) return SUPPLEMENT_GOAL[s.key];
+  // The medicine guide: an ADHD medicine (guanfacine, atomoxetine) by focus, an antidepressant by mood, a sleeping tablet by sleep.
+  const area = medGuideFor(med)[0]?.area;
+  if (area === 'ADHD and focus') return 'focus';
+  if (area === 'Mood and anxiety') return 'mood';
+  if (area === 'Sleep') return 'sleep';
   return undefined;
 }
 

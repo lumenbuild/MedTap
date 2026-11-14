@@ -18,6 +18,7 @@ import { sickForecast, UNWELL, type SickForecast } from '../logic/sickness';
 import { todayPlan, THREAD_LABEL, type PlanItem, type Thread } from '../logic/plan';
 import { goalRings, type Ring } from '../logic/rings';
 import { stackPlanItems } from '../logic/stackSmart';
+import { medGuideFor } from '../logic/medGuide';
 import { weekAhead } from '../logic/weekAhead';
 import { stepsTarget } from '../logic/movement';
 import { readiness } from '../logic/training';
@@ -49,6 +50,15 @@ const computeToday = memoLast((dd: DecisionData, list: Insight[], tick: number) 
     ? sickForecast({ daily: data.daily, checkIns: data.checkIns, workouts: data.workouts, feedback: settings.sickFeedback }, now) : null;
   const stack = HAS_PEPTIDES && settings.peptideTools ? stackPlanItems(data.meds, data, now, s, settings.peptideOrders) : [];
   // The week ahead: today's advice from the forecast, and what might cause problems in the next two days.
+  // A medicine started in the last two weeks: what to know about it, near the top of the plan while it's new.
+  for (const m of data.meds.filter((x) => !x.archived && !x.peptide)) {
+    const g = medGuideFor(m)[0];
+    if (!g) continue;
+    const first = data.doses.filter((d) => d.medicationId === m.id && !d.skipped).reduce((a, d) => Math.min(a, Date.parse(d.takenAt)), Infinity);
+    const since = Number.isFinite(first) ? first : Date.parse(m.createdAt);
+    if (!(now - since < 14 * 86_400_000)) continue;
+    stack.push({ key: `new-med:${m.id}`, title: `New: ${m.nickname?.trim() || m.name}. What to know`, detail: g.know.slice(0, 2).join(' '), tone: 'info', href: `#/meds/${m.id}`, impact: 92, thread: 'meds' });
+  }
   const ahead = weekAhead(data, { waterTargetMl: settings.waterTargetMl, fibreTargetG: settings.fibreTargetG, proteinTargetG: settings.proteinTargetG, bedtime: settings.bedtime,
     caffeineCutoff: settings.caffeineCutoff, orders: settings.peptideOrders }, now, s);
   const thread = { food: 'fuel', water: 'fuel', train: 'move', sleep: 'recovery', caffeine: 'recovery' } as const;
