@@ -46,14 +46,14 @@ export interface ApnoeaCheck {
 
 /** STOP-BANG (Snoring, Tired, Observed, Pressure, BMI > 35, Age > 50, Neck > 40 cm, male) from what's recorded,
  *  plus the watch's overnight oxygen: nights with the lowest reading under 88%, or an average under 94%. */
-export function apnoeaCheck(x: { daily: DailyHealth[]; body: BodyEntry[]; vitals: Vital[]; checkIns: CheckIn[]; meds: Medication[]; about: About }, now: number): ApnoeaCheck | null {
+export function apnoeaCheck(x: { daily: DailyHealth[]; body: BodyEntry[]; vitals: Vital[]; checkIns: CheckIn[]; meds: Medication[]; about: About; /** Answered "no" to snoring. */ noSnoring?: boolean }, now: number): ApnoeaCheck | null {
   const nights = x.daily.filter((d) => live(d) && ms(d.date) > now - 30 * DAY && (typeof d.spo2Min === 'number' || typeof d.spo2Avg === 'number'));
   const latest = <K extends keyof BodyEntry>(k: K) => x.body.filter((b) => live(b) && b[k] !== undefined).sort((a, b) => b.date.localeCompare(a.date))[0]?.[k] as number | undefined;
   const kg = latest('weightKg'), neck = latest('neckCm');
   const bmi = kg && x.about.heightCm ? kg / (x.about.heightCm / 100) ** 2 : undefined;
   const age = ageOf(x.about, now);
   const recent = x.checkIns.filter((c) => live(c) && Date.parse(c.at) > now - 30 * DAY);
-  const snore = recent.some((c) => c.chips.some((ch) => /snor/i.test(ch)));
+  const snore = recent.some((c) => c.chips.some((ch) => /^snor/i.test(ch.trim())));
   const witnessed = recent.some((c) => c.chips.some((ch) => /stop(ped)? breathing|gasp|choking/i.test(ch)));
   const energies = recent.map((c) => c.energy).filter((v): v is number => typeof v === 'number');
   const tired = energies.length >= 5 && mean(energies) <= 2.5;
@@ -61,7 +61,7 @@ export function apnoeaCheck(x: { daily: DailyHealth[]; body: BodyEntry[]; vitals
   const highBp = bps.length >= 3 && (median(bps.map((v) => v.systolic!)) >= 140 || median(bps.map((v) => v.diastolic ?? 0)) >= 90);
   const onBp = x.meds.some((m) => !m.archived && isBpMed(m));
   const items: string[] = [], unknown: string[] = [];
-  if (snore) items.push('Snoring noted'); else unknown.push('snoring (add a "Snoring" check-in chip if a partner says so)');
+  if (snore) items.push('Snoring noted'); else if (!x.noSnoring) unknown.push('snoring');
   if (tired) items.push('Often tired (check-in energy)');
   if (witnessed) items.push('Stopped breathing or gasping noted');
   if (highBp || onBp) items.push(onBp ? 'On blood pressure tablets' : 'High blood pressure readings');

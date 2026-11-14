@@ -34,6 +34,7 @@ import { daySuggestion, trainingLoad, vo2Trend } from '../../logic/trainingLoad'
 import { illnessWatch } from '../../logic/vitals';
 import { LoadCard } from '../../components/HealthCards';
 import { programById } from '../../logic/coach';
+import { UnfilledStrengthCard } from '../../components/RealUse';
 
 const DAY = 86_400_000;
 
@@ -121,6 +122,7 @@ export function Training({ start = false }: { start?: boolean }) {
         </section>
       )}
 
+      <UnfilledStrengthCard />
       {(load || vo2) && <LoadCard load={load} vo2={vo2} />}
 
       <section className="box" aria-labelledby="wk-h">

@@ -20,6 +20,8 @@ import { shortActing, courseCalendar, courseLine, courseSummary, fridgeNote, sta
 import { Sheet, SheetActions } from './ui/Sheet';
 import { Button } from './ui/Button';
 import { useSupplies } from '../app/data';
+import { StockOutlookCard } from './RealUse';
+import { DoseStripsCard, FridgeShelfCard } from './Graphics';
 
 const DAY = 86_400_000;
 const fmtDay = (t: number) => format(t, 'EEE d MMM');
@@ -40,7 +42,10 @@ export function StackToday() {
     <>
       {levels.length > 0 && <LevelsCard levels={levels} now={now} short={shortActing(data.meds).map((m) => m.nickname?.trim() || m.name)} />}
       {cal.bars.some((b) => b.med.schedule.course) && <CalendarCard cal={cal} now={now} />}
+      <FridgeShelfCard />
       <ShopCard />
+      <StockOutlookCard />
+      <DoseStripsCard />
     </>
   );
 }

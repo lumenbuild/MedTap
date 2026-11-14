@@ -4,6 +4,9 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { Activity, Clock, Gauge, HeartPulse, Moon, UserRound, Wind } from 'lucide-react';
 import { setAbout } from '../db/repos/training';
+import { addCheckIn } from '../db/repos/checkIns';
+import { setSetting } from '../db/repos/settings';
+import { upsertBody } from '../db/repos/body';
 import { useToast } from '../app/toast';
 import type { ApnoeaCheck, Band, BodyClock, BpWeight, FitnessAge, RhrExplained } from '../logic/healthChecks';
 import { Button } from './ui/Button';
@@ -81,6 +84,7 @@ export function ApnoeaCard({ a, personId, need }: { a: ApnoeaCheck; personId: st
       {(a.items.length > 0 || a.nightSigns.length > 0) && <ul className="text-[14px] space-y-0.5">{[...a.nightSigns, ...a.items].map((x) => <li key={x}>• {x}</li>)}</ul>}
       {a.level !== 'low' && <p className="text-[13px] text-muted">Pauses in breathing at night are common at a higher weight, often missed, and treatable. A home sleep study settles it, and treating it helps energy, appetite and weight loss.</p>}
       {a.unknown.length > 0 && <p className="text-[12px] text-muted">Not known yet: {a.unknown.join(', ')}.</p>}
+      <FinishApnoea personId={personId} snoring={a.unknown.includes('snoring')} neck={a.unknown.includes('neck measurement')} />
       <AboutYou personId={personId} need={need} />
     </section>
   );
@@ -160,3 +164,30 @@ export function BodyClockCard({ c }: { c: BodyClock }) {
 }
 
 export const fmtMonth = (t: number) => format(t, 'MMM yyyy');
+
+/** The two things the check can't learn by itself, asked once: snoring (a partner's word counts) and neck size. */
+function FinishApnoea({ personId, snoring, neck }: { personId: string; snoring: boolean; neck: boolean }) {
+  const toast = useToast();
+  const [cm, setCm] = useState('');
+  if (!snoring && !neck) return null;
+  return (
+    <div className="rounded-btn bg-surface-2 p-3 space-y-3">
+      <p className="text-[15px] font-semibold">Finish the check</p>
+      {snoring && (
+        <div className="space-y-1.5">
+          <p className="text-[14px]">Do you snore, or has someone said you do?</p>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="secondary" onClick={async () => { await addCheckIn({ at: new Date().toISOString(), chips: ['Snoring'], personId }); toast('Noted: snoring'); }}>Yes</Button>
+            <Button variant="secondary" onClick={async () => { await setSetting('noSnoring', true); toast('Noted: no snoring'); }}>No</Button>
+          </div>
+        </div>
+      )}
+      {neck && (
+        <div className="flex items-end gap-2">
+          <TextInput label="Neck, around the middle (cm)" type="number" inputMode="decimal" value={cm} onChange={(e) => setCm(e.target.value)} />
+          <Button onClick={async () => { const v = Number(cm); if (!(v > 20 && v < 80)) return; await upsertBody(format(Date.now(), 'yyyy-MM-dd'), { neckCm: v }, personId); setCm(''); toast(`Neck ${v} cm saved`); }} disabled={!(Number(cm) > 20 && Number(cm) < 80)}>Save</Button>
+        </div>
+      )}
+    </div>
+  );
+}

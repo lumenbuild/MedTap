@@ -24,7 +24,6 @@ import { go } from '../../app/router';
 import { fmtSchedule } from '../../logic/format';
 import { planLine } from '../../logic/dosePlan';
 import { overlaps } from '../../logic/ingredients';
-import { interactions } from '../../logic/interactions';
 import { Bar, IconRow, Tile } from '../../components/ui/Visual';
 import { money, monthlyPackCost } from '../../logic/cost';
 import { setSetting } from '../../db/repos/settings';
@@ -32,6 +31,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { MedBadge } from '../../components/MedBadge';
 import { CountPicker } from '../../components/CountSheet';
+import { InteractionMapCard } from '../../components/Graphics';
 
 export function MedsList() {
   const meds = useMeds();
@@ -88,7 +88,6 @@ export function MedsList() {
 
       {[
         ...overlaps(active, personOf).map((o) => ({ key: o.key, a: o.a, b: o.b, text: o.kind === 'same' ? `both contain ${o.what}` : `both ${o.what}` })),
-        ...interactions(active, personOf).map((x) => ({ key: x.key, a: x.a, b: x.b, text: x.why })),
       ].filter((x) => !settings.overlapDismissed.includes(x.key)).map((x) => (
         <IconRow key={x.key} Icon={Link2} tone="plain"
           action={<button type="button" aria-label="Got it" className="w-11 h-11 flex items-center justify-center text-muted" onClick={() => setSetting('overlapDismissed', [...settings.overlapDismissed, x.key])}><X size={20} /></button>}>
@@ -96,6 +95,9 @@ export function MedsList() {
           <span className="block text-sm text-muted">{x.text}</span>
         </IconRow>
       ))}
+
+      {/* Pairs that interact: one map, tap a line for the note (the same notes are on each medicine's page). */}
+      <InteractionMapCard />
 
       {active.length === 0 && (
         <Card className="text-center py-8">

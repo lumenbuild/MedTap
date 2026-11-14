@@ -40,6 +40,18 @@ export async function setStartedOn(id: string, ymd: string | undefined) {
   });
 }
 
+/** Move a single-time medicine's reminder (the dose and amount stay as they are). */
+export async function setReminderTime(id: string, time: string) {
+  await db.transaction('rw', db.medications, db.medEvents, async () => {
+    const med = await db.medications.get(id);
+    const slots = med?.schedule.slots ?? (med?.schedule.times ?? []).map((t) => ({ time: t }));
+    if (!med || slots.length !== 1) return;
+    const before = slots[0].time;
+    await db.medications.update(id, { schedule: { ...med.schedule, slots: [{ ...slots[0], time }], times: undefined }, updatedAt: nowIso() });
+    await addEvent(id, 'changed', `Reminder ${before} → ${time}`);
+  });
+}
+
 /** Save edits. Pass `change` to record a dated medication event (for chart markers). */
 export async function updateMed(id: string, input: MedInput, change?: { at: string; summary: string; before: unknown; after: unknown }) {
   await db.transaction('rw', db.medications, db.medEvents, async () => {
@@ -350,4 +362,45 @@ export async function setStockCount(medId: string, count: number): Promise<numbe
   const now = nowIso();
   await db.medications.update(medId, { stockCount: count, stockBase: { count, at: now }, updatedAt: now });
   return med?.stockCount;
+}
+
+/** One medicine added twice (an archived one and a new one): every dose, tag and event of `fromId` moves to `keepId`,
+ *  its vials join the kept one's, and `fromId` goes. The kept one's start is the earlier of the two. */
+export async function mergeMeds(keepId: string, fromId: string) {
+  await db.transaction('rw', [db.medications, db.doses, db.tags, db.medEvents], async () => {
+    const [keep, from] = await Promise.all([db.medications.get(keepId), db.medications.get(fromId)]);
+    if (!keep || !from || keepId === fromId) return;
+    await db.doses.where('medicationId').equals(fromId).modify({ medicationId: keepId });
+    await db.tags.where('medicationId').equals(fromId).modify({ medicationId: keepId });
+    const evs = await db.medEvents.where('medicationId').equals(fromId).toArray();
+    const keepStart = (await db.medEvents.where('medicationId').equals(keepId).toArray()).find((e) => e.kind === 'started');
+    for (const e of evs) {
+      // One "Started": the earlier one stays; the other start and the stop between them become a pause.
+      if (e.kind === 'started' && keepStart) {
+        if (e.at < keepStart.at) { await db.medEvents.update(keepStart.id, { at: e.at }); }
+        await db.medEvents.delete(e.id);
+        continue;
+      }
+      await db.medEvents.update(e.id, { medicationId: keepId });
+    }
+    const startedOn = [keep.startedOn, from.startedOn, from.createdAt.slice(0, 10)].filter(Boolean).sort()[0];
+    await db.medications.update(keepId, {
+      vials: [...(from.vials ?? []).map((v) => ({ ...v, status: v.status === 'in-use' ? 'finished' as const : v.status })), ...(keep.vials ?? [])],
+      startedOn: startedOn && startedOn < keep.createdAt.slice(0, 10) ? startedOn : keep.startedOn,
+      updatedAt: nowIso(),
+    });
+    await db.medications.delete(fromId);
+  });
+}
+
+/** After the strength per tablet is corrected: past doses scaled so each keeps its number of tablets (2.4 mg at a
+ *  wrongly entered 1.2 mg is 2 tablets, so 1,200 mg at 600 mg). Returns how many changed. */
+export async function rescaleDoses(medId: string, from: number, to: number): Promise<number> {
+  if (!(from > 0) || !(to > 0) || from === to) return 0;
+  const f = to / from;
+  return db.transaction('rw', db.doses, async () => {
+    const xs = await db.doses.where('medicationId').equals(medId).toArray();
+    for (const d of xs) await db.doses.update(d.id, { amount: Math.round(d.amount * f * 1000) / 1000, updatedAt: nowIso() });
+    return xs.length;
+  });
 }

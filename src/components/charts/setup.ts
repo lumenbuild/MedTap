@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import {
-  BarElement, CategoryScale, Chart, Filler, Legend, LinearScale, LineElement, PointElement, TimeScale, Tooltip, type Plugin,
+  BarController, BarElement, CategoryScale, LineController, Chart, Filler, Legend, LinearScale, LineElement, PointElement, TimeScale, Tooltip, type Plugin,
 } from 'chart.js';
 import 'chartjs-adapter-date-fns';
 import { enAU } from 'date-fns/locale';
 import { resolveColour } from '../../logic/palette';
 
-Chart.register(BarElement, CategoryScale, Filler, Legend, LinearScale, LineElement, PointElement, TimeScale, Tooltip);
+Chart.register(BarController, BarElement, CategoryScale, LineController, Filler, Legend, LinearScale, LineElement, PointElement, TimeScale, Tooltip);
 
 export const DATE_LOCALE = enAU;
 

@@ -9,6 +9,15 @@ import type { Plugin } from 'chart.js';
 import { format } from 'date-fns';
 import { ChartCard, ChartLegend, type Headline, type LegendItem } from './ChartCard';
 import { baseOptions, timeAxis, useChartTheme, type ChartTheme } from './setup';
+import { useDayLabels } from '../../app/useDayLabels';
+import { DAY_LABELS } from '../../logic/dayLabels';
+
+/** A CSS colour (including var(--x, fallback)) as the canvas can use it. */
+const cssColour = (c: string) => {
+  const m = /^var\((--[^,)]+)(?:,\s*([^)]+))?\)$/.exec(c);
+  if (!m) return c;
+  try { return getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim() || m[2] || '#888'; } catch { return m[2] ?? '#888'; }
+};
 
 export interface TrendPoint { t: number; v: number }
 export type TrendStyle = 'line' | 'dots' | 'forecast' | 'goal';
@@ -18,8 +27,10 @@ export interface TrendSeries {
   style: TrendStyle;
   /** Categorical slot (fixed per metric, never by rank). Omitted: ink for lines, muted for dots. */
   slot?: number;
-  /** For a forecast: its likely low/high at each point, drawn as a light band. */
+  /** For a forecast: its likely low/high at each point, drawn as a light band (a line can have one too). */
   band?: { t: number; low: number; high: number }[];
+  /** What a line's band is, for the key and tooltip. */
+  bandLabel?: string;
   /** Leave out of the table (e.g. raw readings already summarised by the line). */
   noTable?: boolean;
 }
@@ -198,6 +209,23 @@ const todayLine: Plugin<'line'> = {
   },
 };
 
+/** Day marks along the bottom of the plot (shot day, test off day, short night, food logged): a small square per
+ *  kind, stacked, so any line reads with what kind of day it was. */
+const dayMarks: Plugin<'line'> = {
+  id: 'dayMarks',
+  afterDatasetsDraw(chart, _a, opts: { days?: { t: number; colours: string[] }[] }) {
+    if (!opts?.days?.length) return;
+    const { ctx, chartArea, scales } = chart;
+    ctx.save();
+    for (const d of opts.days) {
+      const x = scales.x.getPixelForValue(d.t);
+      if (x < chartArea.left || x > chartArea.right) continue;
+      d.colours.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(x - 2, chartArea.bottom - 5 - i * 5, 4, 4); });
+    }
+    ctx.restore();
+  },
+};
+
 function colourOf(th: ChartTheme, s: TrendSeries, multi: boolean) {
   if (s.style === 'goal') return th.text;
   if (s.slot !== undefined && multi) return th.series[s.slot % th.series.length];
@@ -211,6 +239,18 @@ export function TrendChart(p: TrendChartProps) {
   const multi = lines.length >= 2;
   const marks = (p.marks ?? []).filter((m) => m.at >= p.start && m.at <= p.end).sort((a, b) => a.at - b.at);
   const any = p.series.some((s) => s.style !== 'goal' && s.points.length);
+  // Day marks on charts of up to 6 months (beyond that they'd be a smear), with a key for the kinds shown.
+  const labels = useDayLabels();
+  const dayMarkDays: { t: number; colours: string[] }[] = [];
+  const shownKinds = new Set<string>();
+  if (labels && !p.bare && p.end - p.start <= 186 * 86_400_000) {
+    for (const [k, ls] of labels) {
+      const t = new Date(`${k}T12:00`).getTime();
+      if (t < p.start || t > p.end) continue;
+      dayMarkDays.push({ t, colours: ls.map((l) => cssColour(DAY_LABELS.find((x) => x.key === l)!.colour)) });
+      ls.forEach((l) => shownKinds.add(l));
+    }
+  }
 
   const short = p.labelFmt ?? ((v: number) => `${Number((Math.round(v * 10) / 10).toFixed(1)).toString()}`);
   const datasets = p.series.flatMap((s): Record<string, unknown>[] => {
@@ -247,7 +287,9 @@ export function TrendChart(p: TrendChartProps) {
         return g;
       },
     } : {};
-    return [{ ...base, ...wash, order: 0, borderWidth: 2.25, pointRadius: lineDot(3), pointBorderWidth: (ctx: { dataIndex: number }) => (isLast(ctx) ? 2 : 0), endLabel: multi ? s.label : short(lastV) }];
+    // A line's own band (a body water swing): light bars from the line, one per reading.
+    const lineBand = (s.band ?? []).map((b) => ({ label: s.bandLabel ?? 'Range', type: 'bar' as const, data: [{ x: b.t, y: [b.low, b.high] }], backgroundColor: `${th.series[1 % th.series.length]}40`, borderWidth: 0, barThickness: 6, borderRadius: 3, order: 3, grouped: false }));
+    return [...lineBand, { ...base, ...wash, order: 0, borderWidth: 2.25, pointRadius: lineDot(3), pointBorderWidth: (ctx: { dataIndex: number }) => (isLast(ctx) ? 2 : 0), endLabel: multi ? s.label : short(lastV) }];
   });
 
   const legend: LegendItem[] = p.series.filter((s) => s.points.length).flatMap((s): LegendItem[] => {
@@ -255,7 +297,7 @@ export function TrendChart(p: TrendChartProps) {
     if (s.style === 'dots') return [{ label: s.label, colour: `${c}8c`, kind: 'dot' }];
     if (s.style === 'goal') return [{ label: s.label, colour: c, kind: 'dotted' }];
     if (s.style === 'forecast') return [{ label: s.label, colour: c, kind: 'dashed' }, ...(s.band?.length ? [{ label: 'Likely range', colour: `${th.muted}40`, kind: 'band' as const }] : [])];
-    return [{ label: s.label, colour: c, kind: 'line' }];
+    return [{ label: s.label, colour: c, kind: 'line' }, ...(s.band?.length ? [{ label: s.bandLabel ?? 'Range', colour: `${th.series[1 % th.series.length]}40`, kind: 'band' as const }] : [])];
   });
   // The best point on the main line, labelled when it isn't the latest (the latest has its own label).
   const main = lines[0];
@@ -274,7 +316,7 @@ export function TrendChart(p: TrendChartProps) {
   const chart = (
     <Line
       data={{ datasets: datasets as never }}
-      plugins={[endLabels, crosshair, todayLine, pointTags, goalFlag]}
+      plugins={[endLabels, crosshair, todayLine, pointTags, goalFlag, dayMarks]}
       options={{ ...o,
         interaction: { mode: 'nearest', axis: 'x', intersect: false },
         layout: { padding: { right: multi ? 64 : 36, top: today ? 4 : 0 } },
@@ -286,13 +328,15 @@ export function TrendChart(p: TrendChartProps) {
           // @ts-expect-error custom plugin options
           endLabels: { enabled: true, text: th.text, surface: th.surface },
           crosshair: { color: th.muted },
+          dayMarks: { days: dayMarkDays },
           todayLine: { at: today, color: th.muted, text: th.muted },
           pointTags: { tags, text: th.text, surface: th.surface, ink: th.text },
           goalFlag: p.goalFlag ? { ...p.goalFlag, color: th.text, surface: th.surface } : {},
           // Numbered when the list under the chart explains them; a plain line in a compact chart.
           vlines: { lines: marks.map((m, i) => ({ x: m.at, label: p.bare ? undefined : String(i + 1) })), color: th.muted, text: th.text } },
-        scales: { x: { ...timeAxis(th, p.start, p.end), display: !p.hideX },
-          y: { ...o.scales.y, min: p.yMin, max: p.yMax, grace: p.yMin === undefined ? '5%' : 0,
+        // A line's band is drawn as floating bars: keep bars from pulling the scale to zero or padding the time axis.
+        scales: { x: { ...timeAxis(th, p.start, p.end), display: !p.hideX, offset: false },
+          y: { ...o.scales.y, beginAtZero: false, min: p.yMin, max: p.yMax, grace: p.yMin === undefined ? '5%' : 0,
             ticks: { ...o.scales.y.ticks, maxTicksLimit: (p.height ?? 300) < 120 ? 3 : 6, stepSize: p.step,
               // The unit once, on the top value.
               callback: (v, i, all) => `${Number(Number(v).toFixed(2))}${p.unit && i === all.length - 1 ? ` ${p.unit}` : ''}` } } } }}
@@ -311,6 +355,11 @@ export function TrendChart(p: TrendChartProps) {
           <ol className="mt-3 space-y-1 text-sm">
             {marks.map((m, i) => <li key={i} className="flex gap-2"><span className="font-semibold tnum w-4">{i + 1}</span><span className="text-muted tnum">{format(m.at, 'd MMM')}</span><span>{m.text}</span></li>)}
           </ol>
+        )}
+        {shownKinds.size > 0 && (
+          <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-muted" aria-label="Day marks">
+            {DAY_LABELS.filter((x) => shownKinds.has(x.key)).map((x) => <li key={x.key} className="inline-flex items-center gap-1"><span aria-hidden="true" className="w-2.5 h-2.5 rounded-[2px]" style={{ background: x.colour }} />{x.label}</li>)}
+          </ul>
         )}
         {p.extra}
       </>}>
