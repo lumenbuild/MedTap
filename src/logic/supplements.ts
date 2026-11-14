@@ -166,3 +166,22 @@ export function dailyTotals(meds: Medication[], doses: Dose[], now: number, s: S
 
 /** A blood test is likely soon: an appointment in the next 7 days. */
 export const bloodTestSoon = (appointments: Appointment[], now: number) => appointments.some((a) => !a.deletedAt && new Date(`${a.date}T12:00`).getTime() - now < 7 * 86_400_000 && new Date(`${a.date}T23:59`).getTime() >= now);
+
+/** A supplement's strength that can't be right for what it is: under a hundredth of the daily upper limit, or over
+ *  20 times it (1.2 mg of magnesium, where tablets hold 100–500 mg: likely 1.2 g, or the label's elemental amount
+ *  was missed). Undefined when it looks fine or isn't known. */
+export function strengthCheck(med: Pick<Medication, 'name' | 'ingredients' | 'strength' | 'unit'>): { name: string; text: string } | undefined {
+  if (!(med.strength > 0)) return undefined;
+  const toPer = (v: number, unit: string, per: 'mg' | 'mcg') => {
+    const mg = unit === 'g' ? v * 1000 : unit === 'mg' ? v : unit === 'mcg' || unit === 'µg' ? v / 1000 : undefined;
+    return mg === undefined ? undefined : per === 'mg' ? mg : mg * 1000;
+  };
+  for (const sup of supplementsOf(med)) {
+    if (!sup.ul) continue;
+    const v = toPer(med.strength, med.unit, sup.ul.per);
+    if (v === undefined) continue;
+    if (v < sup.ul.amount / 100) return { name: sup.name, text: `${med.strength} ${med.unit} is very low for ${sup.name.toLowerCase()}: a usual daily limit is ${sup.ul.amount} ${sup.ul.per}. Check the label: it may be ${med.strength} ${med.unit === 'mg' ? 'g' : 'mg'}, or the amount per tablet.` };
+    if (v > sup.ul.amount * 20) return { name: sup.name, text: `${med.strength} ${med.unit} is very high for ${sup.name.toLowerCase()}: a usual daily limit is ${sup.ul.amount} ${sup.ul.per}. Check the label and the unit.` };
+  }
+  return undefined;
+}

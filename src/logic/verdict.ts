@@ -11,7 +11,7 @@ import { medGuideFor } from './medGuide';
 import { guideFor, isGlpLike } from './peptideGuide';
 import { supplementsOf } from './supplements';
 import { analyse, METRICS } from './experiments';
-import { medEffects, startedAt } from './medEffects';
+import { medEffects, startedAt, trackedFrom } from './medEffects';
 import { robustFit } from './forecast';
 import { fmtHM } from './sleep';
 
@@ -184,7 +184,7 @@ export function verdictFor(med: Medication, d: VerdictData, now: number, s: Sche
   let labels: [string, string] = ['', ''];
   if (shortActing(med)) {
     const taken = new Set(mine.filter((x) => !x.skipped).map((x) => dayKey(Date.parse(x.takenAt), s)));
-    const from = Math.max(since, now - 90 * DAY);
+    const from = Math.max(since, trackedFrom(med), now - 90 * DAY);
     const off: number[] = [], on: number[] = [];
     for (let t = from; t < now - DAY / 2; t += DAY) {
       const k = dayKey(t, s);
@@ -203,7 +203,8 @@ export function verdictFor(med: Medication, d: VerdictData, now: number, s: Sche
     else {
       const need = O.night ? 'nights from the watch' : O.measure;
       return { ...base, status: 'unclear', headline: 'Not enough to tell yet', evidence: [`${after.length} ${O.measure} on it${before.length ? `, ${before.length} before` : ''}`],
-        next: before.length < 8 && !shortActing(med) ? `There's too little from before you started to compare. A ${O.measure.replace(/s$/, '')} most days from now on builds the picture.` : `About ${Math.max(0, 8 - after.length)} more ${need} to tell.`, experiment: proposal() };
+        next: after.length >= 8 ? `There's nothing to compare it with yet: it's taken every day, and there's too little from before you started.`
+          : before.length < 8 && !shortActing(med) ? `There's too little from before you started to compare. A ${O.measure.replace(/s$/, '')} most days from now on builds the picture.` : `About ${8 - after.length} more ${need} to tell.`, experiment: proposal() };
     }
   }
   const w = welch(a, b);

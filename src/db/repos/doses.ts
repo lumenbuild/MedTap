@@ -2,7 +2,7 @@ import { db } from '../db';
 import type { Dose } from '../schema';
 import { round, stockUnitsFor } from '../../logic/stock';
 import { vialStockCount } from '../../logic/peptide';
-import { SAME_TAP_MS, sameTap } from '../../logic/duplicate';
+import { SAME_SLOT_LOG_MS, sameSlot, sameTap } from '../../logic/duplicate';
 
 const nowIso = () => new Date().toISOString();
 
@@ -36,16 +36,16 @@ export interface NewDose {
 }
 
 /** Save a dose and take it off the stock count. */
-/** Log a dose. The same dose tapped again within a minute isn't logged twice: the first comes back, marked
- *  `duplicate` (pass `again` to log it anyway). */
+/** Log a dose. The same dose tapped again within a minute, or the same time slot logged again by another route within
+ *  10 minutes, isn't logged twice: the first comes back, marked `duplicate` (pass `again` to log it anyway). */
 export async function logDose(input: NewDose, opts: { again?: boolean } = {}): Promise<Dose & { duplicate?: boolean }> {
   const now = nowIso();
   const dose: Dose = { id: crypto.randomUUID(), createdAt: now, updatedAt: now, ...input };
   let first: Dose | undefined;
   await db.transaction('rw', db.doses, db.medications, async () => {
     if (!opts.again) {
-      const recent = await db.doses.where('medicationId').equals(input.medicationId).filter((d) => Date.parse(d.createdAt) > Date.now() - SAME_TAP_MS).toArray();
-      first = sameTap(recent, input, input.takenAt, (d) => d.takenAt);
+      const recent = await db.doses.where('medicationId').equals(input.medicationId).filter((d) => Date.parse(d.createdAt) > Date.now() - SAME_SLOT_LOG_MS).toArray();
+      first = sameTap(recent, input, input.takenAt, (d) => d.takenAt) ?? sameSlot(recent, input);
       if (first) return;
     }
     await db.doses.add(dose);

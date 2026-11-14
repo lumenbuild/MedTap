@@ -8,6 +8,7 @@ import type { WeightTrend } from './bodyModel';
 import { inGroup } from './interactions';
 import { dayKey } from './stats';
 import type { ScheduleSettings } from './schedule';
+import { isStrengthSession } from './training';
 
 const DAY = 86_400_000;
 const live = <T extends { deletedAt?: string }>(x: T) => !x.deletedAt;
@@ -103,7 +104,7 @@ export function nextWeighIn(x: { trend: WeightTrend | null; foodLogs: FoodLog[];
     if (cb >= 60) { const kg = Math.min(0.6, (cb / 100) * 0.15); mid += kg; nudges.push(`more carbs than usual (+${r1(kg)} kg)`); }
   }
   const start = new Date(`${today}T00:00`).getTime();
-  if (x.workouts.some((w) => live(w) && Date.parse(w.startedAt) >= start && (w.sets?.length ?? 0) > 0)) { mid += 0.3; nudges.push('strength session (+0.3 kg, muscles hold water)'); }
+  if (x.workouts.some((w) => live(w) && Date.parse(w.startedAt) >= start && isStrengthSession(w))) { mid += 0.3; nudges.push('strength session (+0.3 kg, muscles hold water)'); }
   if (x.checkIns.some((c) => live(c) && Date.parse(c.at) >= start && c.chips.includes('Alcohol'))) { mid += 0.2; nudges.push('alcohol (+0.2 kg)'); }
   return { mid: r1(mid), lo: r1(mid - sd * 1.3), hi: r1(mid + sd * 1.3), nudges };
 }
@@ -193,7 +194,7 @@ export function muscleWarning(x: { body: BodyEntry[]; daily: DailyHealth[]; work
   const reasons: string[] = [], fixes: string[] = [];
   const prot = x.daily.filter((d) => live(d) && typeof d.proteinG === 'number' && ms(d.date) > now - 21 * DAY).map((d) => d.proteinG!);
   if (x.proteinTarget && prot.length >= 7 && mean(prot) < x.proteinTarget * 0.85) { reasons.push(`protein averaging ${Math.round(mean(prot))} g (target ${x.proteinTarget})`); fixes.push(`protein up to ${x.proteinTarget} g a day`); }
-  const strength = x.workouts.filter((w) => live(w) && (w.sets?.length ?? 0) > 0 && Date.parse(w.startedAt) > now - 28 * DAY).length;
+  const strength = x.workouts.filter((w) => live(w) && isStrengthSession(w) && Date.parse(w.startedAt) > now - 28 * DAY).length;
   if (strength < 8) { reasons.push(`${strength ? `${Math.round((strength / 4) * 10) / 10} strength sessions a week` : 'no strength sessions'} in the last 4 weeks`); fixes.push('2 to 3 strength sessions a week'); }
   if (kgLost / 5 > 1.2) { reasons.push(`losing fast (${r1(kgLost / 5)} kg a week)`); fixes.push('a slightly slower pace'); }
   return { share: Math.round(share * 100) / 100, expected: Math.round(expected * 100) / 100, reasons, fixes, kgLost: r1(kgLost), leanLost: r1(leanLost) };

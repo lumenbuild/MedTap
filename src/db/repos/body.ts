@@ -28,9 +28,21 @@ export async function undoBody(id: string, before: BodyEntry | null) {
   else await removeBody(id);
 }
 
-/** Replace a day's entry entirely (used by the editor, where clearing a field should clear it). */
+/** Replace a day's entry entirely (used by undo, to put back exactly what was there). */
 export async function saveBody(entry: BodyEntry) {
   await db.bodyEntries.put({ ...entry, updatedAt: nowIso() });
+}
+
+/** The editor's save: the fields it shows are set or cleared, and everything it doesn't show (a scale's visceral
+ *  fat, body water, metabolic age) is kept. Returns the entry as it was, for undo. */
+export async function editBody(id: string, date: string, shown: string[], fields: BodyFields): Promise<BodyEntry | undefined> {
+  const before = await db.bodyEntries.get(id);
+  if (!before) return undefined;
+  const next: BodyEntry = { ...before, date };
+  for (const k of shown) delete (next as unknown as Record<string, unknown>)[k];
+  Object.assign(next, fields);
+  await saveBody(next);
+  return before;
 }
 
 export async function removeBody(id: string) {

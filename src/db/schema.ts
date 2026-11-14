@@ -199,6 +199,9 @@ export interface PeptideVial {
 }
 
 export interface Medication extends Stamped {
+  /** When the person really started taking it ('YYYY-MM-DD'), if before it was added to the app. "Since starting"
+   *  comparisons, timelines and chart markers use it; dose counts still start from when it was added. */
+  startedOn?: string;
   /** What "Is it working?" judges it by (an Outcome in logic/verdict), when the person picked one. */
   judgeBy?: string;
   name: string; strength: number; unit: string; form: string; defaultAmount: number;
@@ -395,7 +398,7 @@ export interface DailyHealth extends Stamped {
    *  temperature against the person's own baseline (°C, + is warmer). */
   spo2Avg?: number; spo2Min?: number; respRate?: number; skinTempDelta?: number;
   /** Cardio fitness (VO2 max, mL/kg/min), calories burned (all, and active), floors and metres climbed. */
-  vo2max?: number; kcalTotal?: number; kcalActive?: number; floors?: number; climbM?: number;
+  vo2max?: number; kcalTotal?: number; kcalActive?: number; /** Not stored: set when kcalTotal was worked out from a resting-only watch figure (see withFullBurn). */ kcalEstimated?: boolean; floors?: number; climbM?: number;
   /** Logged in other apps (via Health Connect): water (mL) and food (kcal, protein, carbs, fat in g). */
   waterOtherMl?: number; foodOtherKcal?: number; foodOtherProteinG?: number; foodOtherCarbsG?: number; foodOtherFatG?: number;
   /** Minutes of mindfulness (meditation, breathing). */

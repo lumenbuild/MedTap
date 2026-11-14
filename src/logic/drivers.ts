@@ -45,8 +45,10 @@ function factorsOf(d: DriverData, s: ScheduleSettings, days: string[]): FactorDe
   const keyOf = (t: number) => dayKey(t, s);
   for (const m of d.meds.filter((x) => !x.archived && !x.peptide)) {
     const on = new Set(d.doses.filter((x) => x.medicationId === m.id && live(x) && !x.skipped).map((x) => keyOf(Date.parse(x.takenAt))));
+    // Only days since it was added: before that, a day without a logged dose isn't a day without it.
+    const tracked = new Set(days.filter((k) => !m.createdAt || k >= keyOf(Date.parse(m.createdAt))));
     const n = days.filter((k) => on.has(k)).length;
-    if (n >= 5 && days.length - n >= 5) out.push({ key: `med-${m.id}`, label: `Taking ${m.nickname?.trim() || m.name}`, on });
+    if (n >= 5 && tracked.size - n >= 5) out.push({ key: `med-${m.id}`, label: `Taking ${m.nickname?.trim() || m.name}`, on, known: tracked });
   }
   const chip = (re: RegExp, after?: number) => new Set(d.checkIns.filter((c) => live(c) && c.chips.some((x) => re.test(x)) && (after === undefined || new Date(c.at).getHours() >= after)).map((c) => keyOf(Date.parse(c.at))));
   out.push({ key: 'late-caffeine', label: 'Caffeine after 2 pm', on: chip(/caffeine|coffee/i, 14) });

@@ -75,3 +75,20 @@ describe('a second tap is not a second entry', () => {
     expect(fingerprint({ mood: 3 })).not.toBe(fingerprint({ mood: 4 }));
   });
 });
+
+import { sameSlot } from '../src/logic/duplicate';
+describe('same slot logged by two routes', () => {
+  const now = Date.parse('2026-03-10T10:10:00Z');
+  const first = { createdAt: '2026-03-10T10:07:00Z', takenAt: '2026-03-10T09:00:00Z', amount: 0.5 };
+  it('a backdated 9:00 and a Log at 10:07 for the same amount are one dose', () => {
+    expect(sameSlot([first], { takenAt: '2026-03-10T10:07:00Z', amount: 0.5 }, now)).toBe(first);
+  });
+  it('a different slot hours away, a different amount, or a skip is not', () => {
+    expect(sameSlot([first], { takenAt: '2026-03-10T13:00:00Z', amount: 0.5 }, now)).toBeUndefined();
+    expect(sameSlot([first], { takenAt: '2026-03-10T09:30:00Z', amount: 1 }, now)).toBeUndefined();
+    expect(sameSlot([first], { takenAt: '2026-03-10T09:30:00Z', amount: 0.5, skipped: true }, now)).toBeUndefined();
+  });
+  it('logged more than 10 minutes after the first is a real second dose', () => {
+    expect(sameSlot([first], { takenAt: '2026-03-10T09:30:00Z', amount: 0.5 }, now + 15 * 60_000)).toBeUndefined();
+  });
+});

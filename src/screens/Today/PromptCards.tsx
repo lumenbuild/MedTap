@@ -104,12 +104,15 @@ export function UnloggedCard({ items, personId }: { items: { med: Medication; at
     if (answered.includes(k)) return;
     setAnswered((a) => [...a, k]);
     const v = x.med.peptide ? currentVial(x.med) : undefined;
-    const d: Dose = await logDose({
-      medicationId: x.med.id, takenAt: new Date(x.at).toISOString(), amount: x.amount, source: 'backdated',
+    const input = {
+      medicationId: x.med.id, takenAt: new Date(x.at).toISOString(), amount: x.amount, source: 'backdated' as const,
       ...(skipped ? { skipped: true, skipReason: 'Not taken' } : {}),
       ...(v && v.id !== 'legacy' && !skipped ? { vialId: v.id } : {}),
       ...(x.med.shared && personId ? { personId } : {}),
-    });
+    };
+    const d: Dose & { duplicate?: boolean } = await logDose(input);
+    // Already logged a moment ago by another button (the hero's Log): say so, and never undo the first.
+    if (d.duplicate) { sayLogged(toast, d, '', undefined, async () => { await logDose(input, { again: true }); toast(`${shownName(x.med)}: logged again`); }); return; }
     toast(skipped ? `${shownName(x.med)} ${fmtTime(x.at)}: marked as skipped` : `${shownName(x.med)}: logged at ${fmtTime(x.at)}`,
       { onAction: async () => { await removeDose(d.id); setAnswered((a) => a.filter((y) => y !== k)); } });
   };

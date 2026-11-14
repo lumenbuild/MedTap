@@ -205,6 +205,10 @@ export function weeklyBalance(workouts: Workout[], defs: ExerciseDef[], now: num
 
 export interface Calendar { weeks: { start: number; sessions: number }[]; streak: number; thisWeek: number; /** Walks the watch picked up this week (not sessions). */ walksThisWeek: number }
 
+/** Strength work: sets logged here, or a session the watch recorded as strength (weights, resistance, circuits). */
+export const isStrengthSession = (w: Workout) => w.sets.some((x) => x.done)
+  || (!!w.cardio && /strength|weight|resistance|lifting|functional|circuit|crossfit|calisthenics/i.test(w.cardio.title ?? ''));
+
 /** A training session for the weekly goal: lifting, or cardio done on purpose. Everyday walks the watch picks up
  *  count towards load and steps, not the sessions goal. */
 export const countsAsSession = (w: Workout) => w.sets.some((x) => x.done) || (!!w.cardio && !(w.source === 'health' && w.cardio.activity === 'walk'));

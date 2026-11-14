@@ -29,8 +29,14 @@ export interface MedEffects { since: number; effects: MedEffect[]; checked: numb
 /** When the medicine was started: its first dose taken. */
 export function startedAt(med: Medication, doses: Dose[]): number | undefined {
   const t = doses.filter((d) => d.medicationId === med.id && !d.deletedAt && !d.skipped).map((d) => Date.parse(d.takenAt));
-  return t.length ? Math.min(...t) : undefined;
+  const first = t.length ? Math.min(...t) : undefined;
+  // A real start date from before it was added wins (the first logged dose is just the first one in the app).
+  const real = med.startedOn ? new Date(`${med.startedOn}T00:00`).getTime() : undefined;
+  return real !== undefined && (first === undefined || real < first) ? real : first;
 }
+
+/** From when its doses have been logged in the app (days before that aren't days without it). */
+export const trackedFrom = (med: Pick<Medication, 'createdAt'>): number => (med.createdAt ? new Date(new Date(med.createdAt).setHours(0, 0, 0, 0)).getTime() : 0);
 
 /** Needs 10+ days of a measure before starting and 10+ on it; a change counts when it's at least half the usual
  *  day-to-day spread (and more than a small floor for each measure). */

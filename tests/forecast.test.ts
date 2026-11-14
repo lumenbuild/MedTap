@@ -36,10 +36,11 @@ describe('forecast', () => {
     const f = forecast(daily(100, -0.1, 42), goal(), day(41));
     expect(f.status).toBe('on-track');
     expect(f.perWeek).toBeCloseTo(-0.7, 1);
-    // 95.9 kg now, 10.9 kg to go at 0.1 kg/day ≈ 109 days.
+    // 95.9 kg now, 10.9 kg to go at 0.1 kg/day: 109 days in a straight line; the loss slows as the body gets
+    // lighter (22 Cal a day a kg), so about 128.
     const days = (f.eta! - day(41)) / DAY;
-    expect(days).toBeGreaterThan(95);
-    expect(days).toBeLessThan(125);
+    expect(days).toBeGreaterThan(115);
+    expect(days).toBeLessThan(140);
     expect(f.etaEarly!).toBeLessThanOrEqual(f.eta!);
     expect(f.etaLate!).toBeGreaterThanOrEqual(f.eta!);
     expect(f.done).toBeGreaterThan(0.25);

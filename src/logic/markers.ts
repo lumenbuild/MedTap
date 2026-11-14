@@ -52,7 +52,7 @@ export function healthMarkers(d: { labs: LabResult[]; vitals: Vital[]; body: Bod
     const last = mean(hr.filter((p) => p.t > hr[hr.length - 1].t - 14 * DAY));
     const first = hr[hr.length - 1].t - hr[0].t > 21 * DAY ? mean(hr.filter((p) => p.t < hr[0].t + 14 * DAY)) : undefined;
     out.push({ key: 'rhr', label: 'Resting heart rate', latest: String(last), unit: 'bpm', at: hr[hr.length - 1].t, first: first !== undefined ? String(first) : undefined, firstAt: first !== undefined ? hr[0].t : undefined,
-      better: first !== undefined ? better(first, last, true, 2) : undefined, tone: 'plain' });
+      better: first !== undefined ? better(first, last, true, 2) : undefined, note: 'Average of the last 2 weeks', tone: 'plain' });
   }
 
   // With a height: waist-to-height (under 0.5 is the usual healthy line) and BMI.

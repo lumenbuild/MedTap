@@ -17,8 +17,8 @@ const build = memoLast((meds: Medication[], doses: Dose[], checkIns: CheckIn[], 
     meds: myMeds, doses: doses.filter((d) => !d.deletedAt && ids.has(d.medicationId)), checkIns: checkIns.filter(me), daily: daily.filter(me),
     body: body.filter(me), experiments: experiments.filter(me), workouts: workouts.filter(me), foodLogs: foodLogs.filter(me), foods: foods.filter((f) => !f.deletedAt),
   };
-  const goalKg = people.find((p) => p.id === personId)?.goals?.find((g) => g.metric === 'weightKg')?.target;
-  return { data, settings, s, personId, everyone, goalKg };
+  const weightGoal = people.find((p) => p.id === personId)?.goals?.find((g) => g.metric === 'weightKg');
+  return { data, settings, s, personId, everyone, goalKg: weightGoal?.target, weightGoal };
 });
 
 export function useDecisionData() {

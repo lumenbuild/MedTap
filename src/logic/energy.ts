@@ -135,3 +135,32 @@ export function usualBurn(foodLogs: FoodLog[], body: BodyEntry[], daily: Paramet
   const w = energyBalance(daily, foodLogs, now, s)?.watchMaintenance;
   return w ? { kcal: w, from: 'watch' } : null;
 }
+
+// ── A watch that reports only the resting burn ─────────────────────────────────────────────────────────
+// Some watch and Health Connect set-ups write the same "total calories" every day (the resting burn alone): 2,007 on
+// a 2,000-step day and on a 12,000-step day. Taken as the whole day, it puts what's eaten ~600 Cal too low and the
+// weight's levelling-off point absurdly low. When the total doesn't move with the steps, the day's walking and the
+// energy of digesting food are added to it, and the day is marked as estimated.
+
+/** Calories a step costs, per kg of body weight (about 0.04 Cal a step at 80 kg). */
+export const KCAL_PER_STEP_KG = 0.0005;
+
+/** The watch's totals don't move with activity: 7+ days, under 40 Cal apart, while steps vary by 3,000+. */
+export function burnIsRestingOnly(daily: { kcalTotal?: number; kcalActive?: number; steps?: number; deletedAt?: string }[]): boolean {
+  const rows = daily.filter((d) => !d.deletedAt && typeof d.kcalTotal === 'number' && typeof d.steps === 'number').slice(-28);
+  if (rows.length < 7 || rows.some((d) => (d.kcalActive ?? 0) > 50)) return false;
+  const k = rows.map((d) => d.kcalTotal!), st = rows.map((d) => d.steps!);
+  return Math.max(...k) - Math.min(...k) < 40 && Math.max(...st) - Math.min(...st) >= 3000;
+}
+
+/** The daily rows with a full day's burn where the watch gave only the resting one (kcalEstimated marks them). */
+export function withFullBurn<T extends { date: string; kcalTotal?: number; kcalActive?: number; steps?: number; deletedAt?: string }>(daily: T[], weightKg: number | undefined): (T & { kcalEstimated?: boolean })[] {
+  const sorted = [...daily].sort((a, b) => a.date.localeCompare(b.date));
+  if (!weightKg || !burnIsRestingOnly(sorted)) return daily;
+  return daily.map((d) => {
+    if (typeof d.kcalTotal !== 'number') return d;
+    const walking = (d.steps ?? 0) * KCAL_PER_STEP_KG * weightKg;
+    const digesting = d.kcalTotal * 0.1;
+    return { ...d, kcalTotal: Math.round((d.kcalTotal + walking + digesting) / 10) * 10, kcalEstimated: true };
+  });
+}

@@ -4,6 +4,7 @@
 // metabolic age and visceral fat land at the goal. Scales estimate composition from a small current, so everything
 // is from trends over weeks, never one reading. Pure.
 import type { BodyEntry, DailyHealth, Workout } from '../db/schema';
+import { isStrengthSession } from './training';
 
 const DAY = 86_400_000;
 const live = <T extends { deletedAt?: string }>(x: T) => !x.deletedAt;
@@ -133,7 +134,7 @@ export function muscleEvidence(x: { body: BodyEntry[]; daily: DailyHealth[]; wor
   const weeks = ws.slice(1).map((w, i) => {
     const end = w.start + 7 * DAY;
     const prot = x.daily.filter((d) => live(d) && typeof d.proteinG === 'number' && ms(d.date) >= w.start && ms(d.date) < end).map((d) => d.proteinG!);
-    const strength = x.workouts.filter((o) => live(o) && (o.sets?.length ?? 0) > 0 && Date.parse(o.startedAt) >= w.start && Date.parse(o.startedAt) < end).length;
+    const strength = x.workouts.filter((o) => live(o) && isStrengthSession(o) && Date.parse(o.startedAt) >= w.start && Date.parse(o.startedAt) < end).length;
     return { change: w.lean - ws[i].lean, protein: prot.length >= 4 ? mean(prot) : undefined, strength };
   });
   const rows: MuscleEvidence['rows'] = [];

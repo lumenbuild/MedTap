@@ -29,7 +29,10 @@ export function CountSheet({ med, doses, s, now, onClose, onCounted }: {
   const solid = countsFromPhoto(med);
   const save = async (logMissing: boolean) => {
     const ids: string[] = [];
-    if (logMissing && check) for (const u of check.unlogged.slice(0, Math.round(check.doses))) ids.push((await logDose({ medicationId: med.id, takenAt: new Date(u.t).toISOString(), amount: u.amount, source: 'backdated', note: 'Logged after a recount' })).id);
+    if (logMissing && check) for (const u of check.unlogged.slice(0, Math.round(check.doses))) {
+      const d = await logDose({ medicationId: med.id, takenAt: new Date(u.t).toISOString(), amount: u.amount, source: 'backdated', note: 'Logged after a recount' });
+      if (!d.duplicate) ids.push(d.id); // one already there stays; Undo only takes off what this added
+    }
     const before = await setStockCount(med.id, n);
     onCounted?.(n);
     toast(`Stock set to ${n}${ids.length ? `; ${ids.length} dose${ids.length === 1 ? '' : 's'} logged` : ''}`, {

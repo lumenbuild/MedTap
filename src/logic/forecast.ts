@@ -105,6 +105,9 @@ function recent(points: Pt[], now: number): Pt[] {
   return past.filter((p) => p.t > now - 6 * WEEK);
 }
 
+/** Days for a weight change to close 63% of the way to where it levels off: 7,700 Cal a kg over 22 Cal a day a kg. */
+const TAU = 7700 / 22;
+
 export type ForecastStatus = 'need-data' | 'reached' | 'on-track' | 'behind' | 'flat' | 'away';
 
 export interface Forecast {
@@ -178,7 +181,15 @@ export function forecast(points: Pt[], g: BodyGoal, now: number): Forecast {
   if (Math.abs(fit.slope) < minRate) { out.status = 'flat'; return out; }
   if (!toward(fit.slope)) { out.status = 'away'; return out; }
 
-  const daysAt = (s: number) => (toward(s) ? remaining / s : Infinity);
+  // Weight lost: each kg lighter burns about 22 Cal a day less, so the loss slows on the way (the same model as Body's
+  // "where you're heading"). The date is where that slowing curve meets the goal; never if it levels off first.
+  const slowing = g.metric === 'weightKg' && dir < 0;
+  const daysAt = (s: number) => {
+    if (!toward(s)) return Infinity;
+    if (!slowing) return remaining / s;
+    const plateau = level + s * TAU;
+    return g.target > plateau ? -TAU * Math.log((g.target - plateau) / (level - plateau)) : Infinity;
+  };
   const d = daysAt(fit.slope);
   const steep = dir < 0 ? Math.min(fit.slopeLow, fit.slopeHigh) : Math.max(fit.slopeLow, fit.slopeHigh);
   const shallow = dir < 0 ? Math.max(fit.slopeLow, fit.slopeHigh) : Math.min(fit.slopeLow, fit.slopeHigh);
@@ -223,7 +234,8 @@ export function milestones(points: Pt[], g: BodyGoal, f: Forecast, now: number):
     if (hit) return { ...m, reachedAt: hit.t };
     if (m.label === 'Goal' && f.eta) return { ...m, eta: f.eta };
     if (f.level !== undefined && slope && (m.value - f.level) / slope > 0 && f.status !== 'flat' && f.status !== 'away') {
-      const days = (m.value - f.level) / slope;
+      const plateau = f.level + slope * TAU;
+      const days = g.metric === 'weightKg' && dir < 0 ? (m.value > plateau ? -TAU * Math.log((m.value - plateau) / (f.level - plateau)) : Infinity) : (m.value - f.level) / slope;
       if (days <= MAX_DAYS) return { ...m, eta: now + days * DAY };
     }
     return m;

@@ -7,6 +7,8 @@ import { DEFAULT_PERSON, type Person } from '../db/schema';
 import { hiddenMedIds, viewMeds, withoutHidden } from '../logic/privateView';
 import { isPrivateView, useViewMode } from './viewMode';
 import { HAS_MEDS } from '../edition';
+import { rebaseScale } from '../logic/bodyComp';
+import { withFullBurn } from '../logic/energy';
 
 // In the private view (see logic/privateView.ts) these hooks are where it happens: left-out medicines and everything
 // of theirs disappear, covered ones come back under their cover name, and the peptide tools read as off. Screens
@@ -49,7 +51,13 @@ export function useScheduleSettings(): [AppSettings, ScheduleSettings] | undefin
   return pair;
 }
 export const useCheckIns = () => useShared('checkIns', () => db.checkIns.toArray());
-export const useBodyEntries = () => useShared('bodyEntries', () => db.bodyEntries.orderBy('date').toArray());
+/** Body entries as every card reads them: each scale measure only from its latest change of method (see
+ *  rebaseScale), so a scale update never reads as fat lost. The entry list and editor use useRawBodyEntries. */
+export const useBodyEntries = () => useShared('bodyEntries', async () => rebased(await db.bodyEntries.orderBy('date').toArray()).body);
+export const useRawBodyEntries = () => useShared('bodyEntriesRaw', () => db.bodyEntries.orderBy('date').toArray());
+/** When the person's scale last changed how it measures body fat (for a one-line note), if it has. */
+export const useScaleChange = () => useShared('scaleChange', async () => rebased(await db.bodyEntries.orderBy('date').toArray()).changedOn ?? null);
+const rebased = memoLast(rebaseScale);
 export const useMedEvents = () => { const v = useViewMode(); return useShared(`medEvents|${v}`, async () => inView(await db.medEvents.toArray())); };
 export const useVitals = () => useShared('vitals', () => db.vitals.toArray());
 export const useSupplies = () => { const v = useViewMode(); return useShared(`supplies|${v}`, async () => ((await viewSettings()).peptideTools ? db.supplies.toArray() : [])); };
@@ -58,7 +66,12 @@ export const useLabs = () => useShared('labs', () => db.labs.toArray());
 export const useExperiments = () => useShared('experiments', () => db.experiments.toArray());
 export const useAppointments = () => useShared('appointments', () => db.appointments.toArray());
 export const useQuestions = () => useShared('questions', () => db.questions.toArray());
-export const useDaily = () => useShared('daily', () => db.daily.toArray());
+/** Daily health rows; where the watch reports only the resting burn, the full day's is worked out (withFullBurn). */
+export const useDaily = () => useShared('daily', async () => {
+  const [rows, body] = await Promise.all([db.daily.toArray(), db.bodyEntries.orderBy('date').reverse().filter((b) => !b.deletedAt && typeof b.weightKg === 'number').first()]);
+  return fullBurn(rows, body?.weightKg);
+});
+const fullBurn = memoLast(withFullBurn);
 export const useExercises = () => useShared('exercises', () => db.exercises.toArray());
 export const useWorkouts = () => useShared('workouts', () => db.workouts.toArray());
 export const useRoutines = () => useShared('routines', () => db.routines.toArray());
