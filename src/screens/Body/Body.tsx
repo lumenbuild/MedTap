@@ -1,12 +1,8 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { useBodyEntries, useRawBodyEntries, useCheckIns, useDaily, useDoses, useFamily, useLabs, useMedEvents, useMeds, useScheduleSettings, useVitals, useWorkouts } from '../../app/data';
 import { MarkersCard } from '../../components/MarkersCard';
-import { MuscleCard } from '../../components/Biohack';
-import { BodyModelCards } from '../../components/BodyModel';
 import { ScaleCard } from '../../components/ScaleCard';
-import { ScaleInsights } from '../../components/ScaleInsights';
-import { go } from '../../app/router';
 import { medIsFor, personOf } from '../../db/repos/people';
 import { PersonSwitcher } from '../../components/PersonSwitcher';
 import { fmtLength, fmtWeight, MEASUREMENTS } from '../../logic/units';
@@ -30,6 +26,7 @@ import { weightStall } from '../../logic/stall';
 import { shownName } from '../../logic/privacy';
 import { chartEvents } from '../../logic/changes';
 import { format } from 'date-fns';
+import { HeadingCard, MadeOfCard, WeightHero } from '../../components/BodyOverview';
 
 const fmtYmd = (ymd: string) => (ymd === todayYmd() ? 'Today' : fmtYmdDay(ymd));
 
@@ -49,6 +46,7 @@ export function Body() {
   const labs = useLabs(); const vitals = useVitals();
   const workouts = useWorkouts();
   const [sheet, setSheet] = useState<BodySheetState>(null);
+  const [chartMode, setChartMode] = useState<'trend' | 'weeks'>('trend');
   const now = useNow(60_000);
   const [range, setRange] = useState<Range>(() => { try { return (localStorage.getItem('bodyRange') as Range) || '90d'; } catch { return '90d'; } });
   const pick = (r: Range) => { setRange(r); try { localStorage.setItem('bodyRange', r); } catch { /* per-device preference only */ } };
@@ -82,7 +80,6 @@ export function Body() {
   const measured = MEASUREMENTS.map((m) => ({ ...m, entry: latestOf(m.key) })).filter((m) => m.entry);
   const myMeds = meds.filter((m) => medIsFor(m, fam.personId));
   const peptideMeds = settings.peptideTools ? myMeds.filter((m) => m.peptide) : [];
-  const peptide = peptideMeds.find((m) => !m.archived);
   const myDoses = doses.filter((d) => myMeds.some((m) => m.id === d.medicationId));
   // The weight chart: dose changes of injected medicines marked, the goal, and where it's heading (through the dose
   // plan when there is one, else towards the goal).
@@ -116,36 +113,31 @@ export function Body() {
   return (
     <div className="space-y-4">
       <PersonSwitcher />
+      <div className="flex gap-2">
+        <Button className="flex-1 min-h-[52px]" onClick={() => setSheet({ kind: 'weight' })}><Plus size={18} aria-hidden="true" className="inline -mt-0.5 mr-1" />Weight</Button>
+        <Button variant="secondary" className="flex-1 min-h-[52px]" onClick={() => setSheet({ kind: 'measure' })}><Plus size={18} aria-hidden="true" className="inline -mt-0.5 mr-1" />Measure or body fat</Button>
+      </div>
+      <WeightHero units={units} />
       {rangePicker}
-      <WeightChart entries={entries} units={units} {...common} marks={marks} goalKg={wGoal?.target} goalEta={gv?.f.eta} forecast={forecast}
-        extra={stall ? <StallBlock stall={stall} /> : null}
-        actions={<>
-          <Button className="w-full min-h-[56px]" onClick={() => setSheet({ kind: 'weight' })}>Log weight</Button>
-          <p className="text-xs text-muted mt-2">Weigh at the same time of day, ideally in the morning before eating, for the most useful trend.</p>
-        </>} />
-      <WeeklyChangeChart entries={entries} units={units} goalKg={wGoal?.target} now={now} />
-      <BodyModelCards units={units} />
-      <ScaleCard entries={entries} units={units} personId={fam.personId} age={(() => { const y = fam.people.find((p) => p.id === fam.personId)?.birthYear; return y ? new Date(now).getFullYear() - y : undefined; })()} />
-      <ScaleInsights entries={entries} daily={daily.filter((x) => personOf(x) === fam.personId)} workouts={workouts.filter((x) => personOf(x) === fam.personId)}
-        proteinTarget={settings.proteinTargetG} sex={fam.people.find((p) => p.id === fam.personId)?.sex} goalKg={goals.find((g) => g.metric === 'weightKg')?.target} units={units} now={now}
-        today={new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(now)} onAbout={() => go('/health')} />
-
-      <GoalsSection personId={fam.personId} goals={[...goals].sort((a, b) => Number(b.metric === 'weightKg') - Number(a.metric === 'weightKg'))} entries={entries} units={units} now={now}
-        chartFor={(g) => g.metric === 'weightKg' ? null : <GoalForecastCharts goals={[g]} entries={entries} units={units} now={now} />} />
+      <div className="space-y-2">
+        <Segmented<'trend' | 'weeks'> label="Weight chart" value={chartMode} onChange={setChartMode} options={[{ value: 'trend', label: 'Weight' }, { value: 'weeks', label: 'Week by week' }]} />
+        {chartMode === 'trend'
+          ? <WeightChart noHeadline entries={entries} units={units} {...common} marks={marks} goalKg={wGoal?.target} goalEta={gv?.f.eta} forecast={forecast}
+              extra={stall ? <StallBlock stall={stall} /> : null} />
+          : <WeeklyChangeChart entries={entries} units={units} goalKg={wGoal?.target} now={now} />}
+      </div>
+      <MadeOfCard units={units} sex={fam.people.find((p) => p.id === fam.personId)?.sex}>
+        <ScaleCard entries={entries} units={units} personId={fam.personId} age={(() => { const y = fam.people.find((p) => p.id === fam.personId)?.birthYear; return y ? new Date(now).getFullYear() - y : undefined; })()} />
+      </MadeOfCard>
+      <HeadingCard units={units}>
+        <GoalsSection personId={fam.personId} goals={[...goals].sort((a, b) => Number(b.metric === 'weightKg') - Number(a.metric === 'weightKg'))} entries={entries} units={units} now={now}
+          chartFor={(g) => g.metric === 'weightKg' ? null : <GoalForecastCharts goals={[g]} entries={entries} units={units} now={now} />} />
+      </HeadingCard>
 
       <MeasurementCharts entries={entries} units={units} {...common} skip={charted}
         empty={measured.length ? `None in the last ${days ?? 'few'} days. Latest: ${measured.map((m) => `${m.label.toLowerCase()} ${fmtLength(m.entry![m.key]!, units)} (${fmtYmd(m.entry!.date)})`).join(', ')}.`
-          : 'Log any of waist, hips, chest, neck, upper arm, thigh or calf, and body fat or lean mass if you have them. Only the ones you want.'}
-        actions={<>
-          <Button variant="secondary" className="w-full" onClick={() => setSheet({ kind: 'measure' })}>Add measurements or body fat</Button>
-        </>} />
-
-      {/* Fat against lean since the loss began is the scale card's "What you've lost": said once, there. */}
-
-      <VitalsCard personId={fam.personId} {...common} />
-      {labs && vitals && <MarkersCard personId={fam.personId} heightCm={fam.people.find((p) => p.id === fam.personId)?.heightCm} labs={labs.filter((l) => personOf(l) === fam.personId)}
-        vitals={vitals.filter((v) => personOf(v) === fam.personId)} body={HAS_BODY ? entries : []} daily={daily.filter((x) => personOf(x) === fam.personId)} units={settings.units} now={now} />}
-      <MuscleCard />
+          : 'Waist, hips, neck, arm, thigh or calf: only the ones you want.'}
+        actions={<Button variant="secondary" className="w-full" onClick={() => setSheet({ kind: 'measure' })}>Add measurements</Button>} />
 
       <ProgressPhotos personId={fam.personId} />
 

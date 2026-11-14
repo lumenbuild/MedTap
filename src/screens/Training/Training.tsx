@@ -34,7 +34,7 @@ import { daySuggestion, trainingLoad, vo2Trend } from '../../logic/trainingLoad'
 import { illnessWatch } from '../../logic/vitals';
 import { LoadCard } from '../../components/HealthCards';
 import { programById } from '../../logic/coach';
-import { UnfilledStrengthCard } from '../../components/RealUse';
+import { UnfilledStrengthCard, WalkingWeekCard } from '../../components/RealUse';
 
 const DAY = 86_400_000;
 
@@ -110,7 +110,6 @@ export function Training({ start = false }: { start?: boolean }) {
         <Tile Icon={Disc} label="Plates" onClick={() => setSheet('plates')} />
         <Tile Icon={Nfc} label="Tags" onClick={() => go('/tags')} />
       </div>
-      <PathCard personId={fam.personId} person={person} workouts={ws} body={body.filter(mine)} defs={defs} units={settings.units} moveSnooze={settings.coachMoveSnooze} now={now} />
 
       {habit && isNative && !settings.trainingReminders && !settings.trainingReminderAsked && (
         <section className="box" aria-label="Training reminders">
@@ -122,6 +121,7 @@ export function Training({ start = false }: { start?: boolean }) {
         </section>
       )}
 
+      <WalkingWeekCard />
       <UnfilledStrengthCard />
       {(load || vo2) && <LoadCard load={load} vo2={vo2} />}
 
@@ -153,6 +153,8 @@ export function Training({ start = false }: { start?: boolean }) {
         {!sessionsGoal && <button type="button" className="text-sm underline underline-offset-4 min-h-[44px]" onClick={() => { setEditGoal(null); setSheet('goal'); }}>Set a weekly goal</button>}
       </section>
 
+      {/* The coach programme: there for strength sessions, below what you actually do most. */}
+      <PathCard personId={fam.personId} person={person} workouts={ws} body={body.filter(mine)} defs={defs} units={settings.units} moveSnooze={settings.coachMoveSnooze} now={now} />
       <GoalTimeline bodyGoals={person?.goals ?? []} fitnessGoals={goals} body={body.filter(mine)} workouts={ws} defs={defs} units={settings.units} now={now} s={s} />
       <section className="box" aria-labelledby="g-h">
         <h2 id="g-h" className="text-sm font-medium text-muted mb-1">Training goals</h2>

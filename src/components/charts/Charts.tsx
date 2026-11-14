@@ -30,7 +30,8 @@ const point = (th: ChartTheme, color: string) => ({ pointRadius: 4, pointHoverRa
 // 1. Weight, the one weight chart: weigh-ins, the 7-day average, the goal, and where it's heading (through the dose
 // plan when there is one, else towards the goal) with its likely range.
 export interface WeightForecast { points: { t: number; v: number; low?: number; high?: number }[]; text?: string }
-export function WeightChart({ entries, start, end, units, marks = [], goalKg, goalEta, forecast, extra, actions }: RangeProps & { entries: BodyEntry[]; units: Units; extra?: ReactNode; actions?: ReactNode;
+export function WeightChart({ entries, start, end, units, marks = [], goalKg, goalEta, forecast, extra, actions, noHeadline }: RangeProps & { entries: BodyEntry[]; units: Units; extra?: ReactNode; actions?: ReactNode;
+  /** The weight is already said above (Body's true weight card): leave the chart's own headline out. */ noHeadline?: boolean;
   /** Dose changes to mark on the chart (peptide tools: titration steps). */
   marks?: { at: number; text: string }[]; goalKg?: number;
   /** When the goal is likely reached (from its forecast): flagged on the goal line. */
@@ -74,7 +75,7 @@ export function WeightChart({ entries, start, end, units, marks = [], goalKg, go
   const headline = trend && lastW ? { ...trend, value: String(k(lastW.v)),
     note: `Last weigh-in, ${fmtDay(lastW.t)}${lastAvg && Math.abs(k(lastAvg.v) - k(lastW.v)) >= 0.1 ? ` · 7-day average ${k(lastAvg.v)} ${u}` : ''}` } : trend;
   const flag = goalKg !== undefined && goalEta ? { v: k(goalKg), at: goalEta <= to ? goalEta : undefined, text: `Goal ${format(goalEta, goalEta - Date.now() > 300 * DAY ? 'MMM yyyy' : 'd MMM')}`, below: down } : undefined;
-  return <TrendChart title="Weight" series={series} start={start} end={to} unit={u} marks={marks} summary={fc?.text ?? null} extra={extra} actions={actions} headline={headline}
+  return <TrendChart title="Weight" series={series} start={start} end={to} unit={u} marks={marks} summary={fc?.text ?? null} extra={extra} actions={actions} headline={noHeadline ? null : headline}
     extreme={down ? 'min' : 'max'} tags={tags.slice(-4)} goalFlag={flag}
     empty={pts.length ? null : 'No weigh-ins in this range.'} />;
 }
